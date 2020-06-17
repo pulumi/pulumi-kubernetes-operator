@@ -1,7 +1,7 @@
 package apis
 
 import (
-	"github.com/joeduffy/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
 )
 
 func init() {

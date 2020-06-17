@@ -13,9 +13,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 
-	"github.com/joeduffy/pulumi-kubernetes-operator/pkg/apis"
-	"github.com/joeduffy/pulumi-kubernetes-operator/pkg/controller"
-	"github.com/joeduffy/pulumi-kubernetes-operator/version"
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis"
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/controller"
+	"github.com/pulumi/pulumi-kubernetes-operator/version"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"

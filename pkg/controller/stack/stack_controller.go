@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	pulumiv1alpha1 "github.com/joeduffy/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
 	"github.com/pkg/errors"
+	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
 	"gopkg.in/yaml.v2"
@@ -176,7 +176,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 
 	// Step 2. Select the right stack and populate config if supplied.
 	if err = sess.SetupPulumiWorkdir(); err != nil {
-		reqLogger.Error(err, "Failed to change to Pulumi workdir", "Stack.Name", stack.Name, "Workdir", workdir)
+		reqLogger.Error(err, "Failed to change to Pulumi workdir", "Stack.Name", stack.Stack, "Workdir", workdir)
 		return reconcile.Result{}, err
 	}
 
@@ -187,23 +187,23 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		// TODO: if there was a failure, we should check for a few things:
 		//     1) requeue if it's a "update already in progress".
 		//     2) stack export and see if there are pending_operations.
-		reqLogger.Error(err, "Failed to run Pulumi update", "Stack.Name", stack.Name)
+		reqLogger.Error(err, "Failed to run Pulumi update", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
 	} else if status == updateConflict {
-		reqLogger.Info("Conflict with another concurrent update -- will retry shortly", "Stack.Name", stack.Name)
+		reqLogger.Info("Conflict with another concurrent update -- will retry shortly", "Stack.Name", stack.Stack)
 		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	}
 
 	// Step 4. Capture outputs onto the resulting status object.
 	outs, err := sess.GetPulumiOutputs()
 	if err != nil {
-		reqLogger.Error(err, "Failed to get Stack outputs", "Stack.Name", stack.Name)
+		reqLogger.Error(err, "Failed to get Stack outputs", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
 	}
 	instance.Status.Outputs = outs
 	err = r.client.Status().Update(context.TODO(), instance)
 	if err != nil {
-		reqLogger.Error(err, "Failed to update Stack outputs", "Stack.Name", stack.Name)
+		reqLogger.Error(err, "Failed to update Stack outputs", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
 	}
 
@@ -235,11 +235,11 @@ func (sess *reconcileStackSession) FetchStackSource() (string, error) {
 		return "", err
 	}
 
-	repo := sess.stack.Repo
+	repo := sess.stack.Project
 	commit := sess.stack.Commit
 	branch := sess.stack.Branch
 	sess.logger.Info("Cloning Stack repo",
-		"Stack.Name", sess.stack.Name, "Stack.Repo", repo,
+		"Stack.Name", sess.stack.Stack, "Stack.Repo", repo,
 		"Stack.Commit", commit, "Stack.Branch", branch)
 
 	if err = gitCloneAndCheckoutCommit(repo, commit, branch, workdir); err != nil {
@@ -341,7 +341,7 @@ func (sess *reconcileStackSession) pulumi(args ...string) (string, string, error
 
 func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 	// First, select the desired stack.
-	_, _, err := sess.pulumi("stack", "select", sess.stack.Name)
+	_, _, err := sess.pulumi("stack", "select", sess.stack.Stack)
 	if err != nil {
 		return errors.Wrap(err, "selecting stack")
 	}

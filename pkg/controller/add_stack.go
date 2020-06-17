@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/joeduffy/pulumi-kubernetes-operator/pkg/controller/stack"
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/controller/stack"
 )
 
 func init() {
