@@ -188,6 +188,14 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		//     1) requeue if it's a "update already in progress".
 		//     2) stack export and see if there are pending_operations.
 		reqLogger.Error(err, "Failed to run Pulumi update", "Stack.Name", stack.Stack)
+		instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
+			State: "failed",
+		}
+		err2 := r.client.Status().Update(context.TODO(), instance)
+		if err2 != nil {
+			reqLogger.Error(err2, "Failed to update Stack lastUpdate state", "Stack.Name", stack.Stack)
+			return reconcile.Result{}, err2
+		}
 		return reconcile.Result{}, err
 	} else if status == updateConflict {
 		reqLogger.Info("Conflict with another concurrent update -- will retry shortly", "Stack.Name", stack.Stack)
@@ -201,6 +209,9 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 	instance.Status.Outputs = outs
+	instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
+		State: "succeeded",
+	}
 	err = r.client.Status().Update(context.TODO(), instance)
 	if err != nil {
 		reqLogger.Error(err, "Failed to update Stack outputs", "Stack.Name", stack.Stack)
@@ -346,9 +357,17 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 		return errors.Wrap(err, "selecting stack")
 	}
 
-	// TODO: populate config if there is any ...........
+	// Then, populate config if there is any.
+	if sess.stack.Config != nil {
+		for k, v := range *sess.stack.Config {
+			_, _, err := sess.pulumi("config", "set", k, v)
+			if err != nil {
+				return errors.Wrapf(err, "setting config key '%s' to value '%s'", k, v)
+			}
+		}
+	}
 
-	// Next we need to install the package manager dependencies for certain languages.a
+	// Next we need to install the package manager dependencies for certain languages.
 	projbytes, err := ioutil.ReadFile(filepath.Join(sess.workdir, "Pulumi.yaml"))
 	if err != nil {
 		return errors.Wrap(err, "reading Pulumi.yaml project file")
