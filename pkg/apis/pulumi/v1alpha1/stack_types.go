@@ -24,7 +24,7 @@ type StackSpec struct {
 	// Config is the configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, configuration is assumed to be checked in and taken from the source repository.
 	// TODO: this is complicated because it needs to support secrets.
-	// Config *map[string]string `json:"config,omitempty"`
+	Config *map[string]string `json:"config,omitempty"`
 
 	// Source control:
 
@@ -50,10 +50,19 @@ type StackSpec struct {
 type StackStatus struct {
 	// Outputs contains the exported stack output variables resulting from a deployment.
 	Outputs *StackOutputs `json:"outputs,omitempty"`
-	// TODO: failure information should go here.
+	// LastUpdate contains details of the status of the last update.
+	LastUpdate *StackUpdateState `json:"lastUpdate,omitempty"`
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+}
+
+// StackUpdateState is the status of a stack update
+type StackUpdateState struct {
+	// State is the state of the stack update - one of `succeeded` or `failed`
+	State string `json:"state,omitempty"`
+	// TODO: Add additional information about errors if state was `failed`
+	// TODO: Potentially add the revision number of the last update
 }
 
 // StackOutputs is an opaque JSON blob, since Pulumi stack outputs can contain arbitrary JSON maps and objects.
