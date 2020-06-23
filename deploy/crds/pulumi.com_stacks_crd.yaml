@@ -1,4 +1,4 @@
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: stacks.pulumi.com
@@ -10,93 +10,92 @@ spec:
     plural: stacks
     singular: stack
   scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      description: Stack is the Schema for the stacks API
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        metadata:
-          type: object
-        spec:
-          description: StackSpec defines the desired state of Pulumi Stack being managed
-            by this operator.
-          properties:
-            accessTokenSecret:
-              description: AccessTokenSecret is the name of a secret containing the
-                PULUMI_ACCESS_TOKEN for Pulumi access.
-              type: string
-            branch:
-              description: Branch is the branch name to deploy, either the simple
-                or fully qualified ref name. This is mutually exclusive with the Commit
-                setting. If both are empty, the `master` branch is deployed.
-              type: string
-            commit:
-              description: 'TODO: support RepoDir, in case Pulumi.yaml isn''t in the
-                root. Commit is the hash of the commit to deploy. If used, HEAD will
-                be in detached mode. This is mutually exclusive with the Branch setting.
-                If both are empty, the `master` branch is deployed.'
-              type: string
-            destroyOnFinalize:
-              description: DestroyOnFinalize can be set to true to destroy the stack
-                completely upon deletion of the CRD.
-              type: boolean
-            envSecrets:
-              description: SecretEnvs is an optional array of secret names containing
-                environment variables to set.
-              items:
-                type: string
-              type: array
-            envs:
-              description: Envs is an optional array of config maps containing environment
-                variables to set.
-              items:
-                type: string
-              type: array
-            initOnCreate:
-              description: InitOnCreate can be set to true to create the stack from
-                scratch upon creation of the CRD.
-              type: boolean
-            name:
-              description: Stack is the fully qualified name of the stack to deploy
-                (<org>/<stack>).
-              type: string
-            repo:
-              description: Project is the source control repository from which we
-                fetch the project code and configuration.
-              type: string
-          required:
-          - accessTokenSecret
-          - name
-          - repo
-          type: object
-        status:
-          description: StackStatus defines the observed state of Stack
-          properties:
-            outputs:
-              description: Outputs contains the exported stack output variables resulting
-                from a deployment.
-              properties:
-                raw:
-                  description: Raw JSON representation of the remote status as a byte
-                    array.
-                  format: byte
-                  type: string
-              type: object
-          type: object
-      type: object
-  version: v1alpha1
   versions:
   - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Stack is the Schema for the stacks API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: StackSpec defines the desired state of Pulumi Stack being
+              managed by this operator.
+            properties:
+              accessTokenSecret:
+                description: AccessTokenSecret is the name of a secret containing
+                  the PULUMI_ACCESS_TOKEN for Pulumi access.
+                type: string
+              branch:
+                description: Branch is the branch name to deploy, either the simple
+                  or fully qualified ref name. This is mutually exclusive with the
+                  Commit setting. If both are empty, the `master` branch is deployed.
+                type: string
+              commit:
+                description: 'TODO: support RepoDir, in case Pulumi.yaml isn''t in
+                  the root. Commit is the hash of the commit to deploy. If used, HEAD
+                  will be in detached mode. This is mutually exclusive with the Branch
+                  setting. If both are empty, the `master` branch is deployed.'
+                type: string
+              destroyOnFinalize:
+                description: DestroyOnFinalize can be set to true to destroy the stack
+                  completely upon deletion of the CRD.
+                type: boolean
+              envSecrets:
+                description: SecretEnvs is an optional array of secret names containing
+                  environment variables to set.
+                items:
+                  type: string
+                type: array
+              envs:
+                description: Envs is an optional array of config maps containing environment
+                  variables to set.
+                items:
+                  type: string
+                type: array
+              initOnCreate:
+                description: InitOnCreate can be set to true to create the stack from
+                  scratch upon creation of the CRD.
+                type: boolean
+              project:
+                description: Project is the source control repository from which we
+                  fetch the project code and configuration.
+                type: string
+              stack:
+                description: Stack is the fully qualified name of the stack to deploy
+                  (<org>/<stack>).
+                type: string
+            required:
+            - accessTokenSecret
+            - project
+            - stack
+            type: object
+          status:
+            description: StackStatus defines the observed state of Stack
+            properties:
+              outputs:
+                description: Outputs contains the exported stack output variables
+                  resulting from a deployment.
+                properties:
+                  raw:
+                    description: Raw JSON representation of the remote status as a
+                      byte array.
+                    format: byte
+                    type: string
+                type: object
+            type: object
+        type: object
     served: true
     storage: true
+    subresources:
+      status: {}
