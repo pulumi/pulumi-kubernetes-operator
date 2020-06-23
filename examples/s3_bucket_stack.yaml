@@ -23,6 +23,6 @@ spec:
   accessTokenSecret: pulumi-api-secret
   envSecrets:
     - pulumi-aws-secrets
-  name: joeduffy/dev
-  repo: https://github.com/joeduffy/test-s3-op-project
+  stack: joeduffy/dev
+  project: https://github.com/joeduffy/test-s3-op-project
   commit: cc5442870f1195216d6bc340c14f8ae7d28cf3e2
