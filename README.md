@@ -5,7 +5,7 @@ a hacky prototype to explore the idea, experimental, and not ready for prime tim
 
 ## Walkthrough
 
-Install the [`operator-sdk`](https://docs.openshift.com/container-platform/4.2/operators/operator_sdk/osdk-getting-started.html) to build and run locally.  
+Install the [`operator-sdk`][operator-sdk] to build and run locally.  
 
 Ensure generated CRDs and controller logic is up to date by running:
 
@@ -96,3 +96,5 @@ INFO[0000] Running the operator locally; watching namespace "default"
 ```
 
 Now, you can make a change to the CR - like changing the `commit` to redeploy to a different commit.  Applying this to the cluster will drive a Pulumi deployment to update the stack.
+
+[operator-sdk]: https://sdk.operatorframework.io/docs/install-operator-sdk/
