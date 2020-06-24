@@ -3,6 +3,46 @@
 A simple operator that deploys Pulumi updates by cloning Git repos and running Pulumi programs. This is
 a hacky prototype to explore the idea, experimental, and not ready for prime time.
 
+## Overview
+
+- [Operator Design Doc](https://docs.google.com/document/d/1cXsamgIbiF7QDXz4mQ7tBpowUt6vgdXY1ZpRcCwF9Pk/edit#)
+- Kubernetes Custom Resource Definitions (CRD): A custom Kubernetes API type.
+- Kubernetes Custom Resources (CR) - an instance of a Custom Resource Definition.
+
+## Project Layout
+
+### Stack CRD and CR
+
+A custom Kubernetes API type to implement a Pulumi Stack, it's configuration,
+and job run settings.
+
+- [CRD API type](./pkg/apis/pulumi/v1alpha1/stack_types.go)
+- [Generated CRD YAML Manifest](./deploy/crds/pulumi.com_stacks_crd.yaml)
+- [Generated CR YAML Manifest](./deploy/crds/pulumi.com_v1alpha1_stack_cr.yaml)
+
+### Stack Controller
+
+A controller that registers the Stack CRD, and manages user-created CRs by
+creating a Kubernetes Job for each Stack CR that is attempted to run until
+completion of the Pulumi update execution run.
+
+- [Stack Controller](./pkg/controller/stack/stack_controller.go)
+
+### Operator
+
+A managed Kubernetes application that uses the Stack Controller to operate the
+Stack CRD and user-created Stack CRs.
+
+- [Deployment - Generated YAML Manifest](./deploy/operator.yaml)
+- [Role - Generated YAML Manifest](./deploy/role.yaml)
+- [RoleBinding - Generated YAML Manifest](./deploy/role_binding.yaml)
+- [ServiceAccount - Generated YAML Manifest](./deploy/service_account.yaml)
+
+## Official Operator SDK Docs
+
+- [Quickstart](https://sdk.operatorframework.io/docs/golang/quickstart/)
+- [Project Scaffolding](https://sdk.operatorframework.io/docs/golang/references/project-layout/)
+
 ## Walkthrough
 
 Install the [`operator-sdk`][operator-sdk] to build and run locally.  
