@@ -28,8 +28,13 @@ $ kubectl apply -f examples/s3_bucket_stack.yaml
 
 Build and deploy the controller locally.  (You can also deploy into a cluster by following the operator-sdk guide above, but for local development running it locally is simpler).
 
-```
+```bash
 $ operator-sdk run local
+```
+<details>
+<summary>Click to expand output</summary>
+
+```bash
 INFO[0000] Running the operator locally; watching namespace "default" 
 {"level":"info","ts":1592887969.2161229,"logger":"cmd","msg":"Operator Version: 0.0.1"}
 {"level":"info","ts":1592887969.216164,"logger":"cmd","msg":"Go Version: go1.14.4"}
@@ -94,6 +99,7 @@ INFO[0000] Running the operator locally; watching namespace "default"
 {"level":"info","ts":1592887981.19438,"logger":"controller_stack","msg":"Pulumi CLI","Request.Namespace":"default","Request.Name":"s3-bucket-stack","Path":"/Users/lukehoban/.pulumi/bin/pulumi","Args":["pulumi","--non-interactive","stack","output","--json"],"Stdout":"  \"bucketName\": \"my-bucket-b6197b5\""}
 {"level":"info","ts":1592887981.1943848,"logger":"controller_stack","msg":"Pulumi CLI","Request.Namespace":"default","Request.Name":"s3-bucket-stack","Path":"/Users/lukehoban/.pulumi/bin/pulumi","Args":["pulumi","--non-interactive","stack","output","--json"],"Stdout":"}"}
 ```
+</details>
 
 Now, you can make a change to the CR - like changing the `commit` to redeploy to a different commit.  Applying this to the cluster will drive a Pulumi deployment to update the stack.
 
