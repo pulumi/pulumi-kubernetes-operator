@@ -105,6 +105,80 @@ type StackList struct {
 	Items           []Stack `json:"items"`
 }
 
+// StackUpdateStatus is the status code for the result of a Stack Update run.
+type StackUpdateStatus int
+
+const (
+	// StackUpdateSucceeded indicates that the stack update completed successfully.
+	StackUpdateSucceeded StackUpdateStatus = 0
+	// StackUpdateFailed indicates that the stack update failed to complete.
+	StackUpdateFailed StackUpdateStatus = 1
+	// StackUpdateConflict indicates that the stack update failed to complete due
+	// to a conflicting stack update run that is in progress.
+	StackUpdateConflict StackUpdateStatus = 2
+	// StackUpdatePendingOperations indicates that the stack update failed to complete due
+	// to pending operations halting the stack update run.
+	StackUpdatePendingOperations StackUpdateStatus = 3
+)
+
+// StackController contains methods to operate and manage a Pulumi Project and Stack
+// in a Stack update execution run.
+type StackController interface {
+	// Source control:
+
+	// FetchProjectSource clones the stack's source repo at a commit or branch
+	// and returns its temporary workdir path.
+	FetchProjectSource(repoURL, accessToken string, commit, branch *string) (string, error)
+
+	// Service setup:
+
+	// Log in to the Pulumi Service to manage the stack state.
+	Login(apiURL string, accessToken string) error
+
+	// Project setup:
+
+	// SetWorkingDir changes the relative working directory in the project's
+	// source directory to run the stack update.
+	SetWorkingDir() error
+	// InstallProjectDependencies installs the package manager dependencies for the project's language.
+	InstallProjectDependencies() error
+	// SetEnvs populates the environment from an array of Kubernetes ConfigMaps
+	// with values to set.
+	SetEnvs(env []string) error
+	// SetSecretEnvs populates the environment from an array of Kubernetes Secrets
+	// with values to set.
+	SetSecretEnvs(env []string) error
+
+	// Lifecycle:
+
+	// CreateStack creates and selects a new stack instance to use in the
+	// update run, configured with an optional secrets provider, and returns the stack name.
+	// This is mutually exclusive with the SelectStack setting.
+	CreateStack(stackName string, secretsProvider *string) (string, error)
+	// SelectStack selects an existing stack instance in the project to use
+	// in the update run. This is mutually exclusive with the CreateStack
+	// setting.
+	SelectStack(stackName string) error
+	// OverrideConfig updates the stack with configuration values, overriding
+	// any stack configuration values checked into the source repository.
+	OverrideConfig(config map[string]string) error
+	// OverrideSecrets updates the stack with secret configuration values, overriding
+	// any stack secret configuration values checked into the source repository.
+	OverrideSecrets(secrets map[string]string) error
+	// RefreshStack refreshes the stack before the update step is run, and
+	// errors the run if changes were not expected but found after the refresh.
+	RefreshStack(expectChanges bool) error
+	// UpdateStack deploys the stack's resources, computes the new desired
+	// state, and returns the update's status.
+	UpdateStack() (StackUpdateStatus, error)
+	// GetStackOutputs returns all of the the stack's output properties.
+	GetStackOutputs() error
+	// UpdateStatus updates the status of the stack with the result of the update run.
+	UpdateStatus(status StackUpdateStatus) error
+	// DestroyStack destroys the stack's resources and state, and the stack itself.
+	DestroyStack() error
+}
+
 func init() {
 	SchemeBuilder.Register(&Stack{}, &StackList{})
 }
