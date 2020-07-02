@@ -42,18 +42,16 @@ spec:
                   Commit setting. If both are empty, the `master` branch is deployed.
                 type: string
               commit:
-                description: 'TODO: support RepoDir, in case Pulumi.yaml isn''t in
-                  the root. Commit is the hash of the commit to deploy. If used, HEAD
-                  will be in detached mode. This is mutually exclusive with the Branch
-                  setting. If both are empty, the `master` branch is deployed.'
+                description: Commit is the hash of the commit to deploy. If used,
+                  HEAD will be in detached mode. This is mutually exclusive with the
+                  Branch setting. If both are empty, the `master` branch is deployed.
                 type: string
               config:
                 additionalProperties:
                   type: string
-                description: 'Config is the configuration for this stack, which can
+                description: Config is the configuration for this stack, which can
                   be optionally specified inline. If this is omitted, configuration
                   is assumed to be checked in and taken from the source repository.
-                  TODO: this is complicated because it needs to support secrets.'
                 type: object
               destroyOnFinalize:
                 description: DestroyOnFinalize can be set to true to destroy the stack
@@ -71,13 +69,48 @@ spec:
                 items:
                   type: string
                 type: array
+              expectRefreshChanges:
+                description: ExpectRefreshChanges can be set to true if a stack is
+                  expected to have changes before it is updated. This could occur,
+                  for example, is a resource's state is changing outside of Pulumi
+                  (e.g., metadata, timestamps).
+                type: boolean
               initOnCreate:
                 description: InitOnCreate can be set to true to create the stack from
                   scratch upon creation of the CRD.
                 type: boolean
-              project:
-                description: Project is the source control repository from which we
-                  fetch the project code and configuration.
+              projectRepo:
+                description: ProjectRepo is the git source control repository from
+                  which we fetch the project code and configuration.
+                type: string
+              projectRepoAccessToken:
+                description: ProjectRepoAccessTokenSecret is the the name of a secret
+                  containing a personal access token to use a private git source control
+                  repository.
+                type: string
+              refresh:
+                description: Refresh can be set to true to refresh the stack before
+                  it is updated.
+                type: boolean
+              repoDir:
+                description: RepoDir is the directory to work from in the project's
+                  source repository where Pulumi.yaml is located. It is used in case
+                  Pulumi.yaml is not in the project source root.
+                type: string
+              secrets:
+                additionalProperties:
+                  type: string
+                description: Secrets is the secret configuration for this stack, which
+                  can be optionally specified inline. If this is omitted, secrets
+                  configuration is assumed to be checked in and taken from the source
+                  repository.
+                type: object
+              secretsProvider:
+                description: 'SecretsProvider is used with InitOnCreate to initialize
+                  a Stack with alternative encryption. Examples:   - AWS:   "awskms://arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"   -
+                  Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"   -
+                  GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"
+                  See: https://www.pulumi.com/docs/intro/concepts/config/#initializing-a-stack-with-alternative-encryption'
                 type: string
               stack:
                 description: Stack is the fully qualified name of the stack to deploy
@@ -85,7 +118,7 @@ spec:
                 type: string
             required:
             - accessTokenSecret
-            - project
+            - projectRepo
             - stack
             type: object
           status:

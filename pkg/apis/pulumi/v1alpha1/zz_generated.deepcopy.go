@@ -107,13 +107,16 @@ func (in *StackSpec) DeepCopyInto(out *StackSpec) {
 	}
 	if in.Config != nil {
 		in, out := &in.Config, &out.Config
-		*out = new(map[string]string)
-		if **in != nil {
-			in, out := *in, *out
-			*out = make(map[string]string, len(*in))
-			for key, val := range *in {
-				(*out)[key] = val
-			}
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.Secrets != nil {
+		in, out := &in.Secrets, &out.Secrets
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
 		}
 	}
 	return
