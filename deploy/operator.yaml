@@ -15,8 +15,7 @@ spec:
       serviceAccountName: pulumi-kubernetes-operator
       containers:
         - name: pulumi-kubernetes-operator
-          # Replace this with the built image name
-          image: docker.io/joeduffy/pulumi-kubernetes-operator
+          image: pulumi/pulumi-kubernetes-operator
           command:
           - pulumi-kubernetes-operator
           imagePullPolicy: Always
