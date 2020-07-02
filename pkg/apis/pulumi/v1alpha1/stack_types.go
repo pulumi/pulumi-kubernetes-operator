@@ -33,6 +33,10 @@ type StackSpec struct {
 	// ProjectRepoAccessTokenSecret is the the name of a secret containing a
 	// personal access token to use a private git source control repository.
 	ProjectRepoAccessTokenSecret string `json:"projectRepoAccessToken,omitempty"`
+	// RepoDir is the directory to work from in the project's source repository
+	// where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
+	// in the project source root.
+	RepoDir string `json:"repoDir,omitempty"`
 	// Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This
 	// is mutually exclusive with the Branch setting. If both are empty, the `master` branch is deployed.
 	Commit string `json:"commit,omitempty"`
