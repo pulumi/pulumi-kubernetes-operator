@@ -57,6 +57,8 @@ type StackSpec struct {
 
 	// InitOnCreate can be set to true to create the stack from scratch upon creation of the CRD.
 	InitOnCreate bool `json:"initOnCreate,omitempty"`
+	// Refresh can be set to true to refresh the stack before it is updated.
+	Refresh bool `json:"refresh,omitempty"`
 	// DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
 	DestroyOnFinalize bool `json:"destroyOnFinalize,omitempty"`
 }
