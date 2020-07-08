@@ -59,6 +59,11 @@ type StackSpec struct {
 	InitOnCreate bool `json:"initOnCreate,omitempty"`
 	// Refresh can be set to true to refresh the stack before it is updated.
 	Refresh bool `json:"refresh,omitempty"`
+	// ExpectNoRefreshChanges can be set to true if a stack is not expected to have
+	// changes during a refresh before the update is run.
+	// This could occur, for example, is a resource's state is changing outside of Pulumi
+	// (e.g., metadata, timestamps).
+	ExpectNoRefreshChanges bool `json:"expectNoRefreshChanges,omitempty"`
 	// DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
 	DestroyOnFinalize bool `json:"destroyOnFinalize,omitempty"`
 }
