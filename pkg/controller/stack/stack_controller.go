@@ -182,7 +182,12 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 
-	// Step 3. Run a `pulumi up --skip-preview`.
+	// Step 3. If a stack refresh is requested, run it now.
+	if sess.stack.Refresh {
+		sess.RefreshStack(sess.stack.ExpectNoRefreshChanges)
+	}
+
+	// Step 4. Run a `pulumi up --skip-preview`.
 	// TODO: is it possible to support a --dry-run with a preview?
 	status, err := sess.RunPulumiUpdate()
 	if err != nil {
@@ -204,7 +209,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	}
 
-	// Step 4. Capture outputs onto the resulting status object.
+	// Step 5. Capture outputs onto the resulting status object.
 	outs, err := sess.GetPulumiOutputs()
 	if err != nil {
 		reqLogger.Error(err, "Failed to get Stack outputs", "Stack.Name", stack.Stack)
@@ -486,6 +491,18 @@ func (sess *reconcileStackSession) UpdateSecretConfig() error {
 				return errors.Wrapf(err, "setting secret config key '%s' to value '%s'", k, v)
 			}
 		}
+	}
+	return nil
+}
+
+func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) error {
+	cmdArgs := []string{"refresh", "--yes"}
+	if expectNoChanges {
+		cmdArgs = append(cmdArgs, "--expect-no-changes")
+	}
+	_, _, err := sess.pulumi(cmdArgs...)
+	if err != nil {
+		return errors.Wrapf(err, "refreshing stack '%s'", sess.stack.Stack)
 	}
 	return nil
 }
