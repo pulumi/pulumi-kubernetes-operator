@@ -189,7 +189,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 
 	// Step 4. Run a `pulumi up --skip-preview`.
 	// TODO: is it possible to support a --dry-run with a preview?
-	status, err := sess.RunPulumiUpdate()
+	status, err := sess.UpdateStack()
 	if err != nil {
 		// TODO: if there was a failure, we should check for a few things:
 		//     1) requeue if it's a "update already in progress".
@@ -204,7 +204,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 			return reconcile.Result{}, err2
 		}
 		return reconcile.Result{}, err
-	} else if status == updateConflict {
+	} else if status == pulumiv1alpha1.StackUpdateConflict {
 		reqLogger.Info("Conflict with another concurrent update -- will retry shortly", "Stack.Name", stack.Stack)
 		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	}
@@ -515,18 +515,19 @@ const (
 	updateConflict  updateStatus = 2
 )
 
-// RunPulumiUpdate returns an error and update status code. In certain cases, an update may be unabled
-// to proceed due to locking, in which case the operator will requeue itself to retry later.
-func (sess *reconcileStackSession) RunPulumiUpdate() (updateStatus, error) {
+// UpdateStack runs the update on the stack and returns an update status code
+// and error. In certain cases, an update may be unabled to proceed due to locking,
+// in which case the operator will requeue itself to retry later.
+func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStatus, error) {
 	_, stderr, err := sess.pulumi("up", "--skip-preview", "--yes")
 	if err != nil {
 		// If this is the "conflict" error message, we will want to gracefully quit and retry.
 		if strings.Contains(stderr, "error: [409] Conflict: Another update is currently in progress.") {
-			return updateConflict, nil
+			return pulumiv1alpha1.StackUpdateConflict, err
 		}
-		return updateFailed, err
+		return pulumiv1alpha1.StackUpdateFailed, err
 	}
-	return updateSucceeded, nil
+	return pulumiv1alpha1.StackUpdateSucceeded, nil
 }
 
 // GetPulumiOutputs gets the stack outputs and parses them into a map.
