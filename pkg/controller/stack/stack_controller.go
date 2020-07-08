@@ -210,11 +210,13 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	}
 
 	// Step 5. Capture outputs onto the resulting status object.
-	outs, err := sess.GetPulumiOutputs()
+	outs, err := sess.GetStackOutputs()
 	if err != nil {
 		reqLogger.Error(err, "Failed to get Stack outputs", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
 	}
+	// TODO(issue): outputs are not showing up in Status.Outputs
+	// https://github.com/pulumi/pulumi-kubernetes-operator/issues/19
 	instance.Status.Outputs = outs
 	instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
 		State: "succeeded",
@@ -531,7 +533,7 @@ func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStat
 }
 
 // GetPulumiOutputs gets the stack outputs and parses them into a map.
-func (sess *reconcileStackSession) GetPulumiOutputs() (*pulumiv1alpha1.StackOutputs, error) {
+func (sess *reconcileStackSession) GetStackOutputs() (*pulumiv1alpha1.StackOutputs, error) {
 	stdout, _, err := sess.pulumi("stack", "output", "--json")
 	if err != nil {
 		return nil, errors.Wrap(err, "getting stack outputs")
