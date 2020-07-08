@@ -133,28 +133,18 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 
-	// If there are extra environment variables, read them in now and use them for subsequent commands.
-	extraEnv := make(map[string]string)
-	for _, env := range stack.SecretEnvs {
-		config := &corev1.Secret{}
-		if err = r.client.Get(context.TODO(),
-			types.NamespacedName{Name: env, Namespace: request.Namespace}, config); err != nil {
-			reqLogger.Error(err, "Could not find Secret for SecretEnvs",
-				"Namespace", request.Namespace, "Name", env)
-			return reconcile.Result{}, err
-		}
-		for k, v := range config.Data {
-			extraEnv[k] = string(v)
-		}
-	}
-
 	// Create a new reconciliation session.
-	sess := newReconcileStackSession(reqLogger, accessToken, stack, r.client, extraEnv)
+	sess := newReconcileStackSession(reqLogger, accessToken, stack, r.client, nil)
 
 	// If there are extra environment variables, read them in now and use them for subsequent commands.
 	err = sess.SetEnvs(stack.Envs, request.Namespace)
 	if err != nil {
 		reqLogger.Error(err, "Could not find ConfigMap for Envs")
+		return reconcile.Result{}, err
+	}
+	err = sess.SetSecretEnvs(stack.SecretEnvs, request.Namespace)
+	if err != nil {
+		reqLogger.Error(err, "Could not find Secret for SecretEnvs")
 		return reconcile.Result{}, err
 	}
 
@@ -306,6 +296,26 @@ func (sess *reconcileStackSession) SetEnvs(configMapNames []string, namespace st
 		}
 		for k, v := range config.Data {
 			sess.extraEnv[k] = v
+		}
+	}
+	return nil
+}
+
+// SetSecretEnvs populates the environment of the stack run with values
+// from an array of Kubernetes Secrets in a Namespace.
+func (sess *reconcileStackSession) SetSecretEnvs(secrets []string, namespace string) error {
+	var err error
+	if sess.extraEnv == nil {
+		sess.extraEnv = make(map[string]string)
+	}
+	for _, env := range secrets {
+		config := &corev1.Secret{}
+		if err = sess.kubeClient.Get(context.TODO(),
+			types.NamespacedName{Name: env, Namespace: namespace}, config); err != nil {
+			return errors.Wrapf(err, "Namespace=%s Name=%s", namespace, env)
+		}
+		for k, v := range config.Data {
+			sess.extraEnv[k] = string(v)
 		}
 	}
 	return nil

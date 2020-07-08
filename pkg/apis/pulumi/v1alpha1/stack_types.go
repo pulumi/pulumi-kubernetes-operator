@@ -174,9 +174,8 @@ type StackController interface {
 	// SetEnvs populates the environment of the stack run with values
 	// from an array of Kubernetes ConfigMaps in a Namespace.
 	SetEnvs(configMapNames []string, namespace string) error
-	// SetSecretEnvs populates the environment of the stack run with the
-	// environment values provided in an array of Kubernetes Secrets in a
-	// Namespace.
+	// SetSecretEnvs populates the environment of the stack run with values
+	// from an array of Kubernetes Secrets in a Namespace.
 	SetSecretEnvs(secretNames []string, namespace string) error
 
 	// Lifecycle:
