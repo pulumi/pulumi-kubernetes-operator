@@ -396,14 +396,14 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 	if err = yaml.Unmarshal([]byte(projbytes), &project); err != nil {
 		return errors.Wrap(err, "unmarshaling Pulumi.yaml project file")
 	}
-	if err = sess.installProjectDependencies(project.Runtime); err != nil {
+	if err = sess.InstallProjectDependencies(project.Runtime); err != nil {
 		return errors.Wrap(err, "installing project dependencies")
 	}
 
 	return nil
 }
 
-func (sess *reconcileStackSession) installProjectDependencies(runtime string) error {
+func (sess *reconcileStackSession) InstallProjectDependencies(runtime string) error {
 	switch runtime {
 	case "nodejs":
 		npm, _ := exec.LookPath("npm")
