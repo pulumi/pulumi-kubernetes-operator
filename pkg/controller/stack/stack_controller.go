@@ -359,7 +359,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 
 	// Then, populate config if there is any.
 	if sess.stack.Config != nil {
-		for k, v := range *sess.stack.Config {
+		for k, v := range sess.stack.Config {
 			_, _, err := sess.pulumi("config", "set", k, v)
 			if err != nil {
 				return errors.Wrapf(err, "setting config key '%s' to value '%s'", k, v)
