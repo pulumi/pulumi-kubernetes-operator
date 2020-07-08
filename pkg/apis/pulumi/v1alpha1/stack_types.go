@@ -127,6 +127,84 @@ type StackList struct {
 	Items           []Stack `json:"items"`
 }
 
+// StackUpdateStatus is the status code for the result of a Stack Update run.
+type StackUpdateStatus int
+
+const (
+	// StackUpdateSucceeded indicates that the stack update completed successfully.
+	StackUpdateSucceeded StackUpdateStatus = 0
+	// StackUpdateFailed indicates that the stack update failed to complete.
+	StackUpdateFailed StackUpdateStatus = 1
+	// StackUpdateConflict indicates that the stack update failed to complete due
+	// to a conflicting stack update run that is in progress.
+	StackUpdateConflict StackUpdateStatus = 2
+	// StackUpdatePendingOperations indicates that the stack update failed to complete due
+	// to pending operations halting the stack update run.
+	StackUpdatePendingOperations StackUpdateStatus = 3
+)
+
+// ProjectSourceOptions is the settings to work with the project source repo.
+type ProjectSourceOptions struct {
+	// The access token to access project source repo. This is required for
+	// private repos, but is recommended for public repos to help with rate limiting.
+	AccessToken string `json:"accessToken,omitempty"`
+	// Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This
+	// is mutually exclusive with the Branch setting. If both are empty, the `master` branch is deployed.
+	Commit string `json:"commit,omitempty"`
+	// Branch is the branch name to deploy, either the simple or fully qualified ref name. This
+	// is mutually exclusive with the Commit setting. If both are empty, the `master` branch is deployed.
+	Branch string `json:"branch,omitempty"`
+	// RepoDir is the directory to work from in the project's source repository
+	// where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
+	// in the project source root.
+	RepoDir string `json:"repoDir,omitempty"`
+}
+
+// StackController contains methods to operate a Pulumi Project and Stack in an update.
+type StackController interface {
+	// Source control:
+
+	// FetchProjectSource clones the stack's source repo and returns its temporary workdir path.
+	FetchProjectSource(repoURL string, opts *ProjectSourceOptions) (string, error)
+
+	// Project setup:
+
+	// InstallProjectDependencies installs the package manager dependencies for the project's language.
+	InstallProjectDependencies(runtime string) error
+	// SetEnvs populates the environment the environment of the stack run with
+	// environment values provided in an array of Kubernetes ConfigMaps in a
+	// Namespace.
+	SetEnvs(configMapNames []string, namespace string) error
+	// SetSecretEnvs populates the environment of the stack run with the
+	// environment values provided in an array of Kubernetes Secrets in a
+	// Namespace.
+	SetSecretEnvs(secretNames []string, namespace string) error
+
+	// Lifecycle:
+
+	// CreateStack creates a new stack instance to use in the update run.
+	// It is optionally configured with a secrets provider.
+	CreateStack(stack string, secretsProvider *string) error
+	// UpdateConfig updates the stack configuration values by combining
+	// any configuration values checked into the source repository with
+	// the Config values provided in the Stack, overriding values that match and exist.
+	UpdateConfig() error
+	// UpdateSecretConfig updates the stack secret configuration values by combining
+	// any secret configuration values checked into the source repository with
+	// the Secrets values in the Stack, overriding values that match and exist.
+	UpdateSecretConfig() error
+	// RefreshStack refreshes the stack before the update step is run, and
+	// errors the run if changes were not expected but found after the refresh.
+	RefreshStack(expectNoChanges bool) error
+	// UpdateStack deploys the stack's resources, computes the new desired
+	// state, and returns the update's status.
+	UpdateStack() (StackUpdateStatus, error)
+	// GetStackOutputs returns all of the the stack's output properties.
+	GetStackOutputs() (*StackOutputs, error)
+	// DestroyStack destroys the stack's resources and state, and the stack itself.
+	DestroyStack() error
+}
+
 func init() {
 	SchemeBuilder.Register(&Stack{}, &StackList{})
 }
