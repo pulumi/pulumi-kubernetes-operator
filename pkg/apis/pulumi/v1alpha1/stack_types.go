@@ -27,6 +27,13 @@ type StackSpec struct {
 	// Secrets is the secret configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
 	Secrets map[string]string `json:"secrets,omitempty"`
+	// SecretsProvider is used with InitOnCreate to initialize a Stack with alternative encryption.
+	// Examples:
+	//   - AWS:   "awskms://arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"
+	//   - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"
+	//   - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"
+	// See: https://www.pulumi.com/docs/intro/concepts/config/#initializing-a-stack-with-alternative-encryption
+	SecretsProvider string `json:"secretsProvider,omitempty"`
 
 	// Source control:
 
