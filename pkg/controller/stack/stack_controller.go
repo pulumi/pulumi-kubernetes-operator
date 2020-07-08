@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -35,6 +36,8 @@ import (
 )
 
 var log = logf.Log.WithName("controller_stack")
+
+const pulumiFinalizer = "finalizer.pulumi.example.com"
 
 // Add creates a new Stack Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -109,6 +112,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			reqLogger.Info("Stack resource not found. Ignoring since object must be deleted.")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -182,6 +186,22 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 
+	// Check if the Stack instance is marked to be deleted, which is
+	// indicated by the deletion timestamp being set.
+	isStackMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
+	if isStackMarkedToBeDeleted {
+		if contains(instance.GetFinalizers(), pulumiFinalizer) {
+			return sess.finalize(instance)
+		}
+		return reconcile.Result{}, nil
+	}
+	// Add finalizer for this CR
+	if !contains(instance.GetFinalizers(), pulumiFinalizer) {
+		if err := sess.addFinalizer(instance); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	// Step 3. If a stack refresh is requested, run it now.
 	if sess.stack.Refresh {
 		sess.RefreshStack(sess.stack.ExpectNoRefreshChanges)
@@ -228,6 +248,54 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (sess *reconcileStackSession) finalize(instance *pulumiv1alpha1.Stack) (reconcile.Result, error) {
+	sess.logger.Info("Finalizing the stack")
+	// Run finalization logic for pulumiFinalizer. If the
+	// finalization logic fails, don't remove the finalizer so
+	// that we can retry during the next reconciliation.
+	if err := sess.finalizeStack(instance); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Remove pulumiFinalizer. Once all finalizers have been
+	// removed, the object will be deleted.
+	controllerutil.RemoveFinalizer(instance, pulumiFinalizer)
+	err := sess.kubeClient.Update(context.Background(), instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
+}
+func (sess *reconcileStackSession) finalizeStack(m *pulumiv1alpha1.Stack) error {
+	// Destroy the stack resources and stack.
+	if sess.stack.DestroyOnFinalize {
+		sess.DestroyStack()
+	}
+	sess.logger.Info("Successfully finalized stack")
+	return nil
+}
+
+//addFinalizer will add this attribute to the Stack CR
+func (sess *reconcileStackSession) addFinalizer(stack *pulumiv1alpha1.Stack) error {
+	controllerutil.AddFinalizer(stack, pulumiFinalizer)
+	// Update CR
+	err := sess.kubeClient.Update(context.TODO(), stack)
+	if err != nil {
+		sess.logger.Error(err, "Failed to update Stack with finalizer")
+		return err
+	}
+	return nil
+}
+
+func contains(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
 
 type reconcileStackSession struct {
@@ -550,4 +618,16 @@ func (sess *reconcileStackSession) GetStackOutputs() (*pulumiv1alpha1.StackOutpu
 	}
 
 	return &pulumiv1alpha1.StackOutputs{Raw: rawOuts}, nil
+}
+
+func (sess *reconcileStackSession) DestroyStack() error {
+	_, _, err := sess.pulumi("destroy", "--yes")
+	if err != nil {
+		return errors.Wrapf(err, "destroying resources for stack '%s'", sess.stack.Stack)
+	}
+	_, _, err = sess.pulumi("stack", "rm", "--yes")
+	if err != nil {
+		return errors.Wrapf(err, "removing stack '%s'", sess.stack.Stack)
+	}
+	return nil
 }
