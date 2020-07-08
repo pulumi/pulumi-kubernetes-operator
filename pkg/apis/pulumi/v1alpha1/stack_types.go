@@ -171,9 +171,8 @@ type StackController interface {
 
 	// InstallProjectDependencies installs the package manager dependencies for the project's language.
 	InstallProjectDependencies(runtime string) error
-	// SetEnvs populates the environment the environment of the stack run with
-	// environment values provided in an array of Kubernetes ConfigMaps in a
-	// Namespace.
+	// SetEnvs populates the environment of the stack run with values
+	// from an array of Kubernetes ConfigMaps in a Namespace.
 	SetEnvs(configMapNames []string, namespace string) error
 	// SetSecretEnvs populates the environment of the stack run with the
 	// environment values provided in an array of Kubernetes Secrets in a
