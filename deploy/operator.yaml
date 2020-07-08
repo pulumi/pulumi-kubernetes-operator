@@ -15,10 +15,11 @@ spec:
       serviceAccountName: pulumi-kubernetes-operator
       containers:
         - name: pulumi-kubernetes-operator
-          # Replace this with the built image name
-          image: docker.io/joeduffy/pulumi-kubernetes-operator
+          image: pulumi/pulumi-kubernetes-operator:v0.1.0
           command:
           - pulumi-kubernetes-operator
+          args:
+          - "--zap-level=debug"
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
