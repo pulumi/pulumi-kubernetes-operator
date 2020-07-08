@@ -24,6 +24,9 @@ type StackSpec struct {
 	// Config is the configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, configuration is assumed to be checked in and taken from the source repository.
 	Config map[string]string `json:"config,omitempty"`
+	// Secrets is the secret configuration for this stack, which can be optionally specified inline. If this
+	// is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
+	Secrets map[string]string `json:"secrets,omitempty"`
 
 	// Source control:
 
