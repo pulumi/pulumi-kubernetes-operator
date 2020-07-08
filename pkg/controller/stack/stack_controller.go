@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -53,8 +54,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	// Filter out update events if an object's metadata.generation is unchanged.
+	//  - https://github.com/operator-framework/operator-sdk/issues/2795
+	//  - https://github.com/kubernetes-sigs/kubebuilder/issues/1103
+	//  - https://github.com/kubernetes-sigs/controller-runtime/pull/553
+	//  - https://book-v1.book.kubebuilder.io/basics/status_subresource.html
+	pred := predicate.GenerationChangedPredicate{}
+
 	// Watch for changes to primary resource Stack
-	err = c.Watch(&source.Kind{Type: &pulumiv1alpha1.Stack{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &pulumiv1alpha1.Stack{}}, &handler.EnqueueRequestForObject{}, pred)
 	if err != nil {
 		return err
 	}
@@ -214,7 +222,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	}
 	err = r.client.Status().Update(context.TODO(), instance)
 	if err != nil {
-		reqLogger.Error(err, "Failed to update Stack outputs", "Stack.Name", stack.Stack)
+		reqLogger.Error(err, "Failed to update Stack status", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
 	}
 
