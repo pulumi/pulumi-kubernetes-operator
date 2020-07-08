@@ -413,6 +413,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 
 	// Update the stack config and secret config values.
 	sess.UpdateConfig()
+	sess.UpdateSecretConfig()
 
 	// Next we need to install the package manager dependencies for certain languages.
 	projbytes, err := ioutil.ReadFile(filepath.Join(sess.workdir, "Pulumi.yaml"))
@@ -470,6 +471,19 @@ func (sess *reconcileStackSession) UpdateConfig() error {
 			_, _, err := sess.pulumi("config", "set", k, v)
 			if err != nil {
 				return errors.Wrapf(err, "setting config key '%s' to value '%s'", k, v)
+			}
+		}
+	}
+	return nil
+}
+
+func (sess *reconcileStackSession) UpdateSecretConfig() error {
+	// Then, populate secret config if there is any.
+	if sess.stack.Secrets != nil {
+		for k, v := range sess.stack.Secrets {
+			_, _, err := sess.pulumi("config", "set", "--secret", k, v)
+			if err != nil {
+				return errors.Wrapf(err, "setting secret config key '%s' to value '%s'", k, v)
 			}
 		}
 	}
