@@ -28,9 +28,8 @@ type StackSpec struct {
 
 	// Source control:
 
-	// Project is the source control repository from which we fetch the project code and configuration.
-	Project string `json:"project"`
-	// TODO: support RepoDir, in case Pulumi.yaml isn't in the root.
+	// ProjectRepo is the git source control repository from which we fetch the project code and configuration.
+	ProjectRepo string `json:"projectRepo"`
 	// Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This
 	// is mutually exclusive with the Branch setting. If both are empty, the `master` branch is deployed.
 	Commit string `json:"commit,omitempty"`

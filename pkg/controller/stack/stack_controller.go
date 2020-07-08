@@ -246,7 +246,7 @@ func (sess *reconcileStackSession) FetchStackSource() (string, error) {
 		return "", err
 	}
 
-	repo := sess.stack.Project
+	repo := sess.stack.ProjectRepo
 	commit := sess.stack.Commit
 	branch := sess.stack.Branch
 	sess.logger.Info("Cloning Stack repo",
