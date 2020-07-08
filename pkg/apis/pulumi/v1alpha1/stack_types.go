@@ -23,8 +23,7 @@ type StackSpec struct {
 	Stack string `json:"stack"`
 	// Config is the configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, configuration is assumed to be checked in and taken from the source repository.
-	// TODO: this is complicated because it needs to support secrets.
-	Config *map[string]string `json:"config,omitempty"`
+	Config map[string]string `json:"config,omitempty"`
 
 	// Source control:
 
