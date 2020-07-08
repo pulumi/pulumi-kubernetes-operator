@@ -152,7 +152,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	}
 
 	// Create a new reconciliation session.
-	sess := newReconcileStackSession(reqLogger, accessToken, stack, extraEnv)
+	sess := newReconcileStackSession(reqLogger, accessToken, stack, r.client, extraEnv)
 
 	// TODO: if this stack creates in-cluster objects, we probably want to set the owner, etc.
 
@@ -223,16 +223,19 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 
 type reconcileStackSession struct {
 	logger      logr.Logger
+	kubeClient  client.Client
 	accessToken string
 	stack       pulumiv1alpha1.StackSpec
 	workdir     string
 	extraEnv    map[string]string
 }
 
-func newReconcileStackSession(logger logr.Logger,
-	accessToken string, stack pulumiv1alpha1.StackSpec, extraEnv map[string]string) *reconcileStackSession {
+func newReconcileStackSession(
+	logger logr.Logger, accessToken string, stack pulumiv1alpha1.StackSpec,
+	kubeClient client.Client, extraEnv map[string]string) *reconcileStackSession {
 	return &reconcileStackSession{
 		logger:      logger,
+		kubeClient:  kubeClient,
 		accessToken: accessToken,
 		stack:       stack,
 		extraEnv:    extraEnv,
