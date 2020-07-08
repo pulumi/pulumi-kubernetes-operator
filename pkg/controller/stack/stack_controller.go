@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -175,12 +176,20 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	*/
 
 	// Step 1. Clone the repo.
-	workdir, err := sess.FetchStackSource()
+	workdir, err := sess.FetchProjectSource(stack.ProjectRepo, &pulumiv1alpha1.ProjectSourceOptions{
+		AccessToken: stack.ProjectRepoAccessTokenSecret,
+		Commit:      stack.Commit,
+		Branch:      stack.Branch,
+	})
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	sess.workdir = workdir
+	if stack.RepoDir != "" {
+		sess.workdir = path.Join(sess.workdir, stack.RepoDir)
+	}
 	// TODO: defer cleaning it up.
+	// https://github.com/pulumi/pulumi-kubernetes-operator/issues/20
 
 	// Step 2. Select the right stack and populate config if supplied.
 	if err = sess.SetupPulumiWorkdir(); err != nil {
@@ -250,21 +259,19 @@ func newReconcileStackSession(
 	}
 }
 
-// FetchStackSource clones the stack's source repo at the right commit and returns its temporary workdir path.
-func (sess *reconcileStackSession) FetchStackSource() (string, error) {
+// FetchProjectSource clones the stack's source repo at the right commit and returns its temporary workdir path.
+func (sess *reconcileStackSession) FetchProjectSource(repoURL string, opts *pulumiv1alpha1.ProjectSourceOptions) (string, error) {
 	workdir, err := ioutil.TempDir("", "")
 	if err != nil {
 		return "", err
 	}
 
-	repo := sess.stack.ProjectRepo
-	commit := sess.stack.Commit
-	branch := sess.stack.Branch
+	// TODO: enable use of project source repo accessToken
 	sess.logger.Info("Cloning Stack repo",
-		"Stack.Name", sess.stack.Stack, "Stack.Repo", repo,
-		"Stack.Commit", commit, "Stack.Branch", branch)
+		"Stack.Name", sess.stack.Stack, "Stack.Repo", repoURL,
+		"Stack.Commit", opts.Commit, "Stack.Branch", opts.Branch)
 
-	if err = gitCloneAndCheckoutCommit(repo, commit, branch, workdir); err != nil {
+	if err = gitCloneAndCheckoutCommit(repoURL, opts.Commit, opts.Branch, workdir); err != nil {
 		return "", err
 	}
 	return workdir, err
