@@ -135,18 +135,6 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 
 	// If there are extra environment variables, read them in now and use them for subsequent commands.
 	extraEnv := make(map[string]string)
-	for _, env := range stack.Envs {
-		config := &corev1.ConfigMap{}
-		if err = r.client.Get(context.TODO(),
-			types.NamespacedName{Name: env, Namespace: request.Namespace}, config); err != nil {
-			reqLogger.Error(err, "Could not find ConfigMap for Envs",
-				"Namespace", request.Namespace, "Name", env)
-			return reconcile.Result{}, err
-		}
-		for k, v := range config.Data {
-			extraEnv[k] = v
-		}
-	}
 	for _, env := range stack.SecretEnvs {
 		config := &corev1.Secret{}
 		if err = r.client.Get(context.TODO(),
@@ -162,6 +150,13 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 
 	// Create a new reconciliation session.
 	sess := newReconcileStackSession(reqLogger, accessToken, stack, r.client, extraEnv)
+
+	// If there are extra environment variables, read them in now and use them for subsequent commands.
+	err = sess.SetEnvs(stack.Envs, request.Namespace)
+	if err != nil {
+		reqLogger.Error(err, "Could not find ConfigMap for Envs")
+		return reconcile.Result{}, err
+	}
 
 	// TODO: if this stack creates in-cluster objects, we probably want to set the owner, etc.
 
@@ -294,6 +289,26 @@ func gitCloneAndCheckoutCommit(url, hash, branch, path string) error {
 		Branch: plumbing.ReferenceName(branch),
 		Force:  true,
 	})
+}
+
+// SetEnvs populates the environment the stack run with values
+// from an array of Kubernetes ConfigMaps in a Namespace.
+func (sess *reconcileStackSession) SetEnvs(configMapNames []string, namespace string) error {
+	var err error
+	if sess.extraEnv == nil {
+		sess.extraEnv = make(map[string]string)
+	}
+	for _, env := range configMapNames {
+		config := &corev1.ConfigMap{}
+		if err = sess.kubeClient.Get(context.TODO(),
+			types.NamespacedName{Name: env, Namespace: namespace}, config); err != nil {
+			return errors.Wrapf(err, "Namespace=%s Name=%s", namespace, env)
+		}
+		for k, v := range config.Data {
+			sess.extraEnv[k] = v
+		}
+	}
+	return nil
 }
 
 // runCmd runs the given command with stdout and stderr hooked up to the logger.
