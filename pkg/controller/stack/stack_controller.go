@@ -394,7 +394,18 @@ func (sess *reconcileStackSession) pulumi(args ...string) (string, string, error
 }
 
 func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
-	// First, select the desired stack.
+	// Create the stack if requested.
+	if sess.stack.InitOnCreate {
+		var secretsProvider *string
+		if sess.stack.SecretsProvider != "" {
+			secretsProvider = &sess.stack.SecretsProvider
+		}
+		err := sess.CreateStack(sess.stack.Stack, secretsProvider)
+		if err != nil {
+			return err
+		}
+	}
+	// Select the desired stack.
 	_, _, err := sess.pulumi("stack", "select", sess.stack.Stack)
 	if err != nil {
 		return errors.Wrap(err, "selecting stack")
@@ -444,6 +455,19 @@ func (sess *reconcileStackSession) InstallProjectDependencies(runtime string) er
 	default:
 		return errors.Errorf("unsupported project runtime: %s", runtime)
 	}
+}
+
+func (sess *reconcileStackSession) CreateStack(stack string, secretsProvider *string) error {
+	cmdArgs := []string{"stack", "select", "--create"}
+	if secretsProvider != nil {
+		cmdArgs = append(cmdArgs, "--secrets-provider", *secretsProvider)
+	}
+	cmdArgs = append(cmdArgs, stack)
+	_, _, err := sess.pulumi(cmdArgs...)
+	if err != nil {
+		return errors.Wrapf(err, "creating stack '%s'", stack)
+	}
+	return nil
 }
 
 type updateStatus int
