@@ -30,6 +30,9 @@ type StackSpec struct {
 
 	// ProjectRepo is the git source control repository from which we fetch the project code and configuration.
 	ProjectRepo string `json:"projectRepo"`
+	// ProjectRepoAccessTokenSecret is the the name of a secret containing a
+	// personal access token to use a private git source control repository.
+	ProjectRepoAccessTokenSecret string `json:"projectRepoAccessTokenSecret,omitempty"`
 	// Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This
 	// is mutually exclusive with the Branch setting. If both are empty, the `master` branch is deployed.
 	Commit string `json:"commit,omitempty"`
