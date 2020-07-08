@@ -411,15 +411,8 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 		return errors.Wrap(err, "selecting stack")
 	}
 
-	// Then, populate config if there is any.
-	if sess.stack.Config != nil {
-		for k, v := range sess.stack.Config {
-			_, _, err := sess.pulumi("config", "set", k, v)
-			if err != nil {
-				return errors.Wrapf(err, "setting config key '%s' to value '%s'", k, v)
-			}
-		}
-	}
+	// Update the stack config and secret config values.
+	sess.UpdateConfig()
 
 	// Next we need to install the package manager dependencies for certain languages.
 	projbytes, err := ioutil.ReadFile(filepath.Join(sess.workdir, "Pulumi.yaml"))
@@ -466,6 +459,19 @@ func (sess *reconcileStackSession) CreateStack(stack string, secretsProvider *st
 	_, _, err := sess.pulumi(cmdArgs...)
 	if err != nil {
 		return errors.Wrapf(err, "creating stack '%s'", stack)
+	}
+	return nil
+}
+
+func (sess *reconcileStackSession) UpdateConfig() error {
+	// Then, populate config if there is any.
+	if sess.stack.Config != nil {
+		for k, v := range sess.stack.Config {
+			_, _, err := sess.pulumi("config", "set", k, v)
+			if err != nil {
+				return errors.Wrapf(err, "setting config key '%s' to value '%s'", k, v)
+			}
+		}
 	}
 	return nil
 }
