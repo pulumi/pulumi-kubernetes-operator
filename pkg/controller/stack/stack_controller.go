@@ -307,6 +307,9 @@ type reconcileStackSession struct {
 	extraEnv    map[string]string
 }
 
+// blank assignment to verify that reconcileStackSession implements pulumiv1alpha1.StackController.
+var _ pulumiv1alpha1.StackController = &reconcileStackSession{}
+
 func newReconcileStackSession(
 	logger logr.Logger, accessToken string, stack pulumiv1alpha1.StackSpec,
 	kubeClient client.Client, extraEnv map[string]string) *reconcileStackSession {
