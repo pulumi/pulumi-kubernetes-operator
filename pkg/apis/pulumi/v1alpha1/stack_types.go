@@ -12,22 +12,22 @@ type StackSpec struct {
 
 	// AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access.
 	AccessTokenSecret string `json:"accessTokenSecret"`
-	// Envs is an optional array of config maps containing environment variables to set.
+	// (optional) Envs is an optional array of config maps containing environment variables to set.
 	Envs []string `json:"envs,omitempty"`
-	// SecretEnvs is an optional array of secret names containing environment variables to set.
+	// (optional) SecretEnvs is an optional array of secret names containing environment variables to set.
 	SecretEnvs []string `json:"envSecrets,omitempty"`
 
 	// Stack identity:
 
 	// Stack is the fully qualified name of the stack to deploy (<org>/<stack>).
 	Stack string `json:"stack"`
-	// Config is the configuration for this stack, which can be optionally specified inline. If this
+	// (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, configuration is assumed to be checked in and taken from the source repository.
 	Config map[string]string `json:"config,omitempty"`
-	// Secrets is the secret configuration for this stack, which can be optionally specified inline. If this
+	// (optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
 	Secrets map[string]string `json:"secrets,omitempty"`
-	// SecretsProvider is used with InitOnCreate to initialize a Stack with alternative encryption.
+	// (optional) SecretsProvider is used with InitOnCreate to initialize a Stack with alternative encryption.
 	// Examples:
 	//   - AWS:   "awskms://arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"
 	//   - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"
@@ -39,32 +39,32 @@ type StackSpec struct {
 
 	// ProjectRepo is the git source control repository from which we fetch the project code and configuration.
 	ProjectRepo string `json:"projectRepo"`
-	// ProjectRepoAccessTokenSecret is the the name of a secret containing a
+	// (optional) ProjectRepoAccessTokenSecret is the the name of a secret containing a
 	// personal access token to use a private git source control repository.
 	ProjectRepoAccessTokenSecret string `json:"projectRepoAccessTokenSecret,omitempty"`
-	// RepoDir is the directory to work from in the project's source repository
+	// (optional) RepoDir is the directory to work from in the project's source repository
 	// where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
 	// in the project source root.
 	RepoDir string `json:"repoDir,omitempty"`
-	// Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This
+	// (optional) Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This
 	// is mutually exclusive with the Branch setting. If both are empty, the `master` branch is deployed.
 	Commit string `json:"commit,omitempty"`
-	// Branch is the branch name to deploy, either the simple or fully qualified ref name. This
+	// (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name. This
 	// is mutually exclusive with the Commit setting. If both are empty, the `master` branch is deployed.
 	Branch string `json:"branch,omitempty"`
 
 	// Lifecycle:
 
-	// InitOnCreate can be set to true to create the stack from scratch upon creation of the CRD.
+	// (optional) InitOnCreate can be set to true to create the stack from scratch upon creation of the CRD.
 	InitOnCreate bool `json:"initOnCreate,omitempty"`
-	// Refresh can be set to true to refresh the stack before it is updated.
+	// (optional) Refresh can be set to true to refresh the stack before it is updated.
 	Refresh bool `json:"refresh,omitempty"`
-	// ExpectNoRefreshChanges can be set to true if a stack is not expected to have
+	// (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have
 	// changes during a refresh before the update is run.
 	// This could occur, for example, is a resource's state is changing outside of Pulumi
 	// (e.g., metadata, timestamps).
 	ExpectNoRefreshChanges bool `json:"expectNoRefreshChanges,omitempty"`
-	// DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
+	// (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
 	DestroyOnFinalize bool `json:"destroyOnFinalize,omitempty"`
 }
 
