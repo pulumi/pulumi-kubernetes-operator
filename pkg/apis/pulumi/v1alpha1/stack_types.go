@@ -90,6 +90,7 @@ type StackUpdateState struct {
 // StackOutputs is an opaque JSON blob, since Pulumi stack outputs can contain arbitrary JSON maps and objects.
 // Due to a limitation in controller-tools code generation, we need to do this to trick it to generate a JSON
 // object instead of byte array. See https://github.com/kubernetes-sigs/controller-tools/issues/155.
+// +kubebuilder:validation:Type=object
 type StackOutputs struct {
 	// Raw JSON representation of the remote status as a byte array.
 	Raw json.RawMessage `json:"raw,omitempty"`
