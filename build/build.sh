@@ -3,11 +3,11 @@ set -e
 
 # Update the CRD type.
 echo "Updating the generated CRD API types..."
-operator-sdk generate crds
+go run sigs.k8s.io/controller-tools/cmd/controller-gen crd paths=./pkg/apis output:crd:dir=./deploy/crds
 
 # Update the CRD k8s manifests.
 echo "Updating the CRD manifests..."
-operator-sdk generate k8s
+go run sigs.k8s.io/controller-tools/cmd/controller-gen schemapatch:manifests=./deploy/crds output:dir=./deploy/crds paths=./pkg/apis/...
 
 # Build the operator container image.
 echo "Building the operator container image..."
