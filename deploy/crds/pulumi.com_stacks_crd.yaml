@@ -15,6 +15,7 @@ spec:
     schema:
       openAPIV3Schema:
         description: Stack is the Schema for the stacks API
+        type: object
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -31,6 +32,11 @@ spec:
           spec:
             description: StackSpec defines the desired state of Pulumi Stack being
               managed by this operator.
+            type: object
+            required:
+            - accessTokenSecret
+            - projectRepo
+            - stack
             properties:
               accessTokenSecret:
                 description: AccessTokenSecret is the name of a secret containing
@@ -49,12 +55,12 @@ spec:
                   is deployed.
                 type: string
               config:
-                additionalProperties:
-                  type: string
                 description: (optional) Config is the configuration for this stack,
                   which can be optionally specified inline. If this is omitted, configuration
                   is assumed to be checked in and taken from the source repository.
                 type: object
+                additionalProperties:
+                  type: string
               destroyOnFinalize:
                 description: (optional) DestroyOnFinalize can be set to true to destroy
                   the stack completely upon deletion of the CRD.
@@ -62,15 +68,15 @@ spec:
               envSecrets:
                 description: (optional) SecretEnvs is an optional array of secret
                   names containing environment variables to set.
+                type: array
                 items:
                   type: string
-                type: array
               envs:
                 description: (optional) Envs is an optional array of config maps containing
                   environment variables to set.
+                type: array
                 items:
                   type: string
-                type: array
               expectNoRefreshChanges:
                 description: (optional) ExpectNoRefreshChanges can be set to true
                   if a stack is not expected to have changes during a refresh before
@@ -100,13 +106,13 @@ spec:
                   used in case Pulumi.yaml is not in the project source root.
                 type: string
               secrets:
-                additionalProperties:
-                  type: string
                 description: (optional) Secrets is the secret configuration for this
                   stack, which can be optionally specified inline. If this is omitted,
                   secrets configuration is assumed to be checked in and taken from
                   the source repository.
                 type: object
+                additionalProperties:
+                  type: string
               secretsProvider:
                 description: '(optional) SecretsProvider is used with InitOnCreate
                   to initialize a Stack with alternative encryption. Examples:   -
@@ -119,35 +125,23 @@ spec:
                 description: Stack is the fully qualified name of the stack to deploy
                   (<org>/<stack>).
                 type: string
-            required:
-            - accessTokenSecret
-            - projectRepo
-            - stack
-            type: object
           status:
             description: StackStatus defines the observed state of Stack
+            type: object
             properties:
               lastUpdate:
                 description: LastUpdate contains details of the status of the last
                   update.
+                type: object
                 properties:
                   state:
                     description: State is the state of the stack update - one of `succeeded`
                       or `failed`
                     type: string
-                type: object
               outputs:
                 description: Outputs contains the exported stack output variables
                   resulting from a deployment.
-                properties:
-                  raw:
-                    description: Raw JSON representation of the remote status as a
-                      byte array.
-                    format: byte
-                    type: string
                 type: object
-            type: object
-        type: object
     served: true
     storage: true
     subresources:
