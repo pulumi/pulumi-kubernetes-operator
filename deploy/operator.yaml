@@ -15,7 +15,8 @@ spec:
       serviceAccountName: pulumi-kubernetes-operator
       containers:
         - name: pulumi-kubernetes-operator
-          image: pulumi/pulumi-kubernetes-operator:v0.1.0
+          #image: pulumi/pulumi-kubernetes-operator:v0.1.0
+          image: <IMG_NAME>:<IMG_VERSION>
           command:
           - pulumi-kubernetes-operator
           args:
