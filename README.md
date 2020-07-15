@@ -50,15 +50,16 @@ Install the [`operator-sdk`][operator-sdk] to build and run locally.
 Ensure generated CRDs and controller logic is up to date by running:
 
 ```
-$ operator-sdk generate crds
-$ operator-sdk generate k8s
+$ make build
 ```
 
 Install the CRD in your cluster.  
 
 ```
-$ kubectl apply -f deploy/crds/pulumi.com_stacks_crd.yaml
+$ make install-crds
 ```
+
+To build and install together, simply run `make`.
 
 The CRD currently assumes that a stack already exists (and drives deployments against that existing stack).  So ensure that you have an existing GitHub repo, a stack created for the same project as the contents of the repo, and update `examples/s3_bucket_stack.yaml` to refer to the appropriate github `project` and `commit`, Pulumi `stack` name, and appropriate Pulumi `accessToken` and environment variables needed for the deployment controller.  Once these are ready - deploy the `pulumi.com/v1alpha1.Stack`:
 
@@ -66,11 +67,18 @@ The CRD currently assumes that a stack already exists (and drives deployments ag
 $ kubectl apply -f examples/s3_bucket_stack.yaml
 ```
 
-Build and deploy the controller locally.  (You can also deploy into a cluster by following the operator-sdk guide above, but for local development running it locally is simpler).
+Push the built image to DockerHub.
 
 ```bash
-$ operator-sdk run local
+$ make push-image
 ```
+
+Deploy the controller locally.
+
+```bash
+$ make deploy
+```
+
 <details>
 <summary>Click to expand output</summary>
 
