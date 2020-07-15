@@ -73,6 +73,13 @@ Push the built image to DockerHub.
 $ make push-image
 ```
 
+Currently, the docker image is private, so create an imagePullSecret named
+`pulumi-kubernetes-operator` in the default namespace for the operator to use.
+
+```bash
+kubectl create secret generic pulumi-kubernetes-operator --from-file=.dockerconfigjson=$HOME/.docker/config.json --type=kubernetes.io/dockerconfigjson
+```
+
 Deploy the controller locally.
 
 ```bash
