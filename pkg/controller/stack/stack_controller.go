@@ -21,6 +21,7 @@ import (
 	"gopkg.in/src-d/go-git.v4/plumbing"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -604,7 +605,7 @@ func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStat
 }
 
 // GetPulumiOutputs gets the stack outputs and parses them into a map.
-func (sess *reconcileStackSession) GetStackOutputs() (*pulumiv1alpha1.StackOutputs, error) {
+func (sess *reconcileStackSession) GetStackOutputs() (*apiextensionsv1.JSON, error) {
 	stdout, _, err := sess.pulumi("stack", "output", "--json")
 	if err != nil {
 		return nil, errors.Wrap(err, "getting stack outputs")
@@ -615,12 +616,8 @@ func (sess *reconcileStackSession) GetStackOutputs() (*pulumiv1alpha1.StackOutpu
 	if err = json.Unmarshal([]byte(stdout), &outs); err != nil {
 		return nil, errors.Wrap(err, "unmarshaling stack outputs (to map)")
 	}
-	var rawOuts json.RawMessage
-	if err = json.Unmarshal([]byte(stdout), &rawOuts); err != nil {
-		return nil, errors.Wrap(err, "unmarshaling stack outputs (to raw message)")
-	}
 
-	return &pulumiv1alpha1.StackOutputs{Raw: rawOuts}, nil
+	return &apiextensionsv1.JSON{Raw: []byte(stdout)}, nil
 }
 
 func (sess *reconcileStackSession) DestroyStack() error {

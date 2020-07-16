@@ -1,8 +1,7 @@
 package v1alpha1
 
 import (
-	"encoding/json"
-
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -71,7 +70,7 @@ type StackSpec struct {
 // StackStatus defines the observed state of Stack
 type StackStatus struct {
 	// Outputs contains the exported stack output variables resulting from a deployment.
-	Outputs *StackOutputs `json:"outputs,omitempty"`
+	Outputs *apiextensionsv1.JSON `json:"outputs,omitempty"`
 	// LastUpdate contains details of the status of the last update.
 	LastUpdate *StackUpdateState `json:"lastUpdate,omitempty"`
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
@@ -85,25 +84,6 @@ type StackUpdateState struct {
 	State string `json:"state,omitempty"`
 	// TODO: Add additional information about errors if state was `failed`
 	// TODO: Potentially add the revision number of the last update
-}
-
-// StackOutputs is an opaque JSON blob, since Pulumi stack outputs can contain arbitrary JSON maps and objects.
-// Due to a limitation in controller-tools code generation, we need to do this to trick it to generate a JSON
-// object instead of byte array. See https://github.com/kubernetes-sigs/controller-tools/issues/155.
-// +kubebuilder:validation:Type=object
-type StackOutputs struct {
-	// Raw JSON representation of the remote status as a byte array.
-	Raw json.RawMessage `json:"raw,omitempty"`
-}
-
-// MarshalJSON returns the JSON encoding of the StackOutputs.
-func (s StackOutputs) MarshalJSON() ([]byte, error) {
-	return s.Raw.MarshalJSON()
-}
-
-// UnmarshalJSON sets the StackOutputs to a copy of data.
-func (s *StackOutputs) UnmarshalJSON(data []byte) error {
-	return s.Raw.UnmarshalJSON(data)
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -199,7 +179,7 @@ type StackController interface {
 	// state, and returns the update's status.
 	UpdateStack() (StackUpdateStatus, error)
 	// GetStackOutputs returns all of the the stack's output properties.
-	GetStackOutputs() (*StackOutputs, error)
+	GetStackOutputs() (*apiextensionsv1.JSON, error)
 	// DestroyStack destroys the stack's resources and state, and the stack itself.
 	DestroyStack() error
 }
