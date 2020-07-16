@@ -27,3 +27,5 @@ spec:
   initOnCreate: true # noop if stack already exists
   projectRepo: https://github.com/joeduffy/test-s3-op-project
   commit: cc5442870f1195216d6bc340c14f8ae7d28cf3e2
+  config:
+    aws:region: us-east-2
