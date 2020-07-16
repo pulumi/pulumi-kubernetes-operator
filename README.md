@@ -45,11 +45,11 @@ Stack CRD and user-created Stack CRs.
 
 ## Walkthrough
 
-Install the [`operator-sdk`][operator-sdk] to build and run locally.  
+Install the [`operator-sdk`][operator-sdk] to build the operator.  
 
-Ensure generated CRDs and controller logic is up to date by running:
+### Build Operator and Install CRD
 
-### Build and Install CRD
+Build and generate the CRD and controller logic for the operator, and create the CRD in the local cluster via `KUBECONFIG`.
 
 ```
 $ make build
@@ -61,11 +61,16 @@ Install the CRD in your cluster.
 $ make install-crds
 ```
 
-To build and install together, simply run `make`.
+To build and install together, simply run:
+
+```
+$ make
+```
 
 ### Run Locally
 
 `operator-sdk run local` will deploy the operator bin locally and communicate with an existing cluster via `KUBECONFIG`.
+
 However, upstream is removing this legacy command in a [breaking change](https://github.com/operator-framework/operator-sdk/blob/master/changelog/fragments/rm-legacy-run.yaml) so it's best to work with DockerHub as shown in the next step.
 
 ### Push to DockerHub and Deploy
@@ -80,6 +85,8 @@ $ make push-image
 
 Currently, the docker image is private, so create an imagePullSecret named
 `pulumi-kubernetes-operator` in the default namespace for the operator to use.
+
+This creates a Secret based on your default Docker credentials in `$HOME/.docker/config.json`.
 
 ```bash
 kubectl create secret generic pulumi-kubernetes-operator --from-file=.dockerconfigjson=$HOME/.docker/config.json --type=kubernetes.io/dockerconfigjson
