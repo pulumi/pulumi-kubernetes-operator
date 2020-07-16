@@ -70,13 +70,15 @@ type StackSpec struct {
 // StackStatus defines the observed state of Stack
 type StackStatus struct {
 	// Outputs contains the exported stack output variables resulting from a deployment.
-	Outputs *apiextensionsv1.JSON `json:"outputs,omitempty"`
+	Outputs StackOutputs `json:"outputs,omitempty"`
 	// LastUpdate contains details of the status of the last update.
 	LastUpdate *StackUpdateState `json:"lastUpdate,omitempty"`
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 }
+
+type StackOutputs map[string]apiextensionsv1.JSON
 
 // StackUpdateState is the status of a stack update
 type StackUpdateState struct {
@@ -179,7 +181,7 @@ type StackController interface {
 	// state, and returns the update's status.
 	UpdateStack() (StackUpdateStatus, error)
 	// GetStackOutputs returns all of the the stack's output properties.
-	GetStackOutputs() (*apiextensionsv1.JSON, error)
+	GetStackOutputs() (StackOutputs, error)
 	// DestroyStack destroys the stack's resources and state, and the stack itself.
 	DestroyStack() error
 }
