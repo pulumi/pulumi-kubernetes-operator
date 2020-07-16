@@ -140,9 +140,11 @@ spec:
                   type: string
               type: object
             outputs:
+              additionalProperties:
+                x-kubernetes-preserve-unknown-fields: true
               description: Outputs contains the exported stack output variables resulting
                 from a deployment.
-              x-kubernetes-preserve-unknown-fields: true
+              type: object
           type: object
       type: object
   version: v1alpha1
