@@ -144,6 +144,10 @@ type ProjectSourceOptions struct {
 }
 
 // StackController contains methods to operate a Pulumi Project and Stack in an update.
+//
+// Ignoring operator codegen of interface as it is an API contract for implementation,
+// not a type that is used in kubernetes.
+// +kubebuilder:object:generate=false
 type StackController interface {
 	// Source control:
 
