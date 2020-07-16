@@ -49,6 +49,8 @@ Install the [`operator-sdk`][operator-sdk] to build and run locally.
 
 Ensure generated CRDs and controller logic is up to date by running:
 
+### Build and Install CRD
+
 ```
 $ make build
 ```
@@ -60,6 +62,15 @@ $ make install-crds
 ```
 
 To build and install together, simply run `make`.
+
+### Run Locally
+
+`operator-sdk run local` will deploy the operator bin locally and communicate with an existing cluster via `KUBECONFIG`.
+However, upstream is removing this legacy command in a [breaking change](https://github.com/operator-framework/operator-sdk/blob/master/changelog/fragments/rm-legacy-run.yaml) so it's best to work with DockerHub as shown in the next step.
+
+### Push to DockerHub and Deploy
+
+> Note: working with DockerHub requires you have credentials to the `pulumi` org, if you plan on using that repository.
 
 Push the built image to DockerHub.
 
@@ -80,8 +91,18 @@ Deploy the controller locally.
 $ make deploy
 ```
 
-Ensure that you have an existing GitHub repo, and update `examples/s3_bucket_stack.yaml` to refer to the appropriate github `project` and `commit`, Pulumi `stack` name, and appropriate Pulumi `accessToken` and environment variables needed for the deployment controller.
-Once these are ready - deploy the `pulumi.com/v1alpha1.Stack`:
+### Create a Stack CustomResource
+
+Check out [`examples/s3_bucket_stack.yaml`](./examples/s3_bucket_stack.yaml) to start with a simple exmaple.
+
+You can use the repo configuration to test an existing Pulumi project. If you'd like to use your own, ensure that you have an existing GitHub repo, and update `examples/s3_bucket_stack.yaml` to refer to:
+  - An existing github `project` and `commit`,
+  - A Pulumi `stack` name,
+  - A Kubernetes Secret for your Pulumi API `accessToken`,
+  - A Kubernetes Secret for other sensitive settings like cloud provider credentials, and
+  - Environment variables and stack config needed.
+  
+Once the stack is authored, deploy the `pulumi.com/v1alpha1.Stack` CustomResource:
 
 ```
 $ kubectl apply -f examples/s3_bucket_stack.yaml
