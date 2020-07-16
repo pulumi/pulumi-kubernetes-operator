@@ -12,10 +12,10 @@ require (
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	gopkg.in/yaml.v2 v2.2.8
 	k8s.io/api v0.18.2
+	k8s.io/apiextensions-apiserver v0.18.2
 	k8s.io/apimachinery v0.18.2
 	k8s.io/client-go v12.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.6.0
-	sigs.k8s.io/controller-tools v0.3.1-0.20200528125929-5c0c6ae3b64b // indirect
 )
 
 replace (

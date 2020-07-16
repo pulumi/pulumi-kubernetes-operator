@@ -1,0 +1,158 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.0
+  creationTimestamp: null
+  name: stacks.pulumi.com
+spec:
+  group: pulumi.com
+  names:
+    kind: Stack
+    listKind: StackList
+    plural: stacks
+    singular: stack
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: Stack is the Schema for the stacks API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: StackSpec defines the desired state of Pulumi Stack being managed
+            by this operator.
+          properties:
+            accessTokenSecret:
+              description: AccessTokenSecret is the name of a secret containing the
+                PULUMI_ACCESS_TOKEN for Pulumi access.
+              type: string
+            branch:
+              description: (optional) Branch is the branch name to deploy, either
+                the simple or fully qualified ref name. This is mutually exclusive
+                with the Commit setting. If both are empty, the `master` branch is
+                deployed.
+              type: string
+            commit:
+              description: (optional) Commit is the hash of the commit to deploy.
+                If used, HEAD will be in detached mode. This is mutually exclusive
+                with the Branch setting. If both are empty, the `master` branch is
+                deployed.
+              type: string
+            config:
+              additionalProperties:
+                type: string
+              description: (optional) Config is the configuration for this stack,
+                which can be optionally specified inline. If this is omitted, configuration
+                is assumed to be checked in and taken from the source repository.
+              type: object
+            destroyOnFinalize:
+              description: (optional) DestroyOnFinalize can be set to true to destroy
+                the stack completely upon deletion of the CRD.
+              type: boolean
+            envSecrets:
+              description: (optional) SecretEnvs is an optional array of secret names
+                containing environment variables to set.
+              items:
+                type: string
+              type: array
+            envs:
+              description: (optional) Envs is an optional array of config maps containing
+                environment variables to set.
+              items:
+                type: string
+              type: array
+            expectNoRefreshChanges:
+              description: (optional) ExpectNoRefreshChanges can be set to true if
+                a stack is not expected to have changes during a refresh before the
+                update is run. This could occur, for example, is a resource's state
+                is changing outside of Pulumi (e.g., metadata, timestamps).
+              type: boolean
+            initOnCreate:
+              description: (optional) InitOnCreate can be set to true to create the
+                stack from scratch upon creation of the CRD.
+              type: boolean
+            projectRepo:
+              description: ProjectRepo is the git source control repository from which
+                we fetch the project code and configuration.
+              type: string
+            projectRepoAccessTokenSecret:
+              description: (optional) ProjectRepoAccessTokenSecret is the the name
+                of a secret containing a personal access token to use a private git
+                source control repository.
+              type: string
+            refresh:
+              description: (optional) Refresh can be set to true to refresh the stack
+                before it is updated.
+              type: boolean
+            repoDir:
+              description: (optional) RepoDir is the directory to work from in the
+                project's source repository where Pulumi.yaml is located. It is used
+                in case Pulumi.yaml is not in the project source root.
+              type: string
+            secrets:
+              additionalProperties:
+                type: string
+              description: (optional) Secrets is the secret configuration for this
+                stack, which can be optionally specified inline. If this is omitted,
+                secrets configuration is assumed to be checked in and taken from the
+                source repository.
+              type: object
+            secretsProvider:
+              description: '(optional) SecretsProvider is used with InitOnCreate to
+                initialize a Stack with alternative encryption. Examples:   - AWS:   "awskms://arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"   -
+                Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"   -
+                GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"
+                See: https://www.pulumi.com/docs/intro/concepts/config/#initializing-a-stack-with-alternative-encryption'
+              type: string
+            stack:
+              description: Stack is the fully qualified name of the stack to deploy
+                (<org>/<stack>).
+              type: string
+          required:
+          - accessTokenSecret
+          - projectRepo
+          - stack
+          type: object
+        status:
+          description: StackStatus defines the observed state of Stack
+          properties:
+            lastUpdate:
+              description: LastUpdate contains details of the status of the last update.
+              properties:
+                state:
+                  description: State is the state of the stack update - one of `succeeded`
+                    or `failed`
+                  type: string
+              type: object
+            outputs:
+              description: Outputs contains the exported stack output variables resulting
+                from a deployment.
+              x-kubernetes-preserve-unknown-fields: true
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
