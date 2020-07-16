@@ -92,7 +92,7 @@ This creates a Secret based on your default Docker credentials in `$HOME/.docker
 kubectl create secret generic pulumi-kubernetes-operator --from-file=.dockerconfigjson=$HOME/.docker/config.json --type=kubernetes.io/dockerconfigjson
 ```
 
-Deploy the controller locally.
+Deploy the controller into the cluster via `KUBECONFIG`.
 
 ```bash
 $ make deploy
