@@ -28,9 +28,8 @@ push-image-latest: push-image
 	docker tag $(IMAGE_NAME):$(VERSION) $(IMAGE_NAME):latest
 	docker push $(IMAGE_NAME):latest
 
-test: build
-	# TODO: add tests - https://github.com/pulumi/pulumi-kubernetes-operator/issues/14
-	# go test ./...
+test:
+	ginkgo -v -p ./test/...
 
 deploy:
 	kubectl apply -f deploy/service_account.yaml
