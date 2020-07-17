@@ -43,6 +43,14 @@ Stack CRD and user-created Stack CRs.
 - [Quickstart](https://sdk.operatorframework.io/docs/golang/quickstart/)
 - [Project Scaffolding](https://sdk.operatorframework.io/docs/golang/references/project-layout/)
 
+## Requirements
+
+Install the following binaries.
+
+- [operator-sdk](https://sdk.operatorframework.io/docs/install-operator-sdk/)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl)
+- [ginkgo (for testing)](https://onsi.github.io/ginkgo/)
+
 ## Walkthrough
 
 Install the [`operator-sdk`][operator-sdk] to build the operator.  
@@ -176,6 +184,14 @@ Now, you can make a change to the CR - like changing the `commit` to redeploy to
 
 ```
 $ kubectl apply -f examples/s3_bucket_stack.yaml
+```
+
+### Integration Testing
+
+To execute the test suite of Pulumi Stacks against the operator, run the following:
+
+```bash
+make test
 ```
 
 [operator-sdk]: https://sdk.operatorframework.io/docs/install-operator-sdk/
