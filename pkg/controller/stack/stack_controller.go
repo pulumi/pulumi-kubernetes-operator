@@ -535,8 +535,11 @@ func (sess *reconcileStackSession) CreateStack(stack string, secretsProvider *st
 		cmdArgs = append(cmdArgs, "--secrets-provider", *secretsProvider)
 	}
 	cmdArgs = append(cmdArgs, stack)
-	_, _, err := sess.pulumi(cmdArgs...)
+	_, stderr, err := sess.pulumi(cmdArgs...)
 	if err != nil {
+		if strings.Contains(stderr, "already exists") {
+			return nil
+		}
 		return errors.Wrapf(err, "creating stack '%s'", stack)
 	}
 	return nil
