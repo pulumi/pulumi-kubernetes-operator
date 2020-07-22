@@ -24,10 +24,13 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -37,7 +40,8 @@ import (
 
 var log = logf.Log.WithName("controller_stack")
 
-const pulumiFinalizer = "finalizer.pulumi.example.com"
+const pulumiFinalizer = "finalizer.stack.pulumi.com"
+const maxConcurrentReconciles = 10 // arbitrary value greater than default of 1
 
 // Add creates a new Stack Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -53,7 +57,10 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("stack-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("stack-controller", mgr, controller.Options{
+		Reconciler:              r,
+		MaxConcurrentReconciles: maxConcurrentReconciles,
+	})
 	if err != nil {
 		return err
 	}
@@ -70,19 +77,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
-
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// TODO: If this stack generates in-cluster Kubernetes resources, we probably want to watch them......
-	// Watch for changes to secondary resource Pods and requeue the owner Stack
-	/*
-		err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-			IsController: true,
-			OwnerType:    &pulumiv1alpha1.Stack{},
-		})
-		if err != nil {
-			return err
-		}
-	*/
 
 	return nil
 }
@@ -121,6 +115,18 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 
 	stack := instance.Spec
 
+	// Check if the Stack instance is marked to be deleted, which is
+	// indicated by the deletion timestamp being set.
+	isStackMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
+
+	// Don't run this loop if already at desired state, unless marked for deletion.
+	if instance.Status.LastUpdate != nil &&
+		instance.Status.LastUpdate.State == instance.Spec.Commit &&
+		!isStackMarkedToBeDeleted {
+		reqLogger.Info("Stack already to desired state", "Stack.Commit", instance.Spec.Commit)
+		return reconcile.Result{}, nil
+	}
+
 	// Fetch the API token from the named secret.
 	secret := &corev1.Secret{}
 	if err = r.client.Get(context.TODO(),
@@ -129,6 +135,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 			"Namespace", request.Namespace, "Stack.AccessTokenSecret", stack.AccessTokenSecret)
 		return reconcile.Result{}, err
 	}
+
 	accessToken := string(secret.Data["accessToken"])
 	if accessToken == "" {
 		err = errors.New("Secret accessToken data is empty")
@@ -152,18 +159,6 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 
-	// TODO: if this stack creates in-cluster objects, we probably want to set the owner, etc.
-
-	/*
-		// Define a new Pod object
-		pod := newPodForCR(instance)
-
-		// Set Stack instance as the owner and controller
-		if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-			return reconcile.Result{}, err
-		}
-	*/
-
 	// Step 1. Clone the repo.
 	workdir, err := sess.FetchProjectSource(stack.ProjectRepo, &pulumiv1alpha1.ProjectSourceOptions{
 		AccessToken: stack.ProjectRepoAccessTokenSecret,
@@ -177,8 +172,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	if stack.RepoDir != "" {
 		sess.workdir = path.Join(sess.workdir, stack.RepoDir)
 	}
-	// TODO: defer cleaning it up.
-	// https://github.com/pulumi/pulumi-kubernetes-operator/issues/20
+	defer os.RemoveAll(workdir)
 
 	// Step 2. Select the right stack and populate config if supplied.
 	if err = sess.SetupPulumiWorkdir(); err != nil {
@@ -188,18 +182,24 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 
 	// Check if the Stack instance is marked to be deleted, which is
 	// indicated by the deletion timestamp being set.
-	isStackMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
-	if isStackMarkedToBeDeleted {
-		if contains(instance.GetFinalizers(), pulumiFinalizer) {
-			return sess.finalize(instance)
-		}
+	isStackMarkedToBeDeleted = instance.GetDeletionTimestamp() != nil
+	if isStackMarkedToBeDeleted && !contains(instance.GetFinalizers(), pulumiFinalizer) {
+		sess.logger.Info("Stack is already deleted, skipping reconciliation")
 		return reconcile.Result{}, nil
 	}
-	// Add finalizer for this CR
-	if !contains(instance.GetFinalizers(), pulumiFinalizer) {
-		if err := sess.addFinalizer(instance); err != nil {
+	if isStackMarkedToBeDeleted && contains(instance.GetFinalizers(), pulumiFinalizer) {
+		if err := sess.finalize(instance); err != nil {
 			return reconcile.Result{}, err
 		}
+
+		// Manage extra status here
+		// Stop reconciliation as the item is being deleted
+		return reconcile.Result{}, nil
+	}
+	if !isStackMarkedToBeDeleted && !contains(instance.GetFinalizers(), pulumiFinalizer) {
+		// Add finalizer to Stack if not being deleted
+		err := sess.addFinalizer(instance)
+		return reconcile.Result{Requeue: true}, err
 	}
 
 	// Step 3. If a stack refresh is requested, run it now.
@@ -218,7 +218,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
 			State: "failed",
 		}
-		err2 := r.client.Status().Update(context.TODO(), instance)
+		err2 := sess.updateResourceStatus(instance)
 		if err2 != nil {
 			reqLogger.Error(err2, "Failed to update Stack lastUpdate state", "Stack.Name", stack.Stack)
 			return reconcile.Result{}, err2
@@ -235,43 +235,60 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		reqLogger.Error(err, "Failed to get Stack outputs", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
 	}
-	// TODO(issue): outputs are not showing up in Status.Outputs
-	// https://github.com/pulumi/pulumi-kubernetes-operator/issues/19
+	err = sess.getLatestResource(instance, request.NamespacedName)
+	if err != nil {
+		sess.logger.Error(err, "Failed to get latest Stack to update successful Stack status", "Stack.Name", instance.Spec.Stack)
+		return reconcile.Result{}, err
+	}
 	instance.Status.Outputs = outs
 	instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
-		State: "succeeded",
+		State: instance.Spec.Commit,
 	}
-	err = r.client.Status().Update(context.TODO(), instance)
+	err = sess.updateResourceStatus(instance)
 	if err != nil {
 		reqLogger.Error(err, "Failed to update Stack status", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
 	}
+	reqLogger.Info("Successfully updated successful status for Stack", "Stack.Name", stack.Stack)
 
 	return reconcile.Result{}, nil
 }
 
-func (sess *reconcileStackSession) finalize(instance *pulumiv1alpha1.Stack) (reconcile.Result, error) {
+func (sess *reconcileStackSession) finalize(stack *pulumiv1alpha1.Stack) error {
 	sess.logger.Info("Finalizing the stack")
 	// Run finalization logic for pulumiFinalizer. If the
 	// finalization logic fails, don't remove the finalizer so
 	// that we can retry during the next reconciliation.
-	if err := sess.finalizeStack(instance); err != nil {
-		return reconcile.Result{}, err
+	if err := sess.finalizeStack(); err != nil {
+		sess.logger.Error(err, "Failed to run Pulumi finalizer", "Stack.Name", stack.Spec.Stack)
+		return err
 	}
 
 	// Remove pulumiFinalizer. Once all finalizers have been
 	// removed, the object will be deleted.
-	controllerutil.RemoveFinalizer(instance, pulumiFinalizer)
-	err := sess.kubeClient.Update(context.Background(), instance)
-	if err != nil {
-		return reconcile.Result{}, err
+	controllerutil.RemoveFinalizer(stack, pulumiFinalizer)
+	if err := sess.updateResource(stack); err != nil {
+		sess.logger.Error(err, "Failed to delete Pulumi finalizer", "Stack.Name", stack.Spec.Stack)
+		return err
 	}
-	return reconcile.Result{}, nil
+
+	// Since the client is hitting a cache, waiting for the deletion here will guarantee that the next
+	// reconciliation will see that the CR has been deleted and
+	// that there's nothing left to do.
+	if err := sess.waitForDeletion(stack); err != nil {
+		log.Info("Failed waiting for Stack deletion")
+		return err
+	}
+
+	return nil
 }
-func (sess *reconcileStackSession) finalizeStack(m *pulumiv1alpha1.Stack) error {
+
+func (sess *reconcileStackSession) finalizeStack() error {
 	// Destroy the stack resources and stack.
 	if sess.stack.DestroyOnFinalize {
-		sess.DestroyStack()
+		if err := sess.DestroyStack(); err != nil {
+			return err
+		}
 	}
 	sess.logger.Info("Successfully finalized stack")
 	return nil
@@ -279,23 +296,20 @@ func (sess *reconcileStackSession) finalizeStack(m *pulumiv1alpha1.Stack) error 
 
 //addFinalizer will add this attribute to the Stack CR
 func (sess *reconcileStackSession) addFinalizer(stack *pulumiv1alpha1.Stack) error {
-	controllerutil.AddFinalizer(stack, pulumiFinalizer)
-	// Update CR
-	err := sess.kubeClient.Update(context.TODO(), stack)
+	sess.logger.Info("Adding Finalizer for the Stack", "Stack.Name", stack.Name)
+	namespacedName := types.NamespacedName{Name: stack.Name, Namespace: stack.Namespace}
+	err := sess.getLatestResource(stack, namespacedName)
 	if err != nil {
-		sess.logger.Error(err, "Failed to update Stack with finalizer")
+		sess.logger.Error(err, "Failed to get latest Stack to add Pulumi finalizer", "Stack.Name", stack.Spec.Stack)
+		return err
+	}
+	controllerutil.AddFinalizer(stack, pulumiFinalizer)
+	err = sess.updateResource(stack)
+	if err != nil {
+		sess.logger.Error(err, "Failed to add Pulumi finalizer", "Stack.Name", stack.Spec.Stack)
 		return err
 	}
 	return nil
-}
-
-func contains(list []string, s string) bool {
-	for _, v := range list {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }
 
 type reconcileStackSession struct {
@@ -368,8 +382,7 @@ func (sess *reconcileStackSession) SetEnvs(configMapNames []string, namespace st
 	}
 	for _, env := range configMapNames {
 		config := &corev1.ConfigMap{}
-		if err = sess.kubeClient.Get(context.TODO(),
-			types.NamespacedName{Name: env, Namespace: namespace}, config); err != nil {
+		if err = sess.getLatestResource(config, types.NamespacedName{Name: env, Namespace: namespace}); err != nil {
 			return errors.Wrapf(err, "Namespace=%s Name=%s", namespace, env)
 		}
 		for k, v := range config.Data {
@@ -388,8 +401,7 @@ func (sess *reconcileStackSession) SetSecretEnvs(secrets []string, namespace str
 	}
 	for _, env := range secrets {
 		config := &corev1.Secret{}
-		if err = sess.kubeClient.Get(context.TODO(),
-			types.NamespacedName{Name: env, Namespace: namespace}, config); err != nil {
+		if err = sess.getLatestResource(config, types.NamespacedName{Name: env, Namespace: namespace}); err != nil {
 			return errors.Wrapf(err, "Namespace=%s Name=%s", namespace, env)
 		}
 		for k, v := range config.Data {
@@ -583,14 +595,6 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) error {
 	return nil
 }
 
-type updateStatus int
-
-const (
-	updateFailed    updateStatus = 0
-	updateSucceeded updateStatus = 1
-	updateConflict  updateStatus = 2
-)
-
 // UpdateStack runs the update on the stack and returns an update status code
 // and error. In certain cases, an update may be unabled to proceed due to locking,
 // in which case the operator will requeue itself to retry later.
@@ -632,4 +636,49 @@ func (sess *reconcileStackSession) DestroyStack() error {
 		return errors.Wrapf(err, "removing stack '%s'", sess.stack.Stack)
 	}
 	return nil
+}
+
+func (sess *reconcileStackSession) getLatestResource(o runtime.Object, namespacedName types.NamespacedName) error {
+	return sess.kubeClient.Get(context.TODO(), namespacedName, o)
+}
+
+func (sess *reconcileStackSession) updateResource(o runtime.Object) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		return sess.kubeClient.Update(context.TODO(), o)
+	})
+}
+
+func (sess *reconcileStackSession) updateResourceStatus(o runtime.Object) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		return sess.kubeClient.Status().Update(context.TODO(), o)
+	})
+}
+
+func (sess *reconcileStackSession) waitForDeletion(o runtime.Object) error {
+	key, err := client.ObjectKeyFromObject(o)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	return wait.PollImmediateUntil(time.Millisecond*10, func() (bool, error) {
+		err := sess.getLatestResource(o, key)
+		if k8serrors.IsNotFound(err) {
+			return true, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		return false, nil
+	}, ctx.Done())
+}
+
+func contains(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
