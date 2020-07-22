@@ -65,6 +65,14 @@ type StackSpec struct {
 	ExpectNoRefreshChanges bool `json:"expectNoRefreshChanges,omitempty"`
 	// (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
 	DestroyOnFinalize bool `json:"destroyOnFinalize,omitempty"`
+	// (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop
+	// in the event that the update hits a HTTP 409 conflict due to
+	// another update in progress.
+	// This is only recommended if you are sure that the stack updates are
+	// idempotent, and if you are willing to accept retry loops until
+	// all spawned retries succeed. This will also create a more populated,
+	// and randomized activity timeline for the stack in the Pulumi Service.
+	RetryOnUpdateConflict bool `json:"retryOnUpdateConflict,omitempty"`
 }
 
 // StackStatus defines the observed state of Stack
@@ -124,6 +132,9 @@ const (
 	// StackUpdatePendingOperations indicates that the stack update failed to complete due
 	// to pending operations halting the stack update run.
 	StackUpdatePendingOperations StackUpdateStatus = 3
+	// StackNotFound indicates that the stack update failed to complete due
+	// to stack not being found (HTTP 404) in the Pulumi Service.
+	StackNotFound StackUpdateStatus = 4
 )
 
 // ProjectSourceOptions is the settings to work with the project source repo.
