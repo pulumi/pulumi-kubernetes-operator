@@ -210,23 +210,32 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	// Step 4. Run a `pulumi up --skip-preview`.
 	// TODO: is it possible to support a --dry-run with a preview?
 	status, err := sess.UpdateStack()
-	if err != nil {
-		// TODO: if there was a failure, we should check for a few things:
-		//     1) requeue if it's a "update already in progress".
-		//     2) stack export and see if there are pending_operations.
-		reqLogger.Error(err, "Failed to run Pulumi update", "Stack.Name", stack.Stack)
-		instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
-			State: "failed",
+	switch status {
+	case pulumiv1alpha1.StackUpdateConflict:
+		if sess.stack.RetryOnUpdateConflict {
+			reqLogger.Info("Conflict with another concurrent update -- will retry shortly", "Stack.Name", stack.Stack, "Err:", err)
+			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 		}
-		err2 := sess.updateResourceStatus(instance)
-		if err2 != nil {
-			reqLogger.Error(err2, "Failed to update Stack lastUpdate state", "Stack.Name", stack.Stack)
-			return reconcile.Result{}, err2
-		}
-		return reconcile.Result{}, err
-	} else if status == pulumiv1alpha1.StackUpdateConflict {
-		reqLogger.Info("Conflict with another concurrent update -- will retry shortly", "Stack.Name", stack.Stack)
+		reqLogger.Info("Conflict with another concurrent update -- NOT retrying", "Stack.Name", stack.Stack, "Err:", err)
+		return reconcile.Result{}, nil
+	case pulumiv1alpha1.StackNotFound:
+		reqLogger.Info("Stack not found -- will retry shortly", "Stack.Name", stack.Stack, "Err:", err)
 		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+	default:
+		if err != nil {
+			// TODO: if there was a failure, we should check for a few things:
+			//     1) requeue if it's a "update already in progress".
+			//     2) stack export and see if there are pending_operations.
+			instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
+				State: "failed",
+			}
+			err2 := sess.updateResourceStatus(instance)
+			if err2 != nil {
+				reqLogger.Error(err2, "Failed to update failed Stack status", "Stack.Name", stack.Stack)
+				return reconcile.Result{}, err2
+			}
+			return reconcile.Result{}, err
+		}
 	}
 
 	// Step 5. Capture outputs onto the resulting status object.
@@ -602,8 +611,12 @@ func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStat
 	_, stderr, err := sess.pulumi("up", "--skip-preview", "--yes")
 	if err != nil {
 		// If this is the "conflict" error message, we will want to gracefully quit and retry.
-		if strings.Contains(stderr, "error: [409] Conflict: Another update is currently in progress.") {
+		if strings.Contains(stderr, "error: [409] Conflict: Another update is currently in progress") {
 			return pulumiv1alpha1.StackUpdateConflict, err
+		}
+		// If this is the "not found" error message, we will want to gracefully quit and retry.
+		if strings.Contains(stderr, "error: [404] Not found") {
+			return pulumiv1alpha1.StackNotFound, err
 		}
 		return pulumiv1alpha1.StackUpdateFailed, err
 	}
