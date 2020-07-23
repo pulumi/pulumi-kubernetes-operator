@@ -183,23 +183,24 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	// Check if the Stack instance is marked to be deleted, which is
 	// indicated by the deletion timestamp being set.
 	isStackMarkedToBeDeleted = instance.GetDeletionTimestamp() != nil
-	if isStackMarkedToBeDeleted && !contains(instance.GetFinalizers(), pulumiFinalizer) {
-		sess.logger.Info("Stack is already deleted, skipping reconciliation")
-		return reconcile.Result{}, nil
-	}
-	if isStackMarkedToBeDeleted && contains(instance.GetFinalizers(), pulumiFinalizer) {
-		if err := sess.finalize(instance); err != nil {
+
+	// Finalize the stack, or add a finalizer based on the deletion timestamp.
+	if isStackMarkedToBeDeleted {
+		if contains(instance.GetFinalizers(), pulumiFinalizer) {
+			err := sess.finalize(instance)
+			// Manage extra status here
 			return reconcile.Result{}, err
 		}
-
-		// Manage extra status here
-		// Stop reconciliation as the item is being deleted
-		return reconcile.Result{}, nil
-	}
-	if !isStackMarkedToBeDeleted && !contains(instance.GetFinalizers(), pulumiFinalizer) {
-		// Add finalizer to Stack if not being deleted
-		err := sess.addFinalizer(instance)
-		return reconcile.Result{Requeue: true}, err
+	} else {
+		if !contains(instance.GetFinalizers(), pulumiFinalizer) {
+			// Add finalizer to Stack if not being deleted
+			err := sess.addFinalizer(instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			// Requeue after adding finalizer as not doing so can create competing loops.
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		}
 	}
 
 	// Step 3. If a stack refresh is requested, run it now.
@@ -223,16 +224,16 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	default:
 		if err != nil {
-			// TODO: if there was a failure, we should check for a few things:
-			//     1) requeue if it's a "update already in progress".
-			//     2) stack export and see if there are pending_operations.
+			reqLogger.Error(err, "Failed to update Stack", "Stack.Name", stack.Stack)
+			// Update Stack status with failed state
 			instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
 				State: "failed",
 			}
-			err2 := sess.updateResourceStatus(instance)
-			if err2 != nil {
-				reqLogger.Error(err2, "Failed to update failed Stack status", "Stack.Name", stack.Stack)
-				return reconcile.Result{}, err2
+			if err2 := sess.updateResourceStatus(instance); err2 != nil {
+				msg := "Failed to update status for a failed Stack update"
+				err3 := errors.Wrapf(err, err2.Error())
+				reqLogger.Error(err3, msg)
+				return reconcile.Result{}, err3
 			}
 			return reconcile.Result{}, err
 		}
