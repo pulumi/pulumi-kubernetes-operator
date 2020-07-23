@@ -25,6 +25,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	// Needed for kubebuilder to insert imports for api versions.
+	// https://book.kubebuilder.io/cronjob-tutorial/empty-main.html
+	// https://github.com/kubernetes-sigs/kubebuilder/issues/1487
 	// +kubebuilder:scaffold:imports
 )
 
