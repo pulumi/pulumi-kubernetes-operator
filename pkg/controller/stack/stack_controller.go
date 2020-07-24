@@ -251,6 +251,10 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		reqLogger.Error(err, "Failed to get Stack outputs", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
 	}
+	if outs == nil {
+		reqLogger.Info("Stack outputs are empty. Skipping status update", "Stack.Name", stack.Stack)
+		return reconcile.Result{}, nil
+	}
 	err = sess.getLatestResource(instance, request.NamespacedName)
 	if err != nil {
 		sess.logger.Error(err, "Failed to get latest Stack to update successful Stack status", "Stack.Name", instance.Spec.Stack)
