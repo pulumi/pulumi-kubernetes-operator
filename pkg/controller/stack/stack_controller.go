@@ -119,14 +119,6 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	// indicated by the deletion timestamp being set.
 	isStackMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
 
-	// Don't run this loop if already at desired state, unless marked for deletion.
-	if instance.Status.LastUpdate != nil &&
-		instance.Status.LastUpdate.State == instance.Spec.Commit &&
-		!isStackMarkedToBeDeleted {
-		reqLogger.Info("Stack already to desired state", "Stack.Commit", instance.Spec.Commit)
-		return reconcile.Result{}, nil
-	}
-
 	// Fetch the API token from the named secret.
 	secret := &corev1.Secret{}
 	if err = r.client.Get(context.TODO(),
@@ -201,6 +193,20 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 			// Requeue after adding finalizer as not doing so can create competing loops.
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
+	}
+
+	// Run the Pulumi update iff the desired state has not already been
+	// reached, or if it is marked to be deleted.
+	err = sess.getLatestResource(instance, request.NamespacedName)
+	if err != nil {
+		sess.logger.Error(err, "Failed to get latest Stack before updating Stack", "Stack.Name", instance.Spec.Stack)
+		return reconcile.Result{}, err
+	}
+	isStackMarkedToBeDeleted = instance.GetDeletionTimestamp() != nil
+	// Don't run rest of loop if already at desired state, unless marked for deletion.
+	if !isStackMarkedToBeDeleted && (instance.Status.LastUpdate != nil && instance.Status.LastUpdate.State == instance.Spec.Commit) {
+		reqLogger.Info("Stack already at desired state", "Stack.Commit", instance.Spec.Commit)
+		return reconcile.Result{}, nil
 	}
 
 	// Step 3. If a stack refresh is requested, run it now.
