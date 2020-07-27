@@ -6,9 +6,9 @@ ENV OPERATOR=/usr/local/bin/pulumi-kubernetes-operator
 #    USER_NAME=pulumi-kubernetes-operator
 
 # install operator binary
-COPY build/_output/bin/pulumi-kubernetes-operator ${OPERATOR}
+COPY pulumi-kubernetes-operator ${OPERATOR}
 
-COPY build/bin /usr/local/bin
+COPY build/bin/* /usr/local/bin/
 RUN  /usr/local/bin/user_setup
 
 RUN useradd -m pulumi-kubernetes-operator
