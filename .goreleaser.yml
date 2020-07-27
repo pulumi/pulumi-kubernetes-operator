@@ -1,0 +1,75 @@
+project_name: pulumi-kubernetes-operator
+
+builds:
+  - ldflags:
+      - -X github.com/pulumi/pulumi-kubernetes-operator/pkg/version.gitCommit=${GIT_COMMIT}
+      - -X github.com/pulumi/pulumi-kubernetes-operator/pkg/version.gitVersion=${GIT_TAG}
+      - -X github.com/pulumi/pulumi-kubernetes-operator/pkg/version.gitTreeState=${GIT_DIRTY}
+      - -X github.com/pulumi/pulumi-kubernetes-operator/pkg/version.buildDate=${BUILD_DATE}
+      - -w -extldflags "-static"
+    flags:
+      - -a
+      - -tags
+      - netgo
+    goos:
+      - linux
+    goarch:
+      - amd64
+    env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    main: ./cmd/manager/main.go
+    binary: pulumi-kubernetes-operator
+
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    replacements:
+      linux: Linux
+      amd64: x86_64
+    files:
+      - none*
+
+checksum:
+  name_template: '{{ .ProjectName }}_checksums.txt'
+
+snapshot:
+  name_template: "SNAPSHOT-{{.Commit}}"
+
+changelog:
+  sort: asc
+
+release:
+  github:
+    owner: pulumi
+    name: pulumi-kubernetes-operator
+  name_template: "{{.ProjectName}}-v{{.Version}}"
+
+dockers:
+  -
+    # GOOS of the built binary that should be used.
+    goos: linux
+
+    # GOARCH of the built binary that should be used.
+    goarch: amd64
+
+    # Name templates of the built binaries that should be used.
+    binaries:
+    - "{{ .ProjectName }}"
+
+    # Path to the Dockerfile (from the project root).
+    dockerfile: Dockerfile
+
+    # Templates of the Docker image names.
+    image_templates:
+    - "pulumi/{{ .ProjectName }}:latest"
+    - "pulumi/{{ .ProjectName }}:{{ .Tag }}"
+
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.label-schema.build-date={{.Date}}"
+      - "--label=org.label-schema.name={{ .ProjectName }}"
+      - "--label=org.label-schema.vcs-ref={{ .ShortCommit }}"
+      - "--label=org.label-schema.vcs-url='{{ .GitURL }}'"
+
+    extra_files:
+      - "build/bin"
