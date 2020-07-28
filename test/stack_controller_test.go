@@ -30,8 +30,7 @@ const pulumiAWSSecretName = "pulumi-aws-secrets"
 const timeout = time.Minute * 10
 const interval = time.Second * 1
 
-// TODO: change to new k8s-operator user/org for CI.
-const stackOrg = "metral"
+const stackOrg = "k8s-operator-bot"
 
 var _ = Describe("Stack Controller", func() {
 	ctx := context.Background()
