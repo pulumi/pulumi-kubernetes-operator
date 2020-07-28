@@ -196,8 +196,6 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			// Requeue after adding finalizer as not doing so can create competing loops.
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 	}
 
