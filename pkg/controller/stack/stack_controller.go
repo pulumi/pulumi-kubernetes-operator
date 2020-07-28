@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
+	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -65,15 +66,20 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Filter out update events if an object's metadata.generation is unchanged.
+	// Filter out update events if an object's metadata.generation is
+	// unchanged, or if the object never had a generation update.
+	//  - https://github.com/operator-framework/operator-lib/blob/main/predicate/nogeneration.go#L29-L34
 	//  - https://github.com/operator-framework/operator-sdk/issues/2795
 	//  - https://github.com/kubernetes-sigs/kubebuilder/issues/1103
 	//  - https://github.com/kubernetes-sigs/controller-runtime/pull/553
 	//  - https://book-v1.book.kubebuilder.io/basics/status_subresource.html
-	pred := predicate.GenerationChangedPredicate{}
+	// Set up predicates.
+	predicates := []predicate.Predicate{
+		predicate.Or(predicate.GenerationChangedPredicate{}, libpredicate.NoGenerationPredicate{}),
+	}
 
 	// Watch for changes to primary resource Stack
-	err = c.Watch(&source.Kind{Type: &pulumiv1alpha1.Stack{}}, &handler.EnqueueRequestForObject{}, pred)
+	err = c.Watch(&source.Kind{Type: &pulumiv1alpha1.Stack{}}, &handler.EnqueueRequestForObject{}, predicates...)
 	if err != nil {
 		return err
 	}
