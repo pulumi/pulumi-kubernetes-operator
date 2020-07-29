@@ -2,7 +2,7 @@ GIT_COMMIT := $(shell git rev-parse --short HEAD)
 VERSION := 0.1.0-$(GIT_COMMIT)
 IMAGE_NAME := docker.io/pulumi/pulumi-kubernetes-operator
 
-default: build install-crds
+default: build
 
 install-crds:
 	kubectl apply -f deploy/crds/pulumi.com_stacks.yaml
@@ -15,10 +15,14 @@ generate-crds:
 generate-k8s:
 	./scripts/generate_k8s.sh
 
-build-image:
-	operator-sdk build --image-builder docker $(IMAGE_NAME):$(VERSION)
+build-image: build-static
+	docker build --rm -t $(IMAGE_NAME):$(VERSION) -f Dockerfile .
 
-build: codegen build-image
+build:
+	./scripts/build.sh
+
+build-static:
+	./scripts/build.sh static
 
 push-image:
 	docker push $(IMAGE_NAME):$(VERSION)
@@ -45,4 +49,4 @@ dep-tidy:
 
 release: test push-image-latest
 
-.PHONY: codegen generate-crds install-crds generate-k8s test version dep-tidy build-image push-image push-image-latest release deploy
+.PHONY: build build-static codegen generate-crds install-crds generate-k8s test version dep-tidy build-image push-image push-image-latest release deploy
