@@ -63,16 +63,10 @@ Build and generate the CRD and controller logic for the operator, and create the
 $ make build
 ```
 
-Install the CRD in your cluster.  
+Codegen and Install the CRD in your cluster.  
 
 ```
-$ make install-crds
-```
-
-To build and install together, simply run:
-
-```
-$ make
+$ make codegen install-crds
 ```
 
 ### Run Locally
