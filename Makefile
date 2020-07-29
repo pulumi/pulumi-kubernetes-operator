@@ -29,7 +29,7 @@ push-image-latest: push-image
 	docker push $(IMAGE_NAME):latest
 
 test:
-	ginkgo -v -p ./test/...
+	ginkgo -v ./test/...
 
 deploy:
 	kubectl apply -f deploy/service_account.yaml
