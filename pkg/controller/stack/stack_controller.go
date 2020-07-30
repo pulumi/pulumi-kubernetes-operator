@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -43,6 +44,7 @@ var log = logf.Log.WithName("controller_stack")
 
 const pulumiFinalizer = "finalizer.stack.pulumi.com"
 const maxConcurrentReconciles = 10 // arbitrary value greater than default of 1
+const consoleURL = "https://app.pulumi.com"
 
 // Add creates a new Stack Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -196,6 +198,8 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 			if err != nil {
 				return reconcile.Result{}, err
 			}
+			// Add default permalink for the stack in the Pulumi Service.
+			sess.addDefaultPermalink(instance)
 		}
 	}
 
@@ -215,12 +219,34 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 
 	// Step 3. If a stack refresh is requested, run it now.
 	if sess.stack.Refresh {
-		sess.RefreshStack(sess.stack.ExpectNoRefreshChanges)
+		permalink, err := sess.RefreshStack(sess.stack.ExpectNoRefreshChanges)
+		if err != nil {
+			sess.logger.Error(err, "Failed to refresh stack", "Stack.Name", instance.Spec.Stack)
+			return reconcile.Result{}, err
+		}
+		err = sess.getLatestResource(instance, request.NamespacedName)
+		if err != nil {
+			sess.logger.Error(err, "Failed to get latest Stack to update refresh status", "Stack.Name", instance.Spec.Stack)
+			return reconcile.Result{}, err
+		}
+		if instance.Status.LastUpdate == nil {
+			instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
+				Permalink: *permalink,
+			}
+		} else {
+			instance.Status.LastUpdate.Permalink = *permalink
+		}
+		err = sess.updateResourceStatus(instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Stack status for refresh", "Stack.Name", stack.Stack)
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Successfully refreshed Stack", "Stack.Name", stack.Stack)
 	}
 
 	// Step 4. Run a `pulumi up --skip-preview`.
 	// TODO: is it possible to support a --dry-run with a preview?
-	status, err := sess.UpdateStack()
+	status, permalink, err := sess.UpdateStack()
 	switch status {
 	case pulumiv1alpha1.StackUpdateConflict:
 		if sess.stack.RetryOnUpdateConflict {
@@ -237,7 +263,8 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 			reqLogger.Error(err, "Failed to update Stack", "Stack.Name", stack.Stack)
 			// Update Stack status with failed state
 			instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
-				State: "failed",
+				State:     "failed",
+				Permalink: *permalink,
 			}
 			if err2 := sess.updateResourceStatus(instance); err2 != nil {
 				msg := "Failed to update status for a failed Stack update"
@@ -265,8 +292,14 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 	instance.Status.Outputs = outs
-	instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
-		State: instance.Spec.Commit,
+	if instance.Status.LastUpdate == nil {
+		instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
+			State:     instance.Spec.Commit,
+			Permalink: *permalink,
+		}
+	} else {
+		instance.Status.LastUpdate.State = instance.Spec.Commit
+		instance.Status.LastUpdate.Permalink = *permalink
 	}
 	err = sess.updateResourceStatus(instance)
 	if err != nil {
@@ -607,35 +640,35 @@ func (sess *reconcileStackSession) UpdateSecretConfig() error {
 	return nil
 }
 
-func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) error {
+func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1alpha1.Permalink, error) {
 	cmdArgs := []string{"refresh", "--yes"}
 	if expectNoChanges {
 		cmdArgs = append(cmdArgs, "--expect-no-changes")
 	}
-	_, _, err := sess.pulumi(cmdArgs...)
+	stdout, _, err := sess.pulumi(cmdArgs...)
 	if err != nil {
-		return errors.Wrapf(err, "refreshing stack '%s'", sess.stack.Stack)
+		return nil, errors.Wrapf(err, "refreshing stack '%s'", sess.stack.Stack)
 	}
-	return nil
+	return sess.getPermalink(stdout), nil
 }
 
 // UpdateStack runs the update on the stack and returns an update status code
 // and error. In certain cases, an update may be unabled to proceed due to locking,
 // in which case the operator will requeue itself to retry later.
-func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStatus, error) {
-	_, stderr, err := sess.pulumi("up", "--skip-preview", "--yes")
+func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStatus, pulumiv1alpha1.Permalink, error) {
+	stdout, stderr, err := sess.pulumi("up", "--skip-preview", "--yes")
 	if err != nil {
 		// If this is the "conflict" error message, we will want to gracefully quit and retry.
 		if strings.Contains(stderr, "error: [409] Conflict: Another update is currently in progress") {
-			return pulumiv1alpha1.StackUpdateConflict, err
+			return pulumiv1alpha1.StackUpdateConflict, nil, err
 		}
 		// If this is the "not found" error message, we will want to gracefully quit and retry.
 		if strings.Contains(stderr, "error: [404] Not found") {
-			return pulumiv1alpha1.StackNotFound, err
+			return pulumiv1alpha1.StackNotFound, nil, err
 		}
-		return pulumiv1alpha1.StackUpdateFailed, err
+		return pulumiv1alpha1.StackUpdateFailed, nil, err
 	}
-	return pulumiv1alpha1.StackUpdateSucceeded, nil
+	return pulumiv1alpha1.StackUpdateSucceeded, sess.getPermalink(stdout), nil
 }
 
 // GetPulumiOutputs gets the stack outputs and parses them into a map.
@@ -663,6 +696,39 @@ func (sess *reconcileStackSession) DestroyStack() error {
 	if err != nil {
 		return errors.Wrapf(err, "removing stack '%s'", sess.stack.Stack)
 	}
+	return nil
+}
+
+// Hack to parse the permalink until we have a programmatic way of doing so.
+func (sess *reconcileStackSession) getPermalink(stdout string) pulumiv1alpha1.Permalink {
+	substr := "Permalink: "
+	idx := strings.Index(stdout, substr)
+	p := stdout[idx+len(substr):]
+	p = strings.TrimSuffix(p, "\n")
+	return pulumiv1alpha1.Permalink(&p)
+}
+
+// Add default permalink for the stack in the Pulumi Service.
+func (sess *reconcileStackSession) addDefaultPermalink(stack *pulumiv1alpha1.Stack) error {
+	namespacedName := types.NamespacedName{Name: stack.Name, Namespace: stack.Namespace}
+	err := sess.getLatestResource(stack, namespacedName)
+	if err != nil {
+		sess.logger.Error(err, "Failed to get latest Stack to update Stack Permalink URL", "Stack.Name", stack.Spec.Stack)
+		return err
+	}
+	if stack.Status.LastUpdate == nil {
+		stack.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
+			Permalink: fmt.Sprintf("%s/%s", consoleURL, stack.Spec.Stack),
+		}
+	} else {
+		stack.Status.LastUpdate.Permalink = fmt.Sprintf("%s/%s", consoleURL, stack.Name)
+	}
+	err = sess.updateResourceStatus(stack)
+	if err != nil {
+		sess.logger.Error(err, "Failed to update Stack status with default permalink", "Stack.Name", stack.Spec.Stack)
+		return err
+	}
+	sess.logger.Info("Successfully updated Stack with default permalink", "Stack.Name", stack.Spec.Stack)
 	return nil
 }
 
