@@ -66,3 +66,20 @@ jobs:
 
         # Cleanup
         scripts/ci-cluster-destroy.sh
+  release:
+    needs: [operator-build, operator-int-tests]
+    runs-on: ubuntu-latest
+    name: Tag Release
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+    - name: Install Go
+      uses: actions/setup-go@v2.1.1
+      with:
+        go-version: '1.14.6'
+    - name: GoReleaser
+      uses: goreleaser/goreleaser-action@v2
+      with:
+        args: release --skip-sign
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
