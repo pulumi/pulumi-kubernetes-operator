@@ -92,8 +92,8 @@ type StackOutputs map[string]apiextensionsv1.JSON
 type StackUpdateState struct {
 	// State is the state of the stack update - one of `succeeded` or `failed`
 	State string `json:"state,omitempty"`
-	// TODO: Add additional information about errors if state was `failed`
-	// TODO: Potentially add the revision number of the last update
+	// Permalink is the Pulumi Console URL of the stack operation.
+	Permalink string `json:"url,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -154,6 +154,9 @@ type ProjectSourceOptions struct {
 	RepoDir string `json:"repoDir,omitempty"`
 }
 
+// Permalink is the Pulumi Service URL of the stack operation.
+type Permalink *string
+
 // StackController contains methods to operate a Pulumi Project and Stack in an update.
 //
 // Ignoring operator codegen of interface as it is an API contract for implementation,
@@ -191,10 +194,10 @@ type StackController interface {
 	UpdateSecretConfig() error
 	// RefreshStack refreshes the stack before the update step is run, and
 	// errors the run if changes were not expected but found after the refresh.
-	RefreshStack(expectNoChanges bool) error
+	RefreshStack(expectNoChanges bool) (Permalink, error)
 	// UpdateStack deploys the stack's resources, computes the new desired
 	// state, and returns the update's status.
-	UpdateStack() (StackUpdateStatus, error)
+	UpdateStack() (StackUpdateStatus, Permalink, error)
 	// GetStackOutputs returns all of the the stack's output properties.
 	GetStackOutputs() (StackOutputs, error)
 	// DestroyStack destroys the stack's resources and state, and the stack itself.
