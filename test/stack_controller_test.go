@@ -128,6 +128,7 @@ var _ = Describe("Stack Controller", func() {
 			ProjectRepo:       "https://github.com/metral/test-s3-op-project", // TODO: relocate to some other repo
 			Commit:            "bd1edfac28577d62068b7ace0586df595bda33be",
 			DestroyOnFinalize: true,
+			Refresh:           true,
 		}
 
 		// Create the stack
