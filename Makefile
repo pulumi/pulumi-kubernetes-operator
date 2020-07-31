@@ -1,5 +1,5 @@
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
-VERSION := 0.1.0-$(GIT_COMMIT)
+VERSION := $(GIT_COMMIT)
 IMAGE_NAME := docker.io/pulumi/pulumi-kubernetes-operator
 
 default: build
@@ -27,11 +27,6 @@ build-static:
 push-image:
 	docker push $(IMAGE_NAME):$(VERSION)
 
-push-image-latest: push-image
-	# Tag and push the current version as latest
-	docker tag $(IMAGE_NAME):$(VERSION) $(IMAGE_NAME):latest
-	docker push $(IMAGE_NAME):latest
-
 test:
 	ginkgo -v ./test/...
 
@@ -47,6 +42,4 @@ version:
 dep-tidy:
 	go mod tidy
 
-release: test push-image-latest
-
-.PHONY: build build-static codegen generate-crds install-crds generate-k8s test version dep-tidy build-image push-image push-image-latest release deploy
+.PHONY: build build-static codegen generate-crds install-crds generate-k8s test version dep-tidy build-image push-image push-image-latest deploy
