@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -45,6 +46,9 @@ var log = logf.Log.WithName("controller_stack")
 const pulumiFinalizer = "finalizer.stack.pulumi.com"
 const maxConcurrentReconciles = 10 // arbitrary value greater than default of 1
 const consoleURL = "https://app.pulumi.com"
+const permalinkSearchStr = "Permalink: "
+
+var regex = regexp.MustCompile(permalinkSearchStr)
 
 // Add creates a new Stack Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -198,6 +202,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 			if err != nil {
 				return reconcile.Result{}, err
 			}
+			time.Sleep(2 * time.Second) // arbitrary sleep after finalizer add to avoid stale obj for permalink
 			// Add default permalink for the stack in the Pulumi Service.
 			sess.addDefaultPermalink(instance)
 		}
@@ -231,10 +236,10 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		}
 		if instance.Status.LastUpdate == nil {
 			instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
-				Permalink: *permalink,
+				Permalink: permalink,
 			}
 		} else {
-			instance.Status.LastUpdate.Permalink = *permalink
+			instance.Status.LastUpdate.Permalink = permalink
 		}
 		err = sess.updateResourceStatus(instance)
 		if err != nil {
@@ -263,8 +268,8 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 			reqLogger.Error(err, "Failed to update Stack", "Stack.Name", stack.Stack)
 			// Update Stack status with failed state
 			instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
-				State:     "failed",
-				Permalink: *permalink,
+				State:     pulumiv1alpha1.FailedStackStateMessage,
+				Permalink: permalink,
 			}
 			if err2 := sess.updateResourceStatus(instance); err2 != nil {
 				msg := "Failed to update status for a failed Stack update"
@@ -295,11 +300,11 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	if instance.Status.LastUpdate == nil {
 		instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
 			State:     instance.Spec.Commit,
-			Permalink: *permalink,
+			Permalink: permalink,
 		}
 	} else {
 		instance.Status.LastUpdate.State = instance.Spec.Commit
-		instance.Status.LastUpdate.Permalink = *permalink
+		instance.Status.LastUpdate.Permalink = permalink
 	}
 	err = sess.updateResourceStatus(instance)
 	if err != nil {
@@ -647,9 +652,13 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1a
 	}
 	stdout, _, err := sess.pulumi(cmdArgs...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "refreshing stack '%s'", sess.stack.Stack)
+		return pulumiv1alpha1.Permalink(""), errors.Wrapf(err, "refreshing stack '%s'", sess.stack.Stack)
 	}
-	return sess.getPermalink(stdout), nil
+	permalink, err := sess.getPermalink(stdout)
+	if err != nil {
+		return pulumiv1alpha1.Permalink(""), err
+	}
+	return permalink, nil
 }
 
 // UpdateStack runs the update on the stack and returns an update status code
@@ -660,15 +669,19 @@ func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStat
 	if err != nil {
 		// If this is the "conflict" error message, we will want to gracefully quit and retry.
 		if strings.Contains(stderr, "error: [409] Conflict: Another update is currently in progress") {
-			return pulumiv1alpha1.StackUpdateConflict, nil, err
+			return pulumiv1alpha1.StackUpdateConflict, pulumiv1alpha1.Permalink(""), err
 		}
 		// If this is the "not found" error message, we will want to gracefully quit and retry.
 		if strings.Contains(stderr, "error: [404] Not found") {
-			return pulumiv1alpha1.StackNotFound, nil, err
+			return pulumiv1alpha1.StackNotFound, pulumiv1alpha1.Permalink(""), err
 		}
-		return pulumiv1alpha1.StackUpdateFailed, nil, err
+		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), err
 	}
-	return pulumiv1alpha1.StackUpdateSucceeded, sess.getPermalink(stdout), nil
+	permalink, err := sess.getPermalink(stdout)
+	if err != nil {
+		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), err
+	}
+	return pulumiv1alpha1.StackUpdateSucceeded, permalink, nil
 }
 
 // GetPulumiOutputs gets the stack outputs and parses them into a map.
@@ -700,12 +713,14 @@ func (sess *reconcileStackSession) DestroyStack() error {
 }
 
 // Hack to parse the permalink until we have a programmatic way of doing so.
-func (sess *reconcileStackSession) getPermalink(stdout string) pulumiv1alpha1.Permalink {
-	substr := "Permalink: "
-	idx := strings.Index(stdout, substr)
-	p := stdout[idx+len(substr):]
-	p = strings.TrimSuffix(p, "\n")
-	return pulumiv1alpha1.Permalink(&p)
+func (sess *reconcileStackSession) getPermalink(stdout string) (pulumiv1alpha1.Permalink, error) {
+	found := regex.FindStringIndex(stdout)
+	if found == nil {
+		return pulumiv1alpha1.Permalink(""), errors.New(fmt.Sprintf("getting permalink for stack '%s'", sess.stack.Stack))
+	}
+	substr := stdout[found[1]:]
+	p := strings.TrimSuffix(substr, "\n")
+	return pulumiv1alpha1.Permalink(p), nil
 }
 
 // Add default permalink for the stack in the Pulumi Service.
@@ -718,10 +733,10 @@ func (sess *reconcileStackSession) addDefaultPermalink(stack *pulumiv1alpha1.Sta
 	}
 	if stack.Status.LastUpdate == nil {
 		stack.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
-			Permalink: fmt.Sprintf("%s/%s", consoleURL, stack.Spec.Stack),
+			Permalink: pulumiv1alpha1.Permalink(fmt.Sprintf("%s/%s", consoleURL, stack.Spec.Stack)),
 		}
 	} else {
-		stack.Status.LastUpdate.Permalink = fmt.Sprintf("%s/%s", consoleURL, stack.Name)
+		stack.Status.LastUpdate.Permalink = pulumiv1alpha1.Permalink(fmt.Sprintf("%s/%s", consoleURL, stack.Name))
 	}
 	err = sess.updateResourceStatus(stack)
 	if err != nil {

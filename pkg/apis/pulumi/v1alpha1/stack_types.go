@@ -93,7 +93,7 @@ type StackUpdateState struct {
 	// State is the state of the stack update - one of `succeeded` or `failed`
 	State string `json:"state,omitempty"`
 	// Permalink is the Pulumi Console URL of the stack operation.
-	Permalink string `json:"url,omitempty"`
+	Permalink Permalink `json:"permalink,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -137,6 +137,9 @@ const (
 	StackNotFound StackUpdateStatus = 4
 )
 
+// FailedStackStateMessage is a const to indicate stack failure in the status.
+const FailedStackStateMessage = "failed"
+
 // ProjectSourceOptions is the settings to work with the project source repo.
 type ProjectSourceOptions struct {
 	// The access token to access project source repo. This is required for
@@ -155,7 +158,7 @@ type ProjectSourceOptions struct {
 }
 
 // Permalink is the Pulumi Service URL of the stack operation.
-type Permalink *string
+type Permalink string
 
 // StackController contains methods to operate a Pulumi Project and Stack in an update.
 //
