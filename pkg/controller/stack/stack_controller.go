@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -53,6 +54,12 @@ var regex = regexp.MustCompile(permalinkSearchStr)
 // Add creates a new Stack Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
+	// Use the ServiceAccount CA cert and token to setup $HOME/.kube/config.
+	// This is used to deploy Pulumi Stacks of k8s resources
+	// in-cluster that use the default, ambient kubeconfig.
+	if err := setupInClusterKubeconfig(); err != nil {
+		log.Info("skipping in-cluster kubeconfig setup due to non-existent ServiceAccount", "error", err)
+	}
 	return add(mgr, newReconciler(mgr))
 }
 
@@ -790,4 +797,82 @@ func contains(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// Use the ServiceAccount CA cert and token to setup $HOME/.kube/config.
+// This makes the cert and token already available to the operator by its
+// ServiceAccount into a consumable kubeconfig file written its filesystem for
+// usage. This kubeconfig is used to deploy Pulumi Stacks of k8s resources
+// in-cluster that use the default, ambient kubeconfig.
+func setupInClusterKubeconfig() error {
+	const certFp = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	const tokenFp = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	kubeFp := os.ExpandEnv("$HOME/.kube")
+	kubeconfigFp := fmt.Sprintf("%s/config", kubeFp)
+
+	cert, err := waitForFile(certFp)
+	if err != nil {
+		return errors.Wrap(err, "failed to open in-cluster ServiceAccount CA certificate")
+	}
+	token, err := waitForFile(tokenFp)
+	if err != nil {
+		return errors.Wrap(err, "failed to open in-cluster ServiceAccount token")
+	}
+
+	// Compute the kubeconfig using the cert and token.
+	s := fmt.Sprintf(`
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: %s
+    server: https://%s
+  name: local
+contexts:
+- context:
+    cluster: local
+    user: local
+  name: local
+current-context: local
+kind: Config
+users:
+- name: local
+  user:
+    token: %s
+`, string(base64.StdEncoding.EncodeToString(cert)), os.ExpandEnv("$KUBERNETES_PORT_443_TCP_ADDR"), string(token))
+
+	err = os.Mkdir(os.ExpandEnv(kubeFp), 0755)
+	if err != nil {
+		return errors.Wrap(err, "failed to create .kube directory")
+	}
+	file, err := os.Create(os.ExpandEnv(kubeconfigFp))
+	if err != nil {
+		return errors.Wrap(err, "failed to create kubeconfig file")
+	}
+	return ioutil.WriteFile(file.Name(), []byte(s), 0644)
+}
+
+// waitForFile waits for the existence of a file, and returns its contents if
+// available.
+func waitForFile(fp string) ([]byte, error) {
+	retries := 3
+	fileExists := false
+	var err error
+	for i := 0; i < retries; i++ {
+		if _, err = os.Stat(fp); os.IsNotExist(err) {
+			time.Sleep(2 * time.Second)
+		} else {
+			fileExists = true
+			break
+		}
+	}
+
+	if !fileExists {
+		return nil, err
+	}
+
+	file, err := ioutil.ReadFile(fp)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to open file: %s", fp)
+	}
+	return file, err
 }
