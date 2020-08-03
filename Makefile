@@ -1,6 +1,6 @@
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
 VERSION := $(GIT_COMMIT)
-IMAGE_NAME := docker.io/pulumi/pulumi-kubernetes-operator
+IMAGE_NAME := docker.io/$(shell whoami)/pulumi-kubernetes-operator
 
 default: build
 
@@ -31,10 +31,10 @@ test:
 	ginkgo -v ./test/...
 
 deploy:
-	kubectl apply -f deploy/service_account.yaml
-	kubectl apply -f deploy/role.yaml
-	kubectl apply -f deploy/role_binding.yaml
-	sed -e "s#<IMG_NAME>:<IMG_VERSION>#$(IMAGE_NAME):$(VERSION)#g" deploy/operator.yaml | kubectl apply -f -
+	kubectl apply -f deploy/yaml/service_account.yaml
+	kubectl apply -f deploy/yaml/role.yaml
+	kubectl apply -f deploy/yaml/role_binding.yaml
+	sed -e "s#<IMG_NAME>:<IMG_VERSION>#$(IMAGE_NAME):$(VERSION)#g" deploy/operator_template.yaml | kubectl apply -f -
 
 version:
 	@echo $(VERSION)
