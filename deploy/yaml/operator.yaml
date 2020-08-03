@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   name: pulumi-kubernetes-operator
 spec:
+  # Currently only 1 replica supported, until leader election: https://github.com/pulumi/pulumi-kubernetes-operator/issues/33
   replicas: 1
   selector:
     matchLabels:
@@ -17,8 +18,7 @@ spec:
         - name: pulumi-kubernetes-operator
       containers:
         - name: pulumi-kubernetes-operator
-          #image: pulumi/pulumi-kubernetes-operator:v0.1.0
-          image: <IMG_NAME>:<IMG_VERSION>
+          image: pulumi/pulumi-kubernetes-operator:v0.0.1
           command:
           - pulumi-kubernetes-operator
           args:
