@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pulumi-api-secret
+type: Opaque
+stringData:
+  accessToken: "<REDACTED: PULUMI_ACCESS_TOKEN>"
+---
+apiVersion: pulumi.com/v1alpha1
+kind: Stack
+metadata:
+  name: nginx-k8s-stack
+spec:
+  accessTokenSecret: pulumi-api-secret
+  stack: joeduffy/nginx/dev
+  initOnCreate: true # noop if stack already exists
+  projectRepo: https://github.com/metral/pulumi-nginx
+  commit: 2b0889718d3e63feeb6079ccd5e4488d8601e353
+  destroyOnFinalize: true
