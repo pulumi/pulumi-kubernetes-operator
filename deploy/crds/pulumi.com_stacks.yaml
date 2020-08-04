@@ -102,6 +102,9 @@ spec:
             lastUpdate:
               description: LastUpdate contains details of the status of the last update.
               properties:
+                permalink:
+                  description: Permalink is the Pulumi Console URL of the stack operation.
+                  type: string
                 state:
                   description: State is the state of the stack update - one of `succeeded` or `failed`
                   type: string
