@@ -54,7 +54,28 @@ Update the Pulumi API token Secret to use your Pulumi credentials.
 Also update the `stack` org to match your account, leaving the stack project name as-is to work with the example repo's `Pulumi.yaml`. 
 
 ```python
-TODO
+import pulumi
+from pulumi_kubernetes import core, apiextensions
+
+# Get the Pulumi API token.
+pulumi_config = pulumi.Config()
+pulumi_access_token = pulumi_config.require_secret("pulumiAccessToken")
+
+# Create the API token as a Kubernetes Secret.
+access_token = core.v1.Secret("accesstoken", string_data={ "access_token": pulumi_access_token })
+
+# Create an NGINX deployment in-cluster.
+my_stack = apiextensions.CustomResource("my-stack",
+    api_version="pulumi.com/v1alpha1",
+    kind="Stack",
+    spec={
+        "access_token_secret": access_token.metadata["name"],
+        "stack": "<YOUR_ORG>/nginx/dev",
+        "init_on_create": True,
+        "project_repo": "https://github.com/metral/pulumi-nginx",
+        "destroy_on_finalize": True,
+    }
+)
 ```
 
 ## AWS S3 Buckets
@@ -67,7 +88,41 @@ your Pulumi and AWS credentials.
 Also update the `stack` org to match your account, leaving the stack project name as-is to work with the example repo's `Pulumi.yaml`. 
 
 ```python
-TODO
+import pulumi
+from pulumi_kubernetes import core, apiextensions
+
+# Get the Pulumi API token.
+pulumi_config = pulumi.Config()
+pulumi_access_token = pulumi_config.require_secret("pulumiAccessToken")
+aws_access_key_id = pulumi_config.require("awsAccessKeyId")
+aws_secret_access_key = pulumi_config.require_secret("awsSecretAccessKey")
+aws_session_token = pulumi_config.require_secret("awsSessionToken")
+
+# Create the creds as Kubernetes Secrets.
+access_token = core.v1.Secret("accesstoken", string_data={ "access_token": pulumi_access_token })
+aws_creds = core.v1.Secret("aws-creds", string_data={
+    "AWS_ACCESS_KEY_ID": aws_access_key_id,
+    "AWS_SECRET_ACCESS_KEY": aws_secret_access_key,
+    "AWS_SESSION_TOKEN": aws_session_token,
+})
+
+# Create an AWS S3 Pulumi Stack in Kubernetes.
+my_stack = apiextensions.CustomResource("my-stack",
+    api_version="pulumi.com/v1alpha1",
+    kind="Stack",
+    spec={
+        "stack": "<YOUR_ORG>/s3-op-project/dev",
+        "project_repo": "https://github.com/metral/test-s3-op-project",
+        "commit": "bd1edfac28577d62068b7ace0586df595bda33be",
+        "access_token_secret": access_token.metadata["name"],
+        "config": {
+            "aws:region": "us-west-2",
+        },
+        "env_secrets": [aws_creds.metadata["name"]],
+        "init_on_create": True,
+        "destroy_on_finalize": True,
+    }
+)
 ```
 
 Deploy the Stack CustomResource by running a `pulumi up`.

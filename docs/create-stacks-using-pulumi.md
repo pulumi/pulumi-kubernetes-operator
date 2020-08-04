@@ -6,8 +6,6 @@ Check out [Create a Pulumi Stack using Typescript](./create-stacks-using-pulumi-
 
 ### Python
 
-[TODO](https://github.com/pulumi/pulumi-kubernetes-operator/issues/47)
-
 Check out [Create a Pulumi Stack using Python](./create-stacks-using-pulumi-python.md).
 
 Note: running Python programs is [coming soon](https://github.com/pulumi/pulumi-kubernetes-operator/issues/40)
