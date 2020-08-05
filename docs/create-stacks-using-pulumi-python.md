@@ -73,6 +73,7 @@ my_stack = apiextensions.CustomResource("my-stack",
         "stack": "<YOUR_ORG>/nginx/dev",
         "init_on_create": True,
         "project_repo": "https://github.com/metral/pulumi-nginx",
+        "commit": "2b0889718d3e63feeb6079ccd5e4488d8601e353",
         "destroy_on_finalize": True,
     }
 )
