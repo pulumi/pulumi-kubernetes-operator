@@ -232,7 +232,7 @@ kubectl get stack s3-bucket-stack -o json
         "outputs": {
             "bucketNames": [
                 "my-bucket-0-5f38fc3",
-                "my-bucket-1-588d2e8"
+                "my-bucket-1-588d2e8",
                 "my-bucket-2-192f8e9"
             ]
         }
