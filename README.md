@@ -137,7 +137,7 @@ const operatorRoleBinding = new kubernetes.rbac.v1.RoleBinding("operatorRoleBind
     roleRef: {
         kind: "Role",
         name: "pulumi-kubernetes-operator",
-        apiGroup: "rbac",
+        apiGroup: "rbac.authorization.k8s.io",
     },
 });
 const operatorDeployment = new kubernetes.apps.v1.Deployment("operatorDeployment", {
@@ -549,7 +549,7 @@ class MyStack : Stack
             {
                 Kind = "Role",
                 Name = "pulumi-kubernetes-operator",
-                ApiGroup = "Rbac",
+                ApiGroup = "rbac.authorization.k8s.io",
             },
         });
         var operatorDeployment = new Kubernetes.Apps.v1.Deployment("operatorDeployment", new Kubernetes.Apps.v1.DeploymentArgs
@@ -801,7 +801,7 @@ func main() {
 			RoleRef: &rbacv1.RoleRefArgs{
 				Kind:     pulumi.String("Role"),
 				Name:     pulumi.String("pulumi-kubernetes-operator"),
-				ApiGroup: pulumi.String("rbacv1"),
+				ApiGroup: pulumi.String("rbac.authorization.k8s.io"),
 			},
 		})
 		if err != nil {
