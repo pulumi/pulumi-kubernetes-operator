@@ -89,3 +89,16 @@ jobs:
         args: release --skip-sign
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  create_docs_build:
+    name: Create docs build
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install pulumictl
+      uses: jaxxstorm/action-install-gh-release@release/v1-alpha
+      with:
+        repo: pulumi/pulumictl
+    - env:
+        GITHUB_TOKEN: ${{ secrets.PULUMI_BOT_TOKEN }}
+      name: Dispatch event
+      run: pulumictl create docs-build pulumi-kubernetes-operator ${GITHUB_REF#refs/tags/}
