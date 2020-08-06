@@ -103,7 +103,7 @@ pulumi up
 Once the update is complete, verify the operator Pod is up and running:
 
 ```bash
-$ kubectl get pods -o wide
+$ kubectl get pods -o wide -l name=pulumi-kubernetes-operator
 
 NAME                                           READY   STATUS    RESTARTS   AGE
 pulumi-kubernetes-operator-6c4d99b4b6-wqbxg    1/1     Running   0          2m39s
@@ -315,7 +315,7 @@ kubectl get stacks -o json -w
 </details>
 
 Using `curl` we can validate that the App Deployment was deployed to the
-cluster by the operator by checking it's endpoint.
+cluster by the operator by checking its endpoint.
 
 ```bash
 curl http://34.83.25.150:80/version
