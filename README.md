@@ -11,6 +11,7 @@ A Kubernetes operator that deploys Pulumi updates by cloning Git repos and runni
 * [Create a Pulumi Stack CustomResource](#create-a-pulumi-stack-customresource)
   - [Using kubectl](#using-kubectl-1)
   - [Using Pulumi](#using-pulumi-1)
+  - [Extended Examples](#extended-examples)
 * [Development](#development)
 
 ## Deploy the Operator
@@ -893,11 +894,15 @@ and update the CR with:
 
 ### Using kubectl
 
-Check out [Create Pulumi Stacks using `kubectl` ](./docs/create-stacks-using-kubectl.md).
+Check out [Create Pulumi Stacks using `kubectl` ](./docs/create-stacks-using-kubectl.md) for YAML examples.
 
 ### Using Pulumi
 
-Check out [Create Pulumi Stacks using Pulumi](./docs/create-stacks-using-pulumi.md).
+Check out [Create Pulumi Stacks using Pulumi](./docs/create-stacks-using-pulumi.md) for Typescript, Python, Go, and .NET examples.
+
+### Extended Examples
+
+- [Managing a Kubernetes Blue/Green Deployment](./examples/blue-green)
 
 ## Development
 
