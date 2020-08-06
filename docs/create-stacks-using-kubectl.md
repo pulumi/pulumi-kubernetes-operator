@@ -49,7 +49,7 @@ In the details `stack.status` will show:
 
 Create a NGINX Deployment in-cluster to the operator, using its ServiceAccount.
 
-Check out [`../examples/yaml/nginx_k8s.yaml`](../examples/yaml/nginx_k8s.yaml).
+Check out [`../stack-examples/yaml/nginx_k8s_stack.yaml`](../stack-examples/yaml/nginx_k8s_stack.yaml).
 
 Update the Pulumi API token Secret to use your Pulumi credentials.
 
@@ -58,7 +58,7 @@ Also update the `stack` org to match your account, leaving the stack project nam
 Deploy the Stack CustomResource:
 
 ```
-kubectl apply -f ../examples/yaml/nginx_k8s.yaml
+kubectl apply -f ../stack-examples/yaml/nginx_k8s_stack.yaml
 ```
 
 Get the stack details.
@@ -120,7 +120,7 @@ kubectl delete secret pulumi-api-secret
 
 Deploys an AWS S3 Buckets Stack and its AWS secrets.
 
-Check out [`../examples/yaml/s3_bucket_stack.yaml`](../examples/yaml/s3_bucket_stack.yaml) to start with a simple exmaple.
+Check out [`../stack-examples/yaml/s3_bucket_stack.yaml`](../stack-examples/yaml/s3_bucket_stack.yaml) to start with a simple exmaple.
 
 Update the Pulumi API token Secret, `stack`, and the cloud provider Secret to use
 your Pulumi and AWS credentials.
@@ -128,7 +128,7 @@ your Pulumi and AWS credentials.
 Deploy the Stack CustomResource:
 
 ```
-kubectl apply -f ../examples/yaml/s3_bucket_stack.yaml
+kubectl apply -f ../stack-examples/yaml/s3_bucket_stack.yaml
 ```
 
 Get the stack details.
@@ -189,7 +189,7 @@ Now, you can make a change to the CR - like changing the `commit` to deploy to a
 
 
 ```bash
-kubectl apply -f ../examples/yaml/s3_bucket_stack.yaml
+kubectl apply -f ../stack-examples/yaml/s3_bucket_stack.yaml
 ```
 
 Delete the Stack CustomResource, and then its secrets.
@@ -202,7 +202,7 @@ kubectl delete stack s3-bucket-stack
 kubectl delete secret pulumi-api-secret
 ```
 
-Check out [`../examples/yaml/ext_s3_bucket_stack.yaml`](../examples/yaml/ext_s3_bucket_stack.yaml) for an extended options exmaple.
+Check out [`../stack-examples/yaml/ext_s3_bucket_stack.yaml`](../stack-examples/yaml/ext_s3_bucket_stack.yaml) for an extended options exmaple.
 
 ## Troubleshooting
 
