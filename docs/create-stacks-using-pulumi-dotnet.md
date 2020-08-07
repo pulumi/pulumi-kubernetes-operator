@@ -186,7 +186,7 @@ class MyStack : Stack
         var awsSecretAccessKey = config.RequireSecret("awsSecretAccessKey");
         var awsSessionToken = config.RequireSecret("awsSessionToken");
 
-        // Create the creds as  Kubernetes Secrets.
+        // Create the creds as Kubernetes Secrets.
         var accessToken = new K8s.Core.V1.Secret("accesstoken", new SecretArgs
         {
             StringData =
