@@ -29,7 +29,7 @@ const appStack = new k8s.apiextensions.CustomResource("app-stack", {
     kind: 'Stack',
     spec: {
         accessTokenSecret: apiAccessToken.metadata.name,
-        stack: "metral/pulumi-blue-green/dev",
+        stack: "<YOUR_ORG>/pulumi-blue-green/dev",
         initOnCreate: true,
         projectRepo: config.require("stackProjectRepo"),
         commit: config.require("stackCommit"),
