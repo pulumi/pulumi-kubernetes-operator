@@ -95,7 +95,7 @@ class MyStack : Stack
     {
         // Get the Pulumi API token.
         var config = new Config();
-        var pulumiAccessToken = config.Require("pulumiAccessToken");
+        var pulumiAccessToken = config.RequireSecret("pulumiAccessToken");
 
         // Create the API token as a Kubernetes Secret.
         var accessToken = new K8s.Core.V1.Secret("accesstoken", new SecretArgs
