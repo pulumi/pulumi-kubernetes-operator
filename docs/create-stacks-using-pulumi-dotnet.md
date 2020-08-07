@@ -55,13 +55,15 @@ Also update the `stack` org to match your account, leaving the stack project nam
 
 ```csharp
 using Pulumi;
-using K8s = Pulumi.Kubernetes;
+using Pulumi.Kubernetes.ApiExtensions;
+using Pulumi.Kubernetes.Core.V1;
 using Pulumi.Kubernetes.Types.Inputs.Core.V1;
 
-class StackArgs : K8s.ApiExtensions.CustomResourceArgs
+class StackArgs : CustomResourceArgs
 {
     [Input("spec")]
     public Input<StackSpecArgs>? Spec { get; set; }
+
     public StackArgs() : base("pulumi.com/v1alpha1", "Stack")
     {
     }
@@ -86,7 +88,6 @@ class StackSpecArgs : ResourceArgs
     
     [Input("destroyOnFinalize")]
     public Input<bool>? DestroyOnFinalize { get; set; }
-    
 }
 
 class MyStack : Stack
@@ -98,7 +99,7 @@ class MyStack : Stack
         var pulumiAccessToken = config.RequireSecret("pulumiAccessToken");
 
         // Create the API token as a Kubernetes Secret.
-        var accessToken = new K8s.Core.V1.Secret("accesstoken", new SecretArgs
+        var accessToken = new Secret("accesstoken", new SecretArgs
         {
             StringData =
             {
@@ -107,7 +108,7 @@ class MyStack : Stack
         });
 
         // Create an NGINX deployment in-cluster.
-        var myStack = new K8s.ApiExtensions.CustomResource("nginx", new StackArgs
+        var myStack = new Pulumi.Kubernetes.ApiExtensions.CustomResource("nginx", new StackArgs
         {
             Spec = new StackSpecArgs
             {
@@ -119,7 +120,6 @@ class MyStack : Stack
                 DestroyOnFinalize = true,
             }
         });
-
     }
 }
 ```
@@ -136,13 +136,15 @@ Also update the `stack` org to match your account, leaving the stack project nam
 ```csharp
 using System;
 using Pulumi;
-using K8s = Pulumi.Kubernetes;
+using Pulumi.Kubernetes.ApiExtensions;
+using Pulumi.Kubernetes.Core.V1;
 using Pulumi.Kubernetes.Types.Inputs.Core.V1;
 
-class StackArgs : K8s.ApiExtensions.CustomResourceArgs
+class StackArgs : CustomResourceArgs
 {
     [Input("spec")]
     public Input<StackSpecArgs>? Spec { get; set; }
+
     public StackArgs() : base("pulumi.com/v1alpha1", "Stack")
     {
     }
@@ -187,14 +189,14 @@ class MyStack : Stack
         var awsSessionToken = config.RequireSecret("awsSessionToken");
 
         // Create the creds as Kubernetes Secrets.
-        var accessToken = new K8s.Core.V1.Secret("accesstoken", new SecretArgs
+        var accessToken = new Secret("accesstoken", new SecretArgs
         {
             StringData =
             {
                 {"accessToken", pulumiAccessToken}
             }
         });
-        var awsCreds = new K8s.Core.V1.Secret("aws-creds", new SecretArgs
+        var awsCreds = new Secret("aws-creds", new SecretArgs
         {
             StringData =
             {
@@ -204,9 +206,8 @@ class MyStack : Stack
             }
         });
         
-
         // Create an AWS S3 Pulumi Stack in Kubernetes
-        var myStack = new K8s.ApiExtensions.CustomResource("my-stack", new StackArgs
+        var myStack = new Pulumi.Kubernetes.ApiExtensions.CustomResource("my-stack", new StackArgs
         {
             Spec = new StackSpecArgs
             {
