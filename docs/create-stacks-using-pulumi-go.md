@@ -60,6 +60,7 @@ import (
 	"github.com/pulumi/pulumi-kubernetes/sdk/v2/go/kubernetes"
 	apiextensions "github.com/pulumi/pulumi-kubernetes/sdk/v2/go/kubernetes/apiextensions"
 	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v2/go/kubernetes/core/v1"
+	metav1 "github.com/pulumi/pulumi-kubernetes/sdk/v2/go/kubernetes/meta/v1"
 	"github.com/pulumi/pulumi/sdk/v2/go/pulumi"
 	"github.com/pulumi/pulumi/sdk/v2/go/pulumi/config"
 )
@@ -72,7 +73,7 @@ func main() {
 
 		// Create the API token as a Kubernetes Secret.
 		accessToken, err := corev1.NewSecret(ctx, "accesstoken", &corev1.SecretArgs{
-			StringData: pulumi.StringMap{"accesstoken": pulumi.String(pulumiAccessToken)},
+			StringData: pulumi.StringMap{"accessToken": pulumi.String(pulumiAccessToken)},
 		})
 		if err != nil {
 			return err
@@ -80,15 +81,21 @@ func main() {
 
 		// Create an NGINX deployment in-cluster.
 		_, err = apiextensions.NewCustomResource(ctx, "my-stack", &apiextensions.CustomResourceArgs{
-			ApiVersion: pulumi.String("pulumi.com/v1alpha"),
+			ApiVersion: pulumi.String("pulumi.com/v1alpha1"),
 			Kind:       pulumi.String("Stack"),
+			Metadata: metav1.ObjectMetaPtr(
+				&metav1.ObjectMetaArgs{
+					Name: pulumi.String("nginx"),
+				}).ToObjectMetaPtrOutput(),
 			OtherFields: kubernetes.UntypedArgs{
-				"accessTokenSecret": accessToken.Metadata.Name,
-				"stack":             "<YOUR_ORG>/nginx/dev",
-				"initOnCreate":      true,
-				"projectRepo":       "https://github.com/metral/pulumi-nginx",
-				"commit":            "2b0889718d3e63feeb6079ccd5e4488d8601e353",
-				"destroyOnFinalize": true,
+				"spec": map[string]interface{}{
+					"accessTokenSecret": accessToken.Metadata.Name(),
+					"stack":             "<YOUR_ORG>/nginx/dev",
+					"initOnCreate":      true,
+					"projectRepo":       "https://github.com/metral/pulumi-nginx",
+					"commit":            "2b0889718d3e63feeb6079ccd5e4488d8601e353",
+					"destroyOnFinalize": true,
+				},
 			},
 		})
 		return err
