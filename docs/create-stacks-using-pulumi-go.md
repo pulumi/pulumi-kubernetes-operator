@@ -79,7 +79,7 @@ func main() {
 		}
 
 		// Create an NGINX deployment in-cluster.
-        _, err = apiextensions.NewCustomResource(ctx, "my-stack", &apiextensions.CustomResourceArgs{
+		_, err = apiextensions.NewCustomResource(ctx, "my-stack", &apiextensions.CustomResourceArgs{
 			ApiVersion: pulumi.String("pulumi.com/v1alpha"),
 			Kind:       pulumi.String("Stack"),
 			OtherFields: kubernetes.UntypedArgs{
@@ -119,11 +119,11 @@ import (
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		// Get the Pulumi API token and AWS creds.
-        config := config.New(ctx, "")
-		pulumiAccessToken = config.Require("pulumiAccessToken")
-		awsAccessKeyID := config.Require("awsAccessKeyId")
-		awsSecretAccessKey := config.Require("awsSecretAccessKey")
-		awsSessionToken := config.Require("awsSessionToken")
+        	config := config.New(ctx, "")
+			pulumiAccessToken = config.Require("pulumiAccessToken")
+			awsAccessKeyID := config.Require("awsAccessKeyId")
+			awsSecretAccessKey := config.Require("awsSecretAccessKey")
+			awsSessionToken := config.Require("awsSessionToken")
 
 		// Create the creds as Kubernetes Secrets.
 		accessToken, err = corev1.NewSecret(ctx, "accesstoken", &corev1.SecretArgs{
