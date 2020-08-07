@@ -54,7 +54,45 @@ Update the Pulumi API token Secret to use your Pulumi credentials.
 Also update the `stack` org to match your account, leaving the stack project name as-is to work with the example repo's `Pulumi.yaml`. 
 
 ```go
-TODO
+package main
+
+import (
+	"github.com/pulumi/pulumi-kubernetes/sdk/v2/go/kubernetes"
+	apiextensions "github.com/pulumi/pulumi-kubernetes/sdk/v2/go/kubernetes/apiextensions"
+	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v2/go/kubernetes/core/v1"
+	"github.com/pulumi/pulumi/sdk/v2/go/pulumi"
+	"github.com/pulumi/pulumi/sdk/v2/go/pulumi/config"
+)
+
+func main() {
+	pulumi.Run(func(ctx *pulumi.Context) error {
+		// Get the Pulumi API token.
+		c := config.New(ctx, "")
+		pulumiAccessToken := c.Require("pulumiAccessToken")
+
+		// Create the API token as a Kubernetes Secret.
+		accessToken, err := corev1.NewSecret(ctx, "accesstoken", &corev1.SecretArgs{
+			StringData: pulumi.StringMap{"accesstoken": pulumi.String(pulumiAccessToken)},
+		})
+		if err != nil {
+			return err
+		}
+
+		// Create an NGINX deployment in-cluster.
+        _, err = apiextensions.NewCustomResource(ctx, "my-stack", &apiextensions.CustomResourceArgs{
+			ApiVersion: pulumi.String("pulumi.com/v1alpha"),
+			Kind:       pulumi.String("Stack"),
+			OtherFields: kubernetes.UntypedArgs{
+				"accessTokenSecret": accessToken.Metadata.Name,
+				"stack":             "<YOUR_ORG>/nginx/dev",
+				"initOnCreate":      true,
+				"projectRepo":       "https://github.com/metral/pulumi-nginx",
+				"commit":            "2b0889718d3e63feeb6079ccd5e4488d8601e353",
+				"destroyOnFinalize": true,
+			},
+		})
+		return err
+    })
 ```
 
 ## AWS S3 Buckets
@@ -67,7 +105,68 @@ your Pulumi and AWS credentials.
 Also update the `stack` org to match your account, leaving the stack project name as-is to work with the example repo's `Pulumi.yaml`. 
 
 ```go
-TODO
+package main
+
+import (
+	"github.com/pulumi/pulumi-kubernetes/sdk/v2/go/kubernetes"
+	apiextensions "github.com/pulumi/pulumi-kubernetes/sdk/v2/go/kubernetes/apiextensions"
+	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v2/go/kubernetes/core/v1"
+	metav1 "github.com/pulumi/pulumi-kubernetes/sdk/v2/go/kubernetes/meta/v1"
+	"github.com/pulumi/pulumi/sdk/v2/go/pulumi"
+	"github.com/pulumi/pulumi/sdk/v2/go/pulumi/config"
+)
+
+func main() {
+	pulumi.Run(func(ctx *pulumi.Context) error {
+		// Get the Pulumi API token and AWS creds.
+        config := config.New(ctx, "")
+		pulumiAccessToken = config.Require("pulumiAccessToken")
+		awsAccessKeyID := config.Require("awsAccessKeyId")
+		awsSecretAccessKey := config.Require("awsSecretAccessKey")
+		awsSessionToken := config.Require("awsSessionToken")
+
+		// Create the creds as Kubernetes Secrets.
+		accessToken, err = corev1.NewSecret(ctx, "accesstoken", &corev1.SecretArgs{
+			StringData: pulumi.StringMap{"accesstoken": pulumi.String(pulumiAccessToken)},
+		})
+		if err != nil {
+			return err
+		}
+
+		_, err = corev1.NewSecret(ctx, "aws-creds", &corev1.SecretArgs{
+			Metadata: metav1.ObjectMetaPtr(&metav1.ObjectMetaArgs{
+				Name: pulumi.String("aws-creds"),
+			}),
+			StringData: pulumi.StringMap{
+				"AWS_ACCESS_KEY_ID":     pulumi.String(awsAccessKeyID),
+				"AWS_SECRET_ACCESS_KEY": pulumi.String(awsSecretAccessKey),
+				"AWS_SESSION_TOKEN":     pulumi.String(awsSessionToken),
+			},
+		})
+		if err != nil {
+			return err
+		}
+
+		_, err = apiextensions.NewCustomResource(ctx, "my-stack",
+			&apiextensions.CustomResourceArgs{
+				ApiVersion: pulumi.String("pulumi.com/v1alpha"),
+				Kind:       pulumi.String("Stack"),
+				OtherFields: kubernetes.UntypedArgs{
+					"stack":             "<YOUR_ORG>/s3-op-project/dev",
+					"projectRepo":       "https://github.com/metral/test-s3-op-project",
+					"commit":            "bd1edfac28577d62068b7ace0586df595bda33be",
+					"accessTokenSecret": accessToken.Metadata.Name,
+					"config": map[string]string{
+						"aws:region": "us-west-2",
+					},
+					"envSecrets":        []string{"aws-creds"},
+					"initOnCreate":      true,
+					"destroyOnFinalize": true,
+				},
+			})
+
+		return nil
+	})
 ```
 
 Deploy the Stack CustomResource by running a `pulumi up`.
