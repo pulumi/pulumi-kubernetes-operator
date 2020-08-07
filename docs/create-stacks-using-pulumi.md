@@ -12,8 +12,6 @@ Note: running Python programs is [coming soon](https://github.com/pulumi/pulumi-
 
 ### .NET
 
-[TODO](https://github.com/pulumi/pulumi-kubernetes-operator/issues/48)
-
 Check out [Create a Pulumi Stack using .NET](./create-stacks-using-pulumi-dotnet.md).
 
 Note: running .NET programs is [coming soon](https://github.com/pulumi/pulumi-kubernetes-operator/issues/40)

@@ -54,7 +54,74 @@ Update the Pulumi API token Secret to use your Pulumi credentials.
 Also update the `stack` org to match your account, leaving the stack project name as-is to work with the example repo's `Pulumi.yaml`. 
 
 ```csharp
-TODO
+using Pulumi;
+using K8s = Pulumi.Kubernetes;
+using Pulumi.Kubernetes.Types.Inputs.Core.V1;
+
+class StackArgs : K8s.ApiExtensions.CustomResourceArgs
+{
+    [Input("spec")]
+    public Input<StackSpecArgs>? Spec { get; set; }
+    public StackArgs() : base("pulumi.com/v1alpha1", "Stack")
+    {
+    }
+}
+
+class StackSpecArgs : ResourceArgs
+{
+    [Input("accessTokenSecret")]
+    public Input<string>? AccessTokenSecret { get; set; }
+    
+    [Input("stack")]
+    public Input<string>? Stack { get; set; }
+    
+    [Input("initOnCreate")]
+    public Input<bool>? InitOnCreate { get; set; }
+    
+    [Input("projectRepo")]
+    public Input<string>? ProjectRepo { get; set; }
+    
+    [Input("commit")]
+    public Input<string>? Commit { get; set; }
+    
+    [Input("destroyOnFinalize")]
+    public Input<bool>? DestroyOnFinalize { get; set; }
+    
+}
+
+class MyStack : Stack
+{
+    public MyStack()
+    {
+        // Get the Pulumi API token.
+        var config = new Config();
+        var pulumiAccessToken = config.Require("pulumiAccessToken");
+
+        // Create the API token as a Kubernetes Secret.
+        var accessToken = new K8s.Core.V1.Secret("accesstoken", new SecretArgs
+        {
+            StringData =
+            {
+                {"accessToken", pulumiAccessToken}
+            }
+        });
+
+        // Create an NGINX deployment in-cluster.
+        var myStack = new K8s.ApiExtensions.CustomResource("nginx", new StackArgs
+        {
+            Spec = new StackSpecArgs
+            {
+                AccessTokenSecret = accessToken.Metadata.Apply(m => m.Name),
+                Stack = "<YOUR_ORG>/nginx/dev",
+                InitOnCreate = true,
+                ProjectRepo = "https://github.com/metral/pulumi-nginx",
+                Commit = "2b0889718d3e63feeb6079ccd5e4488d8601e353",
+                DestroyOnFinalize = true,
+            }
+        });
+
+    }
+}
 ```
 
 ## AWS S3 Buckets
@@ -67,7 +134,98 @@ your Pulumi and AWS credentials.
 Also update the `stack` org to match your account, leaving the stack project name as-is to work with the example repo's `Pulumi.yaml`. 
 
 ```csharp
-TODO
+using System;
+using Pulumi;
+using K8s = Pulumi.Kubernetes;
+using Pulumi.Kubernetes.Types.Inputs.Core.V1;
+
+class StackArgs : K8s.ApiExtensions.CustomResourceArgs
+{
+    [Input("spec")]
+    public Input<StackSpecArgs>? Spec { get; set; }
+    public StackArgs() : base("pulumi.com/v1alpha1", "Stack")
+    {
+    }
+}
+
+class StackSpecArgs : ResourceArgs
+{
+    [Input("accessTokenSecret")]
+    public Input<string>? AccessTokenSecret { get; set; }
+    
+    [Input("stack")]
+    public Input<string>? Stack { get; set; }
+    
+    [Input("initOnCreate")]
+    public Input<bool>? InitOnCreate { get; set; }
+    
+    [Input("projectRepo")]
+    public Input<string>? ProjectRepo { get; set; }
+    
+    [Input("commit")]
+    public Input<string>? Commit { get; set; }
+    
+    [Input("destroyOnFinalize")]
+    public Input<bool>? DestroyOnFinalize { get; set; }
+    
+    [Input("envSecrets")]
+    public InputList<String>? EnvSecrets { get; set; }
+    
+    [Input("config")]
+    public InputMap<String>? Config { get; set; }
+}
+
+class MyStack : Stack
+{
+    public MyStack()
+    {
+        // Get the Pulumi API token.
+        var config = new Config();
+        var pulumiAccessToken = config.RequireSecret("pulumiAccessToken");
+        var awsAccessKeyId = config.Require("awsAccessKeyId");
+        var awsSecretAccessKey = config.RequireSecret("awsSecretAccessKey");
+        var awsSessionToken = config.RequireSecret("awsSessionToken");
+
+        // Create the creds as  Kubernetes Secrets.
+        var accessToken = new K8s.Core.V1.Secret("accesstoken", new SecretArgs
+        {
+            StringData =
+            {
+                {"accessToken", pulumiAccessToken}
+            }
+        });
+        var awsCreds = new K8s.Core.V1.Secret("aws-creds", new SecretArgs
+        {
+            StringData =
+            {
+                {"AWS_ACCESS_KEY_ID", awsAccessKeyId},
+                {"AWS_SECRET_ACCESS_KEY", awsSecretAccessKey},
+                {"AWS_SESSION_TOKEN", awsSessionToken}
+            }
+        });
+        
+
+        // Create an AWS S3 Pulumi Stack in Kubernetes
+        var myStack = new K8s.ApiExtensions.CustomResource("my-stack", new StackArgs
+        {
+            Spec = new StackSpecArgs
+            {
+                
+                Stack = "<YOUR_ORG>/s3-op-project/dev",
+                ProjectRepo = "https://github.com/metral/test-s3-op-project",
+                Commit = "bd1edfac28577d62068b7ace0586df595bda33be",
+                AccessTokenSecret = accessToken.Metadata.Apply(m => m.Name),
+                Config =
+                {
+                    {"aws:region", "us-west-2"}
+                },
+                EnvSecrets = {awsCreds.Metadata.Apply(m => m.Name)},
+                InitOnCreate = true,
+                DestroyOnFinalize = true,
+            }
+        });
+    }
+}
 ```
 
 Deploy the Stack CustomResource by running a `pulumi up`.
