@@ -92,7 +92,8 @@ func main() {
 			},
 		})
 		return err
-    })
+	})
+}
 ```
 
 ## AWS S3 Buckets
@@ -167,6 +168,7 @@ func main() {
 
 		return nil
 	})
+}
 ```
 
 Deploy the Stack CustomResource by running a `pulumi up`.
