@@ -92,6 +92,9 @@ At the V2 commit, we'll have deployed the following resources in Kubernetes.
     pulumi config set stackCommit b19759220f25476605620fdfffeface39a630246
     ```
 
+1. Next, open `index.ts` and edit the `stack` field in the Stack CustomResource
+   to replace `<YOUR_ORG>` with your Pulumi user / organization.
+
 ## Run the Update
 
 The update will deploy the operator to Kubernetes, along with the Stack for the App.
