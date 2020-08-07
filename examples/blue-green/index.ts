@@ -3,7 +3,7 @@ import * as k8s from "@pulumi/kubernetes";
 import * as kx from "@pulumi/kubernetesx";
 import * as operator from "./operator";
 
-// By default, uses KUBECONFIG or $HOME/.kube/config
+// By default, uses $HOME/.kube/config when no kubeconfig is set.
 const provider = new k8s.Provider("k8s"); 
 
 // Create the Pulumi Kubernetes Operator.
