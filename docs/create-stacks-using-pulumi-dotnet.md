@@ -211,7 +211,6 @@ class MyStack : Stack
         {
             Spec = new StackSpecArgs
             {
-                
                 Stack = "<YOUR_ORG>/s3-op-project/dev",
                 ProjectRepo = "https://github.com/metral/test-s3-op-project",
                 Commit = "bd1edfac28577d62068b7ace0586df595bda33be",
