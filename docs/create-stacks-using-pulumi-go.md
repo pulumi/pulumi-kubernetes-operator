@@ -97,7 +97,7 @@ func main() {
 					"destroyOnFinalize": true,
 				},
 			},
-		})
+		}, pulumi.DependsOn([]pulumi.Resource{accessToken}))
 		return err
 	})
 }
@@ -127,24 +127,23 @@ import (
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		// Get the Pulumi API token and AWS creds.
-        	config := config.New(ctx, "")
-			pulumiAccessToken = config.Require("pulumiAccessToken")
-			awsAccessKeyID := config.Require("awsAccessKeyId")
-			awsSecretAccessKey := config.Require("awsSecretAccessKey")
-			awsSessionToken := config.Require("awsSessionToken")
+		config := config.New(ctx, "")
+		pulumiAccessToken := config.Require("pulumiAccessToken")
+		awsAccessKeyID := config.Require("awsAccessKeyId")
+		awsSecretAccessKey := config.Require("awsSecretAccessKey")
+		awsSessionToken := config.Require("awsSessionToken")
 
 		// Create the creds as Kubernetes Secrets.
-		accessToken, err = corev1.NewSecret(ctx, "accesstoken", &corev1.SecretArgs{
-			StringData: pulumi.StringMap{"accesstoken": pulumi.String(pulumiAccessToken)},
+		accessToken, err := corev1.NewSecret(ctx, "accesstoken", &corev1.SecretArgs{
+			StringData: pulumi.StringMap{"accessToken": pulumi.String(pulumiAccessToken)},
 		})
 		if err != nil {
 			return err
 		}
-
-		_, err = corev1.NewSecret(ctx, "aws-creds", &corev1.SecretArgs{
+		awsCreds, err := corev1.NewSecret(ctx, "aws-creds", &corev1.SecretArgs{
 			Metadata: metav1.ObjectMetaPtr(&metav1.ObjectMetaArgs{
 				Name: pulumi.String("aws-creds"),
-			}),
+			}).ToObjectMetaPtrOutput(),
 			StringData: pulumi.StringMap{
 				"AWS_ACCESS_KEY_ID":     pulumi.String(awsAccessKeyID),
 				"AWS_SECRET_ACCESS_KEY": pulumi.String(awsSecretAccessKey),
@@ -155,23 +154,29 @@ func main() {
 			return err
 		}
 
+		// Create an S3 bucket through the operator
 		_, err = apiextensions.NewCustomResource(ctx, "my-stack",
 			&apiextensions.CustomResourceArgs{
-				ApiVersion: pulumi.String("pulumi.com/v1alpha"),
+				Metadata: metav1.ObjectMetaPtr(&metav1.ObjectMetaArgs{
+					Name: pulumi.String("s3-bucke-stack"),
+				}).ToObjectMetaPtrOutput(),
+				ApiVersion: pulumi.String("pulumi.com/v1alpha1"),
 				Kind:       pulumi.String("Stack"),
 				OtherFields: kubernetes.UntypedArgs{
-					"stack":             "<YOUR_ORG>/s3-op-project/dev",
-					"projectRepo":       "https://github.com/metral/test-s3-op-project",
-					"commit":            "bd1edfac28577d62068b7ace0586df595bda33be",
-					"accessTokenSecret": accessToken.Metadata.Name,
-					"config": map[string]string{
-						"aws:region": "us-west-2",
+					"spec": map[string]interface{}{
+						"stack":             "vivek/s3-op-project/dev",
+						"projectRepo":       "https://github.com/metral/test-s3-op-project",
+						"commit":            "bd1edfac28577d62068b7ace0586df595bda33be",
+						"accessTokenSecret": accessToken.Metadata.Name(),
+						"config": map[string]string{
+							"aws:region": "us-west-2",
+						},
+						"envSecrets":        []interface{}{awsCreds.Metadata.Name()},
+						"initOnCreate":      true,
+						"destroyOnFinalize": true,
 					},
-					"envSecrets":        []string{"aws-creds"},
-					"initOnCreate":      true,
-					"destroyOnFinalize": true,
 				},
-			})
+			}, pulumi.DependsOn([]pulumi.Resource{accessToken, awsCreds}))
 
 		return nil
 	})
