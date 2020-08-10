@@ -117,7 +117,7 @@ pulumi-kubernetes-operator-6c4d99b4b6-wqbxg    1/1     Running   0          2m39
 In another terminal, you can tail the logs of the operator to see it in action.
 
 ```bash
-kubectl logs pulumi-kubernetes-operator-6c4d99b4b6-wqbxg -f
+kubectl logs -l name=pulumi-kubernetes-operator -f
 ```
 
 You should see output similar to the details below.
