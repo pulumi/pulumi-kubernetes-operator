@@ -16,7 +16,12 @@ const pulumiOperator = new operator.PulumiKubernetesOperator(name, {
 
 // Get the Pulumi API token.
 const config = new pulumi.Config();
+
 const pulumiAccessToken = config.requireSecret("pulumiAccessToken")
+
+const stackName = config.require("stackName")
+const stackProjectRepo = config.require("stackProjectRepo")
+const stackCommit = config.require("stackCommit")
 
 // Create the API token as a Kubernetes Secret.
 const apiAccessToken = new kx.Secret("accesstoken", {
@@ -29,10 +34,10 @@ const appStack = new k8s.apiextensions.CustomResource("app-stack", {
     kind: 'Stack',
     spec: {
         accessTokenSecret: apiAccessToken.metadata.name,
-        stack: "<YOUR_ORG>/pulumi-blue-green/dev",
+        stack: stackName,
         initOnCreate: true,
-        projectRepo: config.require("stackProjectRepo"),
-        commit: config.require("stackCommit"),
+        projectRepo: stackProjectRepo,
+        commit: stackCommit,
         destroyOnFinalize: true,
     }
 }, {dependsOn: pulumiOperator.deployment});
