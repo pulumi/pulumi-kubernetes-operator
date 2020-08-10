@@ -28,7 +28,7 @@ const apiAccessToken = new kx.Secret("accesstoken", {
     stringData: { accessToken: pulumiAccessToken},
 });
 
-// Create an NGINX deployment in-cluster.
+// Create a Blue/Green app deployment in-cluster.
 const appStack = new k8s.apiextensions.CustomResource("app-stack", {
     apiVersion: 'pulumi.com/v1alpha1',
     kind: 'Stack',
