@@ -18,8 +18,6 @@ Note: running .NET programs is [coming soon](https://github.com/pulumi/pulumi-ku
 
 ### Go
 
-[TODO](https://github.com/pulumi/pulumi-kubernetes-operator/issues/49)
-
 Check out [Create a Pulumi Stack using Go](./create-stacks-using-pulumi-go.md).
 
 Note: running Go programs is [coming soon](https://github.com/pulumi/pulumi-kubernetes-operator/issues/40)
