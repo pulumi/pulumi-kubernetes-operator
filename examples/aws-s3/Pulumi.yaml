@@ -1,0 +1,3 @@
+name: blue-green-stack
+runtime: nodejs
+description: Deploy the Pulumi Kubernetes Operator and a Kubernetes Deployment Blue/Green App Stack
