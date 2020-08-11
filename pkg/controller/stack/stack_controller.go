@@ -612,30 +612,26 @@ func (sess *reconcileStackSession) InstallProjectDependencies(runtime workspace.
 			venv, _ = runtime.Options()["virtualenv"].(string)
 		}
 		if venv == "" {
-			cmd := exec.Command(pip3, "install", "-r", "requirements.txt")
-			_, _, err := sess.runCmd("Pip3", cmd)
-			if err != nil {
-				return err
-			}
-		} else {
-			// Emulate the same steps as the CLI does in https://github.com/pulumi/pulumi/blob/master/sdk/python/python.go#L97-L99.
-			// TODO: Ideally the CLI would automatically do these - since it already knows how.
-			cmd := exec.Command(python3, "-m", "venv", venv)
-			_, _, err := sess.runCmd("Pip Install", cmd)
-			if err != nil {
-				return err
-			}
-			venvPython := fmt.Sprintf("%s/bin/python", venv)
-			cmd = exec.Command(venvPython, "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel")
-			_, _, err = sess.runCmd("Pip Install", cmd)
-			if err != nil {
-				return err
-			}
-			cmd = exec.Command(venvPython, "-m", "pip", "install", "-r", "requirements.txt")
-			_, _, err = sess.runCmd("Pip Install", cmd)
-			if err != nil {
-				return err
-			}
+			// TODO[pulumi/pulumi-kubernetes-operator#79]
+			return errors.New("Python projects without a `virtualenv` project configuration are not yet supported in the Pulumi Kubernetes Operator")
+		}
+		// Emulate the same steps as the CLI does in https://github.com/pulumi/pulumi/blob/master/sdk/python/python.go#L97-L99.
+		// TODO[pulumi/pulumi#5164]: Ideally the CLI would automatically do these - since it already knows how.
+		cmd := exec.Command(python3, "-m", "venv", venv)
+		_, _, err := sess.runCmd("Pip Install", cmd)
+		if err != nil {
+			return err
+		}
+		venvPython := filepath.Join(venv, "bin", "python")
+		cmd = exec.Command(venvPython, "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel")
+		_, _, err = sess.runCmd("Pip Install", cmd)
+		if err != nil {
+			return err
+		}
+		cmd = exec.Command(venvPython, "-m", "pip", "install", "-r", "requirements.txt")
+		_, _, err = sess.runCmd("Pip Install", cmd)
+		if err != nil {
+			return err
 		}
 		return nil
 	case "go", "dotnet":
