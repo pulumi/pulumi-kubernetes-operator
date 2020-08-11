@@ -903,6 +903,7 @@ Check out [Create Pulumi Stacks using Pulumi](./docs/create-stacks-using-pulumi.
 ### Extended Examples
 
 - [Managing a Kubernetes Blue/Green Deployment](./examples/blue-green)
+- [AWS S3 Buckets](./examples/aws-s3)
 
 ## Development
 
