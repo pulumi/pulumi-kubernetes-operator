@@ -164,7 +164,7 @@ func main() {
 				Kind:       pulumi.String("Stack"),
 				OtherFields: kubernetes.UntypedArgs{
 					"spec": map[string]interface{}{
-						"stack":             "vivek/s3-op-project/dev",
+						"stack":             "<YOUR_ORG>/s3-op-project/dev",
 						"projectRepo":       "https://github.com/metral/test-s3-op-project",
 						"commit":            "bd1edfac28577d62068b7ace0586df595bda33be",
 						"accessTokenSecret": accessToken.Metadata.Name(),
