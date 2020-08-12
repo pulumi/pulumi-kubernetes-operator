@@ -18,11 +18,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/pkg/errors"
 	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
+	"github.com/pulumi/pulumi/sdk/v2/go/common/workspace"
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
-	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,8 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-
-	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -574,16 +573,9 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 	sess.UpdateConfig()
 	sess.UpdateSecretConfig()
 
-	// Next we need to install the package manager dependencies for certain languages.
-	projbytes, err := ioutil.ReadFile(filepath.Join(sess.workdir, "Pulumi.yaml"))
+	project, err := workspace.LoadProject(filepath.Join(sess.workdir, "Pulumi.yaml"))
 	if err != nil {
-		return errors.Wrap(err, "reading Pulumi.yaml project file")
-	}
-	var project struct {
-		Runtime string `yaml:"runtime"`
-	}
-	if err = yaml.Unmarshal([]byte(projbytes), &project); err != nil {
-		return errors.Wrap(err, "unmarshaling Pulumi.yaml project file")
+		return err
 	}
 	if err = sess.InstallProjectDependencies(project.Runtime); err != nil {
 		return errors.Wrap(err, "installing project dependencies")
@@ -592,8 +584,8 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 	return nil
 }
 
-func (sess *reconcileStackSession) InstallProjectDependencies(runtime string) error {
-	switch runtime {
+func (sess *reconcileStackSession) InstallProjectDependencies(runtime workspace.ProjectRuntimeInfo) error {
+	switch runtime.Name() {
 	case "nodejs":
 		npm, _ := exec.LookPath("npm")
 		if npm == "" {
@@ -602,11 +594,53 @@ func (sess *reconcileStackSession) InstallProjectDependencies(runtime string) er
 		if npm == "" {
 			return errors.New("did not find 'npm' or 'yarn' on the PATH; can't install project dependencies")
 		}
+		// TODO: Consider using `npm ci` instead if there is a `package-lock.json` or `npm-shrinkwrap.json` present
 		cmd := exec.Command(npm, "install")
 		_, _, err := sess.runCmd("NPM/Yarn", cmd)
 		return err
+	case "python":
+		python3, _ := exec.LookPath("python3")
+		if python3 == "" {
+			return errors.New("did not find 'python3' on the PATH; can't install project dependencies")
+		}
+		pip3, _ := exec.LookPath("pip3")
+		if pip3 == "" {
+			return errors.New("did not find 'pip3' on the PATH; can't install project dependencies")
+		}
+		venv := ""
+		if runtime.Options() != nil {
+			venv, _ = runtime.Options()["virtualenv"].(string)
+		}
+		if venv == "" {
+			// TODO[pulumi/pulumi-kubernetes-operator#79]
+			return errors.New("Python projects without a `virtualenv` project configuration are not yet supported in the Pulumi Kubernetes Operator")
+		}
+		// Emulate the same steps as the CLI does in https://github.com/pulumi/pulumi/blob/master/sdk/python/python.go#L97-L99.
+		// TODO[pulumi/pulumi#5164]: Ideally the CLI would automatically do these - since it already knows how.
+		cmd := exec.Command(python3, "-m", "venv", venv)
+		_, _, err := sess.runCmd("Pip Install", cmd)
+		if err != nil {
+			return err
+		}
+		venvPython := filepath.Join(venv, "bin", "python")
+		cmd = exec.Command(venvPython, "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel")
+		_, _, err = sess.runCmd("Pip Install", cmd)
+		if err != nil {
+			return err
+		}
+		cmd = exec.Command(venvPython, "-m", "pip", "install", "-r", "requirements.txt")
+		_, _, err = sess.runCmd("Pip Install", cmd)
+		if err != nil {
+			return err
+		}
+		return nil
+	case "go", "dotnet":
+		// nothing needed
+		return nil
 	default:
-		return errors.Errorf("unsupported project runtime: %s", runtime)
+		// Allow unknown runtimes without any pre-processing, but print a message indicating runtime was unknown
+		sess.logger.Info(fmt.Sprintf("Handling unknown project runtime '%s'", runtime.Name()), "Stack.Name", sess.stack.Stack)
+		return nil
 	}
 }
 
