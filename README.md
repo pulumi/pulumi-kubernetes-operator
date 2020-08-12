@@ -22,6 +22,12 @@ You can use an existing cluster, or [get started](https://www.pulumi.com/docs/ge
 
 ### Using kubectl
 
+Deploy the CustomResourceDefinitions (CRDs) for the operator.
+
+```bash
+kubectl apply -f deploy/crds/
+```
+
 Deploy the API resources for the operator.
 
 ```bash
