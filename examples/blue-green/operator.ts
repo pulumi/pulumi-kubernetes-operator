@@ -191,7 +191,7 @@ export class PulumiKubernetesOperator extends pulumi.ComponentResource {
                         }],
                         containers: [{
                             name: "pulumi-kubernetes-operator",
-                            image: "pulumi/pulumi-kubernetes-operator:v0.0.4",
+                            image: "pulumi/pulumi-kubernetes-operator:v0.0.5",
                             command: ["pulumi-kubernetes-operator"],
                             args: ["--zap-level=debug"],
                             imagePullPolicy: "Always",
