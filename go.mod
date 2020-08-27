@@ -9,12 +9,11 @@ require (
 	github.com/operator-framework/operator-lib v0.0.0-20200728190837-b76db547798d
 	github.com/operator-framework/operator-sdk v0.19.0
 	github.com/pkg/errors v0.9.1
-	github.com/pulumi/pulumi/sdk/v2 v2.8.2
+	github.com/pulumi/pulumi/sdk/v2 v2.10.1-0.20200915174902-4e6ea760db2e
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/mod v0.3.0 // indirect
 	golang.org/x/tools v0.0.0-20200617161249-6222995d070a // indirect
 	gopkg.in/src-d/go-git.v4 v4.13.1
-	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.18.4
 	k8s.io/apiextensions-apiserver v0.18.4
 	k8s.io/apimachinery v0.18.4
