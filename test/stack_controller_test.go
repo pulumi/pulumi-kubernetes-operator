@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -30,9 +31,14 @@ const pulumiAWSSecretName = "pulumi-aws-secrets"
 const timeout = time.Minute * 10
 const interval = time.Second * 1
 
-const stackOrg = "k8s-operator-bot"
-
 var _ = Describe("Stack Controller", func() {
+	whoami, err := exec.Command("pulumi", "whoami").Output()
+	if err != nil {
+		Fail(fmt.Sprintf("Must get pulumi authorized user: %v", err))
+	}
+	stackOrg := strings.TrimSuffix(string(whoami), "\n")
+	fmt.Printf("stackOrg: %s", stackOrg)
+
 	ctx := context.Background()
 	var pulumiAPISecret *corev1.Secret
 	var pulumiAWSSecret *corev1.Secret
