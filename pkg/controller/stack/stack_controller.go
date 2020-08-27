@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -22,6 +21,7 @@ import (
 	"github.com/pkg/errors"
 	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
 	"github.com/pulumi/pulumi/sdk/v2/go/common/workspace"
+	"github.com/pulumi/pulumi/sdk/v2/go/x/auto"
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
 	corev1 "k8s.io/api/core/v1"
@@ -169,24 +169,9 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 
-	// Step 1. Clone the repo.
-	workdir, err := sess.FetchProjectSource(stack.ProjectRepo, &pulumiv1alpha1.ProjectSourceOptions{
-		AccessToken: stack.ProjectRepoAccessTokenSecret,
-		Commit:      stack.Commit,
-		Branch:      stack.Branch,
-	})
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	sess.workdir = workdir
-	if stack.RepoDir != "" {
-		sess.workdir = path.Join(sess.workdir, stack.RepoDir)
-	}
-	defer os.RemoveAll(workdir)
-
-	// Step 2. Select the right stack and populate config if supplied.
+	// Set up the workdir, select the right stack and populate config if supplied.
 	if err = sess.SetupPulumiWorkdir(); err != nil {
-		reqLogger.Error(err, "Failed to change to Pulumi workdir", "Stack.Name", stack.Stack, "Workdir", workdir)
+		reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
 	}
 
@@ -385,6 +370,7 @@ type reconcileStackSession struct {
 	kubeClient  client.Client
 	accessToken string
 	stack       pulumiv1alpha1.StackSpec
+	autoStack   *auto.Stack
 	workdir     string
 	extraEnv    map[string]string
 }
@@ -402,24 +388,6 @@ func newReconcileStackSession(
 		stack:       stack,
 		extraEnv:    extraEnv,
 	}
-}
-
-// FetchProjectSource clones the stack's source repo at the right commit and returns its temporary workdir path.
-func (sess *reconcileStackSession) FetchProjectSource(repoURL string, opts *pulumiv1alpha1.ProjectSourceOptions) (string, error) {
-	workdir, err := ioutil.TempDir("", "")
-	if err != nil {
-		return "", err
-	}
-
-	// TODO: enable use of project source repo accessToken
-	sess.logger.Info("Cloning Stack repo",
-		"Stack.Name", sess.stack.Stack, "Stack.Repo", repoURL,
-		"Stack.Commit", opts.Commit, "Stack.Branch", opts.Branch)
-
-	if err = gitCloneAndCheckoutCommit(repoURL, opts.Commit, opts.Branch, workdir); err != nil {
-		return "", err
-	}
-	return workdir, err
 }
 
 // gitCloneAndCheckoutCommit clones the Git repository and checkouts the specified commit hash or branch.
@@ -455,6 +423,9 @@ func (sess *reconcileStackSession) SetEnvs(configMapNames []string, namespace st
 		}
 		for k, v := range config.Data {
 			sess.extraEnv[k] = v
+			// TODO(autoapi): add workspace scoped env vars
+			// https://github.com/pulumi/pulumi/issues/5227
+			os.Setenv(k, v)
 		}
 	}
 	return nil
@@ -493,6 +464,9 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd) (string, 
 		}
 		for k, v := range sess.extraEnv {
 			cmd.Env = append(cmd.Env, k+"="+v)
+			// TODO(autoapi): add workspace scoped env vars
+			// https://github.com/pulumi/pulumi/issues/5227
+			os.Setenv(k, v)
 		}
 	}
 
@@ -552,26 +526,53 @@ func (sess *reconcileStackSession) pulumi(args ...string) (string, string, error
 }
 
 func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
-	// Create the stack if requested.
-	if sess.stack.InitOnCreate {
-		var secretsProvider *string
-		if sess.stack.SecretsProvider != "" {
-			secretsProvider = &sess.stack.SecretsProvider
-		}
-		err := sess.CreateStack(sess.stack.Stack, secretsProvider)
-		if err != nil {
-			return err
-		}
-	}
-	// Select the desired stack.
-	_, _, err := sess.pulumi("stack", "select", sess.stack.Stack)
-	if err != nil {
-		return errors.Wrap(err, "selecting stack")
+	repo := auto.GitRepo{
+		URL:         sess.stack.ProjectRepo,
+		ProjectPath: sess.stack.RepoDir,
+		CommitHash:  sess.stack.Commit,
+		Branch:      sess.stack.Branch,
 	}
 
+	// TODO(autoapi): add workspace scoped env vars
+	// https://github.com/pulumi/pulumi/issues/5227
+	os.Setenv("PULUMI_ACCESS_TOKEN", sess.accessToken)
+
+	var err error
+	autoStack := &auto.Stack{}
+
+	// Create a new workspace.
+	w, err := auto.NewLocalWorkspace(context.Background(), auto.Repo(repo))
+	if err != nil {
+		return errors.Wrap(err, "failed to create local workspace")
+	}
+
+	// Create the stack if requested.
+	if sess.stack.InitOnCreate {
+		autoStack, err = sess.CreateStack(w)
+		if err != nil {
+			sess.logger.Error(err, "failed to create stack", "Stack.Name", sess.stack.Stack)
+			return errors.Wrap(err, "failed to create stack")
+		}
+	}
+	if autoStack == nil {
+		s, err := auto.SelectStack(context.Background(), sess.stack.Stack, w)
+		if err != nil {
+			sess.logger.Error(err, "failed to select stack", "Stack.Name", sess.stack.Stack)
+			return errors.Wrap(err, "failed to select stack")
+		}
+		autoStack = &s
+	}
+	sess.autoStack = autoStack
+
+	// TODO(autoapi): needed for existing use cases not yet ported (install deps)
+	sess.workdir = sess.autoStack.Workspace().WorkDir()
+
 	// Update the stack config and secret config values.
-	sess.UpdateConfig()
-	sess.UpdateSecretConfig()
+	err = sess.UpdateConfig()
+	if err != nil {
+		sess.logger.Error(err, "failed to set stack config", "Stack.Name", sess.stack.Stack)
+		return errors.Wrap(err, "failed to set stack config")
+	}
 
 	project, err := workspace.LoadProject(filepath.Join(sess.workdir, "Pulumi.yaml"))
 	if err != nil {
@@ -644,46 +645,37 @@ func (sess *reconcileStackSession) InstallProjectDependencies(runtime workspace.
 	}
 }
 
-func (sess *reconcileStackSession) CreateStack(stack string, secretsProvider *string) error {
-	cmdArgs := []string{"stack", "select", "--create"}
-	if secretsProvider != nil {
-		cmdArgs = append(cmdArgs, "--secrets-provider", *secretsProvider)
-	}
-	cmdArgs = append(cmdArgs, stack)
-	_, stderr, err := sess.pulumi(cmdArgs...)
+func (sess *reconcileStackSession) CreateStack(w auto.Workspace) (*auto.Stack, error) {
+	// TODO(autoapi): handle setting secrets provider:
+	// https://github.com/pulumi/pulumi/issues/5254
+	autoStack, err := auto.NewStack(context.Background(), sess.stack.Stack, w)
 	if err != nil {
-		if strings.Contains(stderr, "already exists") {
-			return nil
+		// TODO(autoapi): replace stack HTTP409 when autoapi issue closed:
+		// https://github.com/pulumi/pulumi/issues/5255
+		if strings.Contains(err.Error(), "already exists") {
+			return nil, nil
 		}
-		return errors.Wrapf(err, "creating stack '%s'", stack)
+		return nil, errors.Wrap(err, "failed to create stack")
 	}
-	return nil
+
+	return &autoStack, nil
 }
 
 func (sess *reconcileStackSession) UpdateConfig() error {
-	// Then, populate config if there is any.
-	if sess.stack.Config != nil {
-		for k, v := range sess.stack.Config {
-			_, _, err := sess.pulumi("config", "set", k, v)
-			if err != nil {
-				return errors.Wrapf(err, "setting config key '%s' to value '%s'", k, v)
-			}
+	m := make(auto.ConfigMap)
+	for k, v := range sess.stack.Config {
+		m[k] = auto.ConfigValue{
+			Value:  v,
+			Secret: false,
 		}
 	}
-	return nil
-}
-
-func (sess *reconcileStackSession) UpdateSecretConfig() error {
-	// Then, populate secret config if there is any.
-	if sess.stack.Secrets != nil {
-		for k, v := range sess.stack.Secrets {
-			_, _, err := sess.pulumi("config", "set", "--secret", k, v)
-			if err != nil {
-				return errors.Wrapf(err, "setting secret config key '%s' to value '%s'", k, v)
-			}
+	for k, v := range sess.stack.Secrets {
+		m[k] = auto.ConfigValue{
+			Value:  v,
+			Secret: true,
 		}
 	}
-	return nil
+	return sess.autoStack.SetAllConfig(context.Background(), m)
 }
 
 func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1alpha1.Permalink, error) {

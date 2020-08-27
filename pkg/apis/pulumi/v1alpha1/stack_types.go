@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"github.com/pulumi/pulumi/sdk/v2/go/common/workspace"
+	"github.com/pulumi/pulumi/sdk/v2/go/x/auto"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -33,7 +34,8 @@ type StackSpec struct {
 	//   - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"
 	//   - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"
 	// See: https://www.pulumi.com/docs/intro/concepts/config/#initializing-a-stack-with-alternative-encryption
-	SecretsProvider string `json:"secretsProvider,omitempty"`
+	// TODO(autoapi): https://github.com/pulumi/pulumi/issues/5254
+	// SecretsProvider string `json:"secretsProvider,omitempty"`
 
 	// Source control:
 
@@ -167,11 +169,6 @@ type Permalink string
 // not a type that is used in kubernetes.
 // +kubebuilder:object:generate=false
 type StackController interface {
-	// Source control:
-
-	// FetchProjectSource clones the stack's source repo and returns its temporary workdir path.
-	FetchProjectSource(repoURL string, opts *ProjectSourceOptions) (string, error)
-
 	// Project setup:
 
 	// InstallProjectDependencies installs the package manager dependencies for the project's language.
@@ -187,15 +184,11 @@ type StackController interface {
 
 	// CreateStack creates a new stack instance to use in the update run.
 	// It is optionally configured with a secrets provider.
-	CreateStack(stack string, secretsProvider *string) error
-	// UpdateConfig updates the stack configuration values by combining
-	// any configuration values checked into the source repository with
+	CreateStack(workspace auto.Workspace) (*auto.Stack, error)
+	// UpdateConfig updates the stack configuration values and secret values by
+	// combining any configuration values checked into the source repository with
 	// the Config values provided in the Stack, overriding values that match and exist.
 	UpdateConfig() error
-	// UpdateSecretConfig updates the stack secret configuration values by combining
-	// any secret configuration values checked into the source repository with
-	// the Secrets values in the Stack, overriding values that match and exist.
-	UpdateSecretConfig() error
 	// RefreshStack refreshes the stack before the update step is run, and
 	// errors the run if changes were not expected but found after the refresh.
 	RefreshStack(expectNoChanges bool) (Permalink, error)
