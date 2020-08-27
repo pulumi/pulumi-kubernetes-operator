@@ -25,6 +25,7 @@ import (
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -242,7 +243,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 
 	// Step 4. Run a `pulumi up --skip-preview`.
 	// TODO: is it possible to support a --dry-run with a preview?
-	status, permalink, err := sess.UpdateStack()
+	status, permalink, result, err := sess.UpdateStack()
 	switch status {
 	case pulumiv1alpha1.StackUpdateConflict:
 		if sess.stack.RetryOnUpdateConflict {
@@ -273,7 +274,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	}
 
 	// Step 5. Capture outputs onto the resulting status object.
-	outs, err := sess.GetStackOutputs()
+	outs, err := sess.GetStackOutputs(result.Outputs)
 	if err != nil {
 		reqLogger.Error(err, "Failed to get Stack outputs", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
@@ -697,40 +698,44 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1a
 // UpdateStack runs the update on the stack and returns an update status code
 // and error. In certain cases, an update may be unabled to proceed due to locking,
 // in which case the operator will requeue itself to retry later.
-func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStatus, pulumiv1alpha1.Permalink, error) {
-	stdout, stderr, err := sess.pulumi("up", "--skip-preview", "--yes")
+func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStatus, pulumiv1alpha1.Permalink, *auto.UpResult, error) {
+	result, err := sess.autoStack.Up(context.Background())
 	if err != nil {
 		// If this is the "conflict" error message, we will want to gracefully quit and retry.
-		if strings.Contains(stderr, "error: [409] Conflict: Another update is currently in progress") {
-			return pulumiv1alpha1.StackUpdateConflict, pulumiv1alpha1.Permalink(""), err
+		if auto.IsConcurrentUpdateError(err) {
+			return pulumiv1alpha1.StackUpdateConflict, pulumiv1alpha1.Permalink(""), nil, err
 		}
 		// If this is the "not found" error message, we will want to gracefully quit and retry.
-		if strings.Contains(stderr, "error: [404] Not found") {
-			return pulumiv1alpha1.StackNotFound, pulumiv1alpha1.Permalink(""), err
+		if strings.Contains(result.StdErr, "error: [404] Not found") {
+			return pulumiv1alpha1.StackNotFound, pulumiv1alpha1.Permalink(""), nil, err
 		}
-		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), err
+		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), nil, err
 	}
-	permalink, err := sess.getPermalink(stdout)
+	info, err := sess.autoStack.Info(context.Background())
 	if err != nil {
-		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), err
+		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), nil, err
 	}
-	return pulumiv1alpha1.StackUpdateSucceeded, permalink, nil
+	//TODO(autoapi): needs to return stack <url>/updates/<update-id> vs. only <url>
+	permalink := pulumiv1alpha1.Permalink(info.URL)
+	return pulumiv1alpha1.StackUpdateSucceeded, permalink, &result, nil
 }
 
 // GetPulumiOutputs gets the stack outputs and parses them into a map.
-func (sess *reconcileStackSession) GetStackOutputs() (pulumiv1alpha1.StackOutputs, error) {
-	stdout, _, err := sess.pulumi("stack", "output", "--json")
-	if err != nil {
-		return nil, errors.Wrap(err, "getting stack outputs")
+func (sess *reconcileStackSession) GetStackOutputs(outs auto.OutputMap) (pulumiv1alpha1.StackOutputs, error) {
+	o := make(pulumiv1alpha1.StackOutputs)
+	for k, v := range outs {
+		// Marshal the OutputMap value only, to use in unmarshaling to StackOutputs
+		valueBytes, err := json.Marshal(v.Value)
+		if err != nil {
+			return nil, errors.Wrap(err, "marshaling stack output value interface")
+		}
+		value := apiextensionsv1.JSON{}
+		if err := json.Unmarshal(valueBytes, &value); err != nil {
+			return nil, errors.Wrap(err, "unmarshaling stack output value")
+		}
+		o[k] = value
 	}
-
-	// Parse the JSON to ensure it's valid and then encode it as a raw message.
-	var outs pulumiv1alpha1.StackOutputs
-	if err = json.Unmarshal([]byte(stdout), &outs); err != nil {
-		return nil, errors.Wrap(err, "unmarshaling stack outputs (to map)")
-	}
-
-	return outs, nil
+	return o, nil
 }
 
 func (sess *reconcileStackSession) DestroyStack() error {

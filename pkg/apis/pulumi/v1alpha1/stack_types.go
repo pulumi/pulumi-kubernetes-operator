@@ -194,9 +194,9 @@ type StackController interface {
 	RefreshStack(expectNoChanges bool) (Permalink, error)
 	// UpdateStack deploys the stack's resources, computes the new desired
 	// state, and returns the update's status.
-	UpdateStack() (StackUpdateStatus, Permalink, error)
+	UpdateStack() (StackUpdateStatus, Permalink, *auto.UpResult, error)
 	// GetStackOutputs returns all of the the stack's output properties.
-	GetStackOutputs() (StackOutputs, error)
+	GetStackOutputs(outputs auto.OutputMap) (StackOutputs, error)
 	// DestroyStack destroys the stack's resources and state, and the stack itself.
 	DestroyStack() error
 }
