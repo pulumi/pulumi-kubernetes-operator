@@ -739,11 +739,12 @@ func (sess *reconcileStackSession) GetStackOutputs(outs auto.OutputMap) (pulumiv
 }
 
 func (sess *reconcileStackSession) DestroyStack() error {
-	_, _, err := sess.pulumi("destroy", "--yes")
+	_, err := sess.autoStack.Destroy(context.Background())
 	if err != nil {
 		return errors.Wrapf(err, "destroying resources for stack '%s'", sess.stack.Stack)
 	}
-	_, _, err = sess.pulumi("stack", "rm", "--yes")
+
+	err = sess.autoStack.Workspace().RemoveStack(context.Background(), sess.stack.Stack)
 	if err != nil {
 		return errors.Wrapf(err, "removing stack '%s'", sess.stack.Stack)
 	}
