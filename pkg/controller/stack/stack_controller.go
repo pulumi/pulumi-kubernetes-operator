@@ -680,18 +680,17 @@ func (sess *reconcileStackSession) UpdateConfig() error {
 }
 
 func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1alpha1.Permalink, error) {
-	cmdArgs := []string{"refresh", "--yes"}
-	if expectNoChanges {
-		cmdArgs = append(cmdArgs, "--expect-no-changes")
-	}
-	stdout, _, err := sess.pulumi(cmdArgs...)
+	// TODO(autoapi): no option to pass --expect-no-changes to refresh
+	_, err := sess.autoStack.Refresh(context.Background())
 	if err != nil {
 		return pulumiv1alpha1.Permalink(""), errors.Wrapf(err, "refreshing stack '%s'", sess.stack.Stack)
 	}
-	permalink, err := sess.getPermalink(stdout)
+	info, err := sess.autoStack.Info(context.Background())
 	if err != nil {
 		return pulumiv1alpha1.Permalink(""), err
 	}
+	//TODO(autoapi): needs to return stack <url>/updates/<update-id> vs. only <url>
+	permalink := pulumiv1alpha1.Permalink(info.URL)
 	return permalink, nil
 }
 
