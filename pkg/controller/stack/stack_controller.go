@@ -510,22 +510,6 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd) (string, 
 	return stdout.String(), stderr.String(), err
 }
 
-// pulumi runs a Pulumi CLI command and returns the stdout, stderr, and error, if any.
-func (sess *reconcileStackSession) pulumi(args ...string) (string, string, error) {
-	sess.logger.Info("Running Pulumi command", "Args", args, "Workdir", sess.workdir)
-
-	// Run the pulumi command in the working directory.
-	cmdArgs := []string{"--non-interactive"}
-	for _, arg := range args {
-		cmdArgs = append(cmdArgs, arg)
-	}
-	cmd := exec.Command("pulumi", cmdArgs...)
-	cmd.Dir = sess.workdir
-	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "PULUMI_ACCESS_TOKEN="+sess.accessToken)
-	return sess.runCmd("Pulumi CLI", cmd)
-}
-
 func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 	repo := auto.GitRepo{
 		URL:         sess.stack.ProjectRepo,
