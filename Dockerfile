@@ -1,5 +1,5 @@
 # FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
-FROM pulumi/pulumi
+FROM pulumi/pulumi:v2.10.0
 
 ENV OPERATOR=/usr/local/bin/pulumi-kubernetes-operator
 #    USER_UID=1001 \
