@@ -47,7 +47,6 @@ var log = logf.Log.WithName("controller_stack")
 
 const pulumiFinalizer = "finalizer.stack.pulumi.com"
 const maxConcurrentReconciles = 10 // arbitrary value greater than default of 1
-const consoleURL = "https://app.pulumi.com"
 
 // Add creates a new Stack Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -764,13 +763,17 @@ func (sess *reconcileStackSession) addDefaultPermalink(stack *pulumiv1alpha1.Sta
 		sess.logger.Error(err, "Failed to get latest Stack to update Stack Permalink URL", "Stack.Name", stack.Spec.Stack)
 		return err
 	}
-	if stack.Status.LastUpdate == nil {
-		stack.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
-			Permalink: pulumiv1alpha1.Permalink(fmt.Sprintf("%s/%s", consoleURL, stack.Spec.Stack)),
-		}
-	} else {
-		stack.Status.LastUpdate.Permalink = pulumiv1alpha1.Permalink(fmt.Sprintf("%s/%s", consoleURL, stack.Name))
+	// Get stack URL.
+	info, err := sess.autoStack.Info(context.Background())
+	if err != nil {
+		sess.logger.Error(err, "Failed to update Stack status with default permalink", "Stack.Name", stack.Spec.Stack)
+		return err
 	}
+	// Set stack URL.
+	if stack.Status.LastUpdate == nil {
+		stack.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{}
+	}
+	stack.Status.LastUpdate.Permalink = pulumiv1alpha1.Permalink(info.URL)
 	err = sess.updateResourceStatus(stack)
 	if err != nil {
 		sess.logger.Error(err, "Failed to update Stack status with default permalink", "Stack.Name", stack.Spec.Stack)
