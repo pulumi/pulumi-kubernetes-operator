@@ -48,9 +48,6 @@ var log = logf.Log.WithName("controller_stack")
 const pulumiFinalizer = "finalizer.stack.pulumi.com"
 const maxConcurrentReconciles = 10 // arbitrary value greater than default of 1
 const consoleURL = "https://app.pulumi.com"
-const permalinkSearchStr = "Permalink: "
-
-var regex = regexp.MustCompile(permalinkSearchStr)
 
 // Add creates a new Stack Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -666,19 +663,18 @@ func (sess *reconcileStackSession) UpdateConfig() error {
 }
 
 func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1alpha1.Permalink, error) {
-	_, err := sess.autoStack.Refresh(context.Background(),
+	result, err := sess.autoStack.Refresh(context.Background(),
 		optrefresh.ExpectNoChanges(),
 	)
 	if err != nil {
 		return pulumiv1alpha1.Permalink(""), errors.Wrapf(err, "refreshing stack '%s'", sess.stack.Stack)
 	}
-	info, err := sess.autoStack.Info(context.Background())
+	//TODO(autoapi): needs to return stack <url>/updates/<update-id> vs. only <url>
+	// https://github.com/pulumi/pulumi/issues/5267
+	permalink, err := sess.getPermalink(result.StdOut)
 	if err != nil {
 		return pulumiv1alpha1.Permalink(""), err
 	}
-	//TODO(autoapi): needs to return stack <url>/updates/<update-id> vs. only <url>
-	// https://github.com/pulumi/pulumi/issues/5267
-	permalink := pulumiv1alpha1.Permalink(info.URL)
 	return permalink, nil
 }
 
@@ -698,13 +694,12 @@ func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStat
 		}
 		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), nil, err
 	}
-	info, err := sess.autoStack.Info(context.Background())
+	//TODO(autoapi): needs to return stack <url>/updates/<update-id> vs. only <url>
+	// https://github.com/pulumi/pulumi/issues/5267
+	permalink, err := sess.getPermalink(result.StdOut)
 	if err != nil {
 		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), nil, err
 	}
-	//TODO(autoapi): needs to return stack <url>/updates/<update-id> vs. only <url>
-	// https://github.com/pulumi/pulumi/issues/5267
-	permalink := pulumiv1alpha1.Permalink(info.URL)
 	return pulumiv1alpha1.StackUpdateSucceeded, permalink, &result, nil
 }
 
@@ -740,14 +735,25 @@ func (sess *reconcileStackSession) DestroyStack() error {
 }
 
 // Hack to parse the permalink until we have a programmatic way of doing so.
+// TODO(autoapi): needs to return stack <url>/updates/<update-id> vs. only <url>
+// https://github.com/pulumi/pulumi/issues/5267
 func (sess *reconcileStackSession) getPermalink(stdout string) (pulumiv1alpha1.Permalink, error) {
-	found := regex.FindStringIndex(stdout)
-	if found == nil {
+	const permalinkSearchStr = "View Live: "
+	var startRegex = regexp.MustCompile(permalinkSearchStr)
+	var endRegex = regexp.MustCompile("\n")
+
+	// Find the start of the permalink in the output.
+	start := startRegex.FindStringIndex(stdout)
+	if start == nil {
 		return pulumiv1alpha1.Permalink(""), errors.New(fmt.Sprintf("getting permalink for stack '%s'", sess.stack.Stack))
 	}
-	substr := stdout[found[1]:]
-	p := strings.TrimSuffix(substr, "\n")
-	return pulumiv1alpha1.Permalink(p), nil
+	permalinkStart := stdout[start[1]:]
+
+	// Find the end of the permalink.
+	end := endRegex.FindStringIndex(permalinkStart)
+	substr := permalinkStart[:end[1]]
+	substr = strings.TrimSuffix(substr, "\n")
+	return pulumiv1alpha1.Permalink(substr), nil
 }
 
 // Add default permalink for the stack in the Pulumi Service.
