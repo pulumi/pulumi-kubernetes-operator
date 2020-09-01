@@ -550,7 +550,8 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 	}
 	sess.autoStack = autoStack
 
-	// TODO(autoapi): needed for existing use cases not yet ported (install deps)
+	// TODO(autoapi): needed to get project runtime for installing deps
+	// https://github.com/pulumi/pulumi/issues/5266
 	sess.workdir = sess.autoStack.Workspace().WorkDir()
 
 	// Update the stack config and secret config values.
@@ -676,6 +677,7 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1a
 		return pulumiv1alpha1.Permalink(""), err
 	}
 	//TODO(autoapi): needs to return stack <url>/updates/<update-id> vs. only <url>
+	// https://github.com/pulumi/pulumi/issues/5267
 	permalink := pulumiv1alpha1.Permalink(info.URL)
 	return permalink, nil
 }
@@ -701,6 +703,7 @@ func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStat
 		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), nil, err
 	}
 	//TODO(autoapi): needs to return stack <url>/updates/<update-id> vs. only <url>
+	// https://github.com/pulumi/pulumi/issues/5267
 	permalink := pulumiv1alpha1.Permalink(info.URL)
 	return pulumiv1alpha1.StackUpdateSucceeded, permalink, &result, nil
 }
