@@ -22,6 +22,7 @@ import (
 	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
 	"github.com/pulumi/pulumi/sdk/v2/go/common/workspace"
 	"github.com/pulumi/pulumi/sdk/v2/go/x/auto"
+	"github.com/pulumi/pulumi/sdk/v2/go/x/auto/optrefresh"
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
 	corev1 "k8s.io/api/core/v1"
@@ -664,8 +665,9 @@ func (sess *reconcileStackSession) UpdateConfig() error {
 }
 
 func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1alpha1.Permalink, error) {
-	// TODO(autoapi): no option to pass --expect-no-changes to refresh
-	_, err := sess.autoStack.Refresh(context.Background())
+	_, err := sess.autoStack.Refresh(context.Background(),
+		optrefresh.ExpectNoChanges(),
+	)
 	if err != nil {
 		return pulumiv1alpha1.Permalink(""), errors.Wrapf(err, "refreshing stack '%s'", sess.stack.Stack)
 	}
