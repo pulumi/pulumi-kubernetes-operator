@@ -1,7 +1,8 @@
 package v1alpha1
 
 import (
-	"github.com/pulumi/pulumi/sdk/v2/go/common/workspace"
+	"context"
+
 	"github.com/pulumi/pulumi/sdk/v2/go/x/auto"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -172,7 +173,7 @@ type StackController interface {
 	// Project setup:
 
 	// InstallProjectDependencies installs the package manager dependencies for the project's language.
-	InstallProjectDependencies(runtime workspace.ProjectRuntimeInfo) error
+	InstallProjectDependencies(ctx context.Context, workspace auto.Workspace) error
 	// SetEnvs populates the environment of the stack run with values
 	// from an array of Kubernetes ConfigMaps in a Namespace.
 	SetEnvs(configMapNames []string, namespace string) error
