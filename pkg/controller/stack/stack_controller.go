@@ -153,9 +153,15 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	}
 
 	// Create a new reconciliation session.
-	sess := newReconcileStackSession(reqLogger, accessToken, stack, r.client, nil)
+	sess := newReconcileStackSession(reqLogger, accessToken, stack, r.client)
 
-	// If there are extra environment variables, read them in now and use them for subsequent commands.
+	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
+	if err = sess.SetupPulumiWorkdir(); err != nil {
+		reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
+		return reconcile.Result{}, err
+	}
+
+	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
 	err = sess.SetEnvs(stack.Envs, request.Namespace)
 	if err != nil {
 		reqLogger.Error(err, "Could not find ConfigMap for Envs")
@@ -164,12 +170,6 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	err = sess.SetSecretEnvs(stack.SecretEnvs, request.Namespace)
 	if err != nil {
 		reqLogger.Error(err, "Could not find Secret for SecretEnvs")
-		return reconcile.Result{}, err
-	}
-
-	// Set up the workdir, select the right stack and populate config if supplied.
-	if err = sess.SetupPulumiWorkdir(); err != nil {
-		reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
 	}
 
@@ -370,7 +370,6 @@ type reconcileStackSession struct {
 	stack       pulumiv1alpha1.StackSpec
 	autoStack   *auto.Stack
 	workdir     string
-	extraEnv    map[string]string
 }
 
 // blank assignment to verify that reconcileStackSession implements pulumiv1alpha1.StackController.
@@ -378,13 +377,12 @@ var _ pulumiv1alpha1.StackController = &reconcileStackSession{}
 
 func newReconcileStackSession(
 	logger logr.Logger, accessToken string, stack pulumiv1alpha1.StackSpec,
-	kubeClient client.Client, extraEnv map[string]string) *reconcileStackSession {
+	kubeClient client.Client) *reconcileStackSession {
 	return &reconcileStackSession{
 		logger:      logger,
 		kubeClient:  kubeClient,
 		accessToken: accessToken,
 		stack:       stack,
-		extraEnv:    extraEnv,
 	}
 }
 
@@ -410,20 +408,13 @@ func gitCloneAndCheckoutCommit(url, hash, branch, path string) error {
 // SetEnvs populates the environment the stack run with values
 // from an array of Kubernetes ConfigMaps in a Namespace.
 func (sess *reconcileStackSession) SetEnvs(configMapNames []string, namespace string) error {
-	var err error
-	if sess.extraEnv == nil {
-		sess.extraEnv = make(map[string]string)
-	}
 	for _, env := range configMapNames {
 		config := &corev1.ConfigMap{}
-		if err = sess.getLatestResource(config, types.NamespacedName{Name: env, Namespace: namespace}); err != nil {
+		if err := sess.getLatestResource(config, types.NamespacedName{Name: env, Namespace: namespace}); err != nil {
 			return errors.Wrapf(err, "Namespace=%s Name=%s", namespace, env)
 		}
-		for k, v := range config.Data {
-			sess.extraEnv[k] = v
-			// TODO(autoapi): add workspace scoped env vars
-			// https://github.com/pulumi/pulumi/issues/5227
-			os.Setenv(k, v)
+		if err := sess.autoStack.Workspace().SetEnvVars(config.Data); err != nil {
+			return errors.Wrapf(err, "Namespace=%s Name=%s", namespace, env)
 		}
 	}
 	return nil
@@ -432,17 +423,17 @@ func (sess *reconcileStackSession) SetEnvs(configMapNames []string, namespace st
 // SetSecretEnvs populates the environment of the stack run with values
 // from an array of Kubernetes Secrets in a Namespace.
 func (sess *reconcileStackSession) SetSecretEnvs(secrets []string, namespace string) error {
-	var err error
-	if sess.extraEnv == nil {
-		sess.extraEnv = make(map[string]string)
-	}
 	for _, env := range secrets {
 		config := &corev1.Secret{}
-		if err = sess.getLatestResource(config, types.NamespacedName{Name: env, Namespace: namespace}); err != nil {
+		if err := sess.getLatestResource(config, types.NamespacedName{Name: env, Namespace: namespace}); err != nil {
 			return errors.Wrapf(err, "Namespace=%s Name=%s", namespace, env)
 		}
+		envvars := map[string]string{}
 		for k, v := range config.Data {
-			sess.extraEnv[k] = string(v)
+			envvars[k] = string(v)
+		}
+		if err := sess.autoStack.Workspace().SetEnvVars(envvars); err != nil {
+			return errors.Wrapf(err, "Namespace=%s Name=%s", namespace, env)
 		}
 	}
 	return nil
@@ -455,16 +446,15 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd) (string, 
 		cmd.Dir = sess.workdir
 	}
 
+	// Init environment variables.
+	if len(cmd.Env) == 0 {
+		cmd.Env = os.Environ()
+	}
 	// If there are extra environment variables, set them.
-	if sess.extraEnv != nil {
-		if len(cmd.Env) == 0 {
-			cmd.Env = os.Environ()
-		}
-		for k, v := range sess.extraEnv {
-			cmd.Env = append(cmd.Env, k+"="+v)
-			// TODO(autoapi): add workspace scoped env vars
-			// https://github.com/pulumi/pulumi/issues/5227
-			os.Setenv(k, v)
+	if envvars := sess.autoStack.Workspace().GetEnvVars(); envvars != nil {
+		for k, v := range envvars {
+			e := []string{k, v}
+			cmd.Env = append(cmd.Env, strings.Join(e, "="))
 		}
 	}
 
@@ -515,10 +505,6 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 		Branch:      sess.stack.Branch,
 	}
 
-	// TODO(autoapi): add workspace scoped env vars
-	// https://github.com/pulumi/pulumi/issues/5227
-	os.Setenv("PULUMI_ACCESS_TOKEN", sess.accessToken)
-
 	var err error
 	autoStack := &auto.Stack{}
 
@@ -545,6 +531,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 		autoStack = &s
 	}
 	sess.autoStack = autoStack
+	sess.autoStack.Workspace().SetEnvVar("PULUMI_ACCESS_TOKEN", sess.accessToken)
 
 	// TODO(autoapi): needed to get project runtime for installing deps
 	// https://github.com/pulumi/pulumi/issues/5266
