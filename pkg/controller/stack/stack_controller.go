@@ -20,7 +20,6 @@ import (
 	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/pkg/errors"
 	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
-	"github.com/pulumi/pulumi/sdk/v2/go/common/workspace"
 	"github.com/pulumi/pulumi/sdk/v2/go/x/auto"
 	"github.com/pulumi/pulumi/sdk/v2/go/x/auto/optrefresh"
 	git "gopkg.in/src-d/go-git.v4"
@@ -440,10 +439,10 @@ func (sess *reconcileStackSession) SetSecretEnvs(secrets []string, namespace str
 }
 
 // runCmd runs the given command with stdout and stderr hooked up to the logger.
-func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd) (string, string, error) {
+func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd, workspace auto.Workspace) (string, string, error) {
 	// If not overridden, set the command to run in the working directory.
 	if cmd.Dir == "" {
-		cmd.Dir = sess.workdir
+		cmd.Dir = workspace.WorkDir()
 	}
 
 	// Init environment variables.
@@ -451,7 +450,7 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd) (string, 
 		cmd.Env = os.Environ()
 	}
 	// If there are extra environment variables, set them.
-	if envvars := sess.autoStack.Workspace().GetEnvVars(); envvars != nil {
+	if envvars := workspace.GetEnvVars(); envvars != nil {
 		for k, v := range envvars {
 			e := []string{k, v}
 			cmd.Env = append(cmd.Env, strings.Join(e, "="))
@@ -503,6 +502,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 		ProjectPath: sess.stack.RepoDir,
 		CommitHash:  sess.stack.Commit,
 		Branch:      sess.stack.Branch,
+		Setup:       sess.InstallProjectDependencies,
 	}
 
 	var err error
@@ -533,10 +533,6 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 	sess.autoStack = autoStack
 	sess.autoStack.Workspace().SetEnvVar("PULUMI_ACCESS_TOKEN", sess.accessToken)
 
-	// TODO(autoapi): needed to get project runtime for installing deps
-	// https://github.com/pulumi/pulumi/issues/5266
-	sess.workdir = sess.autoStack.Workspace().WorkDir()
-
 	// Update the stack config and secret config values.
 	err = sess.UpdateConfig()
 	if err != nil {
@@ -544,19 +540,20 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 		return errors.Wrap(err, "failed to set stack config")
 	}
 
-	project, err := workspace.LoadProject(filepath.Join(sess.workdir, "Pulumi.yaml"))
-	if err != nil {
-		return err
-	}
-	if err = sess.InstallProjectDependencies(project.Runtime); err != nil {
+	// Install project dependencies
+	if err = sess.InstallProjectDependencies(context.Background(), sess.autoStack.Workspace()); err != nil {
 		return errors.Wrap(err, "installing project dependencies")
 	}
 
 	return nil
 }
 
-func (sess *reconcileStackSession) InstallProjectDependencies(runtime workspace.ProjectRuntimeInfo) error {
-	switch runtime.Name() {
+func (sess *reconcileStackSession) InstallProjectDependencies(ctx context.Context, workspace auto.Workspace) error {
+	project, err := workspace.ProjectSettings(ctx)
+	if err != nil {
+		return errors.Wrap(err, "unable to get project runtime")
+	}
+	switch project.Runtime.Name() {
 	case "nodejs":
 		npm, _ := exec.LookPath("npm")
 		if npm == "" {
@@ -567,7 +564,7 @@ func (sess *reconcileStackSession) InstallProjectDependencies(runtime workspace.
 		}
 		// TODO: Consider using `npm ci` instead if there is a `package-lock.json` or `npm-shrinkwrap.json` present
 		cmd := exec.Command(npm, "install")
-		_, _, err := sess.runCmd("NPM/Yarn", cmd)
+		_, _, err := sess.runCmd("NPM/Yarn", cmd, workspace)
 		return err
 	case "python":
 		python3, _ := exec.LookPath("python3")
@@ -579,8 +576,8 @@ func (sess *reconcileStackSession) InstallProjectDependencies(runtime workspace.
 			return errors.New("did not find 'pip3' on the PATH; can't install project dependencies")
 		}
 		venv := ""
-		if runtime.Options() != nil {
-			venv, _ = runtime.Options()["virtualenv"].(string)
+		if project.Runtime.Options() != nil {
+			venv, _ = project.Runtime.Options()["virtualenv"].(string)
 		}
 		if venv == "" {
 			// TODO[pulumi/pulumi-kubernetes-operator#79]
@@ -589,18 +586,18 @@ func (sess *reconcileStackSession) InstallProjectDependencies(runtime workspace.
 		// Emulate the same steps as the CLI does in https://github.com/pulumi/pulumi/blob/master/sdk/python/python.go#L97-L99.
 		// TODO[pulumi/pulumi#5164]: Ideally the CLI would automatically do these - since it already knows how.
 		cmd := exec.Command(python3, "-m", "venv", venv)
-		_, _, err := sess.runCmd("Pip Install", cmd)
+		_, _, err := sess.runCmd("Pip Install", cmd, workspace)
 		if err != nil {
 			return err
 		}
 		venvPython := filepath.Join(venv, "bin", "python")
 		cmd = exec.Command(venvPython, "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel")
-		_, _, err = sess.runCmd("Pip Install", cmd)
+		_, _, err = sess.runCmd("Pip Install", cmd, workspace)
 		if err != nil {
 			return err
 		}
 		cmd = exec.Command(venvPython, "-m", "pip", "install", "-r", "requirements.txt")
-		_, _, err = sess.runCmd("Pip Install", cmd)
+		_, _, err = sess.runCmd("Pip Install", cmd, workspace)
 		if err != nil {
 			return err
 		}
@@ -610,7 +607,7 @@ func (sess *reconcileStackSession) InstallProjectDependencies(runtime workspace.
 		return nil
 	default:
 		// Allow unknown runtimes without any pre-processing, but print a message indicating runtime was unknown
-		sess.logger.Info(fmt.Sprintf("Handling unknown project runtime '%s'", runtime.Name()), "Stack.Name", sess.stack.Stack)
+		sess.logger.Info(fmt.Sprintf("Handling unknown project runtime '%s'", project.Runtime.Name()), "Stack.Name", sess.stack.Stack)
 		return nil
 	}
 }
