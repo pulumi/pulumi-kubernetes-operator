@@ -91,7 +91,6 @@ func main() {
 				"spec": map[string]interface{}{
 					"accessTokenSecret": accessToken.Metadata.Name(),
 					"stack":             "<YOUR_ORG>/nginx/dev",
-					"initOnCreate":      true,
 					"projectRepo":       "https://github.com/metral/pulumi-nginx",
 					"commit":            "2b0889718d3e63feeb6079ccd5e4488d8601e353",
 					"destroyOnFinalize": true,
@@ -172,7 +171,6 @@ func main() {
 							"aws:region": "us-west-2",
 						},
 						"envSecrets":        []interface{}{awsCreds.Metadata.Name()},
-						"initOnCreate":      true,
 						"destroyOnFinalize": true,
 					},
 				},
@@ -219,7 +217,6 @@ kubectl get stack s3-bucket-stack -o json
         "envSecrets": [
             "pulumi-aws-secrets-ont5hl"
         ],
-        "initOnCreate": true,
         "projectRepo": "https://github.com/metral/test-s3-op-project",
         "stack": "metral/s3-op-project/dev"
     },
@@ -277,7 +274,6 @@ kubectl get stack s3-bucket-stack -o json
         "envSecrets": [
             "pulumi-aws-secrets-ont5hl"
         ],
-        "initOnCreate": true,
         "projectRepo": "https://github.com/metral/test-s3-op-project",
         "stack": "metral/s3-op-project/dev"
     },

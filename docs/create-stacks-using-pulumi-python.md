@@ -162,7 +162,6 @@ kubectl get stack s3-bucket-stack -o json
         "envSecrets": [
             "pulumi-aws-secrets-ont5hl"
         ],
-        "initOnCreate": true,
         "projectRepo": "https://github.com/metral/test-s3-op-project",
         "stack": "metral/s3-op-project/dev"
     },
@@ -220,7 +219,6 @@ kubectl get stack s3-bucket-stack -o json
         "envSecrets": [
             "pulumi-aws-secrets-ont5hl"
         ],
-        "initOnCreate": true,
         "projectRepo": "https://github.com/metral/test-s3-op-project",
         "stack": "metral/s3-op-project/dev"
     },

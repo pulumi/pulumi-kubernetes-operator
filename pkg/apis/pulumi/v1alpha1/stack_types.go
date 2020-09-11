@@ -57,8 +57,6 @@ type StackSpec struct {
 
 	// Lifecycle:
 
-	// (optional) InitOnCreate can be set to true to create the stack from scratch upon creation of the CRD.
-	InitOnCreate bool `json:"initOnCreate,omitempty"`
 	// (optional) Refresh can be set to true to refresh the stack before it is updated.
 	Refresh bool `json:"refresh,omitempty"`
 	// (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have
@@ -182,9 +180,6 @@ type StackController interface {
 
 	// Lifecycle:
 
-	// CreateStack creates a new stack instance to use in the update run.
-	// It is optionally configured with a secrets provider.
-	CreateStack(workspace auto.Workspace) (*auto.Stack, error)
 	// UpdateConfig updates the stack configuration values and secret values by
 	// combining any configuration values checked into the source repository with
 	// the Config values provided in the Stack, overriding values that match and exist.

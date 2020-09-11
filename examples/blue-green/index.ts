@@ -35,7 +35,6 @@ const appStack = new k8s.apiextensions.CustomResource("app-stack", {
     spec: {
         accessTokenSecret: apiAccessToken.metadata.name,
         stack: stackName,
-        initOnCreate: true,
         projectRepo: stackProjectRepo,
         commit: stackCommit,
         destroyOnFinalize: true,

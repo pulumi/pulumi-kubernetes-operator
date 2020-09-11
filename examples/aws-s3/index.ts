@@ -58,7 +58,6 @@ const mystack = new k8s.apiextensions.CustomResource("my-stack", {
             "aws:region": "us-west-2",
         },
         envSecrets: [awsCreds.metadata.name],
-        initOnCreate: true,
         destroyOnFinalize: true,
     },
 }, {dependsOn: pulumiOperator.deployment});

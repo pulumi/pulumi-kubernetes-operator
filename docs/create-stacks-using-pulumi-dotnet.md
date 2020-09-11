@@ -77,9 +77,6 @@ class StackSpecArgs : ResourceArgs
     [Input("stack")]
     public Input<string>? Stack { get; set; }
     
-    [Input("initOnCreate")]
-    public Input<bool>? InitOnCreate { get; set; }
-    
     [Input("projectRepo")]
     public Input<string>? ProjectRepo { get; set; }
     
@@ -114,7 +111,6 @@ class MyStack : Stack
             {
                 AccessTokenSecret = accessToken.Metadata.Apply(m => m.Name),
                 Stack = "<YOUR_ORG>/nginx/dev",
-                InitOnCreate = true,
                 ProjectRepo = "https://github.com/metral/pulumi-nginx",
                 Commit = "2b0889718d3e63feeb6079ccd5e4488d8601e353",
                 DestroyOnFinalize = true,
@@ -157,9 +153,6 @@ class StackSpecArgs : ResourceArgs
     
     [Input("stack")]
     public Input<string>? Stack { get; set; }
-    
-    [Input("initOnCreate")]
-    public Input<bool>? InitOnCreate { get; set; }
     
     [Input("projectRepo")]
     public Input<string>? ProjectRepo { get; set; }
@@ -220,7 +213,6 @@ class MyStack : Stack
                     {"aws:region", "us-west-2"}
                 },
                 EnvSecrets = {awsCreds.Metadata.Apply(m => m.Name)},
-                InitOnCreate = true,
                 DestroyOnFinalize = true,
             }
         });
@@ -264,7 +256,6 @@ kubectl get stack s3-bucket-stack -o json
         "envSecrets": [
             "pulumi-aws-secrets-ont5hl"
         ],
-        "initOnCreate": true,
         "projectRepo": "https://github.com/metral/test-s3-op-project",
         "stack": "metral/s3-op-project/dev"
     },
@@ -322,7 +313,6 @@ kubectl get stack s3-bucket-stack -o json
         "envSecrets": [
             "pulumi-aws-secrets-ont5hl"
         ],
-        "initOnCreate": true,
         "projectRepo": "https://github.com/metral/test-s3-op-project",
         "stack": "metral/s3-op-project/dev"
     },

@@ -279,7 +279,7 @@ kubectl get stacks -o json -w
     "kind": "Stack",
     "metadata": {
         "annotations": {
-            "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"pulumi.com/v1alpha1\",\"kind\":\"Stack\",\"metadata\":{\"annotations\":{\"pulumi.com/autonamed\":\"true\"},\"labels\":{\"app.kubernetes.io/managed-by\":\"pulumi\"},\"name\":\"app-stack-b6n7y519\"},\"spec\":{\"accessTokenSecret\":\"accesstoken-dnfb5jg2\",\"commit\":\"b19759220f25476605620fdfffeface39a630246\",\"destroyOnFinalize\":true,\"initOnCreate\":true,\"projectRepo\":\"https://github.com/metral/pulumi-blue-green\",\"stack\":\"metral/pulumi-blue-green/dev\"}}\n",
+            "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"pulumi.com/v1alpha1\",\"kind\":\"Stack\",\"metadata\":{\"annotations\":{\"pulumi.com/autonamed\":\"true\"},\"labels\":{\"app.kubernetes.io/managed-by\":\"pulumi\"},\"name\":\"app-stack-b6n7y519\"},\"spec\":{\"accessTokenSecret\":\"accesstoken-dnfb5jg2\",\"commit\":\"b19759220f25476605620fdfffeface39a630246\",\"destroyOnFinalize\":true,\"projectRepo\":\"https://github.com/metral/pulumi-blue-green\",\"stack\":\"metral/pulumi-blue-green/dev\"}}\n",
             "pulumi.com/autonamed": "true"
         },
         "creationTimestamp": "2020-08-05T23:48:57Z",
@@ -300,7 +300,6 @@ kubectl get stacks -o json -w
         "accessTokenSecret": "accesstoken-dnfb5jg2",
         "commit": "b19759220f25476605620fdfffeface39a630246",
         "destroyOnFinalize": true,
-        "initOnCreate": true,
         "projectRepo": "https://github.com/metral/pulumi-blue-green",
         "stack": "metral/pulumi-blue-green/dev"
     },

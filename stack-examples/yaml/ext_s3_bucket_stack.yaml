@@ -26,7 +26,6 @@ spec:
   envSecrets:
     - pulumi-aws-secrets
   stack: joeduffy/s3-op-project/dev
-  initOnCreate: true
   refresh: true
   destroyOnFinalize: true
   config:
