@@ -452,8 +452,7 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd, workspace
 	// If there are extra environment variables, set them.
 	if envvars := workspace.GetEnvVars(); envvars != nil {
 		for k, v := range envvars {
-			e := []string{k, v}
-			cmd.Env = append(cmd.Env, strings.Join(e, "="))
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 		}
 	}
 
@@ -667,7 +666,7 @@ func (sess *reconcileStackSession) GetStackOutputs(outs auto.OutputMap) (pulumiv
 		if err != nil {
 			return nil, errors.Wrap(err, "marshaling stack output value interface")
 		}
-		value := apiextensionsv1.JSON{}
+		var value apiextensionsv1.JSON
 		if err := json.Unmarshal(valueBytes, &value); err != nil {
 			return nil, errors.Wrap(err, "unmarshaling stack output value")
 		}
@@ -706,8 +705,7 @@ func (sess *reconcileStackSession) getPermalink(stdout string) (pulumiv1alpha1.P
 
 	// Find the end of the permalink.
 	end := endRegex.FindStringIndex(permalinkStart)
-	substr := permalinkStart[:end[1]]
-	substr = strings.TrimSuffix(substr, "\n")
+	substr := permalinkStart[:end[1]-1]
 	return pulumiv1alpha1.Permalink(substr), nil
 }
 
