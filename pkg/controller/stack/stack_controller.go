@@ -509,7 +509,8 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 	autoStack := &auto.Stack{}
 
 	// Create a new workspace.
-	w, err := auto.NewLocalWorkspace(context.Background(), auto.Repo(repo))
+	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
+	w, err := auto.NewLocalWorkspace(context.Background(), auto.Repo(repo), secretsProvider)
 	if err != nil {
 		return errors.Wrap(err, "failed to create local workspace")
 	}
@@ -613,8 +614,6 @@ func (sess *reconcileStackSession) InstallProjectDependencies(ctx context.Contex
 }
 
 func (sess *reconcileStackSession) CreateStack(w auto.Workspace) (*auto.Stack, error) {
-	// TODO(autoapi): handle setting secrets provider:
-	// https://github.com/pulumi/pulumi/issues/5254
 	autoStack, err := auto.NewStack(context.Background(), sess.stack.Stack, w)
 	if err != nil {
 		// TODO(autoapi): replace stack HTTP409 when autoapi issue closed:
