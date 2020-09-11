@@ -893,7 +893,7 @@ The following are examples to create Pulumi Stacks in Kubernetes that are manage
 If you'd like to use your own Pulumi Stack, ensure that you have an existing Pulumi program in a git repo,
 and update the CR with:
   - An existing github `project` and `commit`,
-  - A Pulumi `stack` name that exists, or must be created if `initOnCreate: true` is set,
+  - A Pulumi `stack` name that exists and will be selected, or a new stack that will be created and selected.
   - A Kubernetes Secret for your Pulumi API `accessToken`,
   - A Kubernetes Secret for other sensitive settings like cloud provider credentials, and
   - Environment variables and stack config needed.

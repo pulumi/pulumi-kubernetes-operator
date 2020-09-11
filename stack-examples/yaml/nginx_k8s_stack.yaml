@@ -13,7 +13,6 @@ metadata:
 spec:
   accessTokenSecret: pulumi-api-secret
   stack: joeduffy/nginx/dev
-  initOnCreate: true # noop if stack already exists
   projectRepo: https://github.com/metral/pulumi-nginx
   commit: 2b0889718d3e63feeb6079ccd5e4488d8601e353
   destroyOnFinalize: true

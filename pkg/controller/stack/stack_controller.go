@@ -505,9 +505,6 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 		Setup:       sess.InstallProjectDependencies,
 	}
 
-	var err error
-	autoStack := &auto.Stack{}
-
 	// Create a new workspace.
 	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
 	w, err := auto.NewLocalWorkspace(context.Background(), auto.Repo(repo), secretsProvider)
@@ -515,23 +512,13 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 		return errors.Wrap(err, "failed to create local workspace")
 	}
 
-	// Create the stack if requested.
-	if sess.stack.InitOnCreate {
-		autoStack, err = sess.CreateStack(w)
-		if err != nil {
-			sess.logger.Error(err, "failed to create stack", "Stack.Name", sess.stack.Stack)
-			return errors.Wrap(err, "failed to create stack")
-		}
+	// Create a new stack if the stack does not already exist, or fall back to
+	// selecting the existing stack. If the stack does not exist, it will be created and selected.
+	a, err := auto.UpsertStack(context.Background(), sess.stack.Stack, w)
+	if err != nil {
+		return errors.Wrap(err, "failed to create and/or select stack")
 	}
-	if autoStack == nil {
-		s, err := auto.SelectStack(context.Background(), sess.stack.Stack, w)
-		if err != nil {
-			sess.logger.Error(err, "failed to select stack", "Stack.Name", sess.stack.Stack)
-			return errors.Wrap(err, "failed to select stack")
-		}
-		autoStack = &s
-	}
-	sess.autoStack = autoStack
+	sess.autoStack = &a
 	sess.autoStack.Workspace().SetEnvVar("PULUMI_ACCESS_TOKEN", sess.accessToken)
 
 	// Update the stack config and secret config values.
@@ -611,20 +598,6 @@ func (sess *reconcileStackSession) InstallProjectDependencies(ctx context.Contex
 		sess.logger.Info(fmt.Sprintf("Handling unknown project runtime '%s'", project.Runtime.Name()), "Stack.Name", sess.stack.Stack)
 		return nil
 	}
-}
-
-func (sess *reconcileStackSession) CreateStack(w auto.Workspace) (*auto.Stack, error) {
-	autoStack, err := auto.NewStack(context.Background(), sess.stack.Stack, w)
-	if err != nil {
-		// TODO(autoapi): replace stack HTTP409 when autoapi issue closed:
-		// https://github.com/pulumi/pulumi/issues/5255
-		if strings.Contains(err.Error(), "already exists") {
-			return nil, nil
-		}
-		return nil, errors.Wrap(err, "failed to create stack")
-	}
-
-	return &autoStack, nil
 }
 
 func (sess *reconcileStackSession) UpdateConfig() error {
