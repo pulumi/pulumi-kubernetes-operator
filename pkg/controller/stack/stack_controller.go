@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -623,12 +622,11 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1a
 	if err != nil {
 		return pulumiv1alpha1.Permalink(""), errors.Wrapf(err, "refreshing stack '%s'", sess.stack.Stack)
 	}
-	//TODO(autoapi): needs to return stack <url>/updates/<update-id> vs. only <url>
-	// https://github.com/pulumi/pulumi/issues/5267
-	permalink, err := sess.getPermalink(result.StdOut)
+	p, err := auto.GetPermalink(result.StdOut)
 	if err != nil {
 		return pulumiv1alpha1.Permalink(""), err
 	}
+	permalink := pulumiv1alpha1.Permalink(p)
 	return permalink, nil
 }
 
@@ -648,12 +646,11 @@ func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStat
 		}
 		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), nil, err
 	}
-	//TODO(autoapi): needs to return stack <url>/updates/<update-id> vs. only <url>
-	// https://github.com/pulumi/pulumi/issues/5267
-	permalink, err := sess.getPermalink(result.StdOut)
+	p, err := auto.GetPermalink(result.StdOut)
 	if err != nil {
 		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), nil, err
 	}
+	permalink := pulumiv1alpha1.Permalink(p)
 	return pulumiv1alpha1.StackUpdateSucceeded, permalink, &result, nil
 }
 
@@ -686,27 +683,6 @@ func (sess *reconcileStackSession) DestroyStack() error {
 		return errors.Wrapf(err, "removing stack '%s'", sess.stack.Stack)
 	}
 	return nil
-}
-
-// Hack to parse the permalink until we have a programmatic way of doing so.
-// TODO(autoapi): needs to return stack <url>/updates/<update-id> vs. only <url>
-// https://github.com/pulumi/pulumi/issues/5267
-func (sess *reconcileStackSession) getPermalink(stdout string) (pulumiv1alpha1.Permalink, error) {
-	const permalinkSearchStr = "View Live: "
-	var startRegex = regexp.MustCompile(permalinkSearchStr)
-	var endRegex = regexp.MustCompile("\n")
-
-	// Find the start of the permalink in the output.
-	start := startRegex.FindStringIndex(stdout)
-	if start == nil {
-		return pulumiv1alpha1.Permalink(""), errors.New(fmt.Sprintf("getting permalink for stack '%s'", sess.stack.Stack))
-	}
-	permalinkStart := stdout[start[1]:]
-
-	// Find the end of the permalink.
-	end := endRegex.FindStringIndex(permalinkStart)
-	substr := permalinkStart[:end[1]-1]
-	return pulumiv1alpha1.Permalink(substr), nil
 }
 
 // Add default permalink for the stack in the Pulumi Service.
