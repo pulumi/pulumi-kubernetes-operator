@@ -449,10 +449,8 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd, workspace
 		cmd.Env = os.Environ()
 	}
 	// If there are extra environment variables, set them.
-	if envvars := workspace.GetEnvVars(); envvars != nil {
-		for k, v := range envvars {
-			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
-		}
+	for k, v := range workspace.GetEnvVars() {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
 
 	// Capture stdout and stderr.
@@ -509,6 +507,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create local workspace")
 	}
+	w.SetEnvVar("PULUMI_ACCESS_TOKEN", sess.accessToken)
 
 	// Create a new stack if the stack does not already exist, or fall back to
 	// selecting the existing stack. If the stack does not exist, it will be created and selected.
@@ -517,7 +516,6 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
 		return errors.Wrap(err, "failed to create and/or select stack")
 	}
 	sess.autoStack = &a
-	sess.autoStack.Workspace().SetEnvVar("PULUMI_ACCESS_TOKEN", sess.accessToken)
 
 	// Update the stack config and secret config values.
 	err = sess.UpdateConfig()
