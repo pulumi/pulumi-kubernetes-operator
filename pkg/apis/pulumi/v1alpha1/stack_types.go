@@ -41,9 +41,14 @@ type StackSpec struct {
 
 	// ProjectRepo is the git source control repository from which we fetch the project code and configuration.
 	ProjectRepo string `json:"projectRepo"`
-	// (optional) ProjectRepoAccessTokenSecret is the the name of a secret containing a
-	// personal access token to use a private git source control repository.
-	ProjectRepoAccessTokenSecret string `json:"projectRepoAccessTokenSecret,omitempty"`
+	// (optional) GitAuthSecret is the the name of a secret containing an
+	// authentication option for the git repository.
+	// There are 3 different authentication options:
+	//   * Personal access token
+	//   * SSH private key (and it's optional password)
+	//   * Basic auth username and password
+	// Only 1 authentication path is valid.
+	GitAuthSecret string `json:"gitAuthSecret,omitempty"`
 	// (optional) RepoDir is the directory to work from in the project's source repository
 	// where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
 	// in the project source root.

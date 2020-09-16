@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pulumi-api-secret
+type: Opaque
+stringData:
+  accessToken: "<REDACTED: PULUMI_ACCESS_TOKEN>"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: git-secret
+type: Opaque
+stringData:
+  username: "<REDACTED: BASIC_AUTH_USERNAME>"
+  password: "<REDACTED: BASIC_AUTH_PASSWORD>"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pulumi-aws-secrets
+type: Opaque
+stringData:
+  AWS_ACCESS_KEY_ID: "<REDACTED: AWS_ACCESS_KEY_ID>"
+  AWS_SECRET_ACCESS_KEY: "<REDACTED: AWS_SECRET_ACCESS_KEY>"
+---
+apiVersion: pulumi.com/v1alpha1
+kind: Stack
+metadata:
+  name: s3-bucket-stack
+spec:
+  accessTokenSecret: pulumi-api-secret
+  envSecrets:
+    - pulumi-aws-secrets
+  gitAuthSecret: git-secret
+  stack: joeduffy/s3-op-project/dev
+  projectRepo: git@github.com:joeduffy/test-s3-op-project.git
+  commit: cc5442870f1195216d6bc340c14f8ae7d28cf3e2
+  config:
+    aws:region: us-east-2

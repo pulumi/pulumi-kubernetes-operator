@@ -154,7 +154,15 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	sess := newReconcileStackSession(reqLogger, accessToken, stack, r.client)
 
 	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
-	if err = sess.SetupPulumiWorkdir(); err != nil {
+	var gitAuth *auto.GitAuth
+	if sess.stack.GitAuthSecret != "" {
+		gitAuth, err = sess.SetupGitAuth(request.Namespace)
+		if err != nil {
+			reqLogger.Error(err, "Failed to setup git authentication", "Stack.Name", stack.Stack)
+			return reconcile.Result{}, err
+		}
+	}
+	if err = sess.SetupPulumiWorkdir(gitAuth); err != nil {
 		reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
 	}
@@ -492,13 +500,14 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd, workspace
 	return stdout.String(), stderr.String(), err
 }
 
-func (sess *reconcileStackSession) SetupPulumiWorkdir() error {
+func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) error {
 	repo := auto.GitRepo{
 		URL:         sess.stack.ProjectRepo,
 		ProjectPath: sess.stack.RepoDir,
 		CommitHash:  sess.stack.Commit,
 		Branch:      sess.stack.Branch,
 		Setup:       sess.InstallProjectDependencies,
+		Auth:        gitAuth,
 	}
 
 	// Create a new workspace.
@@ -681,6 +690,72 @@ func (sess *reconcileStackSession) DestroyStack() error {
 		return errors.Wrapf(err, "removing stack '%s'", sess.stack.Stack)
 	}
 	return nil
+}
+
+// SetupGitAuth sets up the authentication option to use for the git source
+// repository of the stack.
+func (sess *reconcileStackSession) SetupGitAuth(namespace string) (*auto.GitAuth, error) {
+	var err error
+	namespacedName := types.NamespacedName{Name: sess.stack.GitAuthSecret, Namespace: namespace}
+
+	// Fetch the named secret.
+	secret := &corev1.Secret{}
+	if err = sess.kubeClient.Get(context.TODO(), namespacedName, secret); err != nil {
+		sess.logger.Error(err, "Could not find secret for access to the git repositoriy",
+			"Namespace", namespace, "Stack.GitAuthSecret", sess.stack.GitAuthSecret)
+		return nil, err
+	}
+
+	var gitAuth *auto.GitAuth
+
+	// First check if an SSH private key has been specified.
+	if sshPrivateKey, exists := secret.Data["sshPrivateKey"]; exists {
+		// Create a temp file
+		tmpfile, err := ioutil.TempFile(os.TempDir(), "gitauth-")
+		if err != nil {
+			return nil, errors.Wrap(err, "setting up git authentication")
+		}
+		// TODO: cleanup temp ssh key file. what we need is for GitAuth to
+		// accept SshPrivateKey in addition to SshPrivateKeyFile s.t  we don't
+		// need to rely on a temp file.
+		// See: https://github.com/pulumi/pulumi/issues/5383
+		// defer os.Remove(tmpfile.Name())
+
+		// Write to the file
+		if _, err = tmpfile.Write(sshPrivateKey); err != nil {
+			return nil, errors.Wrap(err, "setting up git authentication")
+		}
+
+		// Close the file
+		if err := tmpfile.Close(); err != nil {
+			return nil, errors.Wrap(err, "setting up git authentication")
+		}
+
+		gitAuth = &auto.GitAuth{
+			SSHPrivateKeyPath: tmpfile.Name(),
+		}
+
+		if password, exists := secret.Data["password"]; exists {
+			gitAuth.Password = string(password)
+		}
+		// Then check if a personal access token has been specified.
+	} else if accessToken, exists := secret.Data["accessToken"]; exists {
+		gitAuth = &auto.GitAuth{
+			PersonalAccessToken: string(accessToken),
+		}
+		// Then check if basic authentication has been specified.
+	} else if username, exists := secret.Data["username"]; exists {
+		if password, exists := secret.Data["password"]; exists {
+			gitAuth = &auto.GitAuth{
+				Username: string(username),
+				Password: string(password),
+			}
+		} else {
+			return nil, errors.Wrap(err, "setting up git authentication")
+		}
+	}
+
+	return gitAuth, nil
 }
 
 // Add default permalink for the stack in the Pulumi Service.

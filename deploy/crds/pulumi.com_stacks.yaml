@@ -62,11 +62,11 @@ spec:
             expectNoRefreshChanges:
               description: (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have changes during a refresh before the update is run. This could occur, for example, is a resource's state is changing outside of Pulumi (e.g., metadata, timestamps).
               type: boolean
+            gitAuthSecret:
+              description: '(optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options:   * Personal access token   * SSH private key (and it''s optional password)   * Basic auth username and password Only 1 authentication path is valid. If more than 1 is specified it will result in an error.'
+              type: string
             projectRepo:
               description: ProjectRepo is the git source control repository from which we fetch the project code and configuration.
-              type: string
-            projectRepoAccessTokenSecret:
-              description: (optional) ProjectRepoAccessTokenSecret is the the name of a secret containing a personal access token to use a private git source control repository.
               type: string
             refresh:
               description: (optional) Refresh can be set to true to refresh the stack before it is updated.
