@@ -34,7 +34,7 @@ spec:
     - pulumi-aws-secrets
   gitAuthSecret: git-secret
   stack: joeduffy/s3-op-project/dev
-  projectRepo: git@github.com:joeduffy/test-s3-op-project.git
+  projectRepo: https://github.com/joeduffy/test-s3-op-project
   commit: cc5442870f1195216d6bc340c14f8ae7d28cf3e2
   config:
     aws:region: us-east-2

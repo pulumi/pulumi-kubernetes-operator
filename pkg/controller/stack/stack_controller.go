@@ -21,6 +21,7 @@ import (
 	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
 	"github.com/pulumi/pulumi/sdk/v2/go/x/auto"
 	"github.com/pulumi/pulumi/sdk/v2/go/x/auto/optrefresh"
+	giturls "github.com/whilp/git-urls"
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
 	corev1 "k8s.io/api/core/v1"
@@ -38,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -457,8 +459,10 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd, workspace
 		cmd.Env = os.Environ()
 	}
 	// If there are extra environment variables, set them.
-	for k, v := range workspace.GetEnvVars() {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+	if workspace != nil {
+		for k, v := range workspace.GetEnvVars() {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+		}
 	}
 
 	// Capture stdout and stderr.
@@ -738,6 +742,10 @@ func (sess *reconcileStackSession) SetupGitAuth(namespace string) (*auto.GitAuth
 		if password, exists := secret.Data["password"]; exists {
 			gitAuth.Password = string(password)
 		}
+
+		// Add the project repo's public SSH keys to the SSH known hosts
+		// to perform the necessary key checking during SSH git cloning.
+		sess.addSSHKeysToKnownHosts(sess.stack.ProjectRepo)
 		// Then check if a personal access token has been specified.
 	} else if accessToken, exists := secret.Data["accessToken"]; exists {
 		gitAuth = &auto.GitAuth{
@@ -820,6 +828,49 @@ func (sess *reconcileStackSession) waitForDeletion(o runtime.Object) error {
 		}
 		return false, nil
 	}, ctx.Done())
+}
+
+// addSSHKeysToKnownHosts scans the public SSH keys for the project repository URL
+// and adds them to the SSH known hosts to perform strict key checking during SSH
+// git cloning.
+func (sess *reconcileStackSession) addSSHKeysToKnownHosts(projectRepoURL string) error {
+	// Parse the Stack project repo SSH host and port (if exists) from the git SSH URL
+	// e.g. git@github.com:foo/bar.git returns "github.com" for host
+	// e.g. git@example.com:1234:foo/bar.git returns "example.com" for host and "1234" for port
+	u, err := giturls.Parse(projectRepoURL)
+	if err != nil {
+		return errors.Wrap(err, "error parsing project repo URL to use with ssh-keyscan")
+	}
+	hostPort := strings.Split(u.Host, ":")
+	if len(hostPort) == 0 || len(hostPort) > 2 {
+		return errors.Wrap(err, "error parsing project repo URL to use with ssh-keyscan")
+	}
+
+	// SSH key scan the repo's URL (host port) to get the public keys.
+	args := []string{}
+	if len(hostPort) == 2 {
+		args = append(args, "-p", hostPort[1])
+	}
+	args = append(args, "-H", hostPort[0])
+	sshKeyScan, _ := exec.LookPath("ssh-keyscan")
+	cmd := exec.Command(sshKeyScan, args...)
+	cmd.Dir = os.Getenv("HOME")
+	stdout, _, err := sess.runCmd("SSH Key Scan", cmd, nil)
+	if err != nil {
+		return errors.Wrap(err, "error running ssh-keyscan")
+	}
+
+	// Add the repo public keys to the SSH known hosts to enforce key checking.
+	filename := fmt.Sprintf("%s/%s", os.Getenv("HOME"), ".ssh/known_hosts")
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return errors.Wrap(err, "error running ssh-keyscan")
+	}
+	defer f.Close()
+	if _, err = f.WriteString(stdout); err != nil {
+		return errors.Wrap(err, "error running ssh-keyscan")
+	}
+	return nil
 }
 
 func contains(list []string, s string) bool {
