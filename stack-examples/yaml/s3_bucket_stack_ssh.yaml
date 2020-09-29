@@ -12,8 +12,9 @@ metadata:
   name: git-secret
 type: Opaque
 data:
+  # need to base64 SSH private key to set a valid YAML value
   sshPrivateKey: "<REDACTED: BASE64_ENCODED_SSH_PRIVATE_KEY>"
-  password: "<REDACTED: OPTIONAL_SSH_KEY_PASSWORD>"
+  password: "<REDACTED: OPTIONAL_BASE64_ENCODED_SSH_KEY_PASSWORD>"
 ---
 apiVersion: v1
 kind: Secret

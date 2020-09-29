@@ -172,7 +172,6 @@ const operatorDeployment = new kubernetes.apps.v1.Deployment("operatorDeployment
                 containers: [{
                     name: "pulumi-kubernetes-operator",
                     image: "pulumi/pulumi-kubernetes-operator:v0.0.5",
-                    command: ["pulumi-kubernetes-operator"],
                     args: ["--zap-level=debug"],
                     imagePullPolicy: "Always",
                     env: [
