@@ -171,7 +171,7 @@ const operatorDeployment = new kubernetes.apps.v1.Deployment("operatorDeployment
                 }],
                 containers: [{
                     name: "pulumi-kubernetes-operator",
-                    image: "pulumi/pulumi-kubernetes-operator:v0.0.5",
+                    image: "pulumi/pulumi-kubernetes-operator:v0.0.7",
                     args: ["--zap-level=debug"],
                     imagePullPolicy: "Always",
                     env: [
@@ -337,7 +337,7 @@ operator_deployment = kubernetes.apps.v1.Deployment("operatorDeployment",
                 }],
                 "containers": [{
                     "name": "pulumi-kubernetes-operator",
-                    "image": "pulumi/pulumi-kubernetes-operator:v0.0.5",
+                    "image": "pulumi/pulumi-kubernetes-operator:v0.0.7",
                     "command": ["pulumi-kubernetes-operator"],
                     "args": ["--zap-level=debug"],
                     "image_pull_policy": "Always",
@@ -598,7 +598,7 @@ class MyStack : Stack
                             new Kubernetes.Core.Inputs.ContainerArgs
                             {
                                 Name = "pulumi-kubernetes-operator",
-                                Image = "pulumi/pulumi-kubernetes-operator:v0.0.5",
+                                Image = "pulumi/pulumi-kubernetes-operator:v0.0.7",
                                 Command = 
                                 {
                                     "pulumi-kubernetes-operator",
@@ -840,7 +840,7 @@ func main() {
 						Containers: corev1.ContainerArray{
 							&corev1.ContainerArgs{
 								Name:  pulumi.String("pulumi-kubernetes-operator"),
-								Image: pulumi.String("pulumi/pulumi-kubernetes-operator:v0.0.5"),
+								Image: pulumi.String("pulumi/pulumi-kubernetes-operator:v0.0.7"),
 								Command: pulumi.StringArray{
 									pulumi.String("pulumi-kubernetes-operator"),
 								},
