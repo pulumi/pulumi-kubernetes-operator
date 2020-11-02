@@ -146,23 +146,6 @@ const (
 // FailedStackStateMessage is a const to indicate stack failure in the status.
 const FailedStackStateMessage = "failed"
 
-// ProjectSourceOptions is the settings to work with the project source repo.
-type ProjectSourceOptions struct {
-	// The access token to access project source repo. This is required for
-	// private repos, but is recommended for public repos to help with rate limiting.
-	AccessToken string `json:"accessToken,omitempty"`
-	// Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This
-	// is mutually exclusive with the Branch setting. If both are empty, the `master` branch is deployed.
-	Commit string `json:"commit,omitempty"`
-	// Branch is the branch name to deploy, either the simple or fully qualified ref name. This
-	// is mutually exclusive with the Commit setting. If both are empty, the `master` branch is deployed.
-	Branch string `json:"branch,omitempty"`
-	// RepoDir is the directory to work from in the project's source repository
-	// where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
-	// in the project source root.
-	RepoDir string `json:"repoDir,omitempty"`
-}
-
 // Permalink is the Pulumi Service URL of the stack operation.
 type Permalink string
 
