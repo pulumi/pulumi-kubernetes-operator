@@ -20,7 +20,9 @@ import (
 	"github.com/pkg/errors"
 	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
 	"github.com/pulumi/pulumi/sdk/v2/go/x/auto"
+	"github.com/pulumi/pulumi/sdk/v2/go/x/auto/optdestroy"
 	"github.com/pulumi/pulumi/sdk/v2/go/x/auto/optrefresh"
+	"github.com/pulumi/pulumi/sdk/v2/go/x/auto/optup"
 	giturls "github.com/whilp/git-urls"
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
@@ -627,8 +629,11 @@ func (sess *reconcileStackSession) UpdateConfig() error {
 }
 
 func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1alpha1.Permalink, error) {
-	result, err := sess.autoStack.Refresh(context.Background(),
+	writer := logWriter(sess.logger, "Pulumi Refresh")
+	result, err := sess.autoStack.Refresh(
+		context.Background(),
 		optrefresh.ExpectNoChanges(),
+		optrefresh.ProgressStreams(writer),
 	)
 	if err != nil {
 		return pulumiv1alpha1.Permalink(""), errors.Wrapf(err, "refreshing stack '%s'", sess.stack.Stack)
@@ -645,7 +650,8 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1a
 // and error. In certain cases, an update may be unabled to proceed due to locking,
 // in which case the operator will requeue itself to retry later.
 func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStatus, pulumiv1alpha1.Permalink, *auto.UpResult, error) {
-	result, err := sess.autoStack.Up(context.Background())
+	writer := logWriter(sess.logger, "Pulumi Update")
+	result, err := sess.autoStack.Up(context.Background(), optup.ProgressStreams(writer))
 	if err != nil {
 		// If this is the "conflict" error message, we will want to gracefully quit and retry.
 		if auto.IsConcurrentUpdateError(err) {
@@ -684,7 +690,8 @@ func (sess *reconcileStackSession) GetStackOutputs(outs auto.OutputMap) (pulumiv
 }
 
 func (sess *reconcileStackSession) DestroyStack() error {
-	_, err := sess.autoStack.Destroy(context.Background())
+	writer := logWriter(sess.logger, "Pulumi Destroy")
+	_, err := sess.autoStack.Destroy(context.Background(), optdestroy.ProgressStreams(writer))
 	if err != nil {
 		return errors.Wrapf(err, "destroying resources for stack '%s'", sess.stack.Stack)
 	}
@@ -958,4 +965,21 @@ func waitForFile(fp string) ([]byte, error) {
 		return nil, errors.Wrapf(err, "failed to open file: %s", fp)
 	}
 	return file, err
+}
+
+// logWriter constructs an io.Writer that logs to the provided logr.Logger
+func logWriter(logger logr.Logger, msg string, keysAndValues ...interface{}) io.Writer {
+	stdoutR, stdoutW := io.Pipe()
+	go func() {
+		outs := bufio.NewScanner(stdoutR)
+		for outs.Scan() {
+			text := outs.Text()
+			logger.Info(msg, append([]interface{}{"Stdout", text}, keysAndValues...)...)
+		}
+		err := outs.Err()
+		if err != nil {
+			logger.Error(err, msg, keysAndValues...)
+		}
+	}()
+	return stdoutW
 }
