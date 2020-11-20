@@ -12,12 +12,15 @@ import (
 type StackSpec struct {
 	// Auth info:
 
-	// AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access.
-	AccessTokenSecret string `json:"accessTokenSecret"`
+	// (optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access.
+	AccessTokenSecret string `json:"accessTokenSecret,omitempty"`
 	// (optional) Envs is an optional array of config maps containing environment variables to set.
 	Envs []string `json:"envs,omitempty"`
 	// (optional) SecretEnvs is an optional array of secret names containing environment variables to set.
 	SecretEnvs []string `json:"envSecrets,omitempty"`
+
+	// (optional) Backend is an optional backend URL to use for all Pulumi operations.
+	Backend string `json:"backend,omitempty"`
 
 	// Stack identity:
 

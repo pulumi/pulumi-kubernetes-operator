@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base32"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -120,9 +121,16 @@ var _ = Describe("Stack Controller", func() {
 		stackName := fmt.Sprintf("%s/s3-op-project/dev-%s", stackOrg, randString())
 		fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
 
+		// Use a local backend for this test
+		backendDir, err := ioutil.TempDir("", "")
+		if err != nil {
+			Fail("Could not create backend directory")
+		}
+		defer os.RemoveAll(backendDir)
+
 		// Define the stack spec
 		spec := pulumiv1alpha1.StackSpec{
-			AccessTokenSecret: pulumiAPISecret.ObjectMeta.Name,
+			Backend: fmt.Sprintf("file://%s", backendDir),
 			SecretEnvs: []string{
 				pulumiAWSSecret.ObjectMeta.Name,
 			},

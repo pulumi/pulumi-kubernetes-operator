@@ -137,21 +137,24 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	// indicated by the deletion timestamp being set.
 	isStackMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
 
-	// Fetch the API token from the named secret.
-	secret := &corev1.Secret{}
-	if err = r.client.Get(context.TODO(),
-		types.NamespacedName{Name: stack.AccessTokenSecret, Namespace: request.Namespace}, secret); err != nil {
-		reqLogger.Error(err, "Could not find secret for Pulumi API access",
-			"Namespace", request.Namespace, "Stack.AccessTokenSecret", stack.AccessTokenSecret)
-		return reconcile.Result{}, err
-	}
+	var accessToken string
+	if stack.AccessTokenSecret != "" {
+		// Fetch the API token from the named secret.
+		secret := &corev1.Secret{}
+		if err = r.client.Get(context.TODO(),
+			types.NamespacedName{Name: stack.AccessTokenSecret, Namespace: request.Namespace}, secret); err != nil {
+			reqLogger.Error(err, "Could not find secret for Pulumi API access",
+				"Namespace", request.Namespace, "Stack.AccessTokenSecret", stack.AccessTokenSecret)
+			return reconcile.Result{}, err
+		}
 
-	accessToken := string(secret.Data["accessToken"])
-	if accessToken == "" {
-		err = errors.New("Secret accessToken data is empty")
-		reqLogger.Error(err, "Illegal empty secret accessToken data for Pulumi API access",
-			"Namespace", request.Namespace, "Stack.AccessTokenSecret", stack.AccessTokenSecret)
-		return reconcile.Result{}, err
+		accessToken = string(secret.Data["accessToken"])
+		if accessToken == "" {
+			err = errors.New("Secret accessToken data is empty")
+			reqLogger.Error(err, "Illegal empty secret accessToken data for Pulumi API access",
+				"Namespace", request.Namespace, "Stack.AccessTokenSecret", stack.AccessTokenSecret)
+			return reconcile.Result{}, err
+		}
 	}
 
 	// Create a new reconciliation session.
@@ -522,7 +525,12 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	if err != nil {
 		return errors.Wrap(err, "failed to create local workspace")
 	}
-	w.SetEnvVar("PULUMI_ACCESS_TOKEN", sess.accessToken)
+	if sess.stack.Backend != "" {
+		w.SetEnvVar("PULUMI_BACKEND_URL", sess.stack.Backend)
+	}
+	if sess.accessToken != "" {
+		w.SetEnvVar("PULUMI_ACCESS_TOKEN", sess.accessToken)
+	}
 
 	// Create a new stack if the stack does not already exist, or fall back to
 	// selecting the existing stack. If the stack does not exist, it will be created and selected.
