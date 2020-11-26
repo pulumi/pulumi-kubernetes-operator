@@ -107,7 +107,11 @@ type StackOutputs map[string]apiextensionsv1.JSON
 // StackUpdateState is the status of a stack update
 type StackUpdateState struct {
 	// State is the state of the stack update - one of `succeeded` or `failed`
-	State string `json:"state,omitempty"`
+	State StackUpdateStateMessage `json:"state,omitempty"`
+	// Last commit attempted
+	LastAttemptedCommit string `json:"lastAttemptedCommit,omitempty"`
+	// Last commit successfully applied
+	LastSuccessfulCommit string `json:"lastSuccessfulCommit,omitempty"`
 	// Permalink is the Pulumi Console URL of the stack operation.
 	Permalink Permalink `json:"permalink,omitempty"`
 }
@@ -153,8 +157,14 @@ const (
 	StackNotFound StackUpdateStatus = 4
 )
 
-// FailedStackStateMessage is a const to indicate stack failure in the status.
-const FailedStackStateMessage = "failed"
+type StackUpdateStateMessage string
+
+const (
+	// SucceededStackStateMessage is a const to indicate success in stack status state.
+	SucceededStackStateMessage StackUpdateStateMessage = "succeeded"
+	// FailedStackStateMessage is a const to indicate stack failure in stack status state.
+	FailedStackStateMessage StackUpdateStateMessage = "failed"
+)
 
 // Permalink is the Pulumi Service URL of the stack operation.
 type Permalink string

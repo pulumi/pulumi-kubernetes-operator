@@ -157,7 +157,7 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			if fetched.Status.LastUpdate != nil {
-				return fetched.Status.LastUpdate.State == stack.Spec.Commit
+				return fetched.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit
 			}
 			return false
 		}, timeout, interval).Should(BeTrue())
@@ -207,7 +207,7 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			if original.Status.LastUpdate != nil {
-				return original.Status.LastUpdate.State == stack.Spec.Commit
+				return original.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit
 			}
 			return false
 		}, timeout, interval).Should(BeTrue())
@@ -224,7 +224,7 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			if fetched.Status.LastUpdate != nil {
-				return fetched.Status.LastUpdate.State == commit
+				return fetched.Status.LastUpdate.LastSuccessfulCommit == commit
 			}
 			return false
 		}, timeout, interval).Should(BeTrue())

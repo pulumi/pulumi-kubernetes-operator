@@ -210,20 +210,6 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		}
 	}
 
-	// Run the Pulumi update iff the desired state has not already been
-	// reached, or if it is marked to be deleted.
-	err = sess.getLatestResource(instance, request.NamespacedName)
-	if err != nil {
-		sess.logger.Error(err, "Failed to get latest Stack before updating Stack", "Stack.Name", instance.Spec.Stack)
-		return reconcile.Result{}, err
-	}
-	isStackMarkedToBeDeleted = instance.GetDeletionTimestamp() != nil
-	// Don't run rest of loop if already at desired state, unless marked for deletion.
-	if !isStackMarkedToBeDeleted && (instance.Status.LastUpdate != nil && instance.Status.LastUpdate.State == instance.Spec.Commit) {
-		reqLogger.Info("Stack already at desired state", "Stack.Commit", instance.Spec.Commit)
-		return reconcile.Result{}, nil
-	}
-
 	// Step 3. If a stack refresh is requested, run it now.
 	if sess.stack.Refresh {
 		permalink, err := sess.RefreshStack(sess.stack.ExpectNoRefreshChanges)
@@ -237,12 +223,10 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 			return reconcile.Result{}, err
 		}
 		if instance.Status.LastUpdate == nil {
-			instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
-				Permalink: permalink,
-			}
-		} else {
-			instance.Status.LastUpdate.Permalink = permalink
+			instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{}
 		}
+		instance.Status.LastUpdate.Permalink = permalink
+
 		err = sess.updateResourceStatus(instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Stack status for refresh", "Stack.Name", stack.Stack)
@@ -270,8 +254,9 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 			reqLogger.Error(err, "Failed to update Stack", "Stack.Name", stack.Stack)
 			// Update Stack status with failed state
 			instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
-				State:     pulumiv1alpha1.FailedStackStateMessage,
-				Permalink: permalink,
+				LastAttemptedCommit: instance.Spec.Commit,
+				State:               pulumiv1alpha1.FailedStackStateMessage,
+				Permalink:           permalink,
 			}
 			if err2 := sess.updateResourceStatus(instance); err2 != nil {
 				msg := "Failed to update status for a failed Stack update"
@@ -299,14 +284,11 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 	instance.Status.Outputs = outs
-	if instance.Status.LastUpdate == nil {
-		instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
-			State:     instance.Spec.Commit,
-			Permalink: permalink,
-		}
-	} else {
-		instance.Status.LastUpdate.State = instance.Spec.Commit
-		instance.Status.LastUpdate.Permalink = permalink
+	instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
+		State:                pulumiv1alpha1.SucceededStackStateMessage,
+		LastAttemptedCommit:  instance.Spec.Commit,
+		LastSuccessfulCommit: instance.Spec.Commit,
+		Permalink:            permalink,
 	}
 	err = sess.updateResourceStatus(instance)
 	if err != nil {
