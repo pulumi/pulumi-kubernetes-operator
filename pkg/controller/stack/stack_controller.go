@@ -253,11 +253,10 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Stack", "Stack.Name", stack.Stack)
 			// Update Stack status with failed state
-			instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
-				LastAttemptedCommit: instance.Spec.Commit,
-				State:               pulumiv1alpha1.FailedStackStateMessage,
-				Permalink:           permalink,
-			}
+			instance.Status.LastUpdate.LastAttemptedCommit = instance.Spec.Commit
+			instance.Status.LastUpdate.State = pulumiv1alpha1.FailedStackStateMessage
+			instance.Status.LastUpdate.Permalink = permalink
+
 			if err2 := sess.updateResourceStatus(instance); err2 != nil {
 				msg := "Failed to update status for a failed Stack update"
 				err3 := errors.Wrapf(err, err2.Error())

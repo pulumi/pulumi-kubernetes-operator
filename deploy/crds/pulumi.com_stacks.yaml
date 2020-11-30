@@ -101,6 +101,12 @@ spec:
             lastUpdate:
               description: LastUpdate contains details of the status of the last update.
               properties:
+                lastAttemptedCommit:
+                  description: Last commit attempted
+                  type: string
+                lastSuccessfulCommit:
+                  description: Last commit successfully applied
+                  type: string
                 permalink:
                   description: Permalink is the Pulumi Console URL of the stack operation.
                   type: string
