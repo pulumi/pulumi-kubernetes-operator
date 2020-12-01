@@ -16,4 +16,7 @@ RUN mkdir -p /home/pulumi-kubernetes-operator/.ssh \
 
 USER pulumi-kubernetes-operator
 
+ENV XDG_CONFIG_HOME=/tmp/.config
+ENV XDG_CONFIG_CACHE=/tmp/.cache
+
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
