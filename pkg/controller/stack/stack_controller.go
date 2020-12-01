@@ -173,6 +173,15 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 
+	// Delete the working directory after the reconciliation is completed (regardless of success or failure).
+	defer func() {
+		if sess.workdir != "" {
+			if err := os.RemoveAll(sess.workdir); err != nil {
+				sess.logger.Error(err, "Failed to delete working dir: %s", sess.workdir)
+			}
+		}
+	}()
+
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
 	err = sess.SetEnvs(stack.Envs, request.Namespace)
 	if err != nil {
