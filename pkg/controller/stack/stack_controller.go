@@ -25,7 +25,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v2/go/x/auto/optup"
 	giturls "github.com/whilp/git-urls"
 	git "gopkg.in/src-d/go-git.v4"
-	"gopkg.in/src-d/go-git.v4/plumbing"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -206,7 +205,9 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 			}
 			time.Sleep(2 * time.Second) // arbitrary sleep after finalizer add to avoid stale obj for permalink
 			// Add default permalink for the stack in the Pulumi Service.
-			sess.addDefaultPermalink(instance)
+			if err := sess.addDefaultPermalink(instance); err != nil {
+				return reconcile.Result{}, err
+			}
 		}
 	}
 
@@ -253,7 +254,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Stack", "Stack.Name", stack.Stack)
 			// Update Stack status with failed state
-			instance.Status.LastUpdate.LastAttemptedCommit = instance.Spec.Commit
+			instance.Status.LastUpdate.LastAttemptedCommit = sess.currentCommit
 			instance.Status.LastUpdate.State = pulumiv1alpha1.FailedStackStateMessage
 			instance.Status.LastUpdate.Permalink = permalink
 
@@ -285,8 +286,8 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	instance.Status.Outputs = outs
 	instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
 		State:                pulumiv1alpha1.SucceededStackStateMessage,
-		LastAttemptedCommit:  instance.Spec.Commit,
-		LastSuccessfulCommit: instance.Spec.Commit,
+		LastAttemptedCommit:  sess.currentCommit,
+		LastSuccessfulCommit: sess.currentCommit,
 		Permalink:            permalink,
 	}
 	err = sess.updateResourceStatus(instance)
@@ -358,12 +359,13 @@ func (sess *reconcileStackSession) addFinalizer(stack *pulumiv1alpha1.Stack) err
 }
 
 type reconcileStackSession struct {
-	logger      logr.Logger
-	kubeClient  client.Client
-	accessToken string
-	stack       pulumiv1alpha1.StackSpec
-	autoStack   *auto.Stack
-	workdir     string
+	logger        logr.Logger
+	kubeClient    client.Client
+	accessToken   string
+	stack         pulumiv1alpha1.StackSpec
+	autoStack     *auto.Stack
+	workdir       string
+	currentCommit string
 }
 
 // blank assignment to verify that reconcileStackSession implements pulumiv1alpha1.StackController.
@@ -378,25 +380,6 @@ func newReconcileStackSession(
 		accessToken: accessToken,
 		stack:       stack,
 	}
-}
-
-// gitCloneAndCheckoutCommit clones the Git repository and checkouts the specified commit hash or branch.
-func gitCloneAndCheckoutCommit(url, hash, branch, path string) error {
-	repo, err := git.PlainClone(path, false, &git.CloneOptions{URL: url})
-	if err != nil {
-		return err
-	}
-
-	w, err := repo.Worktree()
-	if err != nil {
-		return err
-	}
-
-	return w.Checkout(&git.CheckoutOptions{
-		Hash:   plumbing.NewHash(hash),
-		Branch: plumbing.ReferenceName(branch),
-		Force:  true,
-	})
 }
 
 // SetEnvs populates the environment the stack run with values
@@ -512,6 +495,10 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	if sess.accessToken != "" {
 		w.SetEnvVar("PULUMI_ACCESS_TOKEN", sess.accessToken)
 	}
+	sess.workdir = w.WorkDir()
+	if err = sess.updateGitRevisionAtWorkingDir(); err != nil {
+		return err
+	}
 
 	// Create a new stack if the stack does not already exist, or fall back to
 	// selecting the existing stack. If the stack does not exist, it will be created and selected.
@@ -533,6 +520,20 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 		return errors.Wrap(err, "installing project dependencies")
 	}
 
+	return nil
+}
+
+// Determine the actual commit information from the working directory (Spec commit etc. is optional).
+func (sess *reconcileStackSession) updateGitRevisionAtWorkingDir() error {
+	gitRepo, err := git.PlainOpen(sess.workdir)
+	if err != nil {
+		return errors.Wrapf(err, "failed to resolve git repository from working directory: %s", sess.workdir)
+	}
+	headRef, err := gitRepo.Head()
+	if err != nil {
+		return errors.Wrapf(err, "failed to determine revision for git repository at %s", sess.workdir)
+	}
+	sess.currentCommit = headRef.Hash().String()
 	return nil
 }
 
