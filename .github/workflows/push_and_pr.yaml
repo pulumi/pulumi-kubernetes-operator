@@ -59,8 +59,7 @@ jobs:
     - name: Set env variables
       run: |
         echo 'PATH=$HOME/.pulumi/bin:$PATH' >> $GITHUB_ENV
-        STACK=ci-cluster-$(head /dev/urandom | LC_CTYPE=C tr -dc '[:lower:]' | head -c5)
-        echo "$STACK" >> $GITHUB_ENV
+        echo "STACK=ci-cluster-$(head /dev/urandom | LC_CTYPE=C tr -dc '[:lower:]' | head -c5)" >> $GITHUB_ENV
     - name: Tests
       run: |
         # Create GKE test cluster to install CRDs and use with the test operator.
