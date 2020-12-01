@@ -13,7 +13,7 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v2
     - name: Install Go
-      uses: actions/setup-go@v2.1.1
+      uses: actions/setup-go@v2
       with:
         go-version: '1.14.6'
     - name: Install Ginkgo testing framework
@@ -38,13 +38,13 @@ jobs:
       run: |
         # Install Pulumi
         curl -fsSL https://get.pulumi.com | bash -s
-        export PATH=$HOME/.pulumi/bin:$PATH
-        echo "::set-env name=PATH::$PATH"
+    - name: Set env variables
+      run: |
+        echo '$HOME/.pulumi/bin' >> $GITHUB_PATH
+        echo "STACK=ci-cluster-$(head /dev/urandom | LC_CTYPE=C tr -dc '[:lower:]' | head -c5)" >> $GITHUB_ENV
     - name: Tests
       run: |
         # Create GKE test cluster to install CRDs and use with the test operator.
-        export STACK=ci-cluster-$(head /dev/urandom | LC_CTYPE=C tr -dc '[:lower:]' | head -c5)
-        echo "::set-env name=STACK::$STACK"
         scripts/ci-cluster-create.sh
 
         # Run tests
@@ -62,7 +62,7 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v2
     - name: Install Go
-      uses: actions/setup-go@v2.1.1
+      uses: actions/setup-go@v2
       with:
         go-version: '1.14.6'
     - name: Login to Docker Hub
