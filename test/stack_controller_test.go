@@ -157,7 +157,9 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			if fetched.Status.LastUpdate != nil {
-				return fetched.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit
+				return fetched.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit &&
+					fetched.Status.LastUpdate.LastAttemptedCommit == stack.Spec.Commit &&
+					fetched.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
 			}
 			return false
 		}, timeout, interval).Should(BeTrue())
@@ -207,16 +209,37 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			if original.Status.LastUpdate != nil {
-				return original.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit
+				return original.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit &&
+					original.Status.LastUpdate.LastAttemptedCommit == stack.Spec.Commit &&
+					original.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
 			}
 			return false
 		}, timeout, interval).Should(BeTrue())
 
-		// Update the stack commit to a different commit.
-		original.Spec.Commit = commit
+		// Update the stack config (this time to cause a failure)
+		original.Spec.Config["aws:region"] = "us-nonexistent-1"
 		Expect(k8sClient.Update(ctx, original)).Should(Succeed())
 
-		// Check that the stack updated
+		// Check that the stack tried to update but failed
+		configChanged := &pulumiv1alpha1.Stack{}
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, configChanged)
+			if err != nil {
+				return false
+			}
+			if configChanged.Status.LastUpdate != nil {
+				return configChanged.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit &&
+					configChanged.Status.LastUpdate.LastAttemptedCommit == stack.Spec.Commit &&
+					configChanged.Status.LastUpdate.State == pulumiv1alpha1.FailedStackStateMessage
+			}
+			return false
+		})
+
+		// Update the stack commit to a different commit - should still fail.
+		configChanged.Spec.Commit = commit
+		Expect(k8sClient.Update(ctx, configChanged)).Should(Succeed())
+
+		// Check that the stack update attempted but failed
 		fetched := &pulumiv1alpha1.Stack{}
 		Eventually(func() bool {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
@@ -224,7 +247,28 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			if fetched.Status.LastUpdate != nil {
-				return fetched.Status.LastUpdate.LastSuccessfulCommit == commit
+				return fetched.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit &&
+					fetched.Status.LastUpdate.LastAttemptedCommit == commit &&
+					fetched.Status.LastUpdate.State == pulumiv1alpha1.FailedStackStateMessage
+			}
+			return false
+		}, timeout, interval).Should(BeTrue())
+
+		// Update the stack config to now be valid
+		fetched.Spec.Config["aws:region"] = "us-east-2"
+		Expect(k8sClient.Update(ctx, fetched)).Should(Succeed())
+
+		// Check that the stack update attempted but failed
+		fetched = &pulumiv1alpha1.Stack{}
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
+			if err != nil {
+				return false
+			}
+			if fetched.Status.LastUpdate != nil {
+				return fetched.Status.LastUpdate.LastSuccessfulCommit == commit &&
+					fetched.Status.LastUpdate.LastAttemptedCommit == commit &&
+					fetched.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
 			}
 			return false
 		}, timeout, interval).Should(BeTrue())
