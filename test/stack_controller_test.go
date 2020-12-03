@@ -157,7 +157,9 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			if fetched.Status.LastUpdate != nil {
-				return fetched.Status.LastUpdate.State == stack.Spec.Commit
+				return fetched.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit &&
+					fetched.Status.LastUpdate.LastAttemptedCommit == stack.Spec.Commit &&
+					fetched.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
 			}
 			return false
 		}, timeout, interval).Should(BeTrue())
@@ -207,16 +209,46 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			if original.Status.LastUpdate != nil {
-				return original.Status.LastUpdate.State == stack.Spec.Commit
+				return original.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit &&
+					original.Status.LastUpdate.LastAttemptedCommit == stack.Spec.Commit &&
+					original.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
 			}
 			return false
 		}, timeout, interval).Should(BeTrue())
 
-		// Update the stack commit to a different commit.
-		original.Spec.Commit = commit
-		Expect(k8sClient.Update(ctx, original)).Should(Succeed())
+		// Update the stack config (this time to cause a failure)
+		original.Spec.Config["aws:region"] = "us-nonexistent-1"
+		Expect(k8sClient.Update(ctx, original)).Should(Succeed(), "%+v", original)
 
-		// Check that the stack updated
+		// Check that the stack tried to update but failed
+		configChanged := &pulumiv1alpha1.Stack{}
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, configChanged)
+			if err != nil {
+				return false
+			}
+			if configChanged.Status.LastUpdate != nil {
+				return configChanged.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit &&
+					configChanged.Status.LastUpdate.LastAttemptedCommit == stack.Spec.Commit &&
+					configChanged.Status.LastUpdate.State == pulumiv1alpha1.FailedStackStateMessage
+			}
+			return false
+		})
+
+		// Update the stack commit to a different commit. Need retries because of
+		// competing retries within the operator due to failure.
+		Eventually(func() bool {
+			if err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, configChanged); err != nil {
+				return false
+			}
+			configChanged.Spec.Commit = commit
+			if err := k8sClient.Update(ctx, configChanged); err != nil {
+				return false
+			}
+			return true
+		}, timeout, interval).Should(BeTrue(), "%#v", configChanged)
+
+		// Check that the stack update was attempted but failed
 		fetched := &pulumiv1alpha1.Stack{}
 		Eventually(func() bool {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
@@ -224,7 +256,35 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			if fetched.Status.LastUpdate != nil {
-				return fetched.Status.LastUpdate.State == commit
+				return fetched.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit &&
+					fetched.Status.LastUpdate.LastAttemptedCommit == commit &&
+					fetched.Status.LastUpdate.State == pulumiv1alpha1.FailedStackStateMessage
+			}
+			return false
+		}, timeout, interval).Should(BeTrue())
+
+		Eventually(func() bool {
+			if err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched); err != nil {
+				return false
+			}
+			// Update the stack config to now be valid
+			fetched.Spec.Config["aws:region"] = "us-east-2"
+			if err := k8sClient.Update(ctx, fetched); err != nil {
+				return false
+			}
+			return true
+		}, timeout, interval).Should(BeTrue())
+
+		// Check that the stack update attempted but failed
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
+			if err != nil {
+				return false
+			}
+			if fetched.Status.LastUpdate != nil {
+				return fetched.Status.LastUpdate.LastSuccessfulCommit == commit &&
+					fetched.Status.LastUpdate.LastAttemptedCommit == commit &&
+					fetched.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
 			}
 			return false
 		}, timeout, interval).Should(BeTrue())
