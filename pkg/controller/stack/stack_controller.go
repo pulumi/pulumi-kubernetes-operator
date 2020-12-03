@@ -722,29 +722,8 @@ func (sess *reconcileStackSession) SetupGitAuth(namespace string) (*auto.GitAuth
 
 	// First check if an SSH private key has been specified.
 	if sshPrivateKey, exists := secret.Data["sshPrivateKey"]; exists {
-		// Create a temp file
-		tmpfile, err := ioutil.TempFile(os.TempDir(), "gitauth-")
-		if err != nil {
-			return nil, errors.Wrap(err, "setting up git authentication")
-		}
-		// TODO: cleanup temp ssh key file. what we need is for GitAuth to
-		// accept SshPrivateKey in addition to SshPrivateKeyFile s.t  we don't
-		// need to rely on a temp file.
-		// See: https://github.com/pulumi/pulumi/issues/5383
-		// defer os.Remove(tmpfile.Name())
-
-		// Write to the file
-		if _, err = tmpfile.Write(sshPrivateKey); err != nil {
-			return nil, errors.Wrap(err, "setting up git authentication")
-		}
-
-		// Close the file
-		if err := tmpfile.Close(); err != nil {
-			return nil, errors.Wrap(err, "setting up git authentication")
-		}
-
 		gitAuth = &auto.GitAuth{
-			SSHPrivateKeyPath: tmpfile.Name(),
+			SSHPrivateKey: string(sshPrivateKey),
 		}
 
 		if password, exists := secret.Data["password"]; exists {
