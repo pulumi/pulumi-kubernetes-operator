@@ -173,14 +173,13 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 
+	currentCommit, err := revisionAtWorkingDir(sess.workdir)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Delete the working directory after the reconciliation is completed (regardless of success or failure).
-	defer func() {
-		if sess.workdir != "" {
-			if err := os.RemoveAll(sess.workdir); err != nil {
-				sess.logger.Error(err, "Failed to delete working dir: %s", sess.workdir)
-			}
-		}
-	}()
+	defer sess.CleanupPulumiWorkdir()
 
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
 	err = sess.SetEnvs(stack.Envs, request.Namespace)
@@ -263,7 +262,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Stack", "Stack.Name", stack.Stack)
 			// Update Stack status with failed state
-			instance.Status.LastUpdate.LastAttemptedCommit = sess.currentCommit
+			instance.Status.LastUpdate.LastAttemptedCommit = currentCommit
 			instance.Status.LastUpdate.State = pulumiv1alpha1.FailedStackStateMessage
 			instance.Status.LastUpdate.Permalink = permalink
 
@@ -295,8 +294,8 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	instance.Status.Outputs = outs
 	instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
 		State:                pulumiv1alpha1.SucceededStackStateMessage,
-		LastAttemptedCommit:  sess.currentCommit,
-		LastSuccessfulCommit: sess.currentCommit,
+		LastAttemptedCommit:  currentCommit,
+		LastSuccessfulCommit: currentCommit,
 		Permalink:            permalink,
 	}
 	err = sess.updateResourceStatus(instance)
@@ -374,7 +373,6 @@ type reconcileStackSession struct {
 	stack         pulumiv1alpha1.StackSpec
 	autoStack     *auto.Stack
 	workdir       string
-	currentCommit string
 }
 
 // blank assignment to verify that reconcileStackSession implements pulumiv1alpha1.StackController.
@@ -505,9 +503,6 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 		w.SetEnvVar("PULUMI_ACCESS_TOKEN", sess.accessToken)
 	}
 	sess.workdir = w.WorkDir()
-	if err = sess.updateGitRevisionAtWorkingDir(); err != nil {
-		return err
-	}
 
 	// Create a new stack if the stack does not already exist, or fall back to
 	// selecting the existing stack. If the stack does not exist, it will be created and selected.
@@ -532,18 +527,25 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	return nil
 }
 
+func (sess *reconcileStackSession) CleanupPulumiWorkdir() {
+	if sess.workdir != "" {
+		if err := os.RemoveAll(sess.workdir); err != nil {
+			sess.logger.Error(err, "Failed to delete working dir: %s", sess.workdir)
+		}
+	}
+}
+
 // Determine the actual commit information from the working directory (Spec commit etc. is optional).
-func (sess *reconcileStackSession) updateGitRevisionAtWorkingDir() error {
-	gitRepo, err := git.PlainOpen(sess.workdir)
+func revisionAtWorkingDir(workingDir string) (string, error) {
+	gitRepo, err := git.PlainOpen(workingDir)
 	if err != nil {
-		return errors.Wrapf(err, "failed to resolve git repository from working directory: %s", sess.workdir)
+		return "", errors.Wrapf(err, "failed to resolve git repository from working directory: %s", workingDir)
 	}
 	headRef, err := gitRepo.Head()
 	if err != nil {
-		return errors.Wrapf(err, "failed to determine revision for git repository at %s", sess.workdir)
+		return "", errors.Wrapf(err, "failed to determine revision for git repository at %s", workingDir)
 	}
-	sess.currentCommit = headRef.Hash().String()
-	return nil
+	return headRef.Hash().String(), nil
 }
 
 func (sess *reconcileStackSession) InstallProjectDependencies(ctx context.Context, workspace auto.Workspace) error {
