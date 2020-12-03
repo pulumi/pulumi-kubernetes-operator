@@ -18,8 +18,15 @@ type StackSpec struct {
 	Envs []string `json:"envs,omitempty"`
 	// (optional) SecretEnvs is an optional array of secret names containing environment variables to set.
 	SecretEnvs []string `json:"envSecrets,omitempty"`
-
 	// (optional) Backend is an optional backend URL to use for all Pulumi operations.
+	// Examples:
+	//   - Pulumi Service:              "https://app.pulumi.com" (default)
+	//   - Self-managed Pulumi Service: "https://pulumi.acmecorp.com"
+	//   - Local:                       "file://./einstein"
+	//   - AWS:                         "s3://<my-pulumi-state-bucket>"
+	//   - Azure:                       "azblob://<my-pulumi-state-bucket>"
+	//   - GCP:                         "gs://<my-pulumi-state-bucket>"
+	// See: https://www.pulumi.com/docs/intro/concepts/state/
 	Backend string `json:"backend,omitempty"`
 
 	// Stack identity:
