@@ -218,7 +218,7 @@ var _ = Describe("Stack Controller", func() {
 
 		// Update the stack config (this time to cause a failure)
 		original.Spec.Config["aws:region"] = "us-nonexistent-1"
-		Expect(k8sClient.Update(ctx, original)).Should(Succeed())
+		Expect(k8sClient.Update(ctx, original)).Should(Succeed(), "%+v", original)
 
 		// Check that the stack tried to update but failed
 		configChanged := &pulumiv1alpha1.Stack{}
@@ -235,11 +235,20 @@ var _ = Describe("Stack Controller", func() {
 			return false
 		})
 
-		// Update the stack commit to a different commit - should still fail.
-		configChanged.Spec.Commit = commit
-		Expect(k8sClient.Update(ctx, configChanged)).Should(Succeed())
+		// Update the stack commit to a different commit. Need retries because of
+		// competing retries within the operator due to failure.
+		Eventually(func() bool {
+			if err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, configChanged); err != nil {
+				return false
+			}
+			configChanged.Spec.Commit = commit
+			if err := k8sClient.Update(ctx, configChanged); err != nil {
+				return false
+			}
+			return true
+		}, timeout, interval).Should(BeTrue(), "%#v", configChanged)
 
-		// Check that the stack update attempted but failed
+		// Check that the stack update was attempted but failed
 		fetched := &pulumiv1alpha1.Stack{}
 		Eventually(func() bool {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
@@ -254,12 +263,19 @@ var _ = Describe("Stack Controller", func() {
 			return false
 		}, timeout, interval).Should(BeTrue())
 
-		// Update the stack config to now be valid
-		fetched.Spec.Config["aws:region"] = "us-east-2"
-		Expect(k8sClient.Update(ctx, fetched)).Should(Succeed())
+		Eventually(func() bool {
+			if err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched); err != nil {
+				return false
+			}
+			// Update the stack config to now be valid
+			fetched.Spec.Config["aws:region"] = "us-east-2"
+			if err := k8sClient.Update(ctx, fetched); err != nil {
+				return false
+			}
+			return true
+		}, timeout, interval).Should(BeTrue())
 
 		// Check that the stack update attempted but failed
-		fetched = &pulumiv1alpha1.Stack{}
 		Eventually(func() bool {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
 			if err != nil {
