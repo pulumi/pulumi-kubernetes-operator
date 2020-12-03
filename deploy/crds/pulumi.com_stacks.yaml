@@ -33,7 +33,10 @@ spec:
           description: StackSpec defines the desired state of Pulumi Stack being managed by this operator.
           properties:
             accessTokenSecret:
-              description: AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access.
+              description: (optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access.
+              type: string
+            backend:
+              description: (optional) Backend is an optional backend URL to use for all Pulumi operations.
               type: string
             branch:
               description: (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name. This is mutually exclusive with the Commit setting. If both are empty, the `master` branch is deployed.
@@ -89,7 +92,6 @@ spec:
               description: Stack is the fully qualified name of the stack to deploy (<org>/<stack>).
               type: string
           required:
-          - accessTokenSecret
           - projectRepo
           - stack
           type: object
