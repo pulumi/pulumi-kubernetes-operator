@@ -119,7 +119,7 @@ kubectl delete secret pulumi-api-secret
 
 Deploys an AWS S3 Buckets Stack and its AWS secrets.
 
-Check out [`../stack-examples/yaml/s3_bucket_stack.yaml`](../stack-examples/yaml/s3_bucket_stack.yaml) to start with a simple exmaple.
+Check out [`../stack-examples/yaml/s3_bucket_stack.yaml`](../stack-examples/yaml/s3_bucket_stack.yaml) to start with a simple example.
 
 Update the Pulumi API token Secret, `stack`, and the cloud provider Secret to use
 your Pulumi and AWS credentials.
