@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base32"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -43,6 +42,7 @@ var _ = Describe("Stack Controller", func() {
 	ctx := context.Background()
 	var pulumiAPISecret *corev1.Secret
 	var pulumiAWSSecret *corev1.Secret
+	var passphraseSecret *corev1.Secret
 
 	BeforeEach(func() {
 		// Get the AWS and Pulumi access envvars.
@@ -92,6 +92,23 @@ var _ = Describe("Stack Controller", func() {
 			}
 			return !fetched.CreationTimestamp.IsZero() && fetched.Data != nil
 		}, timeout, interval).Should(BeTrue())
+
+		// Create the passphrase secret
+		passphraseSecret = generateSecret("passphrase-secret", namespace,
+			map[string][]byte{
+				"PULUMI_CONFIG_PASSPHRASE":     []byte("the quick brown fox jumps over the lazy dog"),
+			},
+		)
+		Expect(k8sClient.Create(ctx, passphraseSecret)).Should(Succeed())
+
+		// Check that the passphrase secret was created
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: passphraseSecret.Name, Namespace: namespace}, fetched)
+			if err != nil {
+				return false
+			}
+			return !fetched.CreationTimestamp.IsZero() && fetched.Data != nil
+		}, timeout, interval).Should(BeTrue())
 	})
 
 	AfterEach(func() {
@@ -111,42 +128,44 @@ var _ = Describe("Stack Controller", func() {
 				return k8serrors.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
 		}
+		if passphraseSecret != nil {
+			By("Deleting the Passphrase Secret")
+			Expect(k8sClient.Delete(ctx, passphraseSecret)).Should(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: passphraseSecret.Name, Namespace: namespace}, passphraseSecret)
+				return k8serrors.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue())
+		}
 	})
 
 	// Tip: avoid adding tests for vanilla CRUD operations because they would
 	// test the Kubernetes API server, which isn't the goal here.
 
-	It("Should deploy an AWS S3 Stack successfully", func() {
+	It("Should deploy a simple stack locally successfully", func() {
 		var stack *pulumiv1alpha1.Stack
-		stackName := fmt.Sprintf("%s/s3-op-project/dev-%s", stackOrg, randString())
+		// Use a local backend for this test.
+		// Local backend doesn't allow setting slashes in stack name.
+		stackName := fmt.Sprintf("%s-local-simple-stack-dev-%s", stackOrg, randString())
 		fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
 
-		// Use a local backend for this test
-		backendDir, err := ioutil.TempDir("", "")
-		if err != nil {
-			Fail("Could not create backend directory")
-		}
-		defer os.RemoveAll(backendDir)
+		// Tests run from outside the container. Using the safest existing directory to store
+		// local state for the sake of this test.
+		const backendDir = "/tmp"
 
 		// Define the stack spec
-		spec := pulumiv1alpha1.StackSpec{
-			Backend: fmt.Sprintf("file://%s", backendDir),
+		localSpec := pulumiv1alpha1.StackSpec{
+			Backend:         fmt.Sprintf("file://%s", backendDir),
+			Stack:           stackName,
+			ProjectRepo:     "https://github.com/viveklak/empty-stack", // TODO: relocate to some other repo
+			SecretsProvider: "passphrase",
 			SecretEnvs: []string{
-				pulumiAWSSecret.ObjectMeta.Name,
+				passphraseSecret.ObjectMeta.Name,
 			},
-			Config: map[string]string{
-				"aws:region": "us-east-2",
-			},
-			Stack:             stackName,
-			ProjectRepo:       "https://github.com/metral/test-s3-op-project", // TODO: relocate to some other repo
-			Commit:            "bd1edfac28577d62068b7ace0586df595bda33be",
-			DestroyOnFinalize: true,
-			Refresh:           true,
 		}
 
 		// Create the stack
-		name := "stack-test-aws-s3"
-		stack = generateStack(name, namespace, spec)
+		name := "local-backend-stack"
+		stack = generateStack(name, namespace, localSpec)
 		Expect(k8sClient.Create(ctx, stack)).Should(Succeed())
 
 		// Check that the stack updated successfully
@@ -157,8 +176,9 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			if fetched.Status.LastUpdate != nil {
-				return fetched.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit &&
-					fetched.Status.LastUpdate.LastAttemptedCommit == stack.Spec.Commit &&
+				return fetched.Status.LastUpdate.LastSuccessfulCommit != "" &&
+					fetched.Status.LastUpdate.LastAttemptedCommit != "" &&
+					fetched.Status.LastUpdate.LastSuccessfulCommit == fetched.Status.LastUpdate.LastAttemptedCommit &&
 					fetched.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
 			}
 			return false
