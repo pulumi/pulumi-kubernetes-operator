@@ -36,7 +36,7 @@ spec:
               description: (optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access.
               type: string
             backend:
-              description: (optional) Backend is an optional backend URL to use for all Pulumi operations.
+              description: '(optional) Backend is an optional backend URL to use for all Pulumi operations. Examples:   - Pulumi Service:              "https://app.pulumi.com" (default)   - Self-managed Pulumi Service: "https://pulumi.acmecorp.com"   - Local:                       "file://./einstein"   - AWS:                         "s3://<my-pulumi-state-bucket>"   - Azure:                       "azblob://<my-pulumi-state-bucket>"   - GCP:                         "gs://<my-pulumi-state-bucket>" See: https://www.pulumi.com/docs/intro/concepts/state/'
               type: string
             branch:
               description: (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name. This is mutually exclusive with the Commit setting. If both are empty, the `master` branch is deployed.
