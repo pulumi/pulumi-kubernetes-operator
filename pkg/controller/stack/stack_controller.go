@@ -508,7 +508,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	// selecting the existing stack. If the stack does not exist, it will be created and selected.
 	a, err := auto.UpsertStack(context.Background(), sess.stack.Stack, w)
 	if err != nil {
-		return errors.Wrap(err, "failed to create and/or select stack")
+		return errors.Wrapf(err, "failed to create and/or select stack: %s", sess.stack.Stack)
 	}
 	sess.autoStack = &a
 
