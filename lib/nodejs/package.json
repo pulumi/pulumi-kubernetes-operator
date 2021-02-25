@@ -1,0 +1,14 @@
+{
+    "name": "@pulumi/crds",
+    "version": "",
+    "scripts": {
+        "build": "tsc"
+    },
+    "peerDependencies": {
+        "@pulumi/kubernetes": "^2.8.2",
+        "@pulumi/pulumi": "^2.21.2"
+    },
+    "pulumi": {
+        "resource": true
+    }
+}
