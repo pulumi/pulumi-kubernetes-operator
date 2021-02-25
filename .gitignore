@@ -78,3 +78,7 @@ tags
 pulumi-kubernetes-operator
 ### IntelliJ
 .idea
+
+*node_modules*
+
+*venv*
