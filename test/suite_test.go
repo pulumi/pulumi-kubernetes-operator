@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -100,7 +99,7 @@ var _ = BeforeSuite(func(done Done) {
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
 
-	secretsDir, err = ioutil.TempDir("", "secrets")
+	secretsDir, err = os.MkdirTemp("", "secrets")
 	if err != nil {
 		Fail("Failed to create secret temp directory")
 	}
