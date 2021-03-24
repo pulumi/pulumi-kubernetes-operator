@@ -101,6 +101,13 @@ func (in *StackSpec) DeepCopyInto(out *StackSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.SecretEnvsFromPath != nil {
+		in, out := &in.SecretEnvsFromPath, &out.SecretEnvsFromPath
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.Config != nil {
 		in, out := &in.Config, &out.Config
 		*out = make(map[string]string, len(*in))

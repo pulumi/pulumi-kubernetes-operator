@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -59,6 +61,7 @@ func TestAPIs(t *testing.T) {
 		[]Reporter{printer.NewlineReporter{}, reporter})
 }
 
+var secretsDir string
 var _ = BeforeSuite(func(done Done) {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
 
@@ -97,6 +100,11 @@ var _ = BeforeSuite(func(done Done) {
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
 
+	secretsDir, err = ioutil.TempDir("", "secrets")
+	if err != nil {
+		Fail("Failed to create secret temp directory")
+	}
+
 	close(done)
 }, 60)
 
@@ -105,4 +113,8 @@ var _ = AfterSuite(func() {
 	gexec.KillAndWait(5 * time.Second)
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
+
+	if secretsDir != "" {
+		os.RemoveAll(secretsDir)
+	}
 })

@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"time"
 
@@ -24,8 +26,8 @@ var pulumiAccessToken = ""
 var awsAccessKeyID = ""
 var awsSecretAccessKey = ""
 var awsSessionToken = ""
-var namespace = "default"
 
+const namespace = "default"
 const pulumiAPISecretName = "pulumi-api-secret"
 const pulumiAWSSecretName = "pulumi-aws-secrets"
 const timeout = time.Minute * 10
@@ -96,7 +98,7 @@ var _ = Describe("Stack Controller", func() {
 		// Create the passphrase secret
 		passphraseSecret = generateSecret("passphrase-secret", namespace,
 			map[string][]byte{
-				"PULUMI_CONFIG_PASSPHRASE":     []byte("the quick brown fox jumps over the lazy dog"),
+				"PULUMI_CONFIG_PASSPHRASE": []byte("the quick brown fox jumps over the lazy dog"),
 			},
 		)
 		Expect(k8sClient.Create(ctx, passphraseSecret)).Should(Succeed())
@@ -136,6 +138,17 @@ var _ = Describe("Stack Controller", func() {
 				return k8serrors.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
 		}
+
+		By("Deleting left over stacks")
+		deletionPolicy := metav1.DeletePropagationForeground
+		Expect(k8sClient.DeleteAllOf(ctx, &pulumiv1alpha1.Stack{}, client.InNamespace(namespace), &client.DeleteAllOfOptions{DeleteOptions: client.DeleteOptions{PropagationPolicy: &deletionPolicy}})).Should(Succeed())
+		Eventually(func() bool {
+			var stacksList pulumiv1alpha1.StackList
+			if err = k8sClient.List(ctx, &stacksList, client.InNamespace(namespace)); err != nil {
+				return false
+			}
+			return len(stacksList.Items) == 0
+		}, timeout, interval).Should(BeTrue())
 	})
 
 	// Tip: avoid adding tests for vanilla CRUD operations because they would
@@ -295,7 +308,7 @@ var _ = Describe("Stack Controller", func() {
 			return true
 		}, timeout, interval).Should(BeTrue())
 
-		// Check that the stack update attempted but failed
+		// Check that the stack update attempted but succeeded after the region fix
 		Eventually(func() bool {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
 			if err != nil {
@@ -317,6 +330,67 @@ var _ = Describe("Stack Controller", func() {
 		Eventually(func() bool {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, toDelete)
 			return k8serrors.IsNotFound(err)
+		}, timeout, interval).Should(BeTrue())
+	})
+
+	It("Should deploy an AWS S3 Stack successfully with file based secrets", func() {
+		var stack *pulumiv1alpha1.Stack
+		stackName := fmt.Sprintf("%s/s3-op-project/dev-file-secrets-%s", stackOrg, randString())
+		fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
+
+		// Write the contents of the secrets to /tmp in the container. This is a stand-in for other
+		// mechanism to reify the secrets on the file system. This is not a recommended way to store/pass secrets.
+		Eventually(func() bool {
+			if err = os.WriteFile(filepath.Join(secretsDir, pulumiAPISecretName), []byte(pulumiAccessToken), 0600); err != nil {
+				return false
+			}
+			if err = os.WriteFile(filepath.Join(secretsDir, "aws-access-key-id"), []byte(awsAccessKeyID), 0600); err != nil {
+				return false
+			}
+			if err = os.WriteFile(filepath.Join(secretsDir, "aws-secret-access-key"), []byte(awsSecretAccessKey), 0600); err != nil {
+				return false
+			}
+			if err = os.WriteFile(filepath.Join(secretsDir, "aws-session-token"), []byte(awsSessionToken), 0600); err != nil {
+				return false
+			}
+			return true
+		}, timeout, interval).Should(BeTrue())
+
+		// Define the stack spec
+		spec := pulumiv1alpha1.StackSpec{
+			SecretEnvsFromPath: map[string]string{
+				"PULUMI_ACCESS_TOKEN":   filepath.Join(secretsDir, pulumiAPISecretName),
+				"AWS_ACCESS_KEY_ID":     filepath.Join(secretsDir, "aws-access-key-id"),
+				"AWS_SECRET_ACCESS_KEY": filepath.Join(secretsDir, "aws-secret-access-key"),
+				"AWS_SESSION_TOKEN":     filepath.Join(secretsDir, "aws-session-token"),
+			},
+			Config: map[string]string{
+				"aws:region": "us-east-2",
+			},
+			Stack:             stackName,
+			ProjectRepo:       "https://github.com/metral/test-s3-op-project", // TODO: relocate to some other repo
+			Commit:            "bd1edfac28577d62068b7ace0586df595bda33be",
+			DestroyOnFinalize: true,
+		}
+
+		// Create stack
+		name := "stack-test-aws-s3-file-secrets"
+		stack = generateStack(name, namespace, spec)
+		Expect(k8sClient.Create(ctx, stack)).Should(Succeed())
+
+		// Check that the stack updated successfully
+		Eventually(func() bool {
+			fetched := &pulumiv1alpha1.Stack{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
+			if err != nil {
+				return false
+			}
+			if fetched.Status.LastUpdate != nil {
+				return fetched.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit &&
+					fetched.Status.LastUpdate.LastAttemptedCommit == stack.Spec.Commit &&
+					fetched.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
+			}
+			return false
 		}, timeout, interval).Should(BeTrue())
 	})
 })

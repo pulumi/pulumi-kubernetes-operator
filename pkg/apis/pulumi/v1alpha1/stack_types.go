@@ -13,11 +13,18 @@ type StackSpec struct {
 	// Auth info:
 
 	// (optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access.
+	// Deprecated: use SecretEnvsFromPath with PULUMI_ACCESS_TOKEN as key or SecretEnvs with a secret entry key
+	// PULUMI_ACCESS_KEY instead.
 	AccessTokenSecret string `json:"accessTokenSecret,omitempty"`
 	// (optional) Envs is an optional array of config maps containing environment variables to set.
 	Envs []string `json:"envs,omitempty"`
 	// (optional) SecretEnvs is an optional array of secret names containing environment variables to set.
 	SecretEnvs []string `json:"envSecrets,omitempty"`
+	// (optional) SecretEnvsFromPath is an optional map of environment variables whose values are secrets
+	// read from paths on the filesystem. The paths could be injected through Kubernetes secret volume mounts,
+	// CSI drivers, etc. This is an alternative to passing secret environment variables to the stack through
+	// SecretEnvs which doesn't directly depend on Kubernetes Secrets.
+	SecretEnvsFromPath map[string]string `json:"envSecretsFromPath,omitempty"`
 	// (optional) Backend is an optional backend URL to use for all Pulumi operations.
 	// Examples:
 	//   - Pulumi Service:              "https://app.pulumi.com" (default)
