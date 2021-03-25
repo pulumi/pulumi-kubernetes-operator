@@ -52,18 +52,68 @@ spec:
             destroyOnFinalize:
               description: (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
               type: boolean
+            envRefs:
+              additionalProperties:
+                description: ResourceRef identifies a resource from which information can be loaded.
+                properties:
+                  env:
+                    description: EnvSelector identifies the environment variable to load information from.
+                    properties:
+                      name:
+                        description: Name of the environment variable
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  filesystem:
+                    description: FSSelector identifies the path to load information from.
+                    properties:
+                      path:
+                        description: Path on the filesystem to use to load information from.
+                        type: string
+                    required:
+                    - path
+                    type: object
+                  literal:
+                    description: LiteralRef identifies a literal value to load.
+                    properties:
+                      value:
+                        description: Value to load
+                        type: string
+                    required:
+                    - value
+                    type: object
+                  secret:
+                    description: SecretSelector identifies the information to load from a Kubernetes secret.
+                    properties:
+                      key:
+                        description: Key within the secret to use.
+                        type: string
+                      name:
+                        description: Name of the secret
+                        type: string
+                      namespace:
+                        description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  type:
+                    description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                    type: string
+                required:
+                - type
+                type: object
+              description: (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where the variables' values should be loaded from (one of literal, environment variable, file on the filesystem, or Kubernetes secret) as values.
+              type: object
             envSecrets:
-              description: (optional) SecretEnvs is an optional array of secret names containing environment variables to set.
+              description: '(optional) SecretEnvs is an optional array of secret names containing environment variables to set. Deprecated: use EnvRefs instead.'
               items:
                 type: string
               type: array
-            envSecretsFromPath:
-              additionalProperties:
-                type: string
-              description: (optional) SecretEnvsFromPath is an optional map of environment variables whose values are secrets read from paths on the filesystem. The paths could be injected through Kubernetes secret volume mounts, CSI drivers, etc. This is an alternative to passing secret environment variables to the stack through SecretEnvs which doesn't directly depend on Kubernetes Secrets.
-              type: object
             envs:
-              description: (optional) Envs is an optional array of config maps containing environment variables to set.
+              description: '(optional) Envs is an optional array of config maps containing environment variables to set. Deprecated: use EnvRefs instead.'
               items:
                 type: string
               type: array

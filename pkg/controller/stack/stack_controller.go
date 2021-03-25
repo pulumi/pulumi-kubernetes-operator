@@ -169,10 +169,6 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		reqLogger.Error(err, "Could not find Secret for SecretEnvs")
 		return reconcile.Result{}, err
 	}
-	if err = sess.SetSecretEnvsFromPath(stack.SecretEnvsFromPath); err != nil {
-		reqLogger.Error(err, "Could not find Secret for SecretEnvsFromPath")
-		return reconcile.Result{}, err
-	}
 
 	// Check if the Stack instance is marked to be deleted, which is
 	// indicated by the deletion timestamp being set.
@@ -407,15 +403,54 @@ func (sess *reconcileStackSession) SetSecretEnvs(secrets []string, namespace str
 	return nil
 }
 
-// SetSecretEnvsFromPath uses the provided input map where each entry consists of the environment variable and the value
-// consists of the filesystem path containing the secret content.
-func (sess *reconcileStackSession) SetSecretEnvsFromPath(secretsFromPaths map[string]string) error {
-	for envVar, path := range secretsFromPaths {
-		contents, err := os.ReadFile(path)
-		if err != nil {
-			return errors.Wrapf(err, "reading secret path for env var: %s: %s", envVar, path)
+// SetEnvRefsForWorkspace populates environment variables for workspace using items in
+// the EnvRefs field in the stack specification.
+func (sess *reconcileStackSession) SetEnvRefsForWorkspace(w auto.Workspace) error {
+	envRefs := sess.stack.EnvRefs
+	for envVar, ref := range envRefs {
+		switch ref.SelectorType {
+		case pulumiv1alpha1.ResourceSelectorEnv:
+			if ref.Env != nil {
+				envVarVal := os.Getenv(ref.Env.Name)
+				w.SetEnvVar(envVar, envVarVal)
+			} else {
+				return errors.Errorf("Missing env reference in ResourceRef for '%s'", envVar)
+			}
+		case pulumiv1alpha1.ResourceSelectorLiteral:
+			if ref.LiteralRef != nil {
+				w.SetEnvVar(envVar, ref.LiteralRef.Value)
+			} else {
+				return errors.Errorf("Missing literal reference in ResourceRef for '%s'", envVar)
+			}
+		case pulumiv1alpha1.ResourceSelectorFS:
+			if ref.FileSystem != nil {
+				contents, err := os.ReadFile(ref.FileSystem.Path)
+				if err != nil {
+					return errors.Wrapf(err, "reading path for env var: %s: %s", envVar, ref.FileSystem.Path)
+				}
+				w.SetEnvVar(envVar, string(contents))
+			} else {
+				return errors.Errorf("Missing filesystem reference in ResourceRef for '%s'", envVar)
+			}
+		case pulumiv1alpha1.ResourceSelectorSecret:
+			if ref.SecretRef != nil {
+				config := &corev1.Secret{}
+				namespace := ref.SecretRef.Namespace
+				if namespace == "" {
+					namespace = "default"
+				}
+				if err := sess.getLatestResource(config, types.NamespacedName{Name: ref.SecretRef.Name, Namespace: namespace}); err != nil {
+					return errors.Wrapf(err, "Namespace=%s Name=%s", ref.SecretRef.Namespace, ref.SecretRef.Name)
+				}
+				val, ok := config.Data[ref.SecretRef.Key]
+				if !ok {
+					return errors.Errorf("No key %s found in secret %s/%s", ref.SecretRef.Key, ref.SecretRef.Namespace, ref.SecretRef.Name)
+				}
+				w.SetEnvVar(envVar, string(val))
+			} else {
+				return errors.Errorf("Mising secret reference in ResourceRef for '%s'", envVar)
+			}
 		}
-		sess.autoStack.Workspace().SetEnvVar(envVar, string(contents))
 	}
 	return nil
 }
@@ -497,6 +532,7 @@ func (sess *reconcileStackSession) lookupPulumiAccessToken() (string, bool) {
 		}
 		return accessToken, true
 	}
+
 	return "", false
 }
 
@@ -521,6 +557,9 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	}
 	if accessToken, found := sess.lookupPulumiAccessToken(); found {
 		w.SetEnvVar("PULUMI_ACCESS_TOKEN", accessToken)
+	}
+	if err = sess.SetEnvRefsForWorkspace(w); err != nil {
+		return err
 	}
 	sess.workdir = w.WorkDir()
 

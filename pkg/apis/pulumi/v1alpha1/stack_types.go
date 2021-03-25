@@ -16,15 +16,20 @@ type StackSpec struct {
 	// Deprecated: use SecretEnvsFromPath with PULUMI_ACCESS_TOKEN as key or SecretEnvs with a secret entry key
 	// PULUMI_ACCESS_KEY instead.
 	AccessTokenSecret string `json:"accessTokenSecret,omitempty"`
+
 	// (optional) Envs is an optional array of config maps containing environment variables to set.
+	// Deprecated: use EnvRefs instead.
 	Envs []string `json:"envs,omitempty"`
+
+	// (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where
+	// the variables' values should be loaded from (one of literal, environment variable, file on the
+	// filesystem, or Kubernetes secret) as values.
+	EnvRefs map[string]ResourceRef `json:"envRefs,omitempty"`
+
 	// (optional) SecretEnvs is an optional array of secret names containing environment variables to set.
+	// Deprecated: use EnvRefs instead.
 	SecretEnvs []string `json:"envSecrets,omitempty"`
-	// (optional) SecretEnvsFromPath is an optional map of environment variables whose values are secrets
-	// read from paths on the filesystem. The paths could be injected through Kubernetes secret volume mounts,
-	// CSI drivers, etc. This is an alternative to passing secret environment variables to the stack through
-	// SecretEnvs which doesn't directly depend on Kubernetes Secrets.
-	SecretEnvsFromPath map[string]string `json:"envSecretsFromPath,omitempty"`
+
 	// (optional) Backend is an optional backend URL to use for all Pulumi operations.
 	// Examples:
 	//   - Pulumi Service:              "https://app.pulumi.com" (default)
@@ -96,6 +101,113 @@ type StackSpec struct {
 	// all spawned retries succeed. This will also create a more populated,
 	// and randomized activity timeline for the stack in the Pulumi Service.
 	RetryOnUpdateConflict bool `json:"retryOnUpdateConflict,omitempty"`
+}
+
+// ResourceRef identifies a resource from which information can be loaded.
+type ResourceRef struct {
+	// SelectorType is required and signifies the type of selector. Must be one of:
+	// Env, FS, Secret, Literal
+	SelectorType     ResourceSelectorType `json:"type"`
+	ResourceSelector `json:",inline"`
+}
+
+// NewEnvResourceRef creates a new environment variable resource ref.
+func NewEnvResourceRef(envVarName string) ResourceRef {
+	return ResourceRef{
+		SelectorType: ResourceSelectorEnv,
+		ResourceSelector: ResourceSelector{
+			Env: &EnvSelector{
+				Name: envVarName,
+			},
+		},
+	}
+}
+
+// NewFileSystemResourceRef creates a new file system resource ref.
+func NewFileSystemResourceRef(path string) ResourceRef {
+	return ResourceRef{
+		SelectorType: ResourceSelectorFS,
+		ResourceSelector: ResourceSelector{
+			FileSystem: &FSSelector{
+				Path: path,
+			},
+		},
+	}
+}
+
+// NewSecretResourceRef creates a new secret resource ref.
+func NewSecretResourceRef(namespace, name, key string) ResourceRef {
+	return ResourceRef{
+		SelectorType: ResourceSelectorSecret,
+		ResourceSelector: ResourceSelector{
+			SecretRef: &SecretSelector{
+				Namespace: namespace,
+				Name:      name,
+				Key:       key,
+			},
+		},
+	}
+}
+
+// NewLiteralResourceRef creates a new literal resource ref.
+func NewLiteralResourceRef(value string) ResourceRef {
+	return ResourceRef{
+		SelectorType: ResourceSelectorLiteral,
+		ResourceSelector: ResourceSelector{
+			LiteralRef: &LiteralRef{
+				Value: value,
+			},
+		},
+	}
+}
+
+// ResourceSelectorType identifies the type of the resource reference in
+type ResourceSelectorType string
+
+const (
+	// ResourceSelectorEnv indicates the resource is an environment variable
+	ResourceSelectorEnv = ResourceSelectorType("Env")
+	// ResourceSelectorFS indicates the resource is on the filesystem
+	ResourceSelectorFS = ResourceSelectorType("FS")
+	// ResourceSelectorSecret indicates the resource is a Kubernetes secret
+	ResourceSelectorSecret = ResourceSelectorType("Secret")
+	// ResourceSelectorLiteral indicates the resource is a literal
+	ResourceSelectorLiteral = ResourceSelectorType("Literal")
+)
+
+type ResourceSelector struct {
+	FileSystem *FSSelector     `json:"filesystem,omitempty"`
+	Env        *EnvSelector    `json:"env,omitempty"`
+	SecretRef  *SecretSelector `json:"secret,omitempty"`
+	LiteralRef *LiteralRef     `json:"literal,omitempty"`
+}
+
+// FSSelector identifies the path to load information from.
+type FSSelector struct {
+	// Path on the filesystem to use to load information from.
+	Path string `json:"path"`
+}
+
+// EnvSelector identifies the environment variable to load information from.
+type EnvSelector struct {
+	// Name of the environment variable
+	Name string `json:"name"`
+}
+
+// SecretSelector identifies the information to load from a Kubernetes secret.
+type SecretSelector struct {
+	// Namespace where the secret is stored. Defaults to 'default' if omitted.
+	Namespace string `json:"namespace,omitempty"`
+	// Name of the secret
+	Name string `json:"name"`
+	// Key within the secret to use.
+	Key string `json:"key"`
+}
+
+// LiteralRef identifies a literal value to load.
+type LiteralRef struct {
+	// Value to load
+	Value string `json:"value"`
 }
 
 // StackStatus defines the observed state of Stack
