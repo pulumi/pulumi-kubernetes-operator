@@ -7,7 +7,7 @@ deploy_dir="$cwd/../deploy/crds"
 
 echo "Generating CRD API types..."
 
-go run sigs.k8s.io/controller-tools/cmd/controller-gen crd paths="$apis_dir/..." output:crd:dir="$deploy_dir"
+go run sigs.k8s.io/controller-tools/cmd/controller-gen crd paths="$apis_dir/..." crd:crdVersions=v1 output:crd:dir="$deploy_dir"
 
 # Manually overwrite until issue is resolved in controller-tools:
 # https://git.io/JJsjs
