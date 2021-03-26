@@ -54,10 +54,10 @@ spec:
                 type: boolean
               envRefs:
                 additionalProperties:
-                  description: ResourceRef identifies a resource from which information can be loaded.
+                  description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
                   properties:
                     env:
-                      description: EnvSelector identifies the environment variable to load information from.
+                      description: Env selects an environment variable set on the operator process
                       properties:
                         name:
                           description: Name of the environment variable
@@ -66,7 +66,7 @@ spec:
                       - name
                       type: object
                     filesystem:
-                      description: FSSelector identifies the path to load information from.
+                      description: FileSystem selects a file on the operator's file system
                       properties:
                         path:
                           description: Path on the filesystem to use to load information from.
@@ -75,7 +75,7 @@ spec:
                       - path
                       type: object
                     literal:
-                      description: LiteralRef identifies a literal value to load.
+                      description: LiteralRef refers to a literal value
                       properties:
                         value:
                           description: Value to load
@@ -84,7 +84,7 @@ spec:
                       - value
                       type: object
                     secret:
-                      description: SecretSelector identifies the information to load from a Kubernetes secret.
+                      description: SecretRef refers to a Kubernetes secret
                       properties:
                         key:
                           description: Key within the secret to use.
@@ -138,11 +138,66 @@ spec:
               secrets:
                 additionalProperties:
                   type: string
-                description: (optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
+                description: '(optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository. Deprecated: use SecretRefs instead.'
                 type: object
               secretsProvider:
                 description: '(optional) SecretsProvider is used to initialize a Stack with alternative encryption. Examples:   - AWS:   "awskms://arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"   - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"   - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY" See: https://www.pulumi.com/docs/intro/concepts/config/#initializing-a-stack-with-alternative-encryption'
                 type: string
+              secretsRef:
+                additionalProperties:
+                  description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                  properties:
+                    env:
+                      description: Env selects an environment variable set on the operator process
+                      properties:
+                        name:
+                          description: Name of the environment variable
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    filesystem:
+                      description: FileSystem selects a file on the operator's file system
+                      properties:
+                        path:
+                          description: Path on the filesystem to use to load information from.
+                          type: string
+                      required:
+                      - path
+                      type: object
+                    literal:
+                      description: LiteralRef refers to a literal value
+                      properties:
+                        value:
+                          description: Value to load
+                          type: string
+                      required:
+                      - value
+                      type: object
+                    secret:
+                      description: SecretRef refers to a Kubernetes secret
+                      properties:
+                        key:
+                          description: Key within the secret to use.
+                          type: string
+                        name:
+                          description: Name of the secret
+                          type: string
+                        namespace:
+                          description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                    type:
+                      description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                      type: string
+                  required:
+                  - type
+                  type: object
+                description: (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
+                type: object
               stack:
                 description: Stack is the fully qualified name of the stack to deploy (<org>/<stack>).
                 type: string
