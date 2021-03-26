@@ -2,6 +2,8 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
+
+## 0.0.9 (2021-03-26)
 - Fix integration tests. Bumps embedded pulumi to 2.17.0.
   [#115](https://github.com/pulumi/pulumi-kubernetes-operator/pull/115)
 
