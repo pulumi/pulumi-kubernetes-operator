@@ -2,6 +2,8 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
+- Bump to 2.23.2 and add SecretRefs to allow secrets to be specified through
+  references.
 
 ## 0.0.9 (2021-03-26)
 - Fix integration tests. Bumps embedded pulumi to 2.17.0.
