@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"time"
 
@@ -24,8 +26,8 @@ var pulumiAccessToken = ""
 var awsAccessKeyID = ""
 var awsSecretAccessKey = ""
 var awsSessionToken = ""
-var namespace = "default"
 
+const namespace = "default"
 const pulumiAPISecretName = "pulumi-api-secret"
 const pulumiAWSSecretName = "pulumi-aws-secrets"
 const timeout = time.Minute * 10
@@ -96,7 +98,7 @@ var _ = Describe("Stack Controller", func() {
 		// Create the passphrase secret
 		passphraseSecret = generateSecret("passphrase-secret", namespace,
 			map[string][]byte{
-				"PULUMI_CONFIG_PASSPHRASE":     []byte("the quick brown fox jumps over the lazy dog"),
+				"PULUMI_CONFIG_PASSPHRASE": []byte("the quick brown fox jumps over the lazy dog"),
 			},
 		)
 		Expect(k8sClient.Create(ctx, passphraseSecret)).Should(Succeed())
@@ -112,6 +114,25 @@ var _ = Describe("Stack Controller", func() {
 	})
 
 	AfterEach(func() {
+		By("Deleting left over stacks")
+		deletionPolicy := metav1.DeletePropagationForeground
+		Expect(k8sClient.DeleteAllOf(
+			ctx,
+			&pulumiv1alpha1.Stack{},
+			client.InNamespace(namespace),
+			&client.DeleteAllOfOptions{
+				DeleteOptions: client.DeleteOptions{PropagationPolicy: &deletionPolicy},
+			},
+		)).Should(Succeed())
+
+		Eventually(func() bool {
+			var stacksList pulumiv1alpha1.StackList
+			if err = k8sClient.List(ctx, &stacksList, client.InNamespace(namespace)); err != nil {
+				return false
+			}
+			return len(stacksList.Items) == 0
+		}, timeout, interval).Should(BeTrue())
+
 		if pulumiAPISecret != nil {
 			By("Deleting the Stack Pulumi API Secret")
 			Expect(k8sClient.Delete(ctx, pulumiAPISecret)).Should(Succeed())
@@ -228,12 +249,7 @@ var _ = Describe("Stack Controller", func() {
 			if err != nil {
 				return false
 			}
-			if original.Status.LastUpdate != nil {
-				return original.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit &&
-					original.Status.LastUpdate.LastAttemptedCommit == stack.Spec.Commit &&
-					original.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
-			}
-			return false
+			return stackUpdatedToCommit(original, stack.Spec.Commit)
 		}, timeout, interval).Should(BeTrue())
 
 		// Update the stack config (this time to cause a failure)
@@ -295,18 +311,13 @@ var _ = Describe("Stack Controller", func() {
 			return true
 		}, timeout, interval).Should(BeTrue())
 
-		// Check that the stack update attempted but failed
+		// Check that the stack update attempted and succeeded after the region fix
 		Eventually(func() bool {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
 			if err != nil {
 				return false
 			}
-			if fetched.Status.LastUpdate != nil {
-				return fetched.Status.LastUpdate.LastSuccessfulCommit == commit &&
-					fetched.Status.LastUpdate.LastAttemptedCommit == commit &&
-					fetched.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
-			}
-			return false
+			return stackUpdatedToCommit(fetched, commit)
 		}, timeout, interval).Should(BeTrue())
 
 		// Delete the Stack
@@ -319,7 +330,64 @@ var _ = Describe("Stack Controller", func() {
 			return k8serrors.IsNotFound(err)
 		}, timeout, interval).Should(BeTrue())
 	})
+
+	It("Should deploy an AWS S3 Stack successfully with credentials passed through EnvRefs", func() {
+		var stack *pulumiv1alpha1.Stack
+		stackName := fmt.Sprintf("%s/s3-op-project/dev-env-ref-%s", stackOrg, randString())
+		fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
+
+		// Write a secret to a temp directory. This is a stand-in for other mechanisms to reify the secrets
+		// on the file system. This is not a recommended way to store/pass secrets.
+		Eventually(func() bool {
+			if err = os.WriteFile(filepath.Join(secretsDir, pulumiAPISecretName), []byte(pulumiAccessToken), 0600); err != nil {
+				return false
+			}
+			return true
+		}, timeout, interval).Should(BeTrue())
+
+		// Define the stack spec
+		spec := pulumiv1alpha1.StackSpec{
+			// Cover all variations of resource refs
+			EnvRefs: map[string]pulumiv1alpha1.ResourceRef{
+				"PULUMI_ACCESS_TOKEN":   pulumiv1alpha1.NewFileSystemResourceRef(filepath.Join(secretsDir, pulumiAPISecretName)),
+				"AWS_ACCESS_KEY_ID":     pulumiv1alpha1.NewLiteralResourceRef(awsAccessKeyID),
+				"AWS_SECRET_ACCESS_KEY": pulumiv1alpha1.NewSecretResourceRef(namespace, pulumiAWSSecret.Name, "AWS_SECRET_ACCESS_KEY"),
+				"AWS_SESSION_TOKEN":     pulumiv1alpha1.NewEnvResourceRef("AWS_SESSION_TOKEN"),
+			},
+			Config: map[string]string{
+				"aws:region": "us-east-2",
+			},
+			Stack:             stackName,
+			ProjectRepo:       "https://github.com/metral/test-s3-op-project", // TODO: relocate to some other repo
+			Commit:            "bd1edfac28577d62068b7ace0586df595bda33be",
+			DestroyOnFinalize: true,
+		}
+
+		// Create stack
+		name := "stack-test-aws-s3-file-secrets"
+		stack = generateStack(name, namespace, spec)
+		Expect(k8sClient.Create(ctx, stack)).Should(Succeed())
+
+		// Check that the stack updated successfully
+		Eventually(func() bool {
+			fetched := &pulumiv1alpha1.Stack{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
+			if err != nil {
+				return false
+			}
+			return stackUpdatedToCommit(fetched, stack.Spec.Commit)
+		}, timeout, interval).Should(BeTrue())
+	})
 })
+
+func stackUpdatedToCommit(stack *pulumiv1alpha1.Stack, commit string) bool {
+	if stack.Status.LastUpdate != nil {
+		return stack.Status.LastUpdate.LastSuccessfulCommit == commit &&
+			stack.Status.LastUpdate.LastAttemptedCommit == commit &&
+			stack.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
+	}
+	return false
+}
 
 func generateStack(name, namespace string, spec pulumiv1alpha1.StackSpec) *pulumiv1alpha1.Stack {
 	return &pulumiv1alpha1.Stack{

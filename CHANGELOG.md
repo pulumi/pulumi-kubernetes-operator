@@ -5,6 +5,9 @@ CHANGELOG
 - Fix integration tests. Bumps embedded pulumi to 2.17.0.
   [#115](https://github.com/pulumi/pulumi-kubernetes-operator/pull/115)
 
+- Make environment variable population more generic and bump base image to 2.23.1
+  [#125](https://github.com/pulumi/pulumi-kubernetes-operator/pull/125)
+
 ## 0.0.8 (2020-12-03)
 
 - Use ephemeral storage for disk mutations.

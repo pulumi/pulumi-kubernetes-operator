@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -136,28 +135,8 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	// indicated by the deletion timestamp being set.
 	isStackMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
 
-	var accessToken string
-	if stack.AccessTokenSecret != "" {
-		// Fetch the API token from the named secret.
-		secret := &corev1.Secret{}
-		if err = r.client.Get(context.TODO(),
-			types.NamespacedName{Name: stack.AccessTokenSecret, Namespace: request.Namespace}, secret); err != nil {
-			reqLogger.Error(err, "Could not find secret for Pulumi API access",
-				"Namespace", request.Namespace, "Stack.AccessTokenSecret", stack.AccessTokenSecret)
-			return reconcile.Result{}, err
-		}
-
-		accessToken = string(secret.Data["accessToken"])
-		if accessToken == "" {
-			err = errors.New("Secret accessToken data is empty")
-			reqLogger.Error(err, "Illegal empty secret accessToken data for Pulumi API access",
-				"Namespace", request.Namespace, "Stack.AccessTokenSecret", stack.AccessTokenSecret)
-			return reconcile.Result{}, err
-		}
-	}
-
 	// Create a new reconciliation session.
-	sess := newReconcileStackSession(reqLogger, accessToken, stack, r.client)
+	sess := newReconcileStackSession(reqLogger, stack, r.client, request.Namespace)
 
 	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
 	var gitAuth *auto.GitAuth
@@ -182,13 +161,11 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	defer sess.CleanupPulumiWorkdir()
 
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
-	err = sess.SetEnvs(stack.Envs, request.Namespace)
-	if err != nil {
+	if err = sess.SetEnvs(stack.Envs, request.Namespace); err != nil {
 		reqLogger.Error(err, "Could not find ConfigMap for Envs")
 		return reconcile.Result{}, err
 	}
-	err = sess.SetSecretEnvs(stack.SecretEnvs, request.Namespace)
-	if err != nil {
+	if err = sess.SetSecretEnvs(stack.SecretEnvs, request.Namespace); err != nil {
 		reqLogger.Error(err, "Could not find Secret for SecretEnvs")
 		return reconcile.Result{}, err
 	}
@@ -367,25 +344,28 @@ func (sess *reconcileStackSession) addFinalizer(stack *pulumiv1alpha1.Stack) err
 }
 
 type reconcileStackSession struct {
-	logger        logr.Logger
-	kubeClient    client.Client
-	accessToken   string
-	stack         pulumiv1alpha1.StackSpec
-	autoStack     *auto.Stack
-	workdir       string
+	logger     logr.Logger
+	kubeClient client.Client
+	stack      pulumiv1alpha1.StackSpec
+	autoStack  *auto.Stack
+	namespace  string
+	workdir    string
 }
 
 // blank assignment to verify that reconcileStackSession implements pulumiv1alpha1.StackController.
 var _ pulumiv1alpha1.StackController = &reconcileStackSession{}
 
 func newReconcileStackSession(
-	logger logr.Logger, accessToken string, stack pulumiv1alpha1.StackSpec,
-	kubeClient client.Client) *reconcileStackSession {
+	logger logr.Logger,
+	stack pulumiv1alpha1.StackSpec,
+	kubeClient client.Client,
+	namespace string,
+) *reconcileStackSession {
 	return &reconcileStackSession{
-		logger:      logger,
-		kubeClient:  kubeClient,
-		accessToken: accessToken,
-		stack:       stack,
+		logger:     logger,
+		kubeClient: kubeClient,
+		stack:      stack,
+		namespace:  namespace,
 	}
 }
 
@@ -418,6 +398,60 @@ func (sess *reconcileStackSession) SetSecretEnvs(secrets []string, namespace str
 		}
 		if err := sess.autoStack.Workspace().SetEnvVars(envvars); err != nil {
 			return errors.Wrapf(err, "Namespace=%s Name=%s", namespace, env)
+		}
+	}
+	return nil
+}
+
+// SetEnvRefsForWorkspace populates environment variables for workspace using items in
+// the EnvRefs field in the stack specification.
+func (sess *reconcileStackSession) SetEnvRefsForWorkspace(w auto.Workspace) error {
+	envRefs := sess.stack.EnvRefs
+	for envVar, ref := range envRefs {
+		switch ref.SelectorType {
+		case pulumiv1alpha1.ResourceSelectorEnv:
+			if ref.Env != nil {
+				envVarVal := os.Getenv(ref.Env.Name)
+				w.SetEnvVar(envVar, envVarVal)
+			} else {
+				return errors.Errorf("Missing env reference in ResourceRef for %q", envVar)
+			}
+		case pulumiv1alpha1.ResourceSelectorLiteral:
+			if ref.LiteralRef != nil {
+				w.SetEnvVar(envVar, ref.LiteralRef.Value)
+			} else {
+				return errors.Errorf("Missing literal reference in ResourceRef for %q", envVar)
+			}
+		case pulumiv1alpha1.ResourceSelectorFS:
+			if ref.FileSystem != nil {
+				contents, err := os.ReadFile(ref.FileSystem.Path)
+				if err != nil {
+					return errors.Wrapf(err, "reading path for env var: %s: %s", envVar, ref.FileSystem.Path)
+				}
+				w.SetEnvVar(envVar, string(contents))
+			} else {
+				return errors.Errorf("Missing filesystem reference in ResourceRef for %q", envVar)
+			}
+		case pulumiv1alpha1.ResourceSelectorSecret:
+			if ref.SecretRef != nil {
+				config := &corev1.Secret{}
+				namespace := ref.SecretRef.Namespace
+				if namespace == "" {
+					namespace = "default"
+				}
+				if err := sess.getLatestResource(config, types.NamespacedName{Name: ref.SecretRef.Name, Namespace: namespace}); err != nil {
+					return errors.Wrapf(err, "Namespace=%s Name=%s", ref.SecretRef.Namespace, ref.SecretRef.Name)
+				}
+				val, ok := config.Data[ref.SecretRef.Key]
+				if !ok {
+					return errors.Errorf("No key %s found in secret %s/%s", ref.SecretRef.Key, ref.SecretRef.Namespace, ref.SecretRef.Name)
+				}
+				w.SetEnvVar(envVar, string(val))
+			} else {
+				return errors.Errorf("Mising secret reference in ResourceRef for %q", envVar)
+			}
+		default:
+			return errors.Errorf("Unsupported selector type: %v", ref.SelectorType)
 		}
 	}
 	return nil
@@ -480,6 +514,30 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd, workspace
 	return stdout.String(), stderr.String(), err
 }
 
+func (sess *reconcileStackSession) lookupPulumiAccessToken() (string, bool) {
+	if sess.stack.AccessTokenSecret != "" {
+		// Fetch the API token from the named secret.
+		secret := &corev1.Secret{}
+		if err := sess.kubeClient.Get(context.TODO(),
+			types.NamespacedName{Name: sess.stack.AccessTokenSecret, Namespace: sess.namespace}, secret); err != nil {
+			sess.logger.Error(err, "Could not find secret for Pulumi API access",
+				"Namespace", sess.namespace, "Stack.AccessTokenSecret", sess.stack.AccessTokenSecret)
+			return "", false
+		}
+
+		accessToken := string(secret.Data["accessToken"])
+		if accessToken == "" {
+			err := errors.New("Secret accessToken data is empty")
+			sess.logger.Error(err, "Illegal empty secret accessToken data for Pulumi API access",
+				"Namespace", sess.namespace, "Stack.AccessTokenSecret", sess.stack.AccessTokenSecret)
+			return "", false
+		}
+		return accessToken, true
+	}
+
+	return "", false
+}
+
 func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) error {
 	repo := auto.GitRepo{
 		URL:         sess.stack.ProjectRepo,
@@ -499,8 +557,11 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	if sess.stack.Backend != "" {
 		w.SetEnvVar("PULUMI_BACKEND_URL", sess.stack.Backend)
 	}
-	if sess.accessToken != "" {
-		w.SetEnvVar("PULUMI_ACCESS_TOKEN", sess.accessToken)
+	if accessToken, found := sess.lookupPulumiAccessToken(); found {
+		w.SetEnvVar("PULUMI_ACCESS_TOKEN", accessToken)
+	}
+	if err = sess.SetEnvRefsForWorkspace(w); err != nil {
+		return err
 	}
 	sess.workdir = w.WorkDir()
 
@@ -666,7 +727,8 @@ func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStat
 	}
 	p, err := auto.GetPermalink(result.StdOut)
 	if err != nil {
-		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), nil, err
+		// Successful update but no permalink suggests a backend which doesn't support permalinks. Ignore.
+		sess.logger.Error(err, "No permalink found.", "Namespace", sess.namespace)
 	}
 	permalink := pulumiv1alpha1.Permalink(p)
 	return pulumiv1alpha1.StackUpdateSucceeded, permalink, &result, nil
@@ -918,7 +980,7 @@ users:
 	if err != nil {
 		return errors.Wrap(err, "failed to create kubeconfig file")
 	}
-	return ioutil.WriteFile(file.Name(), []byte(s), 0644)
+	return os.WriteFile(file.Name(), []byte(s), 0644)
 }
 
 // waitForFile waits for the existence of a file, and returns its contents if
@@ -940,7 +1002,7 @@ func waitForFile(fp string) ([]byte, error) {
 		return nil, err
 	}
 
-	file, err := ioutil.ReadFile(fp)
+	file, err := os.ReadFile(fp)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open file: %s", fp)
 	}

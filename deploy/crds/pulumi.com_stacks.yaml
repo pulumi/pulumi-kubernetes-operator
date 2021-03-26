@@ -33,7 +33,7 @@ spec:
           description: StackSpec defines the desired state of Pulumi Stack being managed by this operator.
           properties:
             accessTokenSecret:
-              description: (optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access.
+              description: '(optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated: use SecretEnvsFromPath with PULUMI_ACCESS_TOKEN as key or SecretEnvs with a secret entry key PULUMI_ACCESS_KEY instead.'
               type: string
             backend:
               description: '(optional) Backend is an optional backend URL to use for all Pulumi operations. Examples:   - Pulumi Service:              "https://app.pulumi.com" (default)   - Self-managed Pulumi Service: "https://pulumi.acmecorp.com"   - Local:                       "file://./einstein"   - AWS:                         "s3://<my-pulumi-state-bucket>"   - Azure:                       "azblob://<my-pulumi-state-bucket>"   - GCP:                         "gs://<my-pulumi-state-bucket>" See: https://www.pulumi.com/docs/intro/concepts/state/'
@@ -52,13 +52,68 @@ spec:
             destroyOnFinalize:
               description: (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
               type: boolean
+            envRefs:
+              additionalProperties:
+                description: ResourceRef identifies a resource from which information can be loaded.
+                properties:
+                  env:
+                    description: EnvSelector identifies the environment variable to load information from.
+                    properties:
+                      name:
+                        description: Name of the environment variable
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  filesystem:
+                    description: FSSelector identifies the path to load information from.
+                    properties:
+                      path:
+                        description: Path on the filesystem to use to load information from.
+                        type: string
+                    required:
+                    - path
+                    type: object
+                  literal:
+                    description: LiteralRef identifies a literal value to load.
+                    properties:
+                      value:
+                        description: Value to load
+                        type: string
+                    required:
+                    - value
+                    type: object
+                  secret:
+                    description: SecretSelector identifies the information to load from a Kubernetes secret.
+                    properties:
+                      key:
+                        description: Key within the secret to use.
+                        type: string
+                      name:
+                        description: Name of the secret
+                        type: string
+                      namespace:
+                        description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
+                  type:
+                    description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                    type: string
+                required:
+                - type
+                type: object
+              description: (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where the variables' values should be loaded from (one of literal, environment variable, file on the filesystem, or Kubernetes secret) as values.
+              type: object
             envSecrets:
-              description: (optional) SecretEnvs is an optional array of secret names containing environment variables to set.
+              description: '(optional) SecretEnvs is an optional array of secret names containing environment variables to set. Deprecated: use EnvRefs instead.'
               items:
                 type: string
               type: array
             envs:
-              description: (optional) Envs is an optional array of config maps containing environment variables to set.
+              description: '(optional) Envs is an optional array of config maps containing environment variables to set. Deprecated: use EnvRefs instead.'
               items:
                 type: string
               type: array

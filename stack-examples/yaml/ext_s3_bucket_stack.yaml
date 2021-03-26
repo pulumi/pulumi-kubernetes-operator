@@ -22,9 +22,27 @@ kind: Stack
 metadata:
   name: s3-bucket-stack-02
 spec:
-  accessTokenSecret: pulumi-api-secret
-  envSecrets:
-    - pulumi-aws-secrets
+  envRefs:
+    PULUMI_ACCESS_TOKEN:
+      type: Secret
+      secret:
+        name: pulumi-api-secret
+        key: accessToken
+    AWS_ACCESS_KEY_ID:
+      type: Secret
+      secret:
+        name: pulumi-aws-secrets
+        key: AWS_ACCESS_KEY_ID
+    AWS_SECRET_ACCESS_KEY:
+      type: Secret
+      secret:
+        name: pulumi-aws-secrets
+        key: AWS_SECRET_ACCESS_KEY
+    AWS_SESSION_TOKEN:
+      type: Secret
+      secret:
+        name: pulumi-aws-secrets
+        key: AWS_SESSION_TOKEN
   stack: joeduffy/s3-op-project/dev
   refresh: true
   destroyOnFinalize: true
