@@ -1,6 +1,6 @@
 
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
@@ -15,172 +15,171 @@ spec:
     plural: stacks
     singular: stack
   scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      description: Stack is the Schema for the stacks API
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        metadata:
-          type: object
-        spec:
-          description: StackSpec defines the desired state of Pulumi Stack being managed by this operator.
-          properties:
-            accessTokenSecret:
-              description: '(optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated: use SecretEnvsFromPath with PULUMI_ACCESS_TOKEN as key or SecretEnvs with a secret entry key PULUMI_ACCESS_KEY instead.'
-              type: string
-            backend:
-              description: '(optional) Backend is an optional backend URL to use for all Pulumi operations. Examples:   - Pulumi Service:              "https://app.pulumi.com" (default)   - Self-managed Pulumi Service: "https://pulumi.acmecorp.com"   - Local:                       "file://./einstein"   - AWS:                         "s3://<my-pulumi-state-bucket>"   - Azure:                       "azblob://<my-pulumi-state-bucket>"   - GCP:                         "gs://<my-pulumi-state-bucket>" See: https://www.pulumi.com/docs/intro/concepts/state/'
-              type: string
-            branch:
-              description: (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name. This is mutually exclusive with the Commit setting. If both are empty, the `master` branch is deployed.
-              type: string
-            commit:
-              description: (optional) Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This is mutually exclusive with the Branch setting. If both are empty, the `master` branch is deployed.
-              type: string
-            config:
-              additionalProperties:
-                type: string
-              description: (optional) Config is the configuration for this stack, which can be optionally specified inline. If this is omitted, configuration is assumed to be checked in and taken from the source repository.
-              type: object
-            destroyOnFinalize:
-              description: (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
-              type: boolean
-            envRefs:
-              additionalProperties:
-                description: ResourceRef identifies a resource from which information can be loaded.
-                properties:
-                  env:
-                    description: EnvSelector identifies the environment variable to load information from.
-                    properties:
-                      name:
-                        description: Name of the environment variable
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  filesystem:
-                    description: FSSelector identifies the path to load information from.
-                    properties:
-                      path:
-                        description: Path on the filesystem to use to load information from.
-                        type: string
-                    required:
-                    - path
-                    type: object
-                  literal:
-                    description: LiteralRef identifies a literal value to load.
-                    properties:
-                      value:
-                        description: Value to load
-                        type: string
-                    required:
-                    - value
-                    type: object
-                  secret:
-                    description: SecretSelector identifies the information to load from a Kubernetes secret.
-                    properties:
-                      key:
-                        description: Key within the secret to use.
-                        type: string
-                      name:
-                        description: Name of the secret
-                        type: string
-                      namespace:
-                        description: Namespace where the secret is stored. Defaults to 'default' if omitted.
-                        type: string
-                    required:
-                    - key
-                    - name
-                    type: object
-                  type:
-                    description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
-                    type: string
-                required:
-                - type
-                type: object
-              description: (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where the variables' values should be loaded from (one of literal, environment variable, file on the filesystem, or Kubernetes secret) as values.
-              type: object
-            envSecrets:
-              description: '(optional) SecretEnvs is an optional array of secret names containing environment variables to set. Deprecated: use EnvRefs instead.'
-              items:
-                type: string
-              type: array
-            envs:
-              description: '(optional) Envs is an optional array of config maps containing environment variables to set. Deprecated: use EnvRefs instead.'
-              items:
-                type: string
-              type: array
-            expectNoRefreshChanges:
-              description: (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have changes during a refresh before the update is run. This could occur, for example, is a resource's state is changing outside of Pulumi (e.g., metadata, timestamps).
-              type: boolean
-            gitAuthSecret:
-              description: '(optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options:   * Personal access token   * SSH private key (and it''s optional password)   * Basic auth username and password Only 1 authentication path is valid.'
-              type: string
-            projectRepo:
-              description: ProjectRepo is the git source control repository from which we fetch the project code and configuration.
-              type: string
-            refresh:
-              description: (optional) Refresh can be set to true to refresh the stack before it is updated.
-              type: boolean
-            repoDir:
-              description: (optional) RepoDir is the directory to work from in the project's source repository where Pulumi.yaml is located. It is used in case Pulumi.yaml is not in the project source root.
-              type: string
-            retryOnUpdateConflict:
-              description: (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop in the event that the update hits a HTTP 409 conflict due to another update in progress. This is only recommended if you are sure that the stack updates are idempotent, and if you are willing to accept retry loops until all spawned retries succeed. This will also create a more populated, and randomized activity timeline for the stack in the Pulumi Service.
-              type: boolean
-            secrets:
-              additionalProperties:
-                type: string
-              description: (optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
-              type: object
-            secretsProvider:
-              description: '(optional) SecretsProvider is used to initialize a Stack with alternative encryption. Examples:   - AWS:   "awskms://arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"   - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"   - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY" See: https://www.pulumi.com/docs/intro/concepts/config/#initializing-a-stack-with-alternative-encryption'
-              type: string
-            stack:
-              description: Stack is the fully qualified name of the stack to deploy (<org>/<stack>).
-              type: string
-          required:
-          - projectRepo
-          - stack
-          type: object
-        status:
-          description: StackStatus defines the observed state of Stack
-          properties:
-            lastUpdate:
-              description: LastUpdate contains details of the status of the last update.
-              properties:
-                lastAttemptedCommit:
-                  description: Last commit attempted
-                  type: string
-                lastSuccessfulCommit:
-                  description: Last commit successfully applied
-                  type: string
-                permalink:
-                  description: Permalink is the Pulumi Console URL of the stack operation.
-                  type: string
-                state:
-                  description: State is the state of the stack update - one of `succeeded` or `failed`
-                  type: string
-              type: object
-            outputs:
-              additionalProperties:
-                x-kubernetes-preserve-unknown-fields: true
-              description: Outputs contains the exported stack output variables resulting from a deployment.
-              type: object
-          type: object
-      type: object
-  version: v1alpha1
   versions:
   - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Stack is the Schema for the stacks API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: StackSpec defines the desired state of Pulumi Stack being managed by this operator.
+            properties:
+              accessTokenSecret:
+                description: '(optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated: use SecretEnvsFromPath with PULUMI_ACCESS_TOKEN as key or SecretEnvs with a secret entry key PULUMI_ACCESS_KEY instead.'
+                type: string
+              backend:
+                description: '(optional) Backend is an optional backend URL to use for all Pulumi operations. Examples:   - Pulumi Service:              "https://app.pulumi.com" (default)   - Self-managed Pulumi Service: "https://pulumi.acmecorp.com"   - Local:                       "file://./einstein"   - AWS:                         "s3://<my-pulumi-state-bucket>"   - Azure:                       "azblob://<my-pulumi-state-bucket>"   - GCP:                         "gs://<my-pulumi-state-bucket>" See: https://www.pulumi.com/docs/intro/concepts/state/'
+                type: string
+              branch:
+                description: (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name. This is mutually exclusive with the Commit setting. If both are empty, the `master` branch is deployed.
+                type: string
+              commit:
+                description: (optional) Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This is mutually exclusive with the Branch setting. If both are empty, the `master` branch is deployed.
+                type: string
+              config:
+                additionalProperties:
+                  type: string
+                description: (optional) Config is the configuration for this stack, which can be optionally specified inline. If this is omitted, configuration is assumed to be checked in and taken from the source repository.
+                type: object
+              destroyOnFinalize:
+                description: (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
+                type: boolean
+              envRefs:
+                additionalProperties:
+                  description: ResourceRef identifies a resource from which information can be loaded.
+                  properties:
+                    env:
+                      description: EnvSelector identifies the environment variable to load information from.
+                      properties:
+                        name:
+                          description: Name of the environment variable
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    filesystem:
+                      description: FSSelector identifies the path to load information from.
+                      properties:
+                        path:
+                          description: Path on the filesystem to use to load information from.
+                          type: string
+                      required:
+                      - path
+                      type: object
+                    literal:
+                      description: LiteralRef identifies a literal value to load.
+                      properties:
+                        value:
+                          description: Value to load
+                          type: string
+                      required:
+                      - value
+                      type: object
+                    secret:
+                      description: SecretSelector identifies the information to load from a Kubernetes secret.
+                      properties:
+                        key:
+                          description: Key within the secret to use.
+                          type: string
+                        name:
+                          description: Name of the secret
+                          type: string
+                        namespace:
+                          description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                    type:
+                      description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                      type: string
+                  required:
+                  - type
+                  type: object
+                description: (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where the variables' values should be loaded from (one of literal, environment variable, file on the filesystem, or Kubernetes secret) as values.
+                type: object
+              envSecrets:
+                description: '(optional) SecretEnvs is an optional array of secret names containing environment variables to set. Deprecated: use EnvRefs instead.'
+                items:
+                  type: string
+                type: array
+              envs:
+                description: '(optional) Envs is an optional array of config maps containing environment variables to set. Deprecated: use EnvRefs instead.'
+                items:
+                  type: string
+                type: array
+              expectNoRefreshChanges:
+                description: (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have changes during a refresh before the update is run. This could occur, for example, is a resource's state is changing outside of Pulumi (e.g., metadata, timestamps).
+                type: boolean
+              gitAuthSecret:
+                description: '(optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options:   * Personal access token   * SSH private key (and it''s optional password)   * Basic auth username and password Only 1 authentication path is valid.'
+                type: string
+              projectRepo:
+                description: ProjectRepo is the git source control repository from which we fetch the project code and configuration.
+                type: string
+              refresh:
+                description: (optional) Refresh can be set to true to refresh the stack before it is updated.
+                type: boolean
+              repoDir:
+                description: (optional) RepoDir is the directory to work from in the project's source repository where Pulumi.yaml is located. It is used in case Pulumi.yaml is not in the project source root.
+                type: string
+              retryOnUpdateConflict:
+                description: (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop in the event that the update hits a HTTP 409 conflict due to another update in progress. This is only recommended if you are sure that the stack updates are idempotent, and if you are willing to accept retry loops until all spawned retries succeed. This will also create a more populated, and randomized activity timeline for the stack in the Pulumi Service.
+                type: boolean
+              secrets:
+                additionalProperties:
+                  type: string
+                description: (optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
+                type: object
+              secretsProvider:
+                description: '(optional) SecretsProvider is used to initialize a Stack with alternative encryption. Examples:   - AWS:   "awskms://arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"   - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"   - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY" See: https://www.pulumi.com/docs/intro/concepts/config/#initializing-a-stack-with-alternative-encryption'
+                type: string
+              stack:
+                description: Stack is the fully qualified name of the stack to deploy (<org>/<stack>).
+                type: string
+            required:
+            - projectRepo
+            - stack
+            type: object
+          status:
+            description: StackStatus defines the observed state of Stack
+            properties:
+              lastUpdate:
+                description: LastUpdate contains details of the status of the last update.
+                properties:
+                  lastAttemptedCommit:
+                    description: Last commit attempted
+                    type: string
+                  lastSuccessfulCommit:
+                    description: Last commit successfully applied
+                    type: string
+                  permalink:
+                    description: Permalink is the Pulumi Console URL of the stack operation.
+                    type: string
+                  state:
+                    description: State is the state of the stack update - one of `succeeded` or `failed`
+                    type: string
+                type: object
+              outputs:
+                additionalProperties:
+                  x-kubernetes-preserve-unknown-fields: true
+                description: Outputs contains the exported stack output variables resulting from a deployment.
+                type: object
+            type: object
+        type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""
