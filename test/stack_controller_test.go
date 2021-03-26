@@ -249,12 +249,7 @@ var _ = Describe("Stack Controller", func() {
 			if err != nil {
 				return false
 			}
-			if original.Status.LastUpdate != nil {
-				return original.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit &&
-					original.Status.LastUpdate.LastAttemptedCommit == stack.Spec.Commit &&
-					original.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
-			}
-			return false
+			return stackUpdatedToCommit(original, stack.Spec.Commit)
 		}, timeout, interval).Should(BeTrue())
 
 		// Update the stack config (this time to cause a failure)
@@ -322,12 +317,7 @@ var _ = Describe("Stack Controller", func() {
 			if err != nil {
 				return false
 			}
-			if fetched.Status.LastUpdate != nil {
-				return fetched.Status.LastUpdate.LastSuccessfulCommit == commit &&
-					fetched.Status.LastUpdate.LastAttemptedCommit == commit &&
-					fetched.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
-			}
-			return false
+			return stackUpdatedToCommit(fetched, commit)
 		}, timeout, interval).Should(BeTrue())
 
 		// Delete the Stack
@@ -385,15 +375,19 @@ var _ = Describe("Stack Controller", func() {
 			if err != nil {
 				return false
 			}
-			if fetched.Status.LastUpdate != nil {
-				return fetched.Status.LastUpdate.LastSuccessfulCommit == stack.Spec.Commit &&
-					fetched.Status.LastUpdate.LastAttemptedCommit == stack.Spec.Commit &&
-					fetched.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
-			}
-			return false
+			return stackUpdatedToCommit(fetched, stack.Spec.Commit)
 		}, timeout, interval).Should(BeTrue())
 	})
 })
+
+func stackUpdatedToCommit(stack *pulumiv1alpha1.Stack, commit string) bool {
+	if stack.Status.LastUpdate != nil {
+		return stack.Status.LastUpdate.LastSuccessfulCommit == commit &&
+			stack.Status.LastUpdate.LastAttemptedCommit == commit &&
+			stack.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
+	}
+	return false
+}
 
 func generateStack(name, namespace string, spec pulumiv1alpha1.StackSpec) *pulumiv1alpha1.Stack {
 	return &pulumiv1alpha1.Stack{

@@ -414,13 +414,13 @@ func (sess *reconcileStackSession) SetEnvRefsForWorkspace(w auto.Workspace) erro
 				envVarVal := os.Getenv(ref.Env.Name)
 				w.SetEnvVar(envVar, envVarVal)
 			} else {
-				return errors.Errorf("Missing env reference in ResourceRef for '%s'", envVar)
+				return errors.Errorf("Missing env reference in ResourceRef for %q", envVar)
 			}
 		case pulumiv1alpha1.ResourceSelectorLiteral:
 			if ref.LiteralRef != nil {
 				w.SetEnvVar(envVar, ref.LiteralRef.Value)
 			} else {
-				return errors.Errorf("Missing literal reference in ResourceRef for '%s'", envVar)
+				return errors.Errorf("Missing literal reference in ResourceRef for %q", envVar)
 			}
 		case pulumiv1alpha1.ResourceSelectorFS:
 			if ref.FileSystem != nil {
@@ -430,7 +430,7 @@ func (sess *reconcileStackSession) SetEnvRefsForWorkspace(w auto.Workspace) erro
 				}
 				w.SetEnvVar(envVar, string(contents))
 			} else {
-				return errors.Errorf("Missing filesystem reference in ResourceRef for '%s'", envVar)
+				return errors.Errorf("Missing filesystem reference in ResourceRef for %q", envVar)
 			}
 		case pulumiv1alpha1.ResourceSelectorSecret:
 			if ref.SecretRef != nil {
@@ -448,8 +448,10 @@ func (sess *reconcileStackSession) SetEnvRefsForWorkspace(w auto.Workspace) erro
 				}
 				w.SetEnvVar(envVar, string(val))
 			} else {
-				return errors.Errorf("Mising secret reference in ResourceRef for '%s'", envVar)
+				return errors.Errorf("Mising secret reference in ResourceRef for %q", envVar)
 			}
+		default:
+			return errors.Errorf("Unsupported selector type: %v", ref.SelectorType)
 		}
 	}
 	return nil
