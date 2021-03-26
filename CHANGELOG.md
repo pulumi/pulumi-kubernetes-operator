@@ -8,8 +8,8 @@ CHANGELOG
 - Make environment variable population more generic and bump base image to 2.23.1
   [#125](https://github.com/pulumi/pulumi-kubernetes-operator/pull/125)
 
-- Regenerate CRD for apiextensions/v1 (v1beta1 deprecated)
-  ** BREAKING ** Your Kubernetes cluster must be v1.16 or higher
+- Regenerate CRD for apiextensions/v1 (v1beta1 deprecated) <br/>
+  **BREAKING** Your Kubernetes cluster must now be v1.16 or higher
   [#127](https://github.com/pulumi/pulumi-kubernetes-operator/pull/127)
 
 ## 0.0.8 (2020-12-03)
