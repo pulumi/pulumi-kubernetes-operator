@@ -50,7 +50,12 @@ type StackSpec struct {
 	Config map[string]string `json:"config,omitempty"`
 	// (optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
+	// Deprecated: use SecretRefs instead.
 	Secrets map[string]string `json:"secrets,omitempty"`
+
+	// (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef.
+	// If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
+	SecretRefs map[string]ResourceRef `json:"secretsRef,omitempty"`
 	// (optional) SecretsProvider is used to initialize a Stack with alternative encryption.
 	// Examples:
 	//   - AWS:   "awskms://arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"
@@ -104,6 +109,8 @@ type StackSpec struct {
 }
 
 // ResourceRef identifies a resource from which information can be loaded.
+// Environment variables, files on the filesystem, Kubernetes secrets and literal
+// strings are currently supported.
 type ResourceRef struct {
 	// SelectorType is required and signifies the type of selector. Must be one of:
 	// Env, FS, Secret, Literal
@@ -175,11 +182,17 @@ const (
 	ResourceSelectorLiteral = ResourceSelectorType("Literal")
 )
 
+// ResourceSelector is a union over resource selectors supporting one of
+// filesystem, environment variable, Kubernetes Secret and literal values.
 type ResourceSelector struct {
-	FileSystem *FSSelector     `json:"filesystem,omitempty"`
-	Env        *EnvSelector    `json:"env,omitempty"`
-	SecretRef  *SecretSelector `json:"secret,omitempty"`
-	LiteralRef *LiteralRef     `json:"literal,omitempty"`
+	// FileSystem selects a file on the operator's file system
+	FileSystem *FSSelector `json:"filesystem,omitempty"`
+	// Env selects an environment variable set on the operator process
+	Env *EnvSelector `json:"env,omitempty"`
+	// SecretRef refers to a Kubernetes secret
+	SecretRef *SecretSelector `json:"secret,omitempty"`
+	// LiteralRef refers to a literal value
+	LiteralRef *LiteralRef `json:"literal,omitempty"`
 }
 
 // FSSelector identifies the path to load information from.

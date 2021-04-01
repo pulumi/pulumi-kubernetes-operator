@@ -408,53 +408,56 @@ func (sess *reconcileStackSession) SetSecretEnvs(secrets []string, namespace str
 func (sess *reconcileStackSession) SetEnvRefsForWorkspace(w auto.Workspace) error {
 	envRefs := sess.stack.EnvRefs
 	for envVar, ref := range envRefs {
-		switch ref.SelectorType {
-		case pulumiv1alpha1.ResourceSelectorEnv:
-			if ref.Env != nil {
-				envVarVal := os.Getenv(ref.Env.Name)
-				w.SetEnvVar(envVar, envVarVal)
-			} else {
-				return errors.Errorf("Missing env reference in ResourceRef for %q", envVar)
-			}
-		case pulumiv1alpha1.ResourceSelectorLiteral:
-			if ref.LiteralRef != nil {
-				w.SetEnvVar(envVar, ref.LiteralRef.Value)
-			} else {
-				return errors.Errorf("Missing literal reference in ResourceRef for %q", envVar)
-			}
-		case pulumiv1alpha1.ResourceSelectorFS:
-			if ref.FileSystem != nil {
-				contents, err := os.ReadFile(ref.FileSystem.Path)
-				if err != nil {
-					return errors.Wrapf(err, "reading path for env var: %s: %s", envVar, ref.FileSystem.Path)
-				}
-				w.SetEnvVar(envVar, string(contents))
-			} else {
-				return errors.Errorf("Missing filesystem reference in ResourceRef for %q", envVar)
-			}
-		case pulumiv1alpha1.ResourceSelectorSecret:
-			if ref.SecretRef != nil {
-				config := &corev1.Secret{}
-				namespace := ref.SecretRef.Namespace
-				if namespace == "" {
-					namespace = "default"
-				}
-				if err := sess.getLatestResource(config, types.NamespacedName{Name: ref.SecretRef.Name, Namespace: namespace}); err != nil {
-					return errors.Wrapf(err, "Namespace=%s Name=%s", ref.SecretRef.Namespace, ref.SecretRef.Name)
-				}
-				val, ok := config.Data[ref.SecretRef.Key]
-				if !ok {
-					return errors.Errorf("No key %s found in secret %s/%s", ref.SecretRef.Key, ref.SecretRef.Namespace, ref.SecretRef.Name)
-				}
-				w.SetEnvVar(envVar, string(val))
-			} else {
-				return errors.Errorf("Mising secret reference in ResourceRef for %q", envVar)
-			}
-		default:
-			return errors.Errorf("Unsupported selector type: %v", ref.SelectorType)
+		val, err := sess.resolveResourceRef(&ref)
+		if err != nil {
+			return errors.Wrapf(err, "resolving env variable reference for: %q", envVar)
 		}
+		w.SetEnvVar(envVar, val)
 	}
 	return nil
+}
+
+func (sess *reconcileStackSession) resolveResourceRef(ref *pulumiv1alpha1.ResourceRef) (string, error) {
+	switch ref.SelectorType {
+	case pulumiv1alpha1.ResourceSelectorEnv:
+		if ref.Env != nil {
+			return os.Getenv(ref.Env.Name), nil
+		}
+		return "", errors.New("missing env reference in ResourceRef")
+	case pulumiv1alpha1.ResourceSelectorLiteral:
+		if ref.LiteralRef != nil {
+			return ref.LiteralRef.Value, nil
+		}
+		return "", errors.New("missing literal reference in ResourceRef")
+	case pulumiv1alpha1.ResourceSelectorFS:
+		if ref.FileSystem != nil {
+			contents, err := os.ReadFile(ref.FileSystem.Path)
+			if err != nil {
+				return "", errors.Wrapf(err, "reading path: %q", ref.FileSystem.Path)
+			}
+			return string(contents), nil
+		}
+		return "", errors.New("Missing filesystem reference in ResourceRef")
+	case pulumiv1alpha1.ResourceSelectorSecret:
+		if ref.SecretRef != nil {
+			config := &corev1.Secret{}
+			namespace := ref.SecretRef.Namespace
+			if namespace == "" {
+				namespace = "default"
+			}
+			if err := sess.getLatestResource(config, types.NamespacedName{Name: ref.SecretRef.Name, Namespace: namespace}); err != nil {
+				return "", errors.Wrapf(err, "Namespace=%s Name=%s", ref.SecretRef.Namespace, ref.SecretRef.Name)
+			}
+			secretVal, ok := config.Data[ref.SecretRef.Key]
+			if !ok {
+				return "", errors.Errorf("No key %s found in secret %s/%s", ref.SecretRef.Key, ref.SecretRef.Namespace, ref.SecretRef.Name)
+			}
+			return string(secretVal), nil
+		}
+		return "", errors.New("Mising secret reference in ResourceRef")
+	default:
+		return "", errors.Errorf("Unsupported selector type: %v", ref.SelectorType)
+	}
 }
 
 // runCmd runs the given command with stdout and stderr hooked up to the logger.
@@ -684,6 +687,17 @@ func (sess *reconcileStackSession) UpdateConfig() error {
 	for k, v := range sess.stack.Secrets {
 		m[k] = auto.ConfigValue{
 			Value:  v,
+			Secret: true,
+		}
+	}
+
+	for k, ref := range sess.stack.SecretRefs {
+		resolved, err := sess.resolveResourceRef(&ref)
+		if err != nil {
+			return errors.Wrapf(err, "updating secretRef for: %q", k)
+		}
+		m[k] = auto.ConfigValue{
+			Value:  resolved,
 			Secret: true,
 		}
 	}
