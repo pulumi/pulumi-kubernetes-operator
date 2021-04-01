@@ -27,7 +27,7 @@ build-static:
 push-image:
 	docker push $(IMAGE_NAME):$(VERSION)
 
-test:
+test: install-crds
 	ginkgo -v ./test/...
 
 deploy:
