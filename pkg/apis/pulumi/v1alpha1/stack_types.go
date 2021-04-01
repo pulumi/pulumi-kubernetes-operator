@@ -13,8 +13,7 @@ type StackSpec struct {
 	// Auth info:
 
 	// (optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access.
-	// Deprecated: use SecretEnvsFromPath with PULUMI_ACCESS_TOKEN as key or SecretEnvs with a secret entry key
-	// PULUMI_ACCESS_KEY instead.
+	// Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_KEY instead.
 	AccessTokenSecret string `json:"accessTokenSecret,omitempty"`
 
 	// (optional) Envs is an optional array of config maps containing environment variables to set.
@@ -75,7 +74,16 @@ type StackSpec struct {
 	//   * SSH private key (and it's optional password)
 	//   * Basic auth username and password
 	// Only 1 authentication path is valid.
+	// Deprecated. Use GitAuth instead.
 	GitAuthSecret string `json:"gitAuthSecret,omitempty"`
+
+	// (optional) GitAuth allows configuring git authentication options
+	// There are 3 different authentication options:
+	//   * Personal access token
+	//   * SSH private key (and it's optional password)
+	//   * Basic auth username and password
+	// Only 1 authentication mode is valid.
+	GitAuth *GitAuthConfig `json:"gitAuthSecretRef,omitempty"`
 	// (optional) RepoDir is the directory to work from in the project's source repository
 	// where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
 	// in the project source root.
@@ -106,6 +114,32 @@ type StackSpec struct {
 	// all spawned retries succeed. This will also create a more populated,
 	// and randomized activity timeline for the stack in the Pulumi Service.
 	RetryOnUpdateConflict bool `json:"retryOnUpdateConflict,omitempty"`
+}
+
+// GitAuthConfig specifies git authentication configuration options.
+// There are 3 different authentication options:
+//   * Personal access token
+//   * SSH private key (and it's optional password)
+//   * Basic auth username and password
+// Only 1 authentication mode is valid.
+type GitAuthConfig struct {
+	PersonalAccessToken *ResourceRef `json:"accessToken,omitempty"`
+	SSHAuth             *SSHAuth     `json:"sshAuth,omitempty"`
+	BasicAuth           *BasicAuth   `json:"BasicAuth,omitempty"`
+}
+
+// SSHAuth configures ssh-based auth for git authentication.
+// SSHPrivateKey is required but password is optional.
+type SSHAuth struct {
+	SSHPrivateKey ResourceRef  `json:"sshPrivateKey"`
+	Password      *ResourceRef `json:"password,omitempty"`
+}
+
+// BasicAuth configures git authentication through basic auth —
+// i.e. username and password. Both UserName and Password are required.
+type BasicAuth struct {
+	UserName ResourceRef `json:"userName"`
+	Password ResourceRef `json:"password"`
 }
 
 // ResourceRef identifies a resource from which information can be loaded.
