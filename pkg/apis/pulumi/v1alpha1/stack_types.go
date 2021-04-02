@@ -125,7 +125,7 @@ type StackSpec struct {
 type GitAuthConfig struct {
 	PersonalAccessToken *ResourceRef `json:"accessToken,omitempty"`
 	SSHAuth             *SSHAuth     `json:"sshAuth,omitempty"`
-	BasicAuth           *BasicAuth   `json:"BasicAuth,omitempty"`
+	BasicAuth           *BasicAuth   `json:"basicAuth,omitempty"`
 }
 
 // SSHAuth configures ssh-based auth for git authentication.

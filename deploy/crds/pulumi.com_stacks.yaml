@@ -123,7 +123,59 @@ spec:
               gitAuth:
                 description: '(optional) GitAuth allows configuring git authentication options There are 3 different authentication options:   * Personal access token   * SSH private key (and it''s optional password)   * Basic auth username and password Only 1 authentication mode is valid.'
                 properties:
-                  BasicAuth:
+                  accessToken:
+                    description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                    properties:
+                      env:
+                        description: Env selects an environment variable set on the operator process
+                        properties:
+                          name:
+                            description: Name of the environment variable
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      filesystem:
+                        description: FileSystem selects a file on the operator's file system
+                        properties:
+                          path:
+                            description: Path on the filesystem to use to load information from.
+                            type: string
+                        required:
+                        - path
+                        type: object
+                      literal:
+                        description: LiteralRef refers to a literal value
+                        properties:
+                          value:
+                            description: Value to load
+                            type: string
+                        required:
+                        - value
+                        type: object
+                      secret:
+                        description: SecretRef refers to a Kubernetes secret
+                        properties:
+                          key:
+                            description: Key within the secret to use.
+                            type: string
+                          name:
+                            description: Name of the secret
+                            type: string
+                          namespace:
+                            description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      type:
+                        description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                        type: string
+                    required:
+                    - type
+                    type: object
+                  basicAuth:
                     description: BasicAuth configures git authentication through basic auth — i.e. username and password. Both UserName and Password are required.
                     properties:
                       password:
@@ -233,58 +285,6 @@ spec:
                     required:
                     - password
                     - userName
-                    type: object
-                  accessToken:
-                    description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
-                    properties:
-                      env:
-                        description: Env selects an environment variable set on the operator process
-                        properties:
-                          name:
-                            description: Name of the environment variable
-                            type: string
-                        required:
-                        - name
-                        type: object
-                      filesystem:
-                        description: FileSystem selects a file on the operator's file system
-                        properties:
-                          path:
-                            description: Path on the filesystem to use to load information from.
-                            type: string
-                        required:
-                        - path
-                        type: object
-                      literal:
-                        description: LiteralRef refers to a literal value
-                        properties:
-                          value:
-                            description: Value to load
-                            type: string
-                        required:
-                        - value
-                        type: object
-                      secret:
-                        description: SecretRef refers to a Kubernetes secret
-                        properties:
-                          key:
-                            description: Key within the secret to use.
-                            type: string
-                          name:
-                            description: Name of the secret
-                            type: string
-                          namespace:
-                            description: Namespace where the secret is stored. Defaults to 'default' if omitted.
-                            type: string
-                        required:
-                        - key
-                        - name
-                        type: object
-                      type:
-                        description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
-                        type: string
-                    required:
-                    - type
                     type: object
                   sshAuth:
                     description: SSHAuth configures ssh-based auth for git authentication. SSHPrivateKey is required but password is optional.
