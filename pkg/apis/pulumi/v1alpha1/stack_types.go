@@ -83,7 +83,7 @@ type StackSpec struct {
 	//   * SSH private key (and it's optional password)
 	//   * Basic auth username and password
 	// Only 1 authentication mode is valid.
-	GitAuth *GitAuthConfig `json:"gitAuthSecretRef,omitempty"`
+	GitAuth *GitAuthConfig `json:"gitAuth,omitempty"`
 	// (optional) RepoDir is the directory to work from in the project's source repository
 	// where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
 	// in the project source root.
