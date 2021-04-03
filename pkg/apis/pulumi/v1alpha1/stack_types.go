@@ -73,16 +73,20 @@ type StackSpec struct {
 	//   * Personal access token
 	//   * SSH private key (and it's optional password)
 	//   * Basic auth username and password
-	// Only 1 authentication path is valid.
+	// Only one authentication mode will be considered if more than one option is specified,
+	// with ssh private key/password preferred first, then personal access token, and finally
+	// basic auth credentials.
 	// Deprecated. Use GitAuth instead.
 	GitAuthSecret string `json:"gitAuthSecret,omitempty"`
 
 	// (optional) GitAuth allows configuring git authentication options
 	// There are 3 different authentication options:
-	//   * Personal access token
 	//   * SSH private key (and its optional password)
+	//   * Personal access token
 	//   * Basic auth username and password
-	// Only 1 authentication mode is valid.
+	// Only one authentication mode will be considered if more than one option is specified,
+	// with ssh private key/password preferred first, then personal access token, and finally
+	// basic auth credentials.
 	GitAuth *GitAuthConfig `json:"gitAuth,omitempty"`
 	// (optional) RepoDir is the directory to work from in the project's source repository
 	// where Pulumi.yaml is located. It is used in case Pulumi.yaml is not

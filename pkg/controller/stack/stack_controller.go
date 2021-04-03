@@ -796,15 +796,6 @@ func (sess *reconcileStackSession) SetupGitAuth() (*auto.GitAuth, error) {
 	gitAuth := &auto.GitAuth{}
 
 	if sess.stack.GitAuth != nil {
-		if sess.stack.GitAuth.PersonalAccessToken != nil {
-			accessToken, err := sess.resolveResourceRef(sess.stack.GitAuth.PersonalAccessToken)
-			if err != nil {
-				return nil, errors.Wrap(err, "resolving gitAuth personal access token")
-			}
-			gitAuth.PersonalAccessToken = accessToken
-			return gitAuth, nil
-		}
-
 		if sess.stack.GitAuth.SSHAuth != nil {
 			privateKey, err := sess.resolveResourceRef(&sess.stack.GitAuth.SSHAuth.SSHPrivateKey)
 			if err != nil {
@@ -820,6 +811,15 @@ func (sess *reconcileStackSession) SetupGitAuth() (*auto.GitAuth, error) {
 				gitAuth.Password = password
 			}
 
+			return gitAuth, nil
+		}
+
+		if sess.stack.GitAuth.PersonalAccessToken != nil {
+			accessToken, err := sess.resolveResourceRef(sess.stack.GitAuth.PersonalAccessToken)
+			if err != nil {
+				return nil, errors.Wrap(err, "resolving gitAuth personal access token")
+			}
+			gitAuth.PersonalAccessToken = accessToken
 			return gitAuth, nil
 		}
 
@@ -846,7 +846,7 @@ func (sess *reconcileStackSession) SetupGitAuth() (*auto.GitAuth, error) {
 		// Fetch the named secret.
 		secret := &corev1.Secret{}
 		if err := sess.kubeClient.Get(context.TODO(), namespacedName, secret); err != nil {
-			sess.logger.Error(err, "Could not find secret for access to the git repositoriy",
+			sess.logger.Error(err, "Could not find secret for access to the git repository",
 				"Namespace", sess.namespace, "Stack.GitAuthSecret", sess.stack.GitAuthSecret)
 			return nil, err
 		}
