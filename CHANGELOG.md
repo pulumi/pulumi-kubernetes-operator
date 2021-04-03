@@ -5,7 +5,7 @@ CHANGELOG
 - Bump to 2.23.2 and add SecretRefs to allow secrets to be specified through
   references [#130](https://github.com/pulumi/pulumi-kubernetes-operator/pull/130)
 
-- Bump base image to 2.24.0 and added resource ref variant for GitAuthSecret
+- Bump base image to 2.24.1 and added resource ref variant for GitAuthSecret
   [#132](https://github.com/pulumi/pulumi-kubernetes-operator/pull/132)
 
 ## 0.0.9 (2021-03-26)
