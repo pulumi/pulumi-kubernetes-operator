@@ -121,7 +121,7 @@ spec:
                 description: (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have changes during a refresh before the update is run. This could occur, for example, is a resource's state is changing outside of Pulumi (e.g., metadata, timestamps).
                 type: boolean
               gitAuth:
-                description: '(optional) GitAuth allows configuring git authentication options There are 3 different authentication options:   * Personal access token   * SSH private key (and it''s optional password)   * Basic auth username and password Only 1 authentication mode is valid.'
+                description: '(optional) GitAuth allows configuring git authentication options There are 3 different authentication options:   * Personal access token   * SSH private key (and its optional password)   * Basic auth username and password Only 1 authentication mode is valid.'
                 properties:
                   accessToken:
                     description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.

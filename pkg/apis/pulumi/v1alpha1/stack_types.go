@@ -80,7 +80,7 @@ type StackSpec struct {
 	// (optional) GitAuth allows configuring git authentication options
 	// There are 3 different authentication options:
 	//   * Personal access token
-	//   * SSH private key (and it's optional password)
+	//   * SSH private key (and its optional password)
 	//   * Basic auth username and password
 	// Only 1 authentication mode is valid.
 	GitAuth *GitAuthConfig `json:"gitAuth,omitempty"`
@@ -119,7 +119,7 @@ type StackSpec struct {
 // GitAuthConfig specifies git authentication configuration options.
 // There are 3 different authentication options:
 //   * Personal access token
-//   * SSH private key (and it's optional password)
+//   * SSH private key (and its optional password)
 //   * Basic auth username and password
 // Only 1 authentication mode is valid.
 type GitAuthConfig struct {

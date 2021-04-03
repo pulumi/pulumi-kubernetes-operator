@@ -425,7 +425,11 @@ func (sess *reconcileStackSession) resolveResourceRef(ref *pulumiv1alpha1.Resour
 	switch ref.SelectorType {
 	case pulumiv1alpha1.ResourceSelectorEnv:
 		if ref.Env != nil {
-			return os.Getenv(ref.Env.Name), nil
+			resolved := os.Getenv(ref.Env.Name)
+			if resolved == "" {
+				return "", fmt.Errorf("missing value for environment variable: %s", ref.Env.Name)
+			}
+			return resolved, nil
 		}
 		return "", errors.New("missing env reference in ResourceRef")
 	case pulumiv1alpha1.ResourceSelectorLiteral:
@@ -808,11 +812,13 @@ func (sess *reconcileStackSession) SetupGitAuth() (*auto.GitAuth, error) {
 			}
 			gitAuth.SSHPrivateKey = privateKey
 
-			password, err := sess.resolveResourceRef(sess.stack.GitAuth.SSHAuth.Password)
-			if err != nil {
-				return nil, errors.Wrap(err, "resolving gitAuth SSH password")
+			if sess.stack.GitAuth.SSHAuth.Password != nil {
+				password, err := sess.resolveResourceRef(sess.stack.GitAuth.SSHAuth.Password)
+				if err != nil {
+					return nil, errors.Wrap(err, "resolving gitAuth SSH password")
+				}
+				gitAuth.Password = password
 			}
-			gitAuth.Password = password
 
 			return gitAuth, nil
 		}
@@ -854,7 +860,6 @@ func (sess *reconcileStackSession) SetupGitAuth() (*auto.GitAuth, error) {
 			if password, exists := secret.Data["password"]; exists {
 				gitAuth.Password = string(password)
 			}
-
 			// Then check if a personal access token has been specified.
 		} else if accessToken, exists := secret.Data["accessToken"]; exists {
 			gitAuth = &auto.GitAuth{
