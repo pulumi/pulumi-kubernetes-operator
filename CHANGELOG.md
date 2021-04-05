@@ -2,6 +2,8 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
+
+## 0.0.10 (2021-04-05)
 - Bump to 2.23.2 and add SecretRefs to allow secrets to be specified through
   references [#130](https://github.com/pulumi/pulumi-kubernetes-operator/pull/130)
 
