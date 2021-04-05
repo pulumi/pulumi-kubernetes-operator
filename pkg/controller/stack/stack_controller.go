@@ -139,14 +139,18 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	sess := newReconcileStackSession(reqLogger, stack, r.client, request.Namespace)
 
 	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
-	var gitAuth *auto.GitAuth
-	if sess.stack.GitAuthSecret != "" {
-		gitAuth, err = sess.SetupGitAuth(request.Namespace)
-		if err != nil {
-			reqLogger.Error(err, "Failed to setup git authentication", "Stack.Name", stack.Stack)
-			return reconcile.Result{}, err
-		}
+	gitAuth, err := sess.SetupGitAuth()
+	if err != nil {
+		reqLogger.Error(err, "Failed to setup git authentication", "Stack.Name", stack.Stack)
+		return reconcile.Result{}, err
 	}
+
+	if gitAuth.SSHPrivateKey != "" {
+		// Add the project repo's public SSH keys to the SSH known hosts
+		// to perform the necessary key checking during SSH git cloning.
+		sess.addSSHKeysToKnownHosts(sess.stack.ProjectRepo)
+	}
+
 	if err = sess.SetupPulumiWorkdir(gitAuth); err != nil {
 		reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
@@ -421,7 +425,11 @@ func (sess *reconcileStackSession) resolveResourceRef(ref *pulumiv1alpha1.Resour
 	switch ref.SelectorType {
 	case pulumiv1alpha1.ResourceSelectorEnv:
 		if ref.Env != nil {
-			return os.Getenv(ref.Env.Name), nil
+			resolved := os.Getenv(ref.Env.Name)
+			if resolved == "" {
+				return "", fmt.Errorf("missing value for environment variable: %s", ref.Env.Name)
+			}
+			return resolved, nil
 		}
 		return "", errors.New("missing env reference in ResourceRef")
 	case pulumiv1alpha1.ResourceSelectorLiteral:
@@ -781,48 +789,92 @@ func (sess *reconcileStackSession) DestroyStack() error {
 }
 
 // SetupGitAuth sets up the authentication option to use for the git source
-// repository of the stack.
-func (sess *reconcileStackSession) SetupGitAuth(namespace string) (*auto.GitAuth, error) {
-	var err error
-	namespacedName := types.NamespacedName{Name: sess.stack.GitAuthSecret, Namespace: namespace}
+// repository of the stack. If neither gitAuth or gitAuthSecret are set,
+// a pointer to a zero value of GitAuth is returned — representing
+// unauthenticated git access.
+func (sess *reconcileStackSession) SetupGitAuth() (*auto.GitAuth, error) {
+	gitAuth := &auto.GitAuth{}
 
-	// Fetch the named secret.
-	secret := &corev1.Secret{}
-	if err = sess.kubeClient.Get(context.TODO(), namespacedName, secret); err != nil {
-		sess.logger.Error(err, "Could not find secret for access to the git repositoriy",
-			"Namespace", namespace, "Stack.GitAuthSecret", sess.stack.GitAuthSecret)
-		return nil, err
-	}
-
-	var gitAuth *auto.GitAuth
-
-	// First check if an SSH private key has been specified.
-	if sshPrivateKey, exists := secret.Data["sshPrivateKey"]; exists {
-		gitAuth = &auto.GitAuth{
-			SSHPrivateKey: string(sshPrivateKey),
-		}
-
-		if password, exists := secret.Data["password"]; exists {
-			gitAuth.Password = string(password)
-		}
-
-		// Add the project repo's public SSH keys to the SSH known hosts
-		// to perform the necessary key checking during SSH git cloning.
-		sess.addSSHKeysToKnownHosts(sess.stack.ProjectRepo)
-		// Then check if a personal access token has been specified.
-	} else if accessToken, exists := secret.Data["accessToken"]; exists {
-		gitAuth = &auto.GitAuth{
-			PersonalAccessToken: string(accessToken),
-		}
-		// Then check if basic authentication has been specified.
-	} else if username, exists := secret.Data["username"]; exists {
-		if password, exists := secret.Data["password"]; exists {
-			gitAuth = &auto.GitAuth{
-				Username: string(username),
-				Password: string(password),
+	if sess.stack.GitAuth != nil {
+		if sess.stack.GitAuth.SSHAuth != nil {
+			privateKey, err := sess.resolveResourceRef(&sess.stack.GitAuth.SSHAuth.SSHPrivateKey)
+			if err != nil {
+				return nil, errors.Wrap(err, "resolving gitAuth SSH private key")
 			}
-		} else {
-			return nil, errors.Wrap(err, "setting up git authentication")
+			gitAuth.SSHPrivateKey = privateKey
+
+			if sess.stack.GitAuth.SSHAuth.Password != nil {
+				password, err := sess.resolveResourceRef(sess.stack.GitAuth.SSHAuth.Password)
+				if err != nil {
+					return nil, errors.Wrap(err, "resolving gitAuth SSH password")
+				}
+				gitAuth.Password = password
+			}
+
+			return gitAuth, nil
+		}
+
+		if sess.stack.GitAuth.PersonalAccessToken != nil {
+			accessToken, err := sess.resolveResourceRef(sess.stack.GitAuth.PersonalAccessToken)
+			if err != nil {
+				return nil, errors.Wrap(err, "resolving gitAuth personal access token")
+			}
+			gitAuth.PersonalAccessToken = accessToken
+			return gitAuth, nil
+		}
+
+		if sess.stack.GitAuth.BasicAuth == nil {
+			return nil, errors.New("gitAuth config must specify exactly one of " +
+				"'personalAccessToken', 'sshPrivateKey' or 'basicAuth'")
+		}
+
+		userName, err := sess.resolveResourceRef(&sess.stack.GitAuth.BasicAuth.UserName)
+		if err != nil {
+			return nil, errors.Wrap(err, "resolving gitAuth username")
+		}
+
+		password, err := sess.resolveResourceRef(&sess.stack.GitAuth.BasicAuth.Password)
+		if err != nil {
+			return nil, errors.Wrap(err, "resolving gitAuth password")
+		}
+
+		gitAuth.Username = userName
+		gitAuth.Password = password
+	} else if sess.stack.GitAuthSecret != "" {
+		namespacedName := types.NamespacedName{Name: sess.stack.GitAuthSecret, Namespace: sess.namespace}
+
+		// Fetch the named secret.
+		secret := &corev1.Secret{}
+		if err := sess.kubeClient.Get(context.TODO(), namespacedName, secret); err != nil {
+			sess.logger.Error(err, "Could not find secret for access to the git repository",
+				"Namespace", sess.namespace, "Stack.GitAuthSecret", sess.stack.GitAuthSecret)
+			return nil, err
+		}
+
+		// First check if an SSH private key has been specified.
+		if sshPrivateKey, exists := secret.Data["sshPrivateKey"]; exists {
+			gitAuth = &auto.GitAuth{
+				SSHPrivateKey: string(sshPrivateKey),
+			}
+
+			if password, exists := secret.Data["password"]; exists {
+				gitAuth.Password = string(password)
+			}
+			// Then check if a personal access token has been specified.
+		} else if accessToken, exists := secret.Data["accessToken"]; exists {
+			gitAuth = &auto.GitAuth{
+				PersonalAccessToken: string(accessToken),
+			}
+			// Then check if basic authentication has been specified.
+		} else if username, exists := secret.Data["username"]; exists {
+			if password, exists := secret.Data["password"]; exists {
+				gitAuth = &auto.GitAuth{
+					Username: string(username),
+					Password: string(password),
+				}
+			} else {
+				return nil, errors.New("creating gitAuth: missing 'password' secret entry")
+			}
 		}
 	}
 

@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pulumi-api-secret
+type: Opaque
+stringData:
+  accessToken: "<REDACTED: PULUMI_ACCESS_TOKEN>"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: git-secret
+type: Opaque
+stringData:
+  privateToken: <REDACTED: PRIVATE TOKEN>
+data:
+  # need to base64 SSH private key to set a valid YAML value
+  sshPrivateKey: <BASE64_ENCODED_SSH_PRIVATE_KEY>
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pulumi-aws-secrets
+type: Opaque
+stringData:
+  AWS_ACCESS_KEY_ID: "<REDACTED: AWS_ACCESS_KEY_ID>"
+  AWS_SECRET_ACCESS_KEY: "<REDACTED: AWS_SECRET_ACCESS_KEY>"
+---
+apiVersion: pulumi.com/v1alpha1
+kind: Stack
+metadata:
+  name: git-auth-test
+spec:
+  envRefs:
+    PULUMI_ACCESS_TOKEN:
+      type: Secret
+      secret:
+        name: pulumi-api-secret
+        key: accessToken
+    AWS_ACCESS_KEY_ID:
+      type: Secret
+      secret:
+        name: pulumi-aws-secrets
+        key: AWS_ACCESS_KEY_ID
+    AWS_SECRET_ACCESS_KEY:
+      type: Secret
+      secret:
+        name: pulumi-aws-secrets
+        key: AWS_SECRET_ACCESS_KEY
+  gitAuth:
+#    sshAuth:
+#      sshPrivateKey:
+#        type: Secret
+#        secret:
+#          name: git-secret
+#          key: sshPrivateKey
+#      password:
+#        type: Secret
+#        secret:
+#          name: git-secret
+#          key: password
+
+    accessToken:
+      type: Secret
+      secret:
+        name: git-secret
+        key: privateToken
+  stack: <user>/git-auth-test/dev
+  projectRepo: https://...private-repo.git
+  commit: <HASH>
+  config:
+    aws:region: us-west-2
