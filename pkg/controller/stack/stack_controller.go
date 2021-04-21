@@ -559,6 +559,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 		Auth:        gitAuth,
 	}
 
+	sess.logger.Info("Setting up pulumi workdir for stack", "stack", sess.stack)
 	// Create a new workspace.
 	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
 	w, err := auto.NewLocalWorkspace(context.Background(), auto.Repo(repo), secretsProvider)
