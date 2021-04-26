@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
-	"github.com/pulumi/pulumi/sdk/v2/go/x/auto"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
