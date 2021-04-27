@@ -26,6 +26,7 @@ require (
 replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
 	k8s.io/client-go => k8s.io/client-go v0.18.2 // Required by prometheus-operator
+	github.com/pulumi/pulumi/sdk/v3 => ../pulumi/sdk
 )
 
 // This replaced version includes controller-runtime predicate utilities necessary for v1.0.0 that are still in master.
