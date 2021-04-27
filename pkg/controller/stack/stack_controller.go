@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/debug"
 	"io"
 	"os"
 	"os/exec"
@@ -715,9 +716,11 @@ func (sess *reconcileStackSession) UpdateConfig() error {
 
 func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1alpha1.Permalink, error) {
 	writer := logWriter(sess.logger, "Pulumi Refresh")
+	var logLevel uint = 9
 	result, err := sess.autoStack.Refresh(
 		context.Background(),
 		optrefresh.ExpectNoChanges(),
+		optrefresh.DebugLogging(debug.LoggingOptions{LogLevel: &logLevel, LogToStdErr: true, FlowToPlugins: true}),
 		optrefresh.ProgressStreams(writer),
 	)
 	if err != nil {
@@ -736,7 +739,10 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1a
 // in which case the operator will requeue itself to retry later.
 func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStatus, pulumiv1alpha1.Permalink, *auto.UpResult, error) {
 	writer := logWriter(sess.logger, "Pulumi Update")
-	result, err := sess.autoStack.Up(context.Background(), optup.ProgressStreams(writer))
+	var logLevel uint = 9
+	result, err := sess.autoStack.Up(context.Background(),
+		optup.ProgressStreams(writer),
+		optup.DebugLogging(debug.LoggingOptions{LogLevel: &logLevel, LogToStdErr: true, FlowToPlugins: true}))
 	if err != nil {
 		// If this is the "conflict" error message, we will want to gracefully quit and retry.
 		if auto.IsConcurrentUpdateError(err) {
@@ -777,7 +783,11 @@ func (sess *reconcileStackSession) GetStackOutputs(outs auto.OutputMap) (pulumiv
 
 func (sess *reconcileStackSession) DestroyStack() error {
 	writer := logWriter(sess.logger, "Pulumi Destroy")
-	_, err := sess.autoStack.Destroy(context.Background(), optdestroy.ProgressStreams(writer))
+	var logLevel uint = 9
+	_, err := sess.autoStack.Destroy(context.Background(),
+		optdestroy.ProgressStreams(writer),
+		optdestroy.DebugLogging(debug.LoggingOptions{LogLevel: &logLevel, LogToStdErr: true, FlowToPlugins: true}),
+	)
 	if err != nil {
 		return errors.Wrapf(err, "destroying resources for stack '%s'", sess.stack.Stack)
 	}
