@@ -18,6 +18,5 @@ USER pulumi-kubernetes-operator
 
 ENV XDG_CONFIG_HOME=/tmp/.config
 ENV XDG_CONFIG_CACHE=/tmp/.cache
-ENV GODEBUG=http2debug=1
 
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
