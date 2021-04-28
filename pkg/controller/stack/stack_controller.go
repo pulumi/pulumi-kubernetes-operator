@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/debug"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 	"io"
 	"os"
 	"os/exec"
@@ -567,6 +568,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	if err != nil {
 		return errors.Wrap(err, "failed to create local workspace")
 	}
+
 	if sess.stack.Backend != "" {
 		w.SetEnvVar("PULUMI_BACKEND_URL", sess.stack.Backend)
 	}
@@ -586,6 +588,24 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	}
 	sess.autoStack = &a
 
+	splitName := strings.Split(sess.stack.Stack, "/")
+	stackName := splitName[len(splitName)-1]
+	stackYamlPath := filepath.Join(sess.workdir, fmt.Sprintf("pulumi.%s.yaml", stackName))
+	// We may have a project stack file already checked-in. Try and read that first
+	// since we don't want to clobber it unnecessarily.
+	// If not found, stackConfig will be a pointer to a zeroed-out workspace.ProjectStack.
+	stackConfig, err := workspace.LoadProjectStack(stackYamlPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to load stack config")
+	}
+
+	// We must always make sure the secret provider is initialized in the workspace
+	// before we set any configs. Otherwise secret provider will mysteriously reset.
+	// https://github.com/pulumi/pulumi-kubernetes-operator/issues/135
+	stackConfig.SecretsProvider = sess.stack.SecretsProvider
+	if err := w.SaveStackSettings(context.Background(), sess.stack.Stack, stackConfig); err != nil {
+		return errors.Wrap(err, "failed to save stack settings.")
+	}
 	// Update the stack config and secret config values.
 	err = sess.UpdateConfig()
 	if err != nil {
