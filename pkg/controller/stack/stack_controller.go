@@ -748,7 +748,7 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1a
 		context.Background(),
 		opts...)
 	if err != nil {
-		return "", errors.Wrapf(err, "refreshing stack '%s'", sess.stack.Stack)
+		return "", errors.Wrapf(err, "refreshing stack %q", sess.stack.Stack)
 	}
 	p, err := auto.GetPermalink(result.StdOut)
 	if err != nil {
