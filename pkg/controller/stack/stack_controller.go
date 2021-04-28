@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/pulumi/pulumi/sdk/v2/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v2/go/common/workspace"
 	"io"
 	"os"
@@ -587,13 +586,13 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	}
 	sess.autoStack = &a
 
-	path, err := workspace.DetectProjectStackPath(tokens.AsQName(sess.stack.Stack))
-	if err != nil {
-		return errors.Wrap(err, "failed to detect stack config file path")
-	}
-	// We may have a project stack file already checked-in. Try and read that first.
+	splitName := strings.Split(sess.stack.Stack, "/")
+	stackName := splitName[len(splitName)-1]
+	stackYamlPath := filepath.Join(sess.workdir, fmt.Sprintf("pulumi.%s.yaml:", stackName))
+	// We may have a project stack file already checked-in. Try and read that first
+	// since we don't want to clobber it unnecessarily.
 	// If not found, stackConfig will be a pointer to a zeroed-out workspace.ProjectStack.
-	stackConfig, err := workspace.LoadProjectStack(path)
+	stackConfig, err := workspace.LoadProjectStack(stackYamlPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to load stack config")
 	}
