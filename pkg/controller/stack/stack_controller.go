@@ -588,7 +588,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 
 	splitName := strings.Split(sess.stack.Stack, "/")
 	stackName := splitName[len(splitName)-1]
-	stackYamlPath := filepath.Join(sess.workdir, fmt.Sprintf("pulumi.%s.yaml:", stackName))
+	stackYamlPath := filepath.Join(sess.workdir, fmt.Sprintf("pulumi.%s.yaml", stackName))
 	// We may have a project stack file already checked-in. Try and read that first
 	// since we don't want to clobber it unnecessarily.
 	// If not found, stackConfig will be a pointer to a zeroed-out workspace.ProjectStack.
