@@ -10,6 +10,6 @@ pulumi stack init "${STACK}"
 pulumi up --skip-preview --yes
 
 mkdir -p "$HOME/.kube/"
-pulumi stack output kubeconfig >~/.kube/config
+pulumi stack output kubeconfig --show-secrets >~/.kube/config
 
 popd
