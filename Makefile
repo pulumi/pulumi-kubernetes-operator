@@ -21,10 +21,10 @@ build-image: build-static
 	docker build --rm -t $(IMAGE_NAME):$(VERSION) -f Dockerfile .
 
 build:
-	./scripts/build.sh
+	VERSION=$(VERSION) ./scripts/build.sh
 
 build-static:
-	./scripts/build.sh static
+	VERSION=$(VERSION) ./scripts/build.sh static
 
 push-image:
 	docker push $(IMAGE_NAME):$(VERSION)

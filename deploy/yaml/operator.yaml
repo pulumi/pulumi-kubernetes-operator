@@ -21,7 +21,7 @@ spec:
           emptyDir: {}
       containers:
         - name: pulumi-kubernetes-operator
-          image: pulumi/pulumi-kubernetes-operator:v0.0.10
+          image: pulumi/pulumi-kubernetes-operator:v0.0.11
           args:
             - "--zap-level=info"
           imagePullPolicy: Always
