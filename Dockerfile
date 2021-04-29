@@ -18,5 +18,7 @@ USER pulumi-kubernetes-operator
 
 ENV XDG_CONFIG_HOME=/tmp/.config
 ENV XDG_CONFIG_CACHE=/tmp/.cache
+ENV GOCACHE=/tmp/.cache/go-build
+ENV GOPATH=/tmp/.cache/go
 
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
