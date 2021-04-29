@@ -15,6 +15,8 @@ CHANGELOG
 
 - Allow Go applications to build [#141](https://github.com/pulumi/pulumi-kubernetes-operator/pull/141)
 
+- Update docs for pulumi v3 providers & misc [#136](https://github.com/pulumi/pulumi-kubernetes-operator/pull/136)
+
 ## 0.0.10 (2021-04-05)
 - Bump to 2.23.2 and add SecretRefs to allow secrets to be specified through
   references [#130](https://github.com/pulumi/pulumi-kubernetes-operator/pull/130)
