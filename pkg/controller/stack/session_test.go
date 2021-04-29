@@ -3,6 +3,7 @@ package stack
 import (
 	"errors"
 	"fmt"
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -51,7 +52,7 @@ func TestSuite(t *testing.T) {
 
 func (suite *GitAuthTestSuite) TestSetupGitAuthWithSecrets() {
 	t := suite.T()
-	logger := log.WithValues("Request.Test", "TestSetupGitAuthWithSecrets")
+	logger := logging.NewLogger(t.Name(), "Request.Test", "TestSetupGitAuthWithSecrets")
 
 	sshPrivateKey := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -191,7 +192,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithSecrets() {
 
 func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 	t := suite.T()
-	logger := log.WithValues("Request.Test", "TestSetupGitAuthWithRefs")
+	logger := logging.NewLogger(t.Name(), "Request.Test", "TestSetupGitAuthWithRefs")
 
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
 	"io"
 	"os"
 	"os/exec"
@@ -14,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/pkg/errors"
 	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
@@ -55,7 +55,7 @@ func Add(mgr manager.Manager) error {
 	// This is used to deploy Pulumi Stacks of k8s resources
 	// in-cluster that use the default, ambient kubeconfig.
 	if err := setupInClusterKubeconfig(); err != nil {
-		log.Info("skipping in-cluster kubeconfig setup due to non-existent ServiceAccount", "error", err)
+		log.Error(err, "skipping in-cluster kubeconfig setup due to non-existent ServiceAccount")
 	}
 	return add(mgr, newReconciler(mgr))
 }
@@ -111,7 +111,7 @@ type ReconcileStack struct {
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
 func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger := logging.WithValues(log, "Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Stack")
 
 	// Fetch the Stack instance
@@ -231,13 +231,13 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	switch status {
 	case pulumiv1alpha1.StackUpdateConflict:
 		if sess.stack.RetryOnUpdateConflict {
-			reqLogger.Info("Conflict with another concurrent update -- will retry shortly", "Stack.Name", stack.Stack, "Err:", err)
+			reqLogger.Error(err, "Conflict with another concurrent update -- will retry shortly", "Stack.Name", stack.Stack)
 			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 		}
-		reqLogger.Info("Conflict with another concurrent update -- NOT retrying", "Stack.Name", stack.Stack, "Err:", err)
+		reqLogger.Error(err, "Conflict with another concurrent update -- NOT retrying", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, nil
 	case pulumiv1alpha1.StackNotFound:
-		reqLogger.Info("Stack not found -- will retry shortly", "Stack.Name", stack.Stack, "Err:", err)
+		reqLogger.Error(err, "Stack not found -- will retry shortly", "Stack.Name", stack.Stack, "Err:")
 		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	default:
 		if err != nil {
@@ -284,7 +284,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		reqLogger.Error(err, "Failed to update Stack status", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
 	}
-	reqLogger.Info("Successfully updated successful status for Stack", "Stack.Name", stack.Stack)
+	reqLogger.Info("Successfully updated status for Stack", "Stack.Name", stack.Stack)
 
 	return reconcile.Result{}, nil
 }
@@ -331,7 +331,7 @@ func (sess *reconcileStackSession) finalizeStack() error {
 
 //addFinalizer will add this attribute to the Stack CR
 func (sess *reconcileStackSession) addFinalizer(stack *pulumiv1alpha1.Stack) error {
-	sess.logger.Info("Adding Finalizer for the Stack", "Stack.Name", stack.Name)
+	sess.logger.Debug("Adding Finalizer for the Stack", "Stack.Name", stack.Name)
 	namespacedName := types.NamespacedName{Name: stack.Name, Namespace: stack.Namespace}
 	err := sess.getLatestResource(stack, namespacedName)
 	if err != nil {
@@ -348,7 +348,7 @@ func (sess *reconcileStackSession) addFinalizer(stack *pulumiv1alpha1.Stack) err
 }
 
 type reconcileStackSession struct {
-	logger     logr.Logger
+	logger     logging.Logger
 	kubeClient client.Client
 	stack      pulumiv1alpha1.StackSpec
 	autoStack  *auto.Stack
@@ -360,7 +360,7 @@ type reconcileStackSession struct {
 var _ pulumiv1alpha1.StackController = &reconcileStackSession{}
 
 func newReconcileStackSession(
-	logger logr.Logger,
+	logger logging.Logger,
 	stack pulumiv1alpha1.StackSpec,
 	kubeClient client.Client,
 	namespace string,
@@ -506,7 +506,7 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd, workspace
 		outs := bufio.NewScanner(stdoutR)
 		for outs.Scan() {
 			text := outs.Text()
-			sess.logger.Info(title, "Path", cmd.Path, "Args", cmd.Args, "Stdout", text)
+			sess.logger.Debug(title, "Path", cmd.Path, "Args", cmd.Args, "Stdout", text)
 			stdout.WriteString(text + "\n")
 		}
 	}()
@@ -514,7 +514,7 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd, workspace
 		errs := bufio.NewScanner(stderrR)
 		for errs.Scan() {
 			text := errs.Text()
-			sess.logger.Info(title, "Path", cmd.Path, "Args", cmd.Args, "Text", text)
+			sess.logger.Debug(title, "Path", cmd.Path, "Args", cmd.Args, "Text", text)
 			stderr.WriteString(text + "\n")
 		}
 	}()
@@ -559,7 +559,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 		Auth:        gitAuth,
 	}
 
-	sess.logger.Info("Setting up pulumi workdir for stack", "stack", sess.stack)
+	sess.logger.Debug("Setting up pulumi workdir for stack", "stack", sess.stack)
 	// Create a new workspace.
 	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
 	w, err := auto.NewLocalWorkspace(context.Background(), auto.Repo(repo), secretsProvider)
@@ -705,7 +705,8 @@ func (sess *reconcileStackSession) InstallProjectDependencies(ctx context.Contex
 		return nil
 	default:
 		// Allow unknown runtimes without any pre-processing, but print a message indicating runtime was unknown
-		sess.logger.Info(fmt.Sprintf("Handling unknown project runtime '%s'", project.Runtime.Name()), "Stack.Name", sess.stack.Stack)
+		sess.logger.Info(fmt.Sprintf("Handling unknown project runtime '%s'", project.Runtime.Name()),
+			"Stack.Name", sess.stack.Stack)
 		return nil
 	}
 }
@@ -935,7 +936,7 @@ func (sess *reconcileStackSession) addDefaultPermalink(stack *pulumiv1alpha1.Sta
 		sess.logger.Error(err, "Failed to update Stack status with default permalink", "Stack.Name", stack.Spec.Stack)
 		return err
 	}
-	sess.logger.Info("Successfully updated Stack with default permalink", "Stack.Name", stack.Spec.Stack)
+	sess.logger.Debug("Successfully updated Stack with default permalink", "Stack.Name", stack.Spec.Stack)
 	return nil
 }
 
@@ -1105,14 +1106,14 @@ func waitForFile(fp string) ([]byte, error) {
 	return file, err
 }
 
-// logWriter constructs an io.Writer that logs to the provided logr.Logger
-func logWriter(logger logr.Logger, msg string, keysAndValues ...interface{}) io.Writer {
+// logWriter constructs an io.Writer that logs to the provided logging.Logger
+func logWriter(logger logging.Logger, msg string, keysAndValues ...interface{}) io.Writer {
 	stdoutR, stdoutW := io.Pipe()
 	go func() {
 		outs := bufio.NewScanner(stdoutR)
 		for outs.Scan() {
 			text := outs.Text()
-			logger.Info(msg, append([]interface{}{"Stdout", text}, keysAndValues...)...)
+			logger.Debug(msg, append([]interface{}{"Stdout", text}, keysAndValues...)...)
 		}
 		err := outs.Err()
 		if err != nil {

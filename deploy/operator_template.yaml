@@ -23,7 +23,7 @@ spec:
         - name: pulumi-kubernetes-operator
           image: <IMG_NAME>:<IMG_VERSION>
           args:
-            - "--zap-level=debug"
+            - "--zap-level=info"
           imagePullPolicy: Always
           volumeMounts:
             - mountPath: /tmp
