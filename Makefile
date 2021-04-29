@@ -48,4 +48,4 @@ version:
 dep-tidy:
 	go mod tidy
 
-.PHONY: build build-static codegen generate-crds install-crds generate-k8s test version dep-tidy build-image push-image push-image-latest deploy update-spec
+.PHONY: build build-static codegen generate-crds install-crds generate-k8s test version dep-tidy build-image push-image push-image-latest deploy prep-spec
