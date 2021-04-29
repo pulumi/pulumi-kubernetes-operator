@@ -3,7 +3,7 @@ package v1alpha1
 import (
 	"context"
 
-	"github.com/pulumi/pulumi/sdk/v2/go/x/auto"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -60,7 +60,8 @@ type StackSpec struct {
 	//   - AWS:   "awskms://arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"
 	//   - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"
 	//   - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"
-	// See: https://www.pulumi.com/docs/intro/concepts/config/#initializing-a-stack-with-alternative-encryption
+	//   -
+	// See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-with-alternative-encryption
 	SecretsProvider string `json:"secretsProvider,omitempty"`
 
 	// Source control:

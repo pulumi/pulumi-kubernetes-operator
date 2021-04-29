@@ -18,10 +18,10 @@ import (
 	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/pkg/errors"
 	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
-	"github.com/pulumi/pulumi/sdk/v2/go/x/auto"
-	"github.com/pulumi/pulumi/sdk/v2/go/x/auto/optdestroy"
-	"github.com/pulumi/pulumi/sdk/v2/go/x/auto/optrefresh"
-	"github.com/pulumi/pulumi/sdk/v2/go/x/auto/optup"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/optrefresh"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	giturls "github.com/whilp/git-urls"
 	git "gopkg.in/src-d/go-git.v4"
 	corev1 "k8s.io/api/core/v1"
@@ -559,12 +559,14 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 		Auth:        gitAuth,
 	}
 
+	sess.logger.Info("Setting up pulumi workdir for stack", "stack", sess.stack)
 	// Create a new workspace.
 	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
 	w, err := auto.NewLocalWorkspace(context.Background(), auto.Repo(repo), secretsProvider)
 	if err != nil {
 		return errors.Wrap(err, "failed to create local workspace")
 	}
+
 	if sess.stack.Backend != "" {
 		w.SetEnvVar("PULUMI_BACKEND_URL", sess.stack.Backend)
 	}
@@ -584,6 +586,11 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	}
 	sess.autoStack = &a
 
+	// Ensure stack settings file in workspace is populated appropriately.
+	if err = sess.ensureStackSettings(context.Background(), w); err != nil {
+		return err
+	}
+
 	// Update the stack config and secret config values.
 	err = sess.UpdateConfig()
 	if err != nil {
@@ -596,6 +603,25 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 		return errors.Wrap(err, "installing project dependencies")
 	}
 
+	return nil
+}
+
+func (sess *reconcileStackSession) ensureStackSettings(ctx context.Context, w auto.Workspace) error {
+	// We may have a project stack file already checked-in. Try and read that first
+	// since we don't want to clobber it unnecessarily.
+	// If not found, stackConfig will be a pointer to a zeroed-out workspace.ProjectStack.
+	stackConfig, err := w.StackSettings(ctx, sess.stack.Stack)
+	if err != nil {
+		return errors.Wrap(err, "failed to load stack config")
+	}
+
+	// We must always make sure the secret provider is initialized in the workspace
+	// before we set any configs. Otherwise secret provider will mysteriously reset.
+	// https://github.com/pulumi/pulumi-kubernetes-operator/issues/135
+	stackConfig.SecretsProvider = sess.stack.SecretsProvider
+	if err := w.SaveStackSettings(context.Background(), sess.stack.Stack, stackConfig); err != nil {
+		return errors.Wrap(err, "failed to save stack settings.")
+	}
 	return nil
 }
 
@@ -714,17 +740,19 @@ func (sess *reconcileStackSession) UpdateConfig() error {
 
 func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1alpha1.Permalink, error) {
 	writer := logWriter(sess.logger, "Pulumi Refresh")
+	opts := []optrefresh.Option{optrefresh.ProgressStreams(writer)}
+	if expectNoChanges {
+		opts = append(opts, optrefresh.ExpectNoChanges())
+	}
 	result, err := sess.autoStack.Refresh(
 		context.Background(),
-		optrefresh.ExpectNoChanges(),
-		optrefresh.ProgressStreams(writer),
-	)
+		opts...)
 	if err != nil {
-		return pulumiv1alpha1.Permalink(""), errors.Wrapf(err, "refreshing stack '%s'", sess.stack.Stack)
+		return "", errors.Wrapf(err, "refreshing stack %q", sess.stack.Stack)
 	}
 	p, err := auto.GetPermalink(result.StdOut)
 	if err != nil {
-		return pulumiv1alpha1.Permalink(""), err
+		return "", err
 	}
 	permalink := pulumiv1alpha1.Permalink(p)
 	return permalink, nil
@@ -776,7 +804,9 @@ func (sess *reconcileStackSession) GetStackOutputs(outs auto.OutputMap) (pulumiv
 
 func (sess *reconcileStackSession) DestroyStack() error {
 	writer := logWriter(sess.logger, "Pulumi Destroy")
-	_, err := sess.autoStack.Destroy(context.Background(), optdestroy.ProgressStreams(writer))
+	_, err := sess.autoStack.Destroy(context.Background(),
+		optdestroy.ProgressStreams(writer),
+	)
 	if err != nil {
 		return errors.Wrapf(err, "destroying resources for stack '%s'", sess.stack.Stack)
 	}

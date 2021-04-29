@@ -2,6 +2,9 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
+- Bump to v3.1.0 and GA automation api [#137](https://github.com/pulumi/pulumi-kubernetes-operator/pull/137)
+
+- Bug fix for secret manager switching to pulumi-console on updates [#137](https://github.com/pulumi/pulumi-kubernetes-operator/pull/137)
 
 ## 0.0.10 (2021-04-05)
 - Bump to 2.23.2 and add SecretRefs to allow secrets to be specified through

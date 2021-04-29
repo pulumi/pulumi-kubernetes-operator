@@ -179,6 +179,7 @@ var _ = Describe("Stack Controller", func() {
 			Stack:           stackName,
 			ProjectRepo:     "https://github.com/viveklak/empty-stack", // TODO: relocate to some other repo
 			SecretsProvider: "passphrase",
+			Commit:          "c011ac585dcf51b8c2793b9a684475dbd9a56bf3",
 			SecretEnvs: []string{
 				passphraseSecret.ObjectMeta.Name,
 			},
