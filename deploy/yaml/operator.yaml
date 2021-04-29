@@ -16,12 +16,18 @@ spec:
       serviceAccountName: pulumi-kubernetes-operator
       imagePullSecrets:
         - name: pulumi-kubernetes-operator
+      volumes:
+        - name: tmp-dir
+          emptyDir: {}
       containers:
         - name: pulumi-kubernetes-operator
-          image: pulumi/pulumi-kubernetes-operator:v0.0.7
+          image: pulumi/pulumi-kubernetes-operator:v0.0.10
           args:
-          - "--zap-level=debug"
+            - "--zap-level=info"
           imagePullPolicy: Always
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp-dir
           env:
             - name: WATCH_NAMESPACE
               valueFrom:
