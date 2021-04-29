@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 	"io"
 	"os"
 	"os/exec"
@@ -740,7 +741,8 @@ func (sess *reconcileStackSession) UpdateConfig() error {
 }
 
 func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1alpha1.Permalink, error) {
-	writer := logWriter(sess.logger, "Pulumi Refresh")
+	writer := sess.logger.LogWriterDebug("Pulumi Refresh")
+	defer contract.IgnoreClose(writer)
 	opts := []optrefresh.Option{optrefresh.ProgressStreams(writer)}
 	if expectNoChanges {
 		opts = append(opts, optrefresh.ExpectNoChanges())
@@ -763,7 +765,9 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1a
 // and error. In certain cases, an update may be unabled to proceed due to locking,
 // in which case the operator will requeue itself to retry later.
 func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStatus, pulumiv1alpha1.Permalink, *auto.UpResult, error) {
-	writer := logWriter(sess.logger, "Pulumi Update")
+	writer := sess.logger.LogWriterDebug("Pulumi Update")
+	defer contract.IgnoreClose(writer)
+
 	result, err := sess.autoStack.Up(context.Background(), optup.ProgressStreams(writer))
 	if err != nil {
 		// If this is the "conflict" error message, we will want to gracefully quit and retry.
@@ -804,7 +808,9 @@ func (sess *reconcileStackSession) GetStackOutputs(outs auto.OutputMap) (pulumiv
 }
 
 func (sess *reconcileStackSession) DestroyStack() error {
-	writer := logWriter(sess.logger, "Pulumi Destroy")
+	writer := sess.logger.LogWriterInfo("Pulumi Destroy")
+	defer contract.IgnoreClose(writer)
+
 	_, err := sess.autoStack.Destroy(context.Background(),
 		optdestroy.ProgressStreams(writer),
 	)
@@ -1104,21 +1110,4 @@ func waitForFile(fp string) ([]byte, error) {
 		return nil, errors.Wrapf(err, "failed to open file: %s", fp)
 	}
 	return file, err
-}
-
-// logWriter constructs an io.Writer that logs to the provided logging.Logger
-func logWriter(logger logging.Logger, msg string, keysAndValues ...interface{}) io.Writer {
-	stdoutR, stdoutW := io.Pipe()
-	go func() {
-		outs := bufio.NewScanner(stdoutR)
-		for outs.Scan() {
-			text := outs.Text()
-			logger.Debug(msg, append([]interface{}{"Stdout", text}, keysAndValues...)...)
-		}
-		err := outs.Err()
-		if err != nil {
-			logger.Error(err, msg, keysAndValues...)
-		}
-	}()
-	return stdoutW
 }
