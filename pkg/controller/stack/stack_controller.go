@@ -7,14 +7,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 
 	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/pkg/errors"
@@ -40,7 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
