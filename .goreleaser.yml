@@ -2,10 +2,7 @@ project_name: pulumi-kubernetes-operator
 
 builds:
   - ldflags:
-      - -X github.com/pulumi/pulumi-kubernetes-operator/pkg/version.gitCommit=${GIT_COMMIT}
-      - -X github.com/pulumi/pulumi-kubernetes-operator/pkg/version.gitVersion=${GIT_TAG}
-      - -X github.com/pulumi/pulumi-kubernetes-operator/pkg/version.gitTreeState=${GIT_DIRTY}
-      - -X github.com/pulumi/pulumi-kubernetes-operator/pkg/version.buildDate=${BUILD_DATE}
+      - -X github.com/pulumi/pulumi-kubernetes-operator/version.Version=${GIT_TAG}
       - -w -extldflags "-static"
     flags:
       - -a

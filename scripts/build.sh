@@ -8,16 +8,16 @@ export GOOS=linux
 name="pulumi-kubernetes-operator"
 build_static="${1:-}"
 
+ldflags="-X github.com/pulumi/pulumi-kubernetes-operator/version.Version=${VERSION}"
+extra_args=""
+
 # Extra build args for a static binary if requested.
 if [ "$build_static" == "static" ]; then
-		export CGO_ENABLED=0
-		extra_args="$(cat <<-EOF
--ldflags '-w -extldflags "-static"' \
--x -a -tags netgo
-EOF
-)"
+	export CGO_ENABLED=0
+	ldflags="$ldflags -w -extldflags \"-static\""
+	extra_args="-x -a -tags netgo"
 fi
 
 # Build the operator.
-/bin/bash -c "go build -o $name ${extra_args:-} ./cmd/manager/main.go"
+/bin/bash -c "go build -o $name -ldflags \"${ldflags:-}\" $extra_args ./cmd/manager/main.go"
 chmod +x "$name"
