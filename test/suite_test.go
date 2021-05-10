@@ -48,7 +48,7 @@ func TestAPIs(t *testing.T) {
 	stenographer := st.NewFakeStenographer()
 	reporterConfig := config.DefaultReporterConfigType{
 		NoColor:           false,
-		SlowSpecThreshold: 0.1,
+		SlowSpecThreshold: 0.2,
 		NoisyPendings:     false,
 		NoisySkippings:    false,
 		Verbose:           true,
