@@ -1,0 +1,87 @@
+name: Pulumi Kubernetes Operator  PR Builds
+on:
+  repository_dispatch:
+    types: [run-acceptance-tests-command]
+  pull_request:
+    branches:
+      - master
+env:
+  PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+jobs:
+  comment-notification:
+    if: github.event_name == 'repository_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create URL to the run output
+        id: vars
+        run: echo ::set-output name=run-url::https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+      - name: Update with Result
+        uses: peter-evans/create-or-update-comment@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.event.client_payload.github.payload.repository.full_name }}
+          issue-number: ${{ github.event.client_payload.github.payload.issue.number }}
+          body: |
+            Please view the PR build - ${{ steps.vars.outputs.run-url }}
+  operator-build:
+    runs-on: ubuntu-latest
+    name: Build
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+    - name: Install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16.x
+    - name: GoReleaser
+      uses: goreleaser/goreleaser-action@v2
+      with:
+        version: latest
+        args: release --snapshot --skip-publish --rm-dist --skip-sign
+  operator-int-tests:
+    runs-on: ubuntu-latest
+    name: Integration Testing
+    if: github.event_name == 'repository_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+    - name: Install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16.x
+    - name: Install Ginkgo testing framework
+      run: go install github.com/onsi/ginkgo/ginkgo
+    - name: Setup gcloud CLI for GKE testing cluster
+      uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+      with:
+        version: '290.0.1'
+        service_account_key: ${{ secrets.GKE_SA_KEY }}
+        export_default_credentials: true
+    - name: Configure AWS credentials to use in AWS Stack tests
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-2
+        role-duration-seconds: 3600
+        role-external-id: "pulumi-kubernetes-operator"
+        role-session-name: "pulumi-kubernetes-operator@githubActions"
+        role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
+    - name: Install Pulumi CLI
+      uses: pulumi/action-install-pulumi-cli@v1
+    - name: Set env variables and path
+      run: |
+        echo '$HOME/.pulumi/bin' >> $GITHUB_PATH
+        echo "STACK=ci-cluster-$(head /dev/urandom | LC_CTYPE=C tr -dc '[:lower:]' | head -c5)" >> $GITHUB_ENV
+    - name: Tests
+      run: |
+        # Create GKE test cluster to install CRDs and use with the test operator.
+        scripts/ci-cluster-create.sh
+
+        # Run tests
+        make codegen install-crds
+        make test
+    - name: Cleanup
+      if: ${{ always() }}
+      run: |
+        scripts/ci-cluster-destroy.sh
