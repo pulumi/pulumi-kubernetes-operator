@@ -1,0 +1,20 @@
+name: pull-request
+"on":
+  pull_request_target:
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  comment-on-pr:
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Comment PR
+        uses: thollander/actions-comment-pull-request@master
+        with:
+          message: |
+            PR is now waiting for a maintainer to run the acceptance tests. This PR will only perform build and linting.
+            **Note for the maintainer:** To run the acceptance tests, please comment */run-acceptance-tests* on the PR
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

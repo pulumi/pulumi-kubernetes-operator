@@ -1,29 +1,11 @@
-name: Pulumi Kubernetes Operator
+name: Pulumi Kubernetes Operator Release
 on:
   push:
-    branches:
-      - 'master'
-  pull_request:
-    branches:
-      - 'master'
+    tags:
+      - v*.*.*
 env:
   PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 jobs:
-  operator-build:
-    runs-on: ubuntu-latest
-    name: Build
-    steps:
-    - name: Check out code
-      uses: actions/checkout@v2
-    - name: Install Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: '1.16.2'
-    - name: GoReleaser
-      uses: goreleaser/goreleaser-action@v2
-      with:
-        version: latest
-        args: release --snapshot --skip-publish --rm-dist --skip-sign
   operator-int-tests:
     runs-on: ubuntu-latest
     name: Integration Testing
@@ -56,7 +38,7 @@ jobs:
       uses: pulumi/action-install-pulumi-cli@v1.0.1
       with:
         pulumi-version: 3.1.0
-    - name: Set env variables and path
+    - name: Set env variables
       run: |
         echo '$HOME/.pulumi/bin' >> $GITHUB_PATH
         echo "STACK=ci-cluster-$(head /dev/urandom | LC_CTYPE=C tr -dc '[:lower:]' | head -c5)" >> $GITHUB_ENV
@@ -72,3 +54,23 @@ jobs:
       if: ${{ always() }}
       run: |
         scripts/ci-cluster-destroy.sh
+  release:
+    needs: [operator-int-tests]
+    runs-on: ubuntu-latest
+    name: Tag Release
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+    - name: Install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: '1.16.2'
+    - name: Login to Docker Hub
+      run: |
+        echo "${{ secrets.DOCKER_PASSWORD }}" | docker login docker.io -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+    - name: GoReleaser
+      uses: goreleaser/goreleaser-action@v2
+      with:
+        args: release --skip-sign
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
