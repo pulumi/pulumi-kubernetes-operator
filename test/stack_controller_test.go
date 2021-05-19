@@ -179,9 +179,10 @@ var _ = Describe("Stack Controller", func() {
 		localSpec := pulumiv1alpha1.StackSpec{
 			Backend:         fmt.Sprintf("file://%s", backendDir),
 			Stack:           stackName,
-			ProjectRepo:     "https://github.com/viveklak/empty-stack", // TODO: relocate to some other repo
+			ProjectRepo:     "https://github.com/pulumi/pulumi-kubernetes-operator",
+			RepoDir:         "test/testdata/empty-stack",
 			SecretsProvider: "passphrase",
-			Commit:          "c011ac585dcf51b8c2793b9a684475dbd9a56bf3",
+			// Commit:          "", TODO
 			SecretEnvs: []string{
 				passphraseSecret.ObjectMeta.Name,
 			},
@@ -234,9 +235,10 @@ var _ = Describe("Stack Controller", func() {
 			Config: map[string]string{
 				"aws:region": "us-east-2",
 			},
-			Stack:             stackName,
-			ProjectRepo:       "https://github.com/metral/test-s3-op-project", // TODO: relocate to some other repo
-			Commit:            "bd1edfac28577d62068b7ace0586df595bda33be",
+			Stack:       stackName,
+			ProjectRepo: "https://github.com/pulumi/pulumi-kubernetes-operator",
+			RepoDir:     "test/testdata/s3-op-project",
+			// Commit:            "", TODO
 			DestroyOnFinalize: true,
 		}
 
@@ -360,9 +362,10 @@ var _ = Describe("Stack Controller", func() {
 			Config: map[string]string{
 				"aws:region": "us-east-2",
 			},
-			Stack:             stackName,
-			ProjectRepo:       "https://github.com/metral/test-s3-op-project", // TODO: relocate to some other repo
-			Commit:            "bd1edfac28577d62068b7ace0586df595bda33be",
+			Stack:       stackName,
+			ProjectRepo: "https://github.com/pulumi/pulumi-kubernetes-operator",
+			RepoDir:     "test/testdata/s3-op-project",
+			// Commit:            "", // TODO
 			DestroyOnFinalize: true,
 		}
 
