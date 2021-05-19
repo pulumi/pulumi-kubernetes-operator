@@ -37,7 +37,6 @@ export class GkeCluster extends pulumi.ComponentResource {
             initialNodeCount: config.nodeCount,
             nodeVersion: engineVersion,
             minMasterVersion: engineVersion,
-            masterAuth: {username: config.masterUsername, password: config.masterPassword},
             nodeConfig: {
                 machineType: config.nodeMachineType,
                 oauthScopes: [
