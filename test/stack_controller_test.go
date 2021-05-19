@@ -224,7 +224,7 @@ var _ = Describe("Stack Controller", func() {
 		var stack *pulumiv1alpha1.Stack
 		stackName := fmt.Sprintf("%s/s3-op-project/dev-commit-change-%s", stackOrg, randString())
 		fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
-		commit := "cc5442870f1195216d6bc340c14f8ae7d28cf3e2"
+		const commit = "cc5442870f1195216d6bc340c14f8ae7d28cf3e2"
 
 		// Define the stack spec
 		spec := pulumiv1alpha1.StackSpec{

@@ -475,7 +475,7 @@ func (sess *reconcileStackSession) resolveResourceRef(ref *pulumiv1alpha1.Resour
 func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd, workspace auto.Workspace) (string, string, error) {
 	// If not overridden, set the command to run in the working directory.
 	if cmd.Dir == "" {
-		cmd.Dir = workspace.WorkDir()
+		cmd.Dir = sess.workdir
 	}
 
 	// Init environment variables.
@@ -580,6 +580,10 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 		return err
 	}
 	sess.workdir = w.WorkDir()
+
+	if repo.ProjectPath != "" {
+		sess.workdir = filepath.Join(sess.workdir, repo.ProjectPath)
+	}
 
 	// Create a new stack if the stack does not already exist, or fall back to
 	// selecting the existing stack. If the stack does not exist, it will be created and selected.
