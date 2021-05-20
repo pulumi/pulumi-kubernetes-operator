@@ -243,7 +243,7 @@ var _ = Describe("Stack Controller", func() {
 			},
 			Stack:             stackName,
 			ProjectRepo:       "https://github.com/pulumi/pulumi-kubernetes-operator",
-			RepoDir:           "test/testdata/s3-op-project",
+			RepoDir:           "test/testdata/test-s3-op-project",
 			Commit:            commit,
 			DestroyOnFinalize: true,
 		}
@@ -370,7 +370,7 @@ var _ = Describe("Stack Controller", func() {
 			},
 			Stack:             stackName,
 			ProjectRepo:       "https://github.com/pulumi/pulumi-kubernetes-operator",
-			RepoDir:           "test/testdata/s3-op-project",
+			RepoDir:           "test/testdata/test-s3-op-project",
 			Commit:            commit,
 			DestroyOnFinalize: true,
 		}
