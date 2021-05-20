@@ -581,10 +581,6 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	}
 	sess.workdir = w.WorkDir()
 
-	if repo.ProjectPath != "" {
-		sess.workdir = filepath.Join(sess.workdir, repo.ProjectPath)
-	}
-
 	// Create a new stack if the stack does not already exist, or fall back to
 	// selecting the existing stack. If the stack does not exist, it will be created and selected.
 	a, err := auto.UpsertStack(context.Background(), sess.stack.Stack, w)
