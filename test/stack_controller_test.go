@@ -5,8 +5,10 @@ package tests
 import (
 	"context"
 	"encoding/base32"
+	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -42,6 +44,11 @@ var _ = Describe("Stack Controller", func() {
 	}
 	stackOrg := strings.TrimSuffix(string(whoami), "\n")
 	fmt.Printf("stackOrg: %s", stackOrg)
+
+	commit, err := getCurrentCommit()
+	if err != nil {
+		Fail(fmt.Sprintf("Couldn't resolve current commit: %v", err))
+	}
 
 	ctx := context.Background()
 	var pulumiAPISecret *corev1.Secret
@@ -179,9 +186,10 @@ var _ = Describe("Stack Controller", func() {
 		localSpec := pulumiv1alpha1.StackSpec{
 			Backend:         fmt.Sprintf("file://%s", backendDir),
 			Stack:           stackName,
-			ProjectRepo:     "https://github.com/viveklak/empty-stack", // TODO: relocate to some other repo
+			ProjectRepo:     "https://github.com/pulumi/pulumi-kubernetes-operator",
+			RepoDir:         "test/testdata/empty-stack",
+			Commit:          commit,
 			SecretsProvider: "passphrase",
-			Commit:          "c011ac585dcf51b8c2793b9a684475dbd9a56bf3",
 			SecretEnvs: []string{
 				passphraseSecret.ObjectMeta.Name,
 			},
@@ -223,7 +231,6 @@ var _ = Describe("Stack Controller", func() {
 		var stack *pulumiv1alpha1.Stack
 		stackName := fmt.Sprintf("%s/s3-op-project/dev-commit-change-%s", stackOrg, randString())
 		fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
-		commit := "cc5442870f1195216d6bc340c14f8ae7d28cf3e2"
 
 		// Define the stack spec
 		spec := pulumiv1alpha1.StackSpec{
@@ -235,8 +242,9 @@ var _ = Describe("Stack Controller", func() {
 				"aws:region": "us-east-2",
 			},
 			Stack:             stackName,
-			ProjectRepo:       "https://github.com/metral/test-s3-op-project", // TODO: relocate to some other repo
-			Commit:            "bd1edfac28577d62068b7ace0586df595bda33be",
+			ProjectRepo:       "https://github.com/pulumi/pulumi-kubernetes-operator",
+			RepoDir:           "test/testdata/test-s3-op-project",
+			Commit:            commit,
 			DestroyOnFinalize: true,
 		}
 
@@ -361,8 +369,9 @@ var _ = Describe("Stack Controller", func() {
 				"aws:region": "us-east-2",
 			},
 			Stack:             stackName,
-			ProjectRepo:       "https://github.com/metral/test-s3-op-project", // TODO: relocate to some other repo
-			Commit:            "bd1edfac28577d62068b7ace0586df595bda33be",
+			ProjectRepo:       "https://github.com/pulumi/pulumi-kubernetes-operator",
+			RepoDir:           "test/testdata/test-s3-op-project",
+			Commit:            commit,
 			DestroyOnFinalize: true,
 		}
 
@@ -382,6 +391,28 @@ var _ = Describe("Stack Controller", func() {
 		}, timeout, interval).Should(BeTrue())
 	})
 })
+
+func getCurrentCommit() (string, error) {
+	const url = `https://api.github.com/repos/pulumi/pulumi-kubernetes-operator/commits/master`
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	data := map[string]interface{}{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return "", err
+	}
+
+	if val, ok := data["sha"]; ok {
+		if sha, ok := val.(string); ok {
+			return sha, nil
+		}
+	}
+	return "", fmt.Errorf("unexpected commit data returned for url: %v", url)
+}
 
 func stackUpdatedToCommit(stack *pulumiv1alpha1.Stack, commit string) bool {
 	if stack.Status.LastUpdate != nil {
