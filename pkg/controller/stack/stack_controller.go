@@ -638,7 +638,7 @@ func (sess *reconcileStackSession) CleanupPulumiWorkdir() {
 
 // Determine the actual commit information from the working directory (Spec commit etc. is optional).
 func revisionAtWorkingDir(workingDir string) (string, error) {
-	gitRepo, err := git.PlainOpen(workingDir)
+	gitRepo, err := git.PlainOpenWithOptions(workingDir, &git.PlainOpenOptions{DetectDotGit: true})
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to resolve git repository from working directory: %s", workingDir)
 	}
