@@ -5,6 +5,8 @@ CHANGELOG
 (None)
 
 ---
+## 0.0.12 (2021-05-21)
+- Bump to v3.3.0
 
 ## 0.0.11 (2021-04-29)
 - Bump to v3.1.0 and GA automation api [#137](https://github.com/pulumi/pulumi-kubernetes-operator/pull/137)

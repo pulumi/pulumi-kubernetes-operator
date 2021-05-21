@@ -9,7 +9,7 @@ require (
 	github.com/operator-framework/operator-lib v0.0.0-20200728190837-b76db547798d
 	github.com/operator-framework/operator-sdk v0.19.0
 	github.com/pkg/errors v0.9.1
-	github.com/pulumi/pulumi/sdk/v3 v3.1.1-0.20210428183529-c0b5339cf376
+	github.com/pulumi/pulumi/sdk/v3 v3.3.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	github.com/whilp/git-urls v1.0.0
