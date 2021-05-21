@@ -6,7 +6,8 @@ CHANGELOG
 
 ---
 ## 0.0.12 (2021-05-21)
-- Bump to v3.3.0
+- Bump to v3.3.0 [#152](https://github.com/pulumi/pulumi-kubernetes-operator/pull/152)
+- Correctly handle repoDir [#151](https://github.com/pulumi/pulumi-kubernetes-operator/pull/151)
 
 ## 0.0.11 (2021-04-29)
 - Bump to v3.1.0 and GA automation api [#137](https://github.com/pulumi/pulumi-kubernetes-operator/pull/137)
