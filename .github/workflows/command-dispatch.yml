@@ -1,3 +1,4 @@
+---
 name: Command Dispatch for testing
 on:
   issue_comment:

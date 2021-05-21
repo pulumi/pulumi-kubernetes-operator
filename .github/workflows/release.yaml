@@ -1,3 +1,4 @@
+---
 name: Pulumi Kubernetes Operator Release
 on:
   push:
@@ -10,67 +11,67 @@ jobs:
     runs-on: ubuntu-latest
     name: Integration Testing
     steps:
-    - name: Check out code
-      uses: actions/checkout@v2
-    - name: Install Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: '1.16.2'
-    - name: Install Ginkgo testing framework
-      run: go install github.com/onsi/ginkgo/ginkgo
-    - name: Setup gcloud CLI for GKE testing cluster
-      uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
-      with:
-        version: '290.0.1'
-        service_account_key: ${{ secrets.GKE_SA_KEY }}
-        export_default_credentials: true
-    - name: Configure AWS credentials to use in AWS Stack tests
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-2
-        role-duration-seconds: 3600
-        role-external-id: "pulumi-kubernetes-operator"
-        role-session-name: "pulumi-kubernetes-operator@githubActions"
-        role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
-    - name: Install Pulumi CLI
-      uses: pulumi/action-install-pulumi-cli@v1.0.1
-      with:
-        pulumi-version: 3.1.0
-    - name: Set env variables
-      run: |
-        echo '$HOME/.pulumi/bin' >> $GITHUB_PATH
-        echo "STACK=ci-cluster-$(head /dev/urandom | LC_CTYPE=C tr -dc '[:lower:]' | head -c5)" >> $GITHUB_ENV
-    - name: Tests
-      run: |
-        # Create GKE test cluster to install CRDs and use with the test operator.
-        scripts/ci-cluster-create.sh
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: "1.16.2"
+      - name: Install Ginkgo testing framework
+        run: go install github.com/onsi/ginkgo/ginkgo
+      - name: Setup gcloud CLI for GKE testing cluster
+        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        with:
+          version: "290.0.1"
+          service_account_key: ${{ secrets.GKE_SA_KEY }}
+          export_default_credentials: true
+      - name: Configure AWS credentials to use in AWS Stack tests
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+          role-duration-seconds: 3600
+          role-external-id: "pulumi-kubernetes-operator"
+          role-session-name: "pulumi-kubernetes-operator@githubActions"
+          role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
+      - name: Install Pulumi CLI
+        uses: pulumi/action-install-pulumi-cli@v1.0.1
+        with:
+          pulumi-version: 3.1.0
+      - name: Set env variables
+        run: |
+          echo '$HOME/.pulumi/bin' >> $GITHUB_PATH
+          echo "STACK=ci-cluster-$(head /dev/urandom | LC_CTYPE=C tr -dc '[:lower:]' | head -c5)" >> $GITHUB_ENV
+      - name: Tests
+        run: |
+          # Create GKE test cluster to install CRDs and use with the test operator.
+          scripts/ci-cluster-create.sh
 
-        # Run tests
-        make codegen install-crds
-        make test
-    - name: Cleanup
-      if: ${{ always() }}
-      run: |
-        scripts/ci-cluster-destroy.sh
+          # Run tests
+          make codegen install-crds
+          make test
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
+          scripts/ci-cluster-destroy.sh
   release:
     needs: [operator-int-tests]
     runs-on: ubuntu-latest
     name: Tag Release
     steps:
-    - name: Check out code
-      uses: actions/checkout@v2
-    - name: Install Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: '1.16.2'
-    - name: Login to Docker Hub
-      run: |
-        echo "${{ secrets.DOCKER_PASSWORD }}" | docker login docker.io -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-    - name: GoReleaser
-      uses: goreleaser/goreleaser-action@v2
-      with:
-        args: release --skip-sign
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: "1.16.2"
+      - name: Login to Docker Hub
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login docker.io -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+      - name: GoReleaser
+        uses: goreleaser/goreleaser-action@v2
+        with:
+          args: release --skip-sign
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
