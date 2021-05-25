@@ -2,7 +2,7 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
-(None)
+- Bump pulumi/pulumi to v3.3.1 and add user-agent string for automation-api [#156](https://github.com/pulumi/pulumi-kubernetes-operator/pull/156)
 
 ---
 ## 0.0.12 (2021-05-21)
