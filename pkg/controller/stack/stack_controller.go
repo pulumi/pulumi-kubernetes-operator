@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
+	"github.com/pulumi/pulumi-kubernetes-operator/version"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 
 	libpredicate "github.com/operator-framework/operator-lib/predicate"
@@ -46,10 +47,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_stack")
+var (
+	log       = logf.Log.WithName("controller_stack")
+	execAgent = fmt.Sprintf("pulumi-kubernetes-operator/%s", version.Version)
+)
 
-const pulumiFinalizer = "finalizer.stack.pulumi.com"
-const maxConcurrentReconciles = 10 // arbitrary value greater than default of 1
+const (
+	pulumiFinalizer         = "finalizer.stack.pulumi.com"
+	maxConcurrentReconciles = 10 // arbitrary value greater than default of 1
+)
 
 // Add creates a new Stack Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -745,7 +751,7 @@ func (sess *reconcileStackSession) UpdateConfig() error {
 func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1alpha1.Permalink, error) {
 	writer := sess.logger.LogWriterDebug("Pulumi Refresh")
 	defer contract.IgnoreClose(writer)
-	opts := []optrefresh.Option{optrefresh.ProgressStreams(writer)}
+	opts := []optrefresh.Option{optrefresh.ProgressStreams(writer), optrefresh.UserAgent(execAgent)}
 	if expectNoChanges {
 		opts = append(opts, optrefresh.ExpectNoChanges())
 	}
@@ -770,7 +776,7 @@ func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStat
 	writer := sess.logger.LogWriterDebug("Pulumi Update")
 	defer contract.IgnoreClose(writer)
 
-	result, err := sess.autoStack.Up(context.Background(), optup.ProgressStreams(writer))
+	result, err := sess.autoStack.Up(context.Background(), optup.ProgressStreams(writer), optup.UserAgent(execAgent))
 	if err != nil {
 		// If this is the "conflict" error message, we will want to gracefully quit and retry.
 		if auto.IsConcurrentUpdateError(err) {
@@ -815,6 +821,7 @@ func (sess *reconcileStackSession) DestroyStack() error {
 
 	_, err := sess.autoStack.Destroy(context.Background(),
 		optdestroy.ProgressStreams(writer),
+		optdestroy.UserAgent(execAgent),
 	)
 	if err != nil {
 		return errors.Wrapf(err, "destroying resources for stack '%s'", sess.stack.Stack)

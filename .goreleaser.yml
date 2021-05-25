@@ -2,7 +2,7 @@ project_name: pulumi-kubernetes-operator
 
 builds:
   - ldflags:
-      - -X github.com/pulumi/pulumi-kubernetes-operator/version.Version=${GIT_TAG}
+      - -X github.com/pulumi/pulumi-kubernetes-operator/version.Version={{.Tag}}
       - -w -extldflags "-static"
     flags:
       - -a
