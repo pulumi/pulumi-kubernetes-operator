@@ -75,7 +75,6 @@ jobs:
       - name: Set env variables and path
         run: |
           echo '$HOME/.pulumi/bin' >> $GITHUB_PATH
-          echo '/tmp' >> $GITHUB_PATH
           echo "STACK=ci-cluster-$(head /dev/urandom | LC_CTYPE=C tr -dc '[:lower:]' | head -c5)" >> $GITHUB_ENV
       - name: Tests
         run: |
