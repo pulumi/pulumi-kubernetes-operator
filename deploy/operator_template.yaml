@@ -1,3 +1,4 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,8 +15,6 @@ spec:
         name: pulumi-kubernetes-operator
     spec:
       serviceAccountName: pulumi-kubernetes-operator
-      imagePullSecrets:
-        - name: pulumi-kubernetes-operator
       volumes:
         - name: tmp-dir
           emptyDir: {}
@@ -23,8 +22,7 @@ spec:
         - name: pulumi-kubernetes-operator
           image: <IMG_NAME>:<IMG_VERSION>
           args:
-            - "--zap-level=info"
-          imagePullPolicy: Always
+            - "--zap-level=error"
           volumeMounts:
             - mountPath: /tmp
               name: tmp-dir

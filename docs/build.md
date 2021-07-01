@@ -40,7 +40,7 @@ Quickly build the operator to check that it compiles.
 
 This runs a fast build that is dynamically-linked.
 
-```
+```bash
 make build
 ```
 
@@ -48,7 +48,7 @@ make build
 
 Codegen and Install the CRD in your existing Kubernetes cluster.
 
-```
+```bash
 make codegen install-crds
 ```
 
