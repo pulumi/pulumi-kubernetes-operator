@@ -4,6 +4,8 @@ CHANGELOG
 ## HEAD (Unreleased)
 (None)
 
+- Update deployment manifests & code for pulumi v3.6.0 [#159](https://github.com/pulumi/pulumi-kubernetes-operator/pull/159)
+
 ---
 
 ## 0.0.13 (2021-05-25)
