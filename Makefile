@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
 VERSION := $(GIT_COMMIT)
 PUBLISH_IMAGE_NAME := pulumi/pulumi-kubernetes-operator
