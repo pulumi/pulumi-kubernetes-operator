@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
 VERSION := $(GIT_COMMIT)
 PUBLISH_IMAGE_NAME := pulumi/pulumi-kubernetes-operator
@@ -9,7 +10,10 @@ default: build
 install-crds:
 	kubectl apply -f deploy/crds/pulumi.com_stacks.yaml
 
-codegen: generate-k8s generate-crds
+codegen: install-controller-gen generate-k8s generate-crds
+
+install-controller-gen:
+	@echo "Installing controller-gen to GOPATH/bin"; pushd /tmp >& /dev/null && go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0 ; popd >& /dev/null
 
 generate-crds:
 	./scripts/generate_crds.sh
