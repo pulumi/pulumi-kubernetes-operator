@@ -69,12 +69,12 @@ my_stack = apiextensions.CustomResource("my-stack",
     api_version="pulumi.com/v1alpha1",
     kind="Stack",
     spec={
-        "access_token_secret": access_token.metadata["name"],
+        "accessTokenSecret": access_token.metadata["name"],
         "stack": "<YOUR_ORG>/nginx/dev",
-        "init_on_create": True,
-        "project_repo": "https://github.com/metral/pulumi-nginx",
+        "initOnCreate": True,
+        "projectRepo": "https://github.com/metral/pulumi-nginx",
         "commit": "2b0889718d3e63feeb6079ccd5e4488d8601e353",
-        "destroy_on_finalize": True,
+        "destroyOnFinalize": True,
     }
 )
 ```
@@ -113,15 +113,15 @@ my_stack = apiextensions.CustomResource("my-stack",
     kind="Stack",
     spec={
         "stack": "<YOUR_ORG>/s3-op-project/dev",
-        "project_repo": "https://github.com/metral/test-s3-op-project",
+        "projectRepo": "https://github.com/metral/test-s3-op-project",
         "commit": "bd1edfac28577d62068b7ace0586df595bda33be",
-        "access_token_secret": access_token.metadata["name"],
+        "accessTokenSecret": access_token.metadata["name"],
         "config": {
             "aws:region": "us-west-2",
         },
-        "env_secrets": [aws_creds.metadata["name"]],
-        "init_on_create": True,
-        "destroy_on_finalize": True,
+        "envSecrets": [aws_creds.metadata["name"]],
+        "initOnCreate": True,
+        "destroyOnFinalize": True,
     }
 )
 ```
