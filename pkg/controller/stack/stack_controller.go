@@ -216,7 +216,7 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		reqLogger.Info("Checking current HEAD commit hash", "Current commit", currentCommit)
 		if instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit {
 			reqLogger.Info("Commit hash unchanged. Will poll again in 60 seconds.")
-			// Reconcile every 60 seconds to support git branch tracking.
+			// Reconcile every 60 seconds to check for new commits to the branch.
 			return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
 		}
 		reqLogger.Info("New commit hash found", "Current commit", currentCommit,
