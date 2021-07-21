@@ -2,12 +2,11 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
-(None)
+
+- Automatically track git branches without a specified commit [#162](https://github.com/pulumi/pulumi-kubernetes-operator/pull/162)
 
 ## 0.0.14 (2021-07-01)
 - Update deployment manifests & code for pulumi v3.6.0 [#159](https://github.com/pulumi/pulumi-kubernetes-operator/pull/159)
-
----
 
 ## 0.0.13 (2021-05-25)
 - Bump pulumi/pulumi to v3.3.1 and add user-agent string for automation-api [#156](https://github.com/pulumi/pulumi-kubernetes-operator/pull/156)
