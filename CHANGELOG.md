@@ -3,7 +3,10 @@ CHANGELOG
 
 ## HEAD (Unreleased)
 
-- Automatically track git branches without a specified commit [#162](https://github.com/pulumi/pulumi-kubernetes-operator/pull/162)
+- Automatically track git branches without a specified commit.
+  If a branch is specified, the operator will poll the repo every minute and automatically deploy
+  new commits to the branch.
+  [#162](https://github.com/pulumi/pulumi-kubernetes-operator/pull/162)
 
 ## 0.0.14 (2021-07-01)
 - Update deployment manifests & code for pulumi v3.6.0 [#159](https://github.com/pulumi/pulumi-kubernetes-operator/pull/159)

@@ -209,8 +209,8 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		}
 	}
 
-	// If a branch is specified without a commit, then track changes to the branch.
-	trackBranch := len(sess.stack.Branch) > 0 && len(sess.stack.Commit) == 0
+	// If a branch is specified, then track changes to the branch.
+	trackBranch := len(sess.stack.Branch) > 0
 
 	if trackBranch {
 		reqLogger.Info("Checking current HEAD commit hash", "Current commit", currentCommit)
