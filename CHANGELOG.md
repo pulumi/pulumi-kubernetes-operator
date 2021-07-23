@@ -2,6 +2,9 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
+(None)
+
+## 0.0.15 (2021-07-23)
 
 - Automatically track git branches without a specified commit.
   If a branch is specified, the operator will poll the repo every minute and automatically deploy
