@@ -209,6 +209,20 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		}
 	}
 
+	// If a branch is specified, then track changes to the branch.
+	trackBranch := len(sess.stack.Branch) > 0
+
+	if trackBranch {
+		reqLogger.Info("Checking current HEAD commit hash", "Current commit", currentCommit)
+		if instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit {
+			reqLogger.Info("Commit hash unchanged. Will poll again in 60 seconds.")
+			// Reconcile every 60 seconds to check for new commits to the branch.
+			return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
+		}
+		reqLogger.Info("New commit hash found", "Current commit", currentCommit,
+			"Last commit", instance.Status.LastUpdate.LastSuccessfulCommit)
+	}
+
 	// Step 3. If a stack refresh is requested, run it now.
 	if sess.stack.Refresh {
 		permalink, err := sess.RefreshStack(sess.stack.ExpectNoRefreshChanges)
@@ -294,6 +308,11 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 	reqLogger.Info("Successfully updated status for Stack", "Stack.Name", stack.Stack)
+
+	if trackBranch {
+		// Reconcile every 60 seconds to check for new commits to the branch.
+		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
+	}
 
 	return reconcile.Result{}, nil
 }
