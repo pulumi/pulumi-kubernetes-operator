@@ -71,7 +71,7 @@ jobs:
           role-session-name: "pulumi-kubernetes-operator@githubActions"
           role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
       - name: Install Pulumi CLI
-        uses: pulumi/action-install-pulumi-cli@v1
+        uses: pulumi/setup-pulumi@v2
       - name: Set env variables and path
         run: |
           echo '$HOME/.pulumi/bin' >> $GITHUB_PATH
