@@ -55,7 +55,7 @@ jobs:
           # Do the install from outside the code tree to avoid messing with go.sum
           cd /tmp; go install github.com/onsi/ginkgo/ginkgo@v1.16.4
       - name: Setup gcloud CLI for GKE testing cluster
-        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        uses: google-github-actions/setup-gcloud@master
         with:
           version: "290.0.1"
           service_account_key: ${{ secrets.GKE_SA_KEY }}
@@ -71,7 +71,7 @@ jobs:
           role-session-name: "pulumi-kubernetes-operator@githubActions"
           role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
       - name: Install Pulumi CLI
-        uses: pulumi/action-install-pulumi-cli@v1
+        uses: pulumi/setup-pulumi@v2
       - name: Set env variables and path
         run: |
           echo '$HOME/.pulumi/bin' >> $GITHUB_PATH
