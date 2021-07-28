@@ -1,4 +1,4 @@
-// Copyright 2016-2019, Pulumi Corporation.
+// Copyright 2016-2021, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ export class GkeCluster extends pulumi.ComponentResource {
                 opts: pulumi.ComponentResourceOptions = {}) {
         super("pulumi-kubernetes:ci:GkeCluster", name, {}, opts);
 
-        // Find the latest 1..x engine version.
+        // Find the latest 1.20.x engine version.
         const engineVersion = gcp.container.getEngineVersions({
             location: config.gcpLocation,
             project: config.gcpProject,

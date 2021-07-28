@@ -1,4 +1,4 @@
-// Copyright 2016-2019, Pulumi Corporation.
+// Copyright 2016-2021, Pulumi Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ import * as random from "@pulumi/random";
 
 const config = new Config();
 
-export const gcpProject = "pulumi-development";
+export const gcpProject = "pulumi-k8s-operator";
 export const gcpZone = "a";
 export const gcpLocation = "us-west1-a";
 
@@ -27,13 +27,3 @@ export const nodeCount = config.getNumber("nodeCount") || 2;
 // nodeMachineType is the machine type to use for cluster nodes. Defaults to n1-standard-2 if unspecified.
 // See https://cloud.google.com/compute/docs/machine-types for more details on available machine types.
 export const nodeMachineType = config.get("nodeMachineType") || "n1-standard-2";
-
-// masterUsername is the admin username for the cluster.
-export const masterUsername = config.get("masterUsername") || "admin";
-
-// masterPassword is the password for the admin user in the cluster.
-export const masterPassword =
-    config.get("password") ||
-    new random.RandomPassword("password", {
-        length: 20,
-    }).result;
