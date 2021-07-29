@@ -147,6 +147,15 @@ func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result,
 	// Create a new reconciliation session.
 	sess := newReconcileStackSession(reqLogger, stack, r.client, request.Namespace)
 
+	// Ensure either branch or commit has been specified in the stack CR if stack is not marked for deletion
+	if !isStackMarkedToBeDeleted &&
+		sess.stack.Commit == "" &&
+		sess.stack.Branch == "" {
+
+		reqLogger.Info("Stack CustomResource needs to specify either 'branch' or 'commit' for the tracking repo.")
+		return reconcile.Result{}, err
+	}
+
 	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
 	gitAuth, err := sess.SetupGitAuth()
 	if err != nil {

@@ -94,10 +94,10 @@ type StackSpec struct {
 	// in the project source root.
 	RepoDir string `json:"repoDir,omitempty"`
 	// (optional) Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This
-	// is mutually exclusive with the Branch setting. If both are empty, the `master` branch is deployed.
+	// is mutually exclusive with the Branch setting. Either value needs to be specified.
 	Commit string `json:"commit,omitempty"`
-	// (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name. This
-	// is mutually exclusive with the Commit setting. If both are empty, the `master` branch is deployed.
+	// (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This
+	// is mutually exclusive with the Commit setting. Either value needs to be specified.
 	Branch string `json:"branch,omitempty"`
 
 	// Lifecycle:
