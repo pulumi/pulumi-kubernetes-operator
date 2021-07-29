@@ -39,10 +39,10 @@ spec:
                 description: '(optional) Backend is an optional backend URL to use for all Pulumi operations. Examples:   - Pulumi Service:              "https://app.pulumi.com" (default)   - Self-managed Pulumi Service: "https://pulumi.acmecorp.com"   - Local:                       "file://./einstein"   - AWS:                         "s3://<my-pulumi-state-bucket>"   - Azure:                       "azblob://<my-pulumi-state-bucket>"   - GCP:                         "gs://<my-pulumi-state-bucket>" See: https://www.pulumi.com/docs/intro/concepts/state/'
                 type: string
               branch:
-                description: (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name. This is mutually exclusive with the Commit setting. If both are empty, the `master` branch is deployed.
+                description: (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This is mutually exclusive with the Commit setting. Either value needs to be specified.
                 type: string
               commit:
-                description: (optional) Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This is mutually exclusive with the Branch setting. If both are empty, the `master` branch is deployed.
+                description: (optional) Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This is mutually exclusive with the Branch setting. Either value needs to be specified.
                 type: string
               config:
                 additionalProperties:
