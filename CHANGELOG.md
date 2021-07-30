@@ -4,6 +4,8 @@ CHANGELOG
 ## HEAD (Unreleased)
 (None)
 
+## 0.0.16 (2021-07-29)
+
 - Ensure either 'branch' or 'commit' is set in stack CR & bump pulumi/pulumi to 3.9.0 [#168](https://github.com/pulumi/pulumi-kubernetes-operator/pull/168)
 
 ## 0.0.15 (2021-07-23)
