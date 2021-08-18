@@ -509,7 +509,7 @@ func (sess *reconcileStackSession) resolveResourceRef(ref *pulumiv1alpha1.Resour
 func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd, workspace auto.Workspace) (string, string, error) {
 	// If not overridden, set the command to run in the working directory.
 	if cmd.Dir == "" {
-		cmd.Dir = sess.workdir
+		cmd.Dir = workspace.WorkDir()
 	}
 
 	// Init environment variables.

@@ -47,19 +47,22 @@ var _ = Describe("Stack Controller", func() {
 		Fail(fmt.Sprintf("Must get pulumi authorized user: %v", err))
 	}
 	stackOrg := strings.TrimSuffix(string(whoami), "\n")
-	fmt.Printf("stackOrg: %s", stackOrg)
+	fmt.Printf("stackOrg: %s\n", stackOrg)
 
-	_, path, _, ok := runtime.Caller(1)
+	_, path, _, ok := runtime.Caller(0)
 	if !ok {
 		Fail("Failed to determine current directory")
 	}
 	// Absolute path to base directory for the repository locally.
-	baseDir = filepath.FromSlash(filepath.Join(path, ".."))
+	baseDir = filepath.FromSlash(filepath.Join(path, "..", ".."))
+	fmt.Printf("Basedir: %s\n", baseDir)
 	commit, err := getCurrentCommit(baseDir)
 	if err != nil {
+		fmt.Printf("%+v", err)
 		Fail(fmt.Sprintf("Couldn't resolve current commit: %v", err))
 	}
 
+	fmt.Printf("Current commit is: %s\n", commit)
 	ctx := context.Background()
 	var pulumiAPISecret *corev1.Secret
 	var pulumiAWSSecret *corev1.Secret
@@ -196,7 +199,7 @@ var _ = Describe("Stack Controller", func() {
 		localSpec := pulumiv1alpha1.StackSpec{
 			Backend:         fmt.Sprintf("file://%s", backendDir),
 			Stack:           stackName,
-			ProjectRepo:     fmt.Sprintf(`file://%s.git`, baseDir),
+			ProjectRepo:     baseDir,
 			RepoDir:         "test/testdata/empty-stack",
 			Commit:          commit,
 			SecretsProvider: "passphrase",
@@ -252,7 +255,7 @@ var _ = Describe("Stack Controller", func() {
 				"aws:region": "us-east-2",
 			},
 			Stack:             stackName,
-			ProjectRepo:       fmt.Sprintf(`file://%s.git`, baseDir),
+			ProjectRepo:       baseDir,
 			RepoDir:           "test/testdata/test-s3-op-project",
 			Commit:            commit,
 			DestroyOnFinalize: true,
@@ -379,11 +382,12 @@ var _ = Describe("Stack Controller", func() {
 				"aws:region": "us-east-2",
 			},
 			Stack:             stackName,
-			ProjectRepo:       fmt.Sprintf(`file://%s.git`, baseDir),
+			ProjectRepo:       baseDir,
 			RepoDir:           "test/testdata/test-s3-op-project",
 			Commit:            commit,
 			DestroyOnFinalize: true,
 		}
+		fmt.Printf("ProjectRepo: %q\n", spec.RepoDir)
 
 		// Create stack
 		name := "stack-test-aws-s3-file-secrets"
