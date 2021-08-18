@@ -5,13 +5,13 @@ package tests
 import (
 	"context"
 	"encoding/base32"
-	"encoding/json"
 	"fmt"
+	"gopkg.in/src-d/go-git.v4"
 	"math/rand"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"time"
@@ -26,10 +26,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var pulumiAccessToken = ""
-var awsAccessKeyID = ""
-var awsSecretAccessKey = ""
-var awsSessionToken = ""
+var (
+	pulumiAccessToken  = ""
+	awsAccessKeyID     = ""
+	awsSecretAccessKey = ""
+	awsSessionToken    = ""
+
+	baseDir = ""
+)
 
 const namespace = "default"
 const pulumiAPISecretName = "pulumi-api-secret"
@@ -45,7 +49,13 @@ var _ = Describe("Stack Controller", func() {
 	stackOrg := strings.TrimSuffix(string(whoami), "\n")
 	fmt.Printf("stackOrg: %s", stackOrg)
 
-	commit, err := getCurrentCommit()
+	_, path, _, ok := runtime.Caller(1)
+	if !ok {
+		Fail("Failed to determine current directory")
+	}
+	// Absolute path to base directory for the repository locally.
+	baseDir = filepath.FromSlash(filepath.Join(path, ".."))
+	commit, err := getCurrentCommit(baseDir)
 	if err != nil {
 		Fail(fmt.Sprintf("Couldn't resolve current commit: %v", err))
 	}
@@ -186,7 +196,7 @@ var _ = Describe("Stack Controller", func() {
 		localSpec := pulumiv1alpha1.StackSpec{
 			Backend:         fmt.Sprintf("file://%s", backendDir),
 			Stack:           stackName,
-			ProjectRepo:     "https://github.com/pulumi/pulumi-kubernetes-operator",
+			ProjectRepo:     fmt.Sprintf(`file://%s.git`, baseDir),
 			RepoDir:         "test/testdata/empty-stack",
 			Commit:          commit,
 			SecretsProvider: "passphrase",
@@ -242,7 +252,7 @@ var _ = Describe("Stack Controller", func() {
 				"aws:region": "us-east-2",
 			},
 			Stack:             stackName,
-			ProjectRepo:       "https://github.com/pulumi/pulumi-kubernetes-operator",
+			ProjectRepo:       fmt.Sprintf(`file://%s.git`, baseDir),
 			RepoDir:           "test/testdata/test-s3-op-project",
 			Commit:            commit,
 			DestroyOnFinalize: true,
@@ -369,7 +379,7 @@ var _ = Describe("Stack Controller", func() {
 				"aws:region": "us-east-2",
 			},
 			Stack:             stackName,
-			ProjectRepo:       "https://github.com/pulumi/pulumi-kubernetes-operator",
+			ProjectRepo:       fmt.Sprintf(`file://%s.git`, baseDir),
 			RepoDir:           "test/testdata/test-s3-op-project",
 			Commit:            commit,
 			DestroyOnFinalize: true,
@@ -392,26 +402,18 @@ var _ = Describe("Stack Controller", func() {
 	})
 })
 
-func getCurrentCommit() (string, error) {
-	const url = `https://api.github.com/repos/pulumi/pulumi-kubernetes-operator/commits/master`
-
-	resp, err := http.Get(url)
+func getCurrentCommit(path string) (string, error) {
+	r, err := git.PlainOpen(path)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
 
-	data := map[string]interface{}{}
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+	ref, err := r.Head()
+	if err != nil {
 		return "", err
 	}
 
-	if val, ok := data["sha"]; ok {
-		if sha, ok := val.(string); ok {
-			return sha, nil
-		}
-	}
-	return "", fmt.Errorf("unexpected commit data returned for url: %v", url)
+	return ref.Hash().String(), nil
 }
 
 func stackUpdatedToCommit(stack *pulumiv1alpha1.Stack, commit string) bool {
