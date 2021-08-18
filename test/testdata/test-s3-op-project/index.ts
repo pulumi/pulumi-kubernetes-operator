@@ -1,12 +1,19 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
-import * as awsx from "@pulumi/awsx";
 
-// Create an AWS resource (S3 Bucket)
+const cfg = new pulumi.Config("aws");
+// We will induce a change in region to test failures.
+const region = cfg.require("region");
+
+const prov = new aws.Provider("provider", {region: region as aws.Region});
 const names = [];
 for (let i = 0; i < 2; i++) {
+    // Create an AWS resource (S3 Bucket)
     const bucket = new aws.s3.Bucket(`my-bucket-${i}`, {
         acl: "public-read",
+        tags: {"region": region},
+    }, {
+        provider: prov,
     });
     names.push(bucket.id);
 }
