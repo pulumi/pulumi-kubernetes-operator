@@ -49,10 +49,6 @@ dockers:
     # GOARCH of the built binary that should be used.
     goarch: amd64
 
-    # Name templates of the built binaries that should be used.
-    binaries:
-    - "{{ .ProjectName }}"
-
     # Path to the Dockerfile (from the project root).
     dockerfile: Dockerfile
 
