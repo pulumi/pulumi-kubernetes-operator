@@ -543,7 +543,7 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd, workspace
 		outs := bufio.NewScanner(stdoutR)
 		for outs.Scan() {
 			text := outs.Text()
-			sess.logger.Debug(title, "Path", cmd.Path, "Args", cmd.Args, "Stdout", text)
+			sess.logger.Debug(title, "Dir", cmd.Dir, "Path", cmd.Path, "Args", cmd.Args, "Stdout", text)
 			stdout.WriteString(text + "\n")
 		}
 	}()
@@ -551,7 +551,7 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd, workspace
 		errs := bufio.NewScanner(stderrR)
 		for errs.Scan() {
 			text := errs.Text()
-			sess.logger.Debug(title, "Path", cmd.Path, "Args", cmd.Args, "Text", text)
+			sess.logger.Debug(title, "Dir", cmd.Dir, "Path", cmd.Path, "Args", cmd.Args, "Text", text)
 			stderr.WriteString(text + "\n")
 		}
 	}()
@@ -688,6 +688,7 @@ func (sess *reconcileStackSession) InstallProjectDependencies(ctx context.Contex
 	if err != nil {
 		return errors.Wrap(err, "unable to get project runtime")
 	}
+	sess.logger.Debug("InstallProjectDependencies", "workspace", workspace.WorkDir())
 	switch project.Runtime.Name() {
 	case "nodejs":
 		npm, _ := exec.LookPath("npm")
@@ -825,19 +826,24 @@ func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStat
 	return pulumiv1alpha1.StackUpdateSucceeded, permalink, &result, nil
 }
 
-// GetPulumiOutputs gets the stack outputs and parses them into a map.
+// GetStackOutputs gets the stack outputs and parses them into a map.
 func (sess *reconcileStackSession) GetStackOutputs(outs auto.OutputMap) (pulumiv1alpha1.StackOutputs, error) {
 	o := make(pulumiv1alpha1.StackOutputs)
 	for k, v := range outs {
-		// Marshal the OutputMap value only, to use in unmarshaling to StackOutputs
-		valueBytes, err := json.Marshal(v.Value)
-		if err != nil {
-			return nil, errors.Wrap(err, "marshaling stack output value interface")
-		}
 		var value apiextensionsv1.JSON
-		if err := json.Unmarshal(valueBytes, &value); err != nil {
-			return nil, errors.Wrap(err, "unmarshaling stack output value")
+		if v.Secret {
+			value = apiextensionsv1.JSON{Raw: []byte(`"[secret]"`)}
+		} else {
+			// Marshal the OutputMap value only, to use in unmarshaling to StackOutputs
+			valueBytes, err := json.Marshal(v.Value)
+			if err != nil {
+				return nil, errors.Wrap(err, "marshaling stack output value interface")
+			}
+			if err := json.Unmarshal(valueBytes, &value); err != nil {
+				return nil, errors.Wrap(err, "unmarshaling stack output value")
+			}
 		}
+
 		o[k] = value
 	}
 	return o, nil
