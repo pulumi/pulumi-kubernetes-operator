@@ -688,6 +688,7 @@ func (sess *reconcileStackSession) InstallProjectDependencies(ctx context.Contex
 	if err != nil {
 		return errors.Wrap(err, "unable to get project runtime")
 	}
+	sess.logger.Debug("InstallProjectDependencies", "workspace", workspace.WorkDir())
 	switch project.Runtime.Name() {
 	case "nodejs":
 		npm, _ := exec.LookPath("npm")
@@ -829,11 +830,9 @@ func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStat
 func (sess *reconcileStackSession) GetStackOutputs(outs auto.OutputMap) (pulumiv1alpha1.StackOutputs, error) {
 	o := make(pulumiv1alpha1.StackOutputs)
 	for k, v := range outs {
-		// TODO: Get rid of this
-		sess.logger.Info("outputs", "key", k, "value", v)
 		var value apiextensionsv1.JSON
 		if v.Secret {
-			value = apiextensionsv1.JSON{Raw: []byte(`"[ secret ]"`)}
+			value = apiextensionsv1.JSON{Raw: []byte(`"[secret]"`)}
 		} else {
 			// Marshal the OutputMap value only, to use in unmarshaling to StackOutputs
 			valueBytes, err := json.Marshal(v.Value)

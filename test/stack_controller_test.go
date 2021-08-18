@@ -6,15 +6,17 @@ import (
 	"context"
 	"encoding/base32"
 	"fmt"
-	"gopkg.in/src-d/go-git.v4"
 	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"time"
+
+	"gopkg.in/src-d/go-git.v4"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -220,14 +222,21 @@ var _ = Describe("Stack Controller", func() {
 			if err != nil {
 				return false
 			}
+
 			if fetched.Status.LastUpdate != nil {
 				return fetched.Status.LastUpdate.LastSuccessfulCommit != "" &&
 					fetched.Status.LastUpdate.LastAttemptedCommit != "" &&
 					fetched.Status.LastUpdate.LastSuccessfulCommit == fetched.Status.LastUpdate.LastAttemptedCommit &&
 					fetched.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage
 			}
+
 			return false
 		}, timeout, interval).Should(BeTrue())
+		// Validate outputs.
+		Expect(fetched.Status.Outputs).Should(BeEquivalentTo(pulumiv1alpha1.StackOutputs{
+			"notSoSecret": v1.JSON{Raw: []byte(`"safe"`)},
+			"secretVal":   v1.JSON{Raw: []byte(`"[secret]"`)},
+		}))
 
 		// Delete the Stack
 		toDelete := &pulumiv1alpha1.Stack{}
