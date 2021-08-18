@@ -13,6 +13,10 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v2
+        with:
+          # The following are to allow tests to run against local commits.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@v2
         with:
