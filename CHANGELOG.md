@@ -4,6 +4,8 @@ CHANGELOG
 ## HEAD (Unreleased)
 
 - Bump controller-runtime to support graceful shutdown/upgrades [#178](https://github.com/pulumi/pulumi-kubernetes-operator/pull/178)
+- Update to v3.10.2 [#177](https://github.com/pulumi/pulumi-kubernetes-operator/pull/177)
+- Cloak outputs with secrets in stack CR [#177](https://github.com/pulumi/pulumi-kubernetes-operator/pull/177)
 
 ## 0.0.16 (2021-07-29)
 
