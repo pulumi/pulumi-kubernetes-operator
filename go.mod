@@ -25,7 +25,3 @@ replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
 	k8s.io/client-go => k8s.io/client-go v0.18.19 // Required by prometheus-operator
 )
-
-// This replaced version includes controller-runtime predicate utilities necessary for v1.0.0 that are still in master.
-// Remove this and require the next minor/patch version of controller-runtime (>v0.6.1) when released.
-replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
