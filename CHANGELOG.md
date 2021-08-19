@@ -2,7 +2,7 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
-(None)
+- Fix pip cache directory to be on emptyDir mount [#181[(https://github.com/pulumi/pulumi-kubernetes-operator/pull/181)
 
 ## 0.0.17 (2021-08-18)
 
