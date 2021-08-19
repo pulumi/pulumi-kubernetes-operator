@@ -17,6 +17,7 @@ RUN mkdir -p /home/pulumi-kubernetes-operator/.ssh \
 USER pulumi-kubernetes-operator
 
 ENV XDG_CONFIG_HOME=/tmp/.config
+ENV XDG_CACHE_HOME=/tmp/.cache
 ENV XDG_CONFIG_CACHE=/tmp/.cache
 ENV GOCACHE=/tmp/.cache/go-build
 ENV GOPATH=/tmp/.cache/go
