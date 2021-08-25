@@ -206,7 +206,7 @@ var _ = Describe("Stack Controller", func() {
 			Commit:          commit,
 			SecretsProvider: "passphrase",
 			SecretEnvs: []string{
-				passphraseSecret.ObjectMeta.Name,
+				passphraseSecret.Name,
 			},
 		}
 
@@ -256,9 +256,9 @@ var _ = Describe("Stack Controller", func() {
 
 		// Define the stack spec
 		spec := pulumiv1alpha1.StackSpec{
-			AccessTokenSecret: pulumiAPISecret.ObjectMeta.Name,
+			AccessTokenSecret: pulumiAPISecret.Name,
 			SecretEnvs: []string{
-				pulumiAWSSecret.ObjectMeta.Name,
+				pulumiAWSSecret.Name,
 			},
 			Config: map[string]string{
 				"aws:region": "us-east-2",

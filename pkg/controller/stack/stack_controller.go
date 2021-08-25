@@ -615,9 +615,14 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	}
 	sess.workdir = w.WorkDir()
 
-	// Create a new stack if the stack does not already exist, or fall back to
-	// selecting the existing stack. If the stack does not exist, it will be created and selected.
-	a, err := auto.UpsertStack(context.Background(), sess.stack.Stack, w)
+	ctx := context.Background()
+	var a auto.Stack
+
+	if sess.stack.UseLocalStackOnly {
+		a, err = auto.SelectStack(ctx, sess.stack.Stack, w)
+	} else {
+		a, err = auto.UpsertStack(ctx, sess.stack.Stack, w)
+	}
 	if err != nil {
 		return errors.Wrapf(err, "failed to create and/or select stack: %s", sess.stack.Stack)
 	}
