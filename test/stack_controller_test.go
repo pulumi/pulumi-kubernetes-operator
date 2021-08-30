@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base32"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -183,6 +184,14 @@ var _ = Describe("Stack Controller", func() {
 		}
 	})
 
+	var toDelete []string
+
+	defer func() {
+		for _, d := range toDelete {
+			_ = os.RemoveAll(d)
+		}
+	}()
+
 	// Tip: avoid adding tests for vanilla CRUD operations because they would
 	// test the Kubernetes API server, which isn't the goal here.
 
@@ -190,12 +199,14 @@ var _ = Describe("Stack Controller", func() {
 		var stack *pulumiv1alpha1.Stack
 		// Use a local backend for this test.
 		// Local backend doesn't allow setting slashes in stack name.
-		stackName := fmt.Sprintf("%s-local-simple-stack-dev-%s", stackOrg, randString())
+		const stackName = "dev"
 		fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
 
 		// Tests run from outside the container. Using the safest existing directory to store
 		// local state for the sake of this test.
-		const backendDir = "/tmp"
+		backendDir, err := ioutil.TempDir("", "local-state")
+		Ω(err).ShouldNot(HaveOccurred())
+		toDelete = append(toDelete, backendDir)
 
 		// Define the stack spec
 		localSpec := pulumiv1alpha1.StackSpec{
@@ -234,6 +245,7 @@ var _ = Describe("Stack Controller", func() {
 		}, timeout, interval).Should(BeTrue())
 		// Validate outputs.
 		Expect(fetched.Status.Outputs).Should(BeEquivalentTo(pulumiv1alpha1.StackOutputs{
+			"region":      v1.JSON{Raw: []byte(`"us-west-2"`)},
 			"notSoSecret": v1.JSON{Raw: []byte(`"safe"`)},
 			"secretVal":   v1.JSON{Raw: []byte(`"[secret]"`)},
 		}))

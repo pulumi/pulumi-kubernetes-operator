@@ -120,8 +120,8 @@ type StackSpec struct {
 	// and randomized activity timeline for the stack in the Pulumi Service.
 	RetryOnUpdateConflict bool `json:"retryOnUpdateConflict,omitempty"`
 
-	// (optional) UseLocalStackOnly can be set to true to prevent the operator to
-	// create stacks that do not exist in the tracking git repo.
+	// (optional) UseLocalStackOnly can be set to true to prevent the operator from
+	// creating stacks that do not exist in the tracking git repo.
 	// The default behavior is to create a stack if it doesn't exist.
 	UseLocalStackOnly bool `json:"useLocalStackOnly,omitempty"`
 }
@@ -367,7 +367,7 @@ type StackController interface {
 	// UpdateConfig updates the stack configuration values and secret values by
 	// combining any configuration values checked into the source repository with
 	// the Config values provided in the Stack, overriding values that match and exist.
-	UpdateConfig() error
+	UpdateConfig(ctx context.Context) error
 	// RefreshStack refreshes the stack before the update step is run, and
 	// errors the run if changes were not expected but found after the refresh.
 	RefreshStack(expectNoChanges bool) (Permalink, error)
