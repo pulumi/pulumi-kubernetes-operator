@@ -2,7 +2,8 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
-- Fix pip cache directory to be on emptyDir mount [#181[(https://github.com/pulumi/pulumi-kubernetes-operator/pull/181)
+- Fix pip cache directory to be on emptyDir mount [#181](https://github.com/pulumi/pulumi-kubernetes-operator/pull/181)
+- Add `useLocalStackOnly` option to prevent stack creation by the operator [#186](https://github.com/pulumi/pulumi-kubernetes-operator/pull/186)
 
 ## 0.0.17 (2021-08-18)
 

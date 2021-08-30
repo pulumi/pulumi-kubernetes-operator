@@ -119,6 +119,11 @@ type StackSpec struct {
 	// all spawned retries succeed. This will also create a more populated,
 	// and randomized activity timeline for the stack in the Pulumi Service.
 	RetryOnUpdateConflict bool `json:"retryOnUpdateConflict,omitempty"`
+
+	// (optional) UseLocalStackOnly can be set to true to prevent the operator to
+	// create stacks that do not exist in the tracking git repo.
+	// The default behavior is to create a stack if it doesn't exist.
+	UseLocalStackOnly bool `json:"useLocalStackOnly,omitempty"`
 }
 
 // GitAuthConfig specifies git authentication configuration options.

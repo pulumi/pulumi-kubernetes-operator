@@ -478,6 +478,9 @@ spec:
               stack:
                 description: Stack is the fully qualified name of the stack to deploy (<org>/<stack>).
                 type: string
+              useLocalStackOnly:
+                description: (optional) UseLocalStackOnly can be set to true to prevent the operator to create stacks that do not exist in the tracking git repo. The default behavior is to create a stack if it doesn't exist.
+                type: boolean
             required:
             - projectRepo
             - stack
