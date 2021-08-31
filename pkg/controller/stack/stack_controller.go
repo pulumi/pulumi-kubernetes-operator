@@ -16,17 +16,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
-	"github.com/pulumi/pulumi-kubernetes-operator/version"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
-
 	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/pkg/errors"
 	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
+	"github.com/pulumi/pulumi-kubernetes-operator/version"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optrefresh"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 	giturls "github.com/whilp/git-urls"
 	git "gopkg.in/src-d/go-git.v4"
 	corev1 "k8s.io/api/core/v1"
@@ -604,29 +604,40 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 		return errors.Wrap(err, "failed to create local workspace")
 	}
 
+	sess.workdir = w.WorkDir()
+
 	if sess.stack.Backend != "" {
 		w.SetEnvVar("PULUMI_BACKEND_URL", sess.stack.Backend)
 	}
 	if accessToken, found := sess.lookupPulumiAccessToken(); found {
 		w.SetEnvVar("PULUMI_ACCESS_TOKEN", accessToken)
 	}
+
 	if err = sess.SetEnvRefsForWorkspace(w); err != nil {
 		return err
 	}
-	sess.workdir = w.WorkDir()
 
 	ctx := context.Background()
 	var a auto.Stack
 
 	if sess.stack.UseLocalStackOnly {
+		sess.logger.Info("Using local stack", "stack", sess.stack.Stack)
 		a, err = auto.SelectStack(ctx, sess.stack.Stack, w)
 	} else {
+		sess.logger.Info("Upserting stack", "stack", sess.stack.Stack, "workspace", w)
 		a, err = auto.UpsertStack(ctx, sess.stack.Stack, w)
 	}
 	if err != nil {
 		return errors.Wrapf(err, "failed to create and/or select stack: %s", sess.stack.Stack)
 	}
 	sess.autoStack = &a
+	sess.logger.Debug("Setting autostack", "autostack", sess.autoStack)
+
+	c, err := sess.autoStack.GetAllConfig(ctx)
+	if err != nil {
+		return err
+	}
+	sess.logger.Debug("Initial autostack config", "config", c)
 
 	// Ensure stack settings file in workspace is populated appropriately.
 	if err = sess.ensureStackSettings(context.Background(), w); err != nil {
@@ -634,7 +645,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	}
 
 	// Update the stack config and secret config values.
-	err = sess.UpdateConfig()
+	err = sess.UpdateConfig(ctx)
 	if err != nil {
 		sess.logger.Error(err, "failed to set stack config", "Stack.Name", sess.stack.Stack)
 		return errors.Wrap(err, "failed to set stack config")
@@ -654,8 +665,11 @@ func (sess *reconcileStackSession) ensureStackSettings(ctx context.Context, w au
 	// If not found, stackConfig will be a pointer to a zeroed-out workspace.ProjectStack.
 	stackConfig, err := w.StackSettings(ctx, sess.stack.Stack)
 	if err != nil {
-		return errors.Wrap(err, "failed to load stack config")
+		sess.logger.Info("Missing stack config file. Will assume no stack config checked-in.", "Cause", err)
+		stackConfig = &workspace.ProjectStack{}
 	}
+
+	sess.logger.Debug("stackConfig loaded", "stack", sess.autoStack, "stackConfig", stackConfig)
 
 	// We must always make sure the secret provider is initialized in the workspace
 	// before we set any configs. Otherwise secret provider will mysteriously reset.
@@ -754,7 +768,7 @@ func (sess *reconcileStackSession) InstallProjectDependencies(ctx context.Contex
 	}
 }
 
-func (sess *reconcileStackSession) UpdateConfig() error {
+func (sess *reconcileStackSession) UpdateConfig(ctx context.Context) error {
 	m := make(auto.ConfigMap)
 	for k, v := range sess.stack.Config {
 		m[k] = auto.ConfigValue{
@@ -779,7 +793,11 @@ func (sess *reconcileStackSession) UpdateConfig() error {
 			Secret: true,
 		}
 	}
-	return sess.autoStack.SetAllConfig(context.Background(), m)
+	if err := sess.autoStack.SetAllConfig(ctx, m); err != nil {
+		return err
+	}
+	sess.logger.Debug("Updated stack config", "Stack.Name", sess.stack.Stack, "config", m)
+	return nil
 }
 
 func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1alpha1.Permalink, error) {
