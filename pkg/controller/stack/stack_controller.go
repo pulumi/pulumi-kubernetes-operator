@@ -624,7 +624,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 		sess.logger.Info("Using local stack", "stack", sess.stack.Stack)
 		a, err = auto.SelectStack(ctx, sess.stack.Stack, w)
 	} else {
-		sess.logger.Info("Upserting stack", "stack", sess.stack.Stack, "worskspace", w)
+		sess.logger.Info("Upserting stack", "stack", sess.stack.Stack, "workspace", w)
 		a, err = auto.UpsertStack(ctx, sess.stack.Stack, w)
 	}
 	if err != nil {
