@@ -119,7 +119,7 @@ type ReconcileStack struct {
 
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
-func (r *ReconcileStack) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := logging.WithValues(log, "Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Stack")
 
@@ -1012,27 +1012,24 @@ func (sess *reconcileStackSession) addDefaultPermalink(stack *pulumiv1alpha1.Sta
 	return nil
 }
 
-func (sess *reconcileStackSession) getLatestResource(o runtime.Object, namespacedName types.NamespacedName) error {
+func (sess *reconcileStackSession) getLatestResource(o client.Object, namespacedName types.NamespacedName) error {
 	return sess.kubeClient.Get(context.TODO(), namespacedName, o)
 }
 
-func (sess *reconcileStackSession) updateResource(o runtime.Object) error {
+func (sess *reconcileStackSession) updateResource(o client.Object) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		return sess.kubeClient.Update(context.TODO(), o)
 	})
 }
 
-func (sess *reconcileStackSession) updateResourceStatus(o runtime.Object) error {
+func (sess *reconcileStackSession) updateResourceStatus(o client.Object) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		return sess.kubeClient.Status().Update(context.TODO(), o)
 	})
 }
 
-func (sess *reconcileStackSession) waitForDeletion(o runtime.Object) error {
-	key, err := client.ObjectKeyFromObject(o)
-	if err != nil {
-		return err
-	}
+func (sess *reconcileStackSession) waitForDeletion(o client.Object) error {
+	key := client.ObjectKeyFromObject(o)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()

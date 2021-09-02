@@ -10,6 +10,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -21,7 +22,6 @@ import (
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
-	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
@@ -33,6 +33,10 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+)
+
+const (
+	defaultGracefulShutdownTimeout = 5 * time.Minute
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -87,17 +91,27 @@ func main() {
 	}
 
 	ctx := context.TODO()
-	// Become the leader before proceeding
-	err = leader.Become(ctx, "pulumi-kubernetes-operator-lock")
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
+
+	gracefulShutdownTimeout := defaultGracefulShutdownTimeout
+	raw := os.Getenv("GRACEFUL_SHUTDOWN_TIMEOUT_DURATION")
+	if raw != "" {
+		var err error
+		gracefulShutdownTimeout, err = time.ParseDuration(raw)
+		if err != nil {
+			log.Error(err, "")
+			os.Exit(1)
+		}
 	}
+
+	log.Info("Graceful shutdown", "timeout", gracefulShutdownTimeout)
 
 	// Set default manager options
 	options := manager.Options{
-		Namespace:          namespace,
-		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		Namespace:               namespace,
+		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		GracefulShutdownTimeout: &gracefulShutdownTimeout,
+		LeaderElection:          true,
+		LeaderElectionID:        "pulumi-kubernetes-operator-lock",
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
