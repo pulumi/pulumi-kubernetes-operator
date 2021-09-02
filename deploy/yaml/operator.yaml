@@ -37,3 +37,6 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "pulumi-kubernetes-operator"
+            - name: GRACEFUL_SHUTDOWN_TIMEOUT_DURATION
+              value: 5m
+      terminationGracePeriodSeconds: 300 # Should be same or larger than GRACEFUL_SHUTDOWN_TIMEOUT_DURATION
