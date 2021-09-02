@@ -2,7 +2,8 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
-(none)
+- Add support for safe upgrades and graceful shutdowns [#189](https://github.com/pulumi/pulumi-kubernetes-operator/pull/189)
+- Bump pulumi dependencies [#189](https://github.com/pulumi/pulumi-kubernetes-operator/pull/189)
 
 ## 0.0.18 (2021-08-31)
 - Fix pip cache directory to be on emptyDir mount [#181](https://github.com/pulumi/pulumi-kubernetes-operator/pull/181)
