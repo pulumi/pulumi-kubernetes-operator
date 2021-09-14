@@ -2,7 +2,8 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
-(None)
+- Fix refresh loop with self hosted backend [#194](https://github.com/pulumi/pulumi-kubernetes-operator/pull/194)
+
 
 ## 0.0.19 (2021-09-02)
 - Add support for safe upgrades and graceful shutdowns [#189](https://github.com/pulumi/pulumi-kubernetes-operator/pull/189)
