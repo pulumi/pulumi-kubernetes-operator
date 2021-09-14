@@ -672,7 +672,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 		return errors.Wrap(err, "installing project dependencies")
 	}
 
-	return err
+	return nil
 }
 
 func (sess *reconcileStackSession) ensureStackSettings(ctx context.Context, w auto.Workspace) error {
