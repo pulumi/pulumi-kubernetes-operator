@@ -814,9 +814,11 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1a
 		return "", errors.Wrapf(err, "refreshing stack %q", sess.stack.Stack)
 	}
 	p, err := auto.GetPermalink(result.StdOut)
-	if err != nil {
-		// Just log the error. No permalink suggests a backend that doesn't support permalinks.
-		sess.logger.Error(err, "No permalink found.", "Namespace", sess.namespace)
+	if err != nil && errors.Is(err, auto.ErrParsePermalinkFailed) {
+		// No permalink suggests a backend that doesn't support permalinks.
+		return pulumiv1alpha1.Permalink(""), nil
+	} else if err != nil {
+		return pulumiv1alpha1.Permalink(""), err
 	}
 	permalink := pulumiv1alpha1.Permalink(p)
 	return permalink, nil
@@ -842,9 +844,11 @@ func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStat
 		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), nil, err
 	}
 	p, err := auto.GetPermalink(result.StdOut)
-	if err != nil {
-		// Successful update but no permalink suggests a backend which doesn't support permalinks. Ignore.
-		sess.logger.Error(err, "No permalink found.", "Namespace", sess.namespace)
+	if err != nil && errors.Is(err, auto.ErrParsePermalinkFailed) {
+		// No permalink suggests a backend that doesn't support permalinks.
+		return pulumiv1alpha1.StackUpdateSucceeded, pulumiv1alpha1.Permalink(""), &result, nil
+	} else if err != nil {
+		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), nil, err
 	}
 	permalink := pulumiv1alpha1.Permalink(p)
 	return pulumiv1alpha1.StackUpdateSucceeded, permalink, &result, nil
