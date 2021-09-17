@@ -829,11 +829,12 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1a
 	if err != nil {
 		return "", errors.Wrapf(err, "refreshing stack %q", sess.stack.Stack)
 	}
-	p, err := auto.GetPermalink(result.StdOut)
-	if err != nil && errors.Is(err, auto.ErrParsePermalinkFailed) {
-		// No permalink suggests a backend that doesn't support permalinks.
+
+	if sess.stack.Backend != "" || sess.stack.Backend != "https://app.pulumi.com" {
 		return pulumiv1alpha1.Permalink(""), nil
-	} else if err != nil {
+	}
+	p, err := auto.GetPermalink(result.StdOut)
+	if err != nil {
 		return pulumiv1alpha1.Permalink(""), err
 	}
 	permalink := pulumiv1alpha1.Permalink(p)
@@ -859,11 +860,13 @@ func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStat
 		}
 		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), nil, err
 	}
-	p, err := auto.GetPermalink(result.StdOut)
-	if err != nil && errors.Is(err, auto.ErrParsePermalinkFailed) {
-		// No permalink suggests a backend that doesn't support permalinks.
+
+	if sess.stack.Backend != "" || sess.stack.Backend != "https://app.pulumi.com" {
 		return pulumiv1alpha1.StackUpdateSucceeded, pulumiv1alpha1.Permalink(""), &result, nil
-	} else if err != nil {
+	}
+
+	p, err := auto.GetPermalink(result.StdOut)
+	if err != nil {
 		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), nil, err
 	}
 	permalink := pulumiv1alpha1.Permalink(p)
