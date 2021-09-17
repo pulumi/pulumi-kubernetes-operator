@@ -174,13 +174,13 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
+	// Delete the working directory after the reconciliation is completed (regardless of success or failure).
+	defer sess.CleanupPulumiWorkdir()
+
 	currentCommit, err := revisionAtWorkingDir(sess.workdir)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
-	// Delete the working directory after the reconciliation is completed (regardless of success or failure).
-	defer sess.CleanupPulumiWorkdir()
 
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
 	if err = sess.SetEnvs(stack.Envs, request.Namespace); err != nil {
@@ -599,7 +599,22 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	sess.logger.Debug("Setting up pulumi workdir for stack", "stack", sess.stack)
 	// Create a new workspace.
 	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
-	w, err := auto.NewLocalWorkspace(context.Background(), auto.Repo(repo), secretsProvider)
+
+	// Create the temporary workdir
+	dir, err := os.MkdirTemp("", "pulumi_auto")
+	if err != nil {
+		return errors.Wrap(err, "unable to create tmp directory for workspace")
+	}
+
+	// Cleanup the workdir on failure setting up the workspace.
+	defer func() {
+		if err != nil {
+			_ = os.RemoveAll(dir)
+		}
+	}()
+
+	var w auto.Workspace
+	w, err = auto.NewLocalWorkspace(context.Background(), auto.WorkDir(dir), auto.Repo(repo), secretsProvider)
 	if err != nil {
 		return errors.Wrap(err, "failed to create local workspace")
 	}
@@ -633,7 +648,8 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	sess.autoStack = &a
 	sess.logger.Debug("Setting autostack", "autostack", sess.autoStack)
 
-	c, err := sess.autoStack.GetAllConfig(ctx)
+	var c auto.ConfigMap
+	c, err = sess.autoStack.GetAllConfig(ctx)
 	if err != nil {
 		return err
 	}
