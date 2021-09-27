@@ -2,8 +2,11 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
+(None)
+
+## 0.0.20 (2021-09-27)
 - Improve workdir cleanup logic [#195](https://github.com/pulumi/pulumi-kubernetes-operator/pull/195)
-- Bump to Pulumi v3.13.0
+- Bump to Pulumi v3.13.0 [#198](https://github.com/pulumi/pulumi-kubernetes-operator/pull/198)
 
 ## 0.0.19 (2021-09-02)
 - Add support for safe upgrades and graceful shutdowns [#189](https://github.com/pulumi/pulumi-kubernetes-operator/pull/189)
