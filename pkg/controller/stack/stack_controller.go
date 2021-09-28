@@ -831,7 +831,8 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1a
 	}
 	p, err := auto.GetPermalink(result.StdOut)
 	if err != nil {
-		return "", err
+		// Successful update but no permalink suggests a backend which doesn't support permalinks. Ignore.
+		sess.logger.Error(err, "No permalink found.", "Namespace", sess.namespace)
 	}
 	permalink := pulumiv1alpha1.Permalink(p)
 	return permalink, nil
