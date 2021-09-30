@@ -174,7 +174,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
-	// Delete the working directory after the reconciliation is completed (regardless of success or failure).
+	// Delete the temporary directory after the reconciliation is completed (regardless of success or failure).
 	defer sess.CleanupPulumiDir()
 
 	currentCommit, err := revisionAtWorkingDir(sess.workdir)
