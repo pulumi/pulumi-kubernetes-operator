@@ -174,8 +174,8 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
-	// Delete the working directory after the reconciliation is completed (regardless of success or failure).
-	defer sess.CleanupPulumiWorkdir()
+	// Delete the temporary directory after the reconciliation is completed (regardless of success or failure).
+	defer sess.CleanupPulumiDir()
 
 	currentCommit, err := revisionAtWorkingDir(sess.workdir)
 	if err != nil {
@@ -391,6 +391,7 @@ type reconcileStackSession struct {
 	autoStack  *auto.Stack
 	namespace  string
 	workdir    string
+	rootDir    string
 }
 
 // blank assignment to verify that reconcileStackSession implements pulumiv1alpha1.StackController.
@@ -605,11 +606,12 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	if err != nil {
 		return errors.Wrap(err, "unable to create tmp directory for workspace")
 	}
+	sess.rootDir = dir
 
-	// Cleanup the workdir on failure setting up the workspace.
+	// Cleanup the rootdir on failure setting up the workspace.
 	defer func() {
 		if err != nil {
-			_ = os.RemoveAll(dir)
+			_ = os.RemoveAll(sess.rootDir)
 		}
 	}()
 
@@ -697,10 +699,10 @@ func (sess *reconcileStackSession) ensureStackSettings(ctx context.Context, w au
 	return nil
 }
 
-func (sess *reconcileStackSession) CleanupPulumiWorkdir() {
-	if sess.workdir != "" {
-		if err := os.RemoveAll(sess.workdir); err != nil {
-			sess.logger.Error(err, "Failed to delete working dir: %s", sess.workdir)
+func (sess *reconcileStackSession) CleanupPulumiDir() {
+	if sess.rootDir != "" {
+		if err := os.RemoveAll(sess.rootDir); err != nil {
+			sess.logger.Error(err, "Failed to delete temporary root dir: %s", sess.rootDir)
 		}
 	}
 }
