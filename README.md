@@ -910,6 +910,10 @@ Check out [Create Pulumi Stacks using Pulumi](./docs/create-stacks-using-pulumi.
 - [Managing a Kubernetes Blue/Green Deployment](./examples/blue-green)
 - [AWS S3 Buckets](./examples/aws-s3)
 
+### Stack CR Documentation
+
+- Detailed documentation on Stack Custom Resource is available [here](./docs/stacks.md)
+
 ## Development
 
 Check out [docs/build.md](./docs/build.md) for more details on building and
