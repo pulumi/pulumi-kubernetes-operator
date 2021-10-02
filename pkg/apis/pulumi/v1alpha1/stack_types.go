@@ -29,14 +29,14 @@ type StackSpec struct {
 	// Deprecated: use EnvRefs instead.
 	SecretEnvs []string `json:"envSecrets,omitempty"`
 
-	// (optional) Backend is an optional backend URL to use for all Pulumi operations.
-	// Examples:
-	//   - Pulumi Service:              "https://app.pulumi.com" (default)
-	//   - Self-managed Pulumi Service: "https://pulumi.acmecorp.com"
-	//   - Local:                       "file://./einstein"
-	//   - AWS:                         "s3://<my-pulumi-state-bucket>"
-	//   - Azure:                       "azblob://<my-pulumi-state-bucket>"
-	//   - GCP:                         "gs://<my-pulumi-state-bucket>"
+	// (optional) Backend is an optional backend URL to use for all Pulumi operations.<br/>
+	// Examples:<br/>
+	//   - Pulumi Service:              "https://app.pulumi.com" (default)<br/>
+	//   - Self-managed Pulumi Service: "https://pulumi.acmecorp.com" <br/>
+	//   - Local:                       "file://./einstein" <br/>
+	//   - AWS:                         "s3://<my-pulumi-state-bucket>" <br/>
+	//   - Azure:                       "azblob://<my-pulumi-state-bucket>" <br/>
+	//   - GCP:                         "gs://<my-pulumi-state-bucket>" <br/>
 	// See: https://www.pulumi.com/docs/intro/concepts/state/
 	Backend string `json:"backend,omitempty"`
 
