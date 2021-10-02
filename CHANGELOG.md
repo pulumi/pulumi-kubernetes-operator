@@ -5,6 +5,7 @@ CHANGELOG
 - Fix clean up logic on reconcile [#203](https://github.com/pulumi/pulumi-kubernetes-operator/pull/203)
 - Fix stack refresh for BYO backend [#200](https://github.com/pulumi/pulumi-kubernetes-operator/pull/200)
 - Bump to pulumi v3.13.2 [#207](https://github.com/pulumi/pulumi-kubernetes-operator/pull/207)
+- Add docs for Stack CR [#205](https://github.com/pulumi/pulumi-kubernetes-operator/pull/205)
 
 ## 0.0.20 (2021-09-27)
 - Improve workdir cleanup logic [#195](https://github.com/pulumi/pulumi-kubernetes-operator/pull/195)
