@@ -20,3 +20,6 @@ for (let i = 0; i < 2; i++) {
 
 // Export the name of the buckets
 export const bucketNames = names;
+
+// Export the bucket names as a secret
+export const bucketsAsSecrets = pulumi.secret(bucketNames);
