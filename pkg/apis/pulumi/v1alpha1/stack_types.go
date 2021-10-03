@@ -13,7 +13,7 @@ type StackSpec struct {
 	// Auth info:
 
 	// (optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access.
-	// Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_KEY instead.
+	// Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN instead.
 	AccessTokenSecret string `json:"accessTokenSecret,omitempty"`
 
 	// (optional) Envs is an optional array of config maps containing environment variables to set.
