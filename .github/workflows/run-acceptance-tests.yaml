@@ -85,7 +85,9 @@ jobs:
         run: |
           # Create GKE test cluster to install CRDs and use with the test operator.
           scripts/ci-cluster-create.sh
-
+          # Source the env variables created in the script above
+          cat ~/.envfile
+          . ~/.envfile
           # Run tests
           make codegen install-crds
           make test

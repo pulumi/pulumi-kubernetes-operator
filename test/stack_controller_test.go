@@ -276,7 +276,6 @@ var _ = Describe("Stack Controller", func() {
 			Config: map[string]string{
 				"aws:region": "us-east-2",
 			},
-			Refresh:           true,
 			Stack:             stackName,
 			ProjectRepo:       baseDir,
 			RepoDir:           "test/testdata/test-s3-op-project",

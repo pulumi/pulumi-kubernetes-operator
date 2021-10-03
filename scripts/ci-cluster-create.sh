@@ -21,6 +21,6 @@ tail -10 out
 pulumi stack init "${STACK}"
 pulumi up --skip-preview --yes
 touch ~/.envfile
-echo PULUMI_S3_BACKEND_BUCKET="`pulumi stack output bucketName`" > ~/.envfile
-echo PULUMI_KMS_KEY="`pulumi stack output kmsKey`" >> ~/.envfile
+echo export PULUMI_S3_BACKEND_BUCKET="`pulumi stack output bucketName`" > ~/.envfile
+echo export PULUMI_KMS_KEY="`pulumi stack output kmsKey`" >> ~/.envfile
 popd
