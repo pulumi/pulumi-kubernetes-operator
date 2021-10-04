@@ -33,7 +33,7 @@ spec:
             description: StackSpec defines the desired state of Pulumi Stack being managed by this operator.
             properties:
               accessTokenSecret:
-                description: '(optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_KEY instead.'
+                description: '(optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN instead.'
                 type: string
               backend:
                 description: '(optional) Backend is an optional backend URL to use for all Pulumi operations. Examples:   - Pulumi Service:              "https://app.pulumi.com" (default)   - Self-managed Pulumi Service: "https://pulumi.acmecorp.com"   - Local:                       "file://./einstein"   - AWS:                         "s3://<my-pulumi-state-bucket>"   - Azure:                       "azblob://<my-pulumi-state-bucket>"   - GCP:                         "gs://<my-pulumi-state-bucket>" See: https://www.pulumi.com/docs/intro/concepts/state/'
@@ -418,7 +418,7 @@ spec:
                 description: '(optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository. Deprecated: use SecretRefs instead.'
                 type: object
               secretsProvider:
-                description: '(optional) SecretsProvider is used to initialize a Stack with alternative encryption. Examples:   - AWS:   "awskms://arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"   - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"   - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"   - See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-with-alternative-encryption'
+                description: '(optional) SecretsProvider is used to initialize a Stack with alternative encryption. Examples:   - AWS:   "awskms:///arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"   - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"   - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"   - See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-with-alternative-encryption'
                 type: string
               secretsRef:
                 additionalProperties:
@@ -479,7 +479,7 @@ spec:
                 description: Stack is the fully qualified name of the stack to deploy (<org>/<stack>).
                 type: string
               useLocalStackOnly:
-                description: (optional) UseLocalStackOnly can be set to true to prevent the operator to create stacks that do not exist in the tracking git repo. The default behavior is to create a stack if it doesn't exist.
+                description: (optional) UseLocalStackOnly can be set to true to prevent the operator from creating stacks that do not exist in the tracking git repo. The default behavior is to create a stack if it doesn't exist.
                 type: boolean
             required:
             - projectRepo

@@ -13,7 +13,7 @@ type StackSpec struct {
 	// Auth info:
 
 	// (optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access.
-	// Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_KEY instead.
+	// Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN instead.
 	AccessTokenSecret string `json:"accessTokenSecret,omitempty"`
 
 	// (optional) Envs is an optional array of config maps containing environment variables to set.
@@ -57,7 +57,7 @@ type StackSpec struct {
 	SecretRefs map[string]ResourceRef `json:"secretsRef,omitempty"`
 	// (optional) SecretsProvider is used to initialize a Stack with alternative encryption.
 	// Examples:
-	//   - AWS:   "awskms://arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"
+	//   - AWS:   "awskms:///arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"
 	//   - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"
 	//   - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"
 	//   -

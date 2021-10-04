@@ -689,10 +689,14 @@ func (sess *reconcileStackSession) ensureStackSettings(ctx context.Context, w au
 
 	sess.logger.Debug("stackConfig loaded", "stack", sess.autoStack, "stackConfig", stackConfig)
 
-	// We must always make sure the secret provider is initialized in the workspace
-	// before we set any configs. Otherwise secret provider will mysteriously reset.
-	// https://github.com/pulumi/pulumi-kubernetes-operator/issues/135
-	stackConfig.SecretsProvider = sess.stack.SecretsProvider
+	// Prefer the secretsProvider in the stack config. To override an existing stack to the default
+	// secret provider, the stack's secretsProvider field needs to be set to 'default'
+	if sess.stack.SecretsProvider != "" {
+		// We must always make sure the secret provider is initialized in the workspace
+		// before we set any configs. Otherwise secret provider will mysteriously reset.
+		// https://github.com/pulumi/pulumi-kubernetes-operator/issues/135
+		stackConfig.SecretsProvider = sess.stack.SecretsProvider
+	}
 	if err := w.SaveStackSettings(context.Background(), sess.stack.Stack, stackConfig); err != nil {
 		return errors.Wrap(err, "failed to save stack settings.")
 	}

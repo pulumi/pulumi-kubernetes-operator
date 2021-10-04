@@ -219,6 +219,7 @@ var _ = Describe("Stack Controller", func() {
 			SecretEnvs: []string{
 				passphraseSecret.Name,
 			},
+			Refresh: true,
 		}
 
 		// Create the stack
@@ -423,6 +424,70 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			return stackUpdatedToCommit(fetched, stack.Spec.Commit)
+		}, timeout, interval).Should(BeTrue())
+	})
+
+	It("Should deploy an AWS S3 Stack successfully using S3 backend", func() {
+		var stack *pulumiv1alpha1.Stack
+
+		s3Backend, ok := os.LookupEnv("PULUMI_S3_BACKEND_BUCKET")
+		if !ok {
+			Skip("No S3 backend bucket set in env variable: PULUMI_S3_BACKEND_BUCKET.")
+		}
+		kmsKey, ok := os.LookupEnv("PULUMI_KMS_KEY")
+		if !ok {
+			Skip("No KMS Key specified in env variable: PULUMI_KMS_KEY")
+		}
+
+		stackName := "s3backend.s3-op-project"
+		fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
+
+		// Define the stack spec
+		spec := pulumiv1alpha1.StackSpec{
+			AccessTokenSecret: pulumiAPISecret.Name,
+			SecretEnvs: []string{
+				pulumiAWSSecret.Name,
+			},
+			Backend:         fmt.Sprintf(`s3://%s`, s3Backend),
+			SecretsProvider: fmt.Sprintf(`awskms:///%s?region=us-east-2`, kmsKey),
+			Config: map[string]string{
+				"aws:region": "us-east-2",
+			},
+			Refresh:           true,
+			Stack:             stackName,
+			ProjectRepo:       baseDir,
+			RepoDir:           "test/testdata/test-s3-op-project",
+			Commit:            commit,
+			DestroyOnFinalize: true,
+		}
+
+		// Create stack
+		name := "stack-test-aws-s3-s3backend"
+		stack = generateStack(name, namespace, spec)
+		Expect(k8sClient.Create(ctx, stack)).Should(Succeed())
+
+		// Check that the stack updated successfully
+		initial := &pulumiv1alpha1.Stack{}
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, initial)
+			if err != nil {
+				return false
+			}
+			return stackUpdatedToCommit(initial, stack.Spec.Commit)
+		}, timeout, interval).Should(BeTrue())
+
+		// Check that secrets are not leaked
+		Expect(initial.Status.Outputs).Should(HaveKeyWithValue(
+			"bucketsAsSecrets", v1.JSON{Raw: []byte(`"[secret]"`)}))
+
+		// Delete the Stack
+		toDelete := &pulumiv1alpha1.Stack{}
+		By(fmt.Sprintf("Deleting the Stack: %s", stack.Name))
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, toDelete)).Should(Succeed())
+		Expect(k8sClient.Delete(ctx, toDelete)).Should(Succeed())
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, toDelete)
+			return k8serrors.IsNotFound(err)
 		}, timeout, interval).Should(BeTrue())
 	})
 })
