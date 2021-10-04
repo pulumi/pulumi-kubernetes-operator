@@ -10,16 +10,22 @@ default: build
 install-crds:
 	kubectl apply -f deploy/crds/pulumi.com_stacks.yaml
 
-codegen: install-controller-gen generate-k8s generate-crds
+codegen: install-controller-gen install-crdoc generate-k8s generate-crds generate-crdocs
 
 install-controller-gen:
 	@echo "Installing controller-gen to GOPATH/bin"; pushd /tmp >& /dev/null && go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0 ; popd >& /dev/null
+
+install-crdoc:
+	@echo "Installing crdoc to go GOPATH/bin"; pushd /tmp >& /dev/null && go install fybrik.io/crdoc@v0.5.2; popd >& /dev/null
 
 generate-crds:
 	./scripts/generate_crds.sh
 
 generate-k8s:
 	./scripts/generate_k8s.sh
+
+generate-crdocs:
+	crdoc --resources deploy/crds/pulumi.com_stacks.yaml --output docs/stacks.md
 
 build-image: build-static
 	docker build --rm -t $(IMAGE_NAME):$(VERSION) -f Dockerfile .
