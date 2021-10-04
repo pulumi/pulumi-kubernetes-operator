@@ -20,7 +20,7 @@ spec:
           emptyDir: {}
       containers:
         - name: pulumi-kubernetes-operator
-          image: pulumi/pulumi-kubernetes-operator:v0.0.20
+          image: pulumi/pulumi-kubernetes-operator:v0.0.21
           args:
             - "--zap-level=error"
           volumeMounts:
