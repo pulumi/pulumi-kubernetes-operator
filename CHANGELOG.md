@@ -2,6 +2,9 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
+(None)
+
+## 0.0.21 (2021-10-04)
 - Fix clean up logic on reconcile [#203](https://github.com/pulumi/pulumi-kubernetes-operator/pull/203)
 - Fix stack refresh for BYO backend [#200](https://github.com/pulumi/pulumi-kubernetes-operator/pull/200)
 - Bump to pulumi v3.13.2 [#207](https://github.com/pulumi/pulumi-kubernetes-operator/pull/207)
