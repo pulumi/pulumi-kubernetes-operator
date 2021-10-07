@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,8 +54,8 @@ var (
 )
 
 const (
-	pulumiFinalizer         = "finalizer.stack.pulumi.com"
-	maxConcurrentReconciles = 10 // arbitrary value greater than default of 1
+	pulumiFinalizer                = "finalizer.stack.pulumi.com"
+	defaultMaxConcurrentReconciles = 10
 )
 
 // Add creates a new Stack Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -76,6 +77,16 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
+	var err error
+	maxConcurrentReconciles := 10
+	maxConcurrentReconcilesStr, set := os.LookupEnv("MAX_CONCURRENT_RECONCILES")
+	if set {
+		maxConcurrentReconciles, err = strconv.Atoi(maxConcurrentReconcilesStr)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Create a new controller
 	c, err := controller.New("stack-controller", mgr, controller.Options{
 		Reconciler:              r,
