@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/operator-framework/operator-lib/handler"
 	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/pkg/errors"
 	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
@@ -36,11 +37,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -108,8 +109,18 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		predicate.Or(predicate.GenerationChangedPredicate{}, libpredicate.NoGenerationPredicate{}),
 	}
 
+	stackInformer, err := mgr.GetCache().GetInformer(context.Background(), &pulumiv1alpha1.Stack{})
+	if err != nil {
+		return err
+	}
+	stackInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    newStackCallback,
+		UpdateFunc: updateStackCallback,
+		DeleteFunc: deleteStackCallback,
+	})
+
 	// Watch for changes to primary resource Stack
-	err = c.Watch(&source.Kind{Type: &pulumiv1alpha1.Stack{}}, &handler.EnqueueRequestForObject{}, predicates...)
+	err = c.Watch(&source.Kind{Type: &pulumiv1alpha1.Stack{}}, &handler.InstrumentedEnqueueRequestForObject{}, predicates...)
 	if err != nil {
 		return err
 	}
@@ -195,11 +206,15 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
 	if err = sess.SetEnvs(stack.Envs, request.Namespace); err != nil {
-		reqLogger.Error(err, "Could not find ConfigMap for Envs")
+		if err2 := sess.markStackFailed(errors.Wrap(err, "could not find ConfigMap for Envs"), instance, currentCommit, ""); err2 != nil {
+			return reconcile.Result{}, err2
+		}
 		return reconcile.Result{}, err
 	}
 	if err = sess.SetSecretEnvs(stack.SecretEnvs, request.Namespace); err != nil {
-		reqLogger.Error(err, "Could not find Secret for SecretEnvs")
+		if err2 := sess.markStackFailed(errors.Wrap(err, "could not find Secret for SecretEnvs"), instance, currentCommit, ""); err2 != nil {
+			return reconcile.Result{}, err2
+		}
 		return reconcile.Result{}, err
 	}
 
@@ -247,7 +262,9 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	if sess.stack.Refresh {
 		permalink, err := sess.RefreshStack(sess.stack.ExpectNoRefreshChanges)
 		if err != nil {
-			sess.logger.Error(err, "Failed to refresh stack", "Stack.Name", instance.Spec.Stack)
+			if err2 := sess.markStackFailed(errors.Wrap(err, "refreshing stack"), instance, currentCommit, permalink); err2 != nil {
+				return reconcile.Result{}, err2
+			}
 			return reconcile.Result{}, err
 		}
 		err = sess.getLatestResource(instance, request.NamespacedName)
@@ -284,17 +301,8 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	default:
 		if err != nil {
-			reqLogger.Error(err, "Failed to update Stack", "Stack.Name", stack.Stack)
-			// Update Stack status with failed state
-			instance.Status.LastUpdate.LastAttemptedCommit = currentCommit
-			instance.Status.LastUpdate.State = pulumiv1alpha1.FailedStackStateMessage
-			instance.Status.LastUpdate.Permalink = permalink
-
-			if err2 := sess.updateResourceStatus(instance); err2 != nil {
-				msg := "Failed to update status for a failed Stack update"
-				err3 := errors.Wrapf(err, err2.Error())
-				reqLogger.Error(err3, msg)
-				return reconcile.Result{}, err3
+			if err2 := sess.markStackFailed(err, instance, currentCommit, permalink); err2 != nil {
+				return reconcile.Result{}, err2
 			}
 			return reconcile.Result{}, err
 		}
@@ -335,6 +343,22 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (sess *reconcileStackSession) markStackFailed(err error, instance *pulumiv1alpha1.Stack, currentCommit string, permalink pulumiv1alpha1.Permalink) error {
+	sess.logger.Error(err, "Failed to update Stack", "Stack.Name", sess.stack.Stack)
+	// Update Stack status with failed state
+	instance.Status.LastUpdate.LastAttemptedCommit = currentCommit
+	instance.Status.LastUpdate.State = pulumiv1alpha1.FailedStackStateMessage
+	instance.Status.LastUpdate.Permalink = permalink
+
+	if err2 := sess.updateResourceStatus(instance); err2 != nil {
+		msg := "Failed to update status for a failed Stack update"
+		err3 := errors.Wrapf(err, err2.Error())
+		sess.logger.Error(err3, msg)
+		return err3
+	}
+	return nil
 }
 
 func (sess *reconcileStackSession) finalize(stack *pulumiv1alpha1.Stack) error {

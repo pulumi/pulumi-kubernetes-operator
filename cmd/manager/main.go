@@ -111,6 +111,7 @@ func main() {
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		GracefulShutdownTimeout: &gracefulShutdownTimeout,
 		LeaderElection:          true,
+		LeaderElectionNamespace: namespace,
 		LeaderElectionID:        "pulumi-kubernetes-operator-lock",
 	}
 

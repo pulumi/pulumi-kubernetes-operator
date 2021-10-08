@@ -10,9 +10,10 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
-	github.com/operator-framework/operator-lib v0.6.0
-	github.com/operator-framework/operator-sdk v0.19.0
+	github.com/operator-framework/operator-lib v0.7.0
+	github.com/operator-framework/operator-sdk v0.19.4
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.30.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/pulumi/pulumi/sdk/v3 v3.14.1-0.20211008214310-a9a62bd76177
