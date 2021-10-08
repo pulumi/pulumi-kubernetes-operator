@@ -9,3 +9,8 @@ export const notSoSecret = pulumi.output("safe")
 export const secretVal = pulumi.secret({
     "val" : "very secret"
 });
+
+export const nestedSecret = {
+    "plain": "foo",
+    "secret": pulumi.secret("bar"),
+};

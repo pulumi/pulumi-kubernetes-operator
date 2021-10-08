@@ -246,9 +246,10 @@ var _ = Describe("Stack Controller", func() {
 		}, timeout, interval).Should(BeTrue())
 		// Validate outputs.
 		Expect(fetched.Status.Outputs).Should(BeEquivalentTo(pulumiv1alpha1.StackOutputs{
-			"region":      v1.JSON{Raw: []byte(`"us-west-2"`)},
-			"notSoSecret": v1.JSON{Raw: []byte(`"safe"`)},
-			"secretVal":   v1.JSON{Raw: []byte(`"[secret]"`)},
+			"region":       v1.JSON{Raw: []byte(`"us-west-2"`)},
+			"notSoSecret":  v1.JSON{Raw: []byte(`"safe"`)},
+			"secretVal":    v1.JSON{Raw: []byte(`"[secret]"`)},
+			"nestedSecret": v1.JSON{Raw: []byte(`"[secret]"`)},
 		}))
 
 		// Delete the Stack
