@@ -18,9 +18,6 @@ import (
 	"time"
 
 	"github.com/operator-framework/operator-lib/handler"
-
-	"k8s.io/client-go/tools/cache"
-
 	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/pkg/errors"
 	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
@@ -40,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
