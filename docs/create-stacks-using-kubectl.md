@@ -72,7 +72,7 @@ kubectl get stack nginx-k8s-stack -o json
 
 ```json
 {
-    "apiVersion": "pulumi.com/v1alpha1",
+    "apiVersion": "pulumi.com/v1",
     "kind": "Stack",
     "metadata": {
         "finalizers": [
@@ -82,7 +82,7 @@ kubectl get stack nginx-k8s-stack -o json
         "name": "nginx-k8s-stack",
         "namespace": "default",
         "resourceVersion": "12091631",
-        "selfLink": "/apis/pulumi.com/v1alpha1/namespaces/default/stacks/nginx-k8s-stack",
+        "selfLink": "/apis/pulumi.com/v1/namespaces/default/stacks/nginx-k8s-stack",
         "uid": "83d321cd-cef5-4176-97e0-b4579ad702c0"
     },
     "spec": {
@@ -141,7 +141,7 @@ kubectl get stack s3-bucket-stack -o json
 
 ```json
 {
-    "apiVersion": "pulumi.com/v1alpha1",
+    "apiVersion": "pulumi.com/v1",
     "kind": "Stack",
     "metadata": {
         "finalizers": [
@@ -151,7 +151,7 @@ kubectl get stack s3-bucket-stack -o json
         "name": "s3-bucket-stack",
         "namespace": "default",
         "resourceVersion": "10967723",
-        "selfLink": "/apis/pulumi.com/v1alpha1/namespaces/default/stacks/s3-bucket-stack",
+        "selfLink": "/apis/pulumi.com/v1/namespaces/default/stacks/s3-bucket-stack",
         "uid": "84166e1e-be47-47f8-8b6c-01474c37485b"
     },
     "spec": {

@@ -69,7 +69,7 @@ const accessToken = new kx.Secret("accesstoken", {
 
 // Create an NGINX deployment in-cluster.
 const mystack = new k8s.apiextensions.CustomResource("my-stack", {
-    apiVersion: 'pulumi.com/v1alpha1',
+    apiVersion: 'pulumi.com/v1',
     kind: 'Stack',
     spec: {
         accessTokenSecret: accessToken.metadata.name,
@@ -116,7 +116,7 @@ const awsCreds = new kx.Secret("aws-creds", {
 
 // Create an AWS S3 Pulumi Stack in Kubernetes.
 const mystack = new k8s.apiextensions.CustomResource("my-stack", {
-    apiVersion: 'pulumi.com/v1alpha1',
+    apiVersion: 'pulumi.com/v1',
     kind: 'Stack',
     spec: {
         stack: "<YOUR_ORG>/s3-op-project/dev",
@@ -145,7 +145,7 @@ kubectl get stack s3-bucket-stack -o json
 
 ```json
 {
-    "apiVersion": "pulumi.com/v1alpha1",
+    "apiVersion": "pulumi.com/v1",
     "kind": "Stack",
     "metadata": {
         "finalizers": [
@@ -155,7 +155,7 @@ kubectl get stack s3-bucket-stack -o json
         "name": "s3-bucket-stack",
         "namespace": "default",
         "resourceVersion": "10967723",
-        "selfLink": "/apis/pulumi.com/v1alpha1/namespaces/default/stacks/s3-bucket-stack",
+        "selfLink": "/apis/pulumi.com/v1/namespaces/default/stacks/s3-bucket-stack",
         "uid": "84166e1e-be47-47f8-8b6c-01474c37485b"
     },
     "spec": {
@@ -202,7 +202,7 @@ kubectl get stack s3-bucket-stack -o json
 
 ```json
 {
-    "apiVersion": "pulumi.com/v1alpha1",
+    "apiVersion": "pulumi.com/v1",
     "kind": "Stack",
     "metadata": {
         "finalizers": [
@@ -212,7 +212,7 @@ kubectl get stack s3-bucket-stack -o json
         "name": "s3-bucket-stack",
         "namespace": "default",
         "resourceVersion": "10971321",
-        "selfLink": "/apis/pulumi.com/v1alpha1/namespaces/default/stacks/s3-bucket-stack",
+        "selfLink": "/apis/pulumi.com/v1/namespaces/default/stacks/s3-bucket-stack",
         "uid": "84166e1e-be47-47f8-8b6c-01474c37485b"
     },
     "spec": {
