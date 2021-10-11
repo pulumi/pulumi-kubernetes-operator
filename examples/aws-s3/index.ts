@@ -9,7 +9,7 @@ import * as operator from "./operator";
 // Deploy the Pulumi Kubernetes Operator
 
 // By default, uses $HOME/.kube/config when no kubeconfig is set.
-const provider = new k8s.Provider("k8s"); 
+const provider = new k8s.Provider("k8s");
 
 // Create the Pulumi Kubernetes Operator.
 // Uses a custom ComponentResource class based on Typescript code in https://git.io/JJ6yj
@@ -25,22 +25,22 @@ const pulumiOperator = new operator.PulumiKubernetesOperator(name, {
 // Get the Pulumi API token and AWS creds.
 const config = new pulumi.Config();
 
-const pulumiAccessToken = config.requireSecret("pulumiAccessToken")
+const pulumiAccessToken = config.requireSecret("pulumiAccessToken");
 
-const awsAccessKeyId = config.require("awsAccessKeyId")
-const awsSecretAccessKey = config.requireSecret("awsSecretAccessKey")
-const awsSessionToken = config.requireSecret("awsSessionToken")
+const awsAccessKeyId = config.require("awsAccessKeyId");
+const awsSecretAccessKey = config.requireSecret("awsSecretAccessKey");
+const awsSessionToken = config.requireSecret("awsSessionToken");
 
-const stackName = config.require("stackName")
-const stackProjectRepo = config.require("stackProjectRepo")
-const stackCommit = config.require("stackCommit")
+const stackName = config.require("stackName");
+const stackProjectRepo = config.require("stackProjectRepo");
+const stackCommit = config.require("stackCommit");
 
 // Create the creds as Kubernetes Secrets.
 const accessToken = new kx.Secret("accesstoken", {
-    stringData: { accessToken: pulumiAccessToken},
+    stringData: {accessToken: pulumiAccessToken},
 });
 const awsCreds = new kx.Secret("aws-creds", {
-    stringData: { 
+    stringData: {
         "AWS_ACCESS_KEY_ID": awsAccessKeyId,
         "AWS_SECRET_ACCESS_KEY": awsSecretAccessKey,
         "AWS_SESSION_TOKEN": awsSessionToken,
@@ -49,7 +49,7 @@ const awsCreds = new kx.Secret("aws-creds", {
 
 // Create an AWS S3 Pulumi Stack in Kubernetes.
 const mystack = new k8s.apiextensions.CustomResource("my-stack", {
-    apiVersion: 'pulumi.com/v1alpha1',
+    apiVersion: 'pulumi.com/v1',
     kind: 'Stack',
     spec: {
         stack: stackName,
