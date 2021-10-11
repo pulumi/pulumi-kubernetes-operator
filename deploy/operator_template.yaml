@@ -38,7 +38,7 @@ spec:
             - name: OPERATOR_NAME
               value: "pulumi-kubernetes-operator"
             - name: GRACEFUL_SHUTDOWN_TIMEOUT_DURATION
-              value: 5m
+              value: "5m"
             - name: MAX_CONCURRENT_RECONCILES
               value: "10"
       terminationGracePeriodSeconds: 300 # Should be same or larger than GRACEFUL_SHUTDOWN_TIMEOUT_DURATION
