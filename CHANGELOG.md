@@ -2,6 +2,9 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
+(None)
+
+## 0.0.22 (2021-10-11)
 - Make max reconciles configurable. Users can now set `MAX_CONCURRENT_RECONCILES` to limit concurrent reconciles (defaults to 10). [#213](https://github.com/pulumi/pulumi-kubernetes-operator/pull/213/)
 - Nested secret outputs are now masked by default. [#216](https://github.com/pulumi/pulumi-kubernetes-operator/pull/216/)
 - Add metrics support [#217](https://github.com/pulumi/pulumi-kubernetes-operator/pull/217)
