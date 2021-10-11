@@ -6,7 +6,7 @@ type: Opaque
 stringData:
   accessToken: "<REDACTED: PULUMI_ACCESS_TOKEN>"
 ---
-apiVersion: pulumi.com/v1alpha1
+apiVersion: pulumi.com/v1
 kind: Stack
 metadata:
   name: nginx-k8s-stack

@@ -4,6 +4,7 @@ package stack
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
 	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
@@ -53,15 +54,15 @@ func updateStackCallback(oldObj, newObj interface{}) {
 	}
 
 	// fresh transition to failure
-	if newStack.Status.LastUpdate != nil && newStack.Status.LastUpdate.State == pulumiv1alpha1.FailedStackStateMessage {
+	if newStack.Status.LastUpdate != nil && newStack.Status.LastUpdate.State == shared.FailedStackStateMessage {
 		if oldStack.Status.LastUpdate == nil || oldStack.Status.LastUpdate.State != newStack.Status.LastUpdate.State {
 			numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(1)
 		}
 	}
 
 	// transition to success from failure
-	if newStack.Status.LastUpdate != nil && newStack.Status.LastUpdate.State == pulumiv1alpha1.SucceededStackStateMessage {
-		if oldStack.Status.LastUpdate != nil && oldStack.Status.LastUpdate.State == pulumiv1alpha1.FailedStackStateMessage {
+	if newStack.Status.LastUpdate != nil && newStack.Status.LastUpdate.State == shared.SucceededStackStateMessage {
+		if oldStack.Status.LastUpdate != nil && oldStack.Status.LastUpdate.State == shared.FailedStackStateMessage {
 			numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(0)
 		}
 	}

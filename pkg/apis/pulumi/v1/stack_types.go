@@ -1,18 +1,26 @@
-package v1alpha1
+package v1
 
 import (
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+
+// StackStatus defines the observed state of Stack
+type StackStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Stack is the Schema for the stacks API.
-// Deprecated: Note Stacks from pulumi.com/v1alpha1 is deprecated in favor of pulumi.com/v1.
-// It is completely backward compatible. Users are strongly encouraged to switch to pulumi.com/v1.
+// Stack is the Schema for the stacks API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=stacks,scope=Namespaced
+// +kubebuilder:storageversion
 type Stack struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -24,8 +32,6 @@ type Stack struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // StackList contains a list of Stack
-// Deprecated: Note Stack:ost from pulumi.com/v1alpha1 is deprecated in favor of pulumi.com/v1.
-// It is completely backward compatible. Users are strongly encouraged to switch to pulumi.com/v1.
 type StackList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

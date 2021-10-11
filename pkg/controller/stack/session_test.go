@@ -5,12 +5,12 @@ package stack
 import (
 	"errors"
 	"fmt"
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
 	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -179,7 +179,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithSecrets() {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			session := newReconcileStackSession(logger, v1alpha1.StackSpec{GitAuthSecret: test.gitAuthSecret}, client, namespace)
+			session := newReconcileStackSession(logger, shared.StackSpec{GitAuthSecret: test.gitAuthSecret}, client, namespace)
 			gitAuth, err := session.SetupGitAuth()
 			if test.err != nil {
 				require.Error(t, err)
@@ -216,7 +216,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 
 	for _, test := range []struct {
 		name     string
-		gitAuth  *v1alpha1.GitAuthConfig
+		gitAuth  *shared.GitAuthConfig
 		expected *auto.GitAuth
 		err      error
 	}{
@@ -226,16 +226,16 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 		},
 		{
 			name:    "EmptyGitAuth",
-			gitAuth: &v1alpha1.GitAuthConfig{},
+			gitAuth: &shared.GitAuthConfig{},
 			err:     fmt.Errorf("gitAuth config must specify exactly one of 'personalAccessToken', 'sshPrivateKey' or 'basicAuth'"),
 		},
 		{
 			name: "GitAuthValidSecretReference",
-			gitAuth: &v1alpha1.GitAuthConfig{
-				PersonalAccessToken: &v1alpha1.ResourceRef{
-					SelectorType: v1alpha1.ResourceSelectorSecret,
-					ResourceSelector: v1alpha1.ResourceSelector{
-						SecretRef: &v1alpha1.SecretSelector{
+			gitAuth: &shared.GitAuthConfig{
+				PersonalAccessToken: &shared.ResourceRef{
+					SelectorType: shared.ResourceSelectorSecret,
+					ResourceSelector: shared.ResourceSelector{
+						SecretRef: &shared.SecretSelector{
 							Namespace: namespace,
 							Name:      secret.Name,
 							Key:       "SECRET1",
@@ -249,11 +249,11 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 		},
 		{
 			name: "GitAuthValidFileReference",
-			gitAuth: &v1alpha1.GitAuthConfig{
-				PersonalAccessToken: &v1alpha1.ResourceRef{
-					SelectorType: v1alpha1.ResourceSelectorFS,
-					ResourceSelector: v1alpha1.ResourceSelector{
-						FileSystem: &v1alpha1.FSSelector{
+			gitAuth: &shared.GitAuthConfig{
+				PersonalAccessToken: &shared.ResourceRef{
+					SelectorType: shared.ResourceSelectorFS,
+					ResourceSelector: shared.ResourceSelector{
+						FileSystem: &shared.FSSelector{
 							Path: suite.f,
 						},
 					},
@@ -265,11 +265,11 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 		},
 		{
 			name: "GitAuthInvalidFileReference",
-			gitAuth: &v1alpha1.GitAuthConfig{
-				PersonalAccessToken: &v1alpha1.ResourceRef{
-					SelectorType: v1alpha1.ResourceSelectorFS,
-					ResourceSelector: v1alpha1.ResourceSelector{
-						FileSystem: &v1alpha1.FSSelector{
+			gitAuth: &shared.GitAuthConfig{
+				PersonalAccessToken: &shared.ResourceRef{
+					SelectorType: shared.ResourceSelectorFS,
+					ResourceSelector: shared.ResourceSelector{
+						FileSystem: &shared.FSSelector{
 							Path: "/tmp/!@#@!#",
 						},
 					},
@@ -279,11 +279,11 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 		},
 		{
 			name: "GitAuthValidEnvVarReference",
-			gitAuth: &v1alpha1.GitAuthConfig{
-				PersonalAccessToken: &v1alpha1.ResourceRef{
-					SelectorType: v1alpha1.ResourceSelectorEnv,
-					ResourceSelector: v1alpha1.ResourceSelector{
-						Env: &v1alpha1.EnvSelector{
+			gitAuth: &shared.GitAuthConfig{
+				PersonalAccessToken: &shared.ResourceRef{
+					SelectorType: shared.ResourceSelectorEnv,
+					ResourceSelector: shared.ResourceSelector{
+						Env: &shared.EnvSelector{
 							Name: "SECRET3",
 						},
 					},
@@ -295,11 +295,11 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 		},
 		{
 			name: "GitAuthInvalidEnvReference",
-			gitAuth: &v1alpha1.GitAuthConfig{
-				PersonalAccessToken: &v1alpha1.ResourceRef{
-					SelectorType: v1alpha1.ResourceSelectorEnv,
-					ResourceSelector: v1alpha1.ResourceSelector{
-						Env: &v1alpha1.EnvSelector{
+			gitAuth: &shared.GitAuthConfig{
+				PersonalAccessToken: &shared.ResourceRef{
+					SelectorType: shared.ResourceSelectorEnv,
+					ResourceSelector: shared.ResourceSelector{
+						Env: &shared.EnvSelector{
 							Name: "MISSING",
 						},
 					},
@@ -309,12 +309,12 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 		},
 		{
 			name: "GitAuthValidSSHAuthWithoutPassword",
-			gitAuth: &v1alpha1.GitAuthConfig{
-				SSHAuth: &v1alpha1.SSHAuth{
-					SSHPrivateKey: v1alpha1.ResourceRef{
-						SelectorType: v1alpha1.ResourceSelectorSecret,
-						ResourceSelector: v1alpha1.ResourceSelector{
-							SecretRef: &v1alpha1.SecretSelector{
+			gitAuth: &shared.GitAuthConfig{
+				SSHAuth: &shared.SSHAuth{
+					SSHPrivateKey: shared.ResourceRef{
+						SelectorType: shared.ResourceSelectorSecret,
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
 								Namespace: namespace,
 								Name:      secret.Name,
 								Key:       "SECRET1",
@@ -329,22 +329,22 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 		},
 		{
 			name: "GitAuthValidSSHAuthWithPassword",
-			gitAuth: &v1alpha1.GitAuthConfig{
-				SSHAuth: &v1alpha1.SSHAuth{
-					SSHPrivateKey: v1alpha1.ResourceRef{
-						SelectorType: v1alpha1.ResourceSelectorSecret,
-						ResourceSelector: v1alpha1.ResourceSelector{
-							SecretRef: &v1alpha1.SecretSelector{
+			gitAuth: &shared.GitAuthConfig{
+				SSHAuth: &shared.SSHAuth{
+					SSHPrivateKey: shared.ResourceRef{
+						SelectorType: shared.ResourceSelectorSecret,
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
 								Namespace: namespace,
 								Name:      secret.Name,
 								Key:       "SECRET1",
 							},
 						},
 					},
-					Password: &v1alpha1.ResourceRef{
-						SelectorType: v1alpha1.ResourceSelectorSecret,
-						ResourceSelector: v1alpha1.ResourceSelector{
-							SecretRef: &v1alpha1.SecretSelector{
+					Password: &shared.ResourceRef{
+						SelectorType: shared.ResourceSelectorSecret,
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
 								Namespace: namespace,
 								Name:      secret.Name,
 								Key:       "SECRET2",
@@ -360,22 +360,22 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 		},
 		{
 			name: "GitAuthInvalidSSHAuthWithPassword",
-			gitAuth: &v1alpha1.GitAuthConfig{
-				SSHAuth: &v1alpha1.SSHAuth{
-					SSHPrivateKey: v1alpha1.ResourceRef{
-						SelectorType: v1alpha1.ResourceSelectorSecret,
-						ResourceSelector: v1alpha1.ResourceSelector{
-							SecretRef: &v1alpha1.SecretSelector{
+			gitAuth: &shared.GitAuthConfig{
+				SSHAuth: &shared.SSHAuth{
+					SSHPrivateKey: shared.ResourceRef{
+						SelectorType: shared.ResourceSelectorSecret,
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
 								Namespace: namespace,
 								Name:      secret.Name,
 								Key:       "SECRET1",
 							},
 						},
 					},
-					Password: &v1alpha1.ResourceRef{
-						SelectorType: v1alpha1.ResourceSelectorSecret,
-						ResourceSelector: v1alpha1.ResourceSelector{
-							SecretRef: &v1alpha1.SecretSelector{
+					Password: &shared.ResourceRef{
+						SelectorType: shared.ResourceSelectorSecret,
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
 								Namespace: namespace,
 								Name:      secret.Name,
 								Key:       "MISSING",
@@ -388,22 +388,22 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 		},
 		{
 			name: "GitAuthValidBasicAuth",
-			gitAuth: &v1alpha1.GitAuthConfig{
-				BasicAuth: &v1alpha1.BasicAuth{
-					UserName: v1alpha1.ResourceRef{
-						SelectorType: v1alpha1.ResourceSelectorSecret,
-						ResourceSelector: v1alpha1.ResourceSelector{
-							SecretRef: &v1alpha1.SecretSelector{
+			gitAuth: &shared.GitAuthConfig{
+				BasicAuth: &shared.BasicAuth{
+					UserName: shared.ResourceRef{
+						SelectorType: shared.ResourceSelectorSecret,
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
 								Namespace: namespace,
 								Name:      secret.Name,
 								Key:       "SECRET1",
 							},
 						},
 					},
-					Password: v1alpha1.ResourceRef{
-						SelectorType: v1alpha1.ResourceSelectorSecret,
-						ResourceSelector: v1alpha1.ResourceSelector{
-							SecretRef: &v1alpha1.SecretSelector{
+					Password: shared.ResourceRef{
+						SelectorType: shared.ResourceSelectorSecret,
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
 								Namespace: namespace,
 								Name:      secret.Name,
 								Key:       "SECRET2",
@@ -419,11 +419,11 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 		},
 		{
 			name: "GitAuthInvalidSecretReference",
-			gitAuth: &v1alpha1.GitAuthConfig{
-				PersonalAccessToken: &v1alpha1.ResourceRef{
-					SelectorType: v1alpha1.ResourceSelectorSecret,
-					ResourceSelector: v1alpha1.ResourceSelector{
-						SecretRef: &v1alpha1.SecretSelector{
+			gitAuth: &shared.GitAuthConfig{
+				PersonalAccessToken: &shared.ResourceRef{
+					SelectorType: shared.ResourceSelectorSecret,
+					ResourceSelector: shared.ResourceSelector{
+						SecretRef: &shared.SecretSelector{
 							Namespace: namespace,
 							Name:      secret.Name,
 							Key:       "MISSING",
@@ -435,7 +435,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			session := newReconcileStackSession(logger, v1alpha1.StackSpec{GitAuth: test.gitAuth}, client, namespace)
+			session := newReconcileStackSession(logger, shared.StackSpec{GitAuth: test.gitAuth}, client, namespace)
 			gitAuth, err := session.SetupGitAuth()
 			if test.err != nil {
 				require.Error(t, err)
