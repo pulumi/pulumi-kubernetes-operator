@@ -2,6 +2,9 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
+(None)
+
+## 1.0.0-rc1 (2021-10-11)
 - Promote v1alpha1 CRD to v1 but maintain backward compatibility [#220](https://github.com/pulumi/pulumi-kubernetes-operator/pull/220)
 
 ## 0.0.22 (2021-10-11)
