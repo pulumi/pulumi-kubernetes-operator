@@ -9,6 +9,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
+	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
 	"io"
 	"os"
 	"os/exec"
@@ -20,7 +22,6 @@ import (
 	"github.com/operator-framework/operator-lib/handler"
 	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/pkg/errors"
-	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
 	"github.com/pulumi/pulumi-kubernetes-operator/version"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -109,7 +110,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		predicate.Or(predicate.GenerationChangedPredicate{}, libpredicate.NoGenerationPredicate{}),
 	}
 
-	stackInformer, err := mgr.GetCache().GetInformer(context.Background(), &pulumiv1alpha1.Stack{})
+	stackInformer, err := mgr.GetCache().GetInformer(context.Background(), &pulumiv1.Stack{})
 	if err != nil {
 		return err
 	}
@@ -120,7 +121,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	})
 
 	// Watch for changes to primary resource Stack
-	err = c.Watch(&source.Kind{Type: &pulumiv1alpha1.Stack{}}, &handler.InstrumentedEnqueueRequestForObject{}, predicates...)
+	err = c.Watch(&source.Kind{Type: &pulumiv1.Stack{}}, &handler.InstrumentedEnqueueRequestForObject{}, predicates...)
 	if err != nil {
 		return err
 	}
@@ -146,7 +147,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	reqLogger.Info("Reconciling Stack")
 
 	// Fetch the Stack instance
-	instance := &pulumiv1alpha1.Stack{}
+	instance := &pulumiv1.Stack{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -273,7 +274,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			return reconcile.Result{}, err
 		}
 		if instance.Status.LastUpdate == nil {
-			instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{}
+			instance.Status.LastUpdate = &shared.StackUpdateState{}
 		}
 		instance.Status.LastUpdate.Permalink = permalink
 
@@ -289,14 +290,14 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	// TODO: is it possible to support a --dry-run with a preview?
 	status, permalink, result, err := sess.UpdateStack()
 	switch status {
-	case pulumiv1alpha1.StackUpdateConflict:
+	case shared.StackUpdateConflict:
 		if sess.stack.RetryOnUpdateConflict {
 			reqLogger.Error(err, "Conflict with another concurrent update -- will retry shortly", "Stack.Name", stack.Stack)
 			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 		}
 		reqLogger.Error(err, "Conflict with another concurrent update -- NOT retrying", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, nil
-	case pulumiv1alpha1.StackNotFound:
+	case shared.StackNotFound:
 		reqLogger.Error(err, "Stack not found -- will retry shortly", "Stack.Name", stack.Stack, "Err:")
 		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	default:
@@ -324,8 +325,8 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{}, err
 	}
 	instance.Status.Outputs = outs
-	instance.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{
-		State:                pulumiv1alpha1.SucceededStackStateMessage,
+	instance.Status.LastUpdate = &shared.StackUpdateState{
+		State:                shared.SucceededStackStateMessage,
 		LastAttemptedCommit:  currentCommit,
 		LastSuccessfulCommit: currentCommit,
 		Permalink:            permalink,
@@ -345,11 +346,11 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	return reconcile.Result{}, nil
 }
 
-func (sess *reconcileStackSession) markStackFailed(err error, instance *pulumiv1alpha1.Stack, currentCommit string, permalink pulumiv1alpha1.Permalink) error {
+func (sess *reconcileStackSession) markStackFailed(err error, instance *pulumiv1.Stack, currentCommit string, permalink shared.Permalink) error {
 	sess.logger.Error(err, "Failed to update Stack", "Stack.Name", sess.stack.Stack)
 	// Update Stack status with failed state
 	instance.Status.LastUpdate.LastAttemptedCommit = currentCommit
-	instance.Status.LastUpdate.State = pulumiv1alpha1.FailedStackStateMessage
+	instance.Status.LastUpdate.State = shared.FailedStackStateMessage
 	instance.Status.LastUpdate.Permalink = permalink
 
 	if err2 := sess.updateResourceStatus(instance); err2 != nil {
@@ -361,7 +362,7 @@ func (sess *reconcileStackSession) markStackFailed(err error, instance *pulumiv1
 	return nil
 }
 
-func (sess *reconcileStackSession) finalize(stack *pulumiv1alpha1.Stack) error {
+func (sess *reconcileStackSession) finalize(stack *pulumiv1.Stack) error {
 	sess.logger.Info("Finalizing the stack")
 	// Run finalization logic for pulumiFinalizer. If the
 	// finalization logic fails, don't remove the finalizer so
@@ -402,7 +403,7 @@ func (sess *reconcileStackSession) finalizeStack() error {
 }
 
 //addFinalizer will add this attribute to the Stack CR
-func (sess *reconcileStackSession) addFinalizer(stack *pulumiv1alpha1.Stack) error {
+func (sess *reconcileStackSession) addFinalizer(stack *pulumiv1.Stack) error {
 	sess.logger.Debug("Adding Finalizer for the Stack", "Stack.Name", stack.Name)
 	namespacedName := types.NamespacedName{Name: stack.Name, Namespace: stack.Namespace}
 	err := sess.getLatestResource(stack, namespacedName)
@@ -422,19 +423,19 @@ func (sess *reconcileStackSession) addFinalizer(stack *pulumiv1alpha1.Stack) err
 type reconcileStackSession struct {
 	logger     logging.Logger
 	kubeClient client.Client
-	stack      pulumiv1alpha1.StackSpec
+	stack      shared.StackSpec
 	autoStack  *auto.Stack
 	namespace  string
 	workdir    string
 	rootDir    string
 }
 
-// blank assignment to verify that reconcileStackSession implements pulumiv1alpha1.StackController.
-var _ pulumiv1alpha1.StackController = &reconcileStackSession{}
+// blank assignment to verify that reconcileStackSession implements shared.StackController.
+var _ shared.StackController = &reconcileStackSession{}
 
 func newReconcileStackSession(
 	logger logging.Logger,
-	stack pulumiv1alpha1.StackSpec,
+	stack shared.StackSpec,
 	kubeClient client.Client,
 	namespace string,
 ) *reconcileStackSession {
@@ -494,9 +495,9 @@ func (sess *reconcileStackSession) SetEnvRefsForWorkspace(w auto.Workspace) erro
 	return nil
 }
 
-func (sess *reconcileStackSession) resolveResourceRef(ref *pulumiv1alpha1.ResourceRef) (string, error) {
+func (sess *reconcileStackSession) resolveResourceRef(ref *shared.ResourceRef) (string, error) {
 	switch ref.SelectorType {
-	case pulumiv1alpha1.ResourceSelectorEnv:
+	case shared.ResourceSelectorEnv:
 		if ref.Env != nil {
 			resolved := os.Getenv(ref.Env.Name)
 			if resolved == "" {
@@ -505,12 +506,12 @@ func (sess *reconcileStackSession) resolveResourceRef(ref *pulumiv1alpha1.Resour
 			return resolved, nil
 		}
 		return "", errors.New("missing env reference in ResourceRef")
-	case pulumiv1alpha1.ResourceSelectorLiteral:
+	case shared.ResourceSelectorLiteral:
 		if ref.LiteralRef != nil {
 			return ref.LiteralRef.Value, nil
 		}
 		return "", errors.New("missing literal reference in ResourceRef")
-	case pulumiv1alpha1.ResourceSelectorFS:
+	case shared.ResourceSelectorFS:
 		if ref.FileSystem != nil {
 			contents, err := os.ReadFile(ref.FileSystem.Path)
 			if err != nil {
@@ -519,7 +520,7 @@ func (sess *reconcileStackSession) resolveResourceRef(ref *pulumiv1alpha1.Resour
 			return string(contents), nil
 		}
 		return "", errors.New("Missing filesystem reference in ResourceRef")
-	case pulumiv1alpha1.ResourceSelectorSecret:
+	case shared.ResourceSelectorSecret:
 		if ref.SecretRef != nil {
 			config := &corev1.Secret{}
 			namespace := ref.SecretRef.Namespace
@@ -857,7 +858,7 @@ func (sess *reconcileStackSession) UpdateConfig(ctx context.Context) error {
 	return nil
 }
 
-func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1alpha1.Permalink, error) {
+func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (shared.Permalink, error) {
 	writer := sess.logger.LogWriterDebug("Pulumi Refresh")
 	defer contract.IgnoreClose(writer)
 	opts := []optrefresh.Option{optrefresh.ProgressStreams(writer), optrefresh.UserAgent(execAgent)}
@@ -875,14 +876,14 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1a
 		// Successful update but no permalink suggests a backend which doesn't support permalinks. Ignore.
 		sess.logger.Error(err, "No permalink found.", "Namespace", sess.namespace)
 	}
-	permalink := pulumiv1alpha1.Permalink(p)
+	permalink := shared.Permalink(p)
 	return permalink, nil
 }
 
 // UpdateStack runs the update on the stack and returns an update status code
 // and error. In certain cases, an update may be unabled to proceed due to locking,
 // in which case the operator will requeue itself to retry later.
-func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStatus, pulumiv1alpha1.Permalink, *auto.UpResult, error) {
+func (sess *reconcileStackSession) UpdateStack() (shared.StackUpdateStatus, shared.Permalink, *auto.UpResult, error) {
 	writer := sess.logger.LogWriterDebug("Pulumi Update")
 	defer contract.IgnoreClose(writer)
 
@@ -890,26 +891,26 @@ func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStat
 	if err != nil {
 		// If this is the "conflict" error message, we will want to gracefully quit and retry.
 		if auto.IsConcurrentUpdateError(err) {
-			return pulumiv1alpha1.StackUpdateConflict, pulumiv1alpha1.Permalink(""), nil, err
+			return shared.StackUpdateConflict, shared.Permalink(""), nil, err
 		}
 		// If this is the "not found" error message, we will want to gracefully quit and retry.
 		if strings.Contains(result.StdErr, "error: [404] Not found") {
-			return pulumiv1alpha1.StackNotFound, pulumiv1alpha1.Permalink(""), nil, err
+			return shared.StackNotFound, shared.Permalink(""), nil, err
 		}
-		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), nil, err
+		return shared.StackUpdateFailed, shared.Permalink(""), nil, err
 	}
 	p, err := auto.GetPermalink(result.StdOut)
 	if err != nil {
 		// Successful update but no permalink suggests a backend which doesn't support permalinks. Ignore.
 		sess.logger.Error(err, "No permalink found.", "Namespace", sess.namespace)
 	}
-	permalink := pulumiv1alpha1.Permalink(p)
-	return pulumiv1alpha1.StackUpdateSucceeded, permalink, &result, nil
+	permalink := shared.Permalink(p)
+	return shared.StackUpdateSucceeded, permalink, &result, nil
 }
 
 // GetStackOutputs gets the stack outputs and parses them into a map.
-func (sess *reconcileStackSession) GetStackOutputs(outs auto.OutputMap) (pulumiv1alpha1.StackOutputs, error) {
-	o := make(pulumiv1alpha1.StackOutputs)
+func (sess *reconcileStackSession) GetStackOutputs(outs auto.OutputMap) (shared.StackOutputs, error) {
+	o := make(shared.StackOutputs)
 	for k, v := range outs {
 		var value apiextensionsv1.JSON
 		if v.Secret {
@@ -1043,7 +1044,7 @@ func (sess *reconcileStackSession) SetupGitAuth() (*auto.GitAuth, error) {
 }
 
 // Add default permalink for the stack in the Pulumi Service.
-func (sess *reconcileStackSession) addDefaultPermalink(stack *pulumiv1alpha1.Stack) error {
+func (sess *reconcileStackSession) addDefaultPermalink(stack *pulumiv1.Stack) error {
 	namespacedName := types.NamespacedName{Name: stack.Name, Namespace: stack.Namespace}
 	err := sess.getLatestResource(stack, namespacedName)
 	if err != nil {
@@ -1058,9 +1059,9 @@ func (sess *reconcileStackSession) addDefaultPermalink(stack *pulumiv1alpha1.Sta
 	}
 	// Set stack URL.
 	if stack.Status.LastUpdate == nil {
-		stack.Status.LastUpdate = &pulumiv1alpha1.StackUpdateState{}
+		stack.Status.LastUpdate = &shared.StackUpdateState{}
 	}
-	stack.Status.LastUpdate.Permalink = pulumiv1alpha1.Permalink(info.URL)
+	stack.Status.LastUpdate.Permalink = shared.Permalink(info.URL)
 	err = sess.updateResourceStatus(stack)
 	if err != nil {
 		sess.logger.Error(err, "Failed to update Stack status with default permalink", "Stack.Name", stack.Spec.Stack)
