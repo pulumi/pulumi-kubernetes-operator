@@ -14,6 +14,7 @@ type: Opaque
 stringData:
   AWS_ACCESS_KEY_ID: "<REDACTED: AWS_ACCESS_KEY_ID>"
   AWS_SECRET_ACCESS_KEY: "<REDACTED: AWS_SECRET_ACCESS_KEY>"
+  AWS_SESSION_TOKEN: "<REDACTED: AWS_SESSION_TOKEN>"
 ---
 apiVersion: pulumi.com/v1
 kind: Stack
@@ -36,6 +37,11 @@ spec:
       secret:
         name: pulumi-aws-secrets
         key: AWS_SECRET_ACCESS_KEY
+    AWS_SESSION_TOKEN:
+      type: Secret
+      secret:
+        name: pulumi-aws-secrets
+        key: AWS_SESSION_TOKEN
   stack: joeduffy/s3-op-project/dev
   projectRepo: https://github.com/joeduffy/test-s3-op-project
   commit: cc5442870f1195216d6bc340c14f8ae7d28cf3e2
