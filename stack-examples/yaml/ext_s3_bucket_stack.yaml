@@ -17,7 +17,7 @@ stringData:
   AWS_SESSION_TOKEN: "<REDACTED: AWS_SESSION_TOKEN>"
 
 ---
-apiVersion: pulumi.com/v1alpha1
+apiVersion: pulumi.com/v1
 kind: Stack
 metadata:
   name: s3-bucket-stack-02

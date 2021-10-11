@@ -26,7 +26,7 @@ stringData:
   AWS_ACCESS_KEY_ID: "<REDACTED: AWS_ACCESS_KEY_ID>"
   AWS_SECRET_ACCESS_KEY: "<REDACTED: AWS_SECRET_ACCESS_KEY>"
 ---
-apiVersion: pulumi.com/v1alpha1
+apiVersion: pulumi.com/v1
 kind: Stack
 metadata:
   name: git-auth-test
