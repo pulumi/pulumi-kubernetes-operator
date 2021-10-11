@@ -830,7 +830,7 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (pulumiv1a
 		return "", errors.Wrapf(err, "refreshing stack %q", sess.stack.Stack)
 	}
 
-	if sess.stack.Backend != "" && sess.stack.Backend == "https://app.pulumi.com" {
+	if sess.stack.Backend != "" && sess.stack.Backend != "https://app.pulumi.com" {
 		return pulumiv1alpha1.Permalink(""), nil
 	}
 	p, err := auto.GetPermalink(result.StdOut)
@@ -861,7 +861,7 @@ func (sess *reconcileStackSession) UpdateStack() (pulumiv1alpha1.StackUpdateStat
 		return pulumiv1alpha1.StackUpdateFailed, pulumiv1alpha1.Permalink(""), nil, err
 	}
 
-	if sess.stack.Backend != "" && sess.stack.Backend == "https://app.pulumi.com" {
+	if sess.stack.Backend != "" && sess.stack.Backend != "https://app.pulumi.com" {
 		return pulumiv1alpha1.StackUpdateSucceeded, pulumiv1alpha1.Permalink(""), &result, nil
 	}
 
