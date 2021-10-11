@@ -2,7 +2,7 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
-(None)
+- Promote v1alpha1 CRD to v1 but maintain backward compatibility [#220](https://github.com/pulumi/pulumi-kubernetes-operator/pull/220)
 
 ## 0.0.22 (2021-10-11)
 - Make max reconciles configurable. Users can now set `MAX_CONCURRENT_RECONCILES` to limit concurrent reconciles (defaults to 10). [#213](https://github.com/pulumi/pulumi-kubernetes-operator/pull/213/)
