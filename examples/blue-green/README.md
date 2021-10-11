@@ -140,7 +140,7 @@ You should see output similar to the details below.
 {"level":"info","ts":1596670496.0524654,"logger":"cmd","msg":"Registering Components."}
 {"level":"debug","ts":1596670496.0533304,"logger":"k8sutil","msg":"Found namespace","Namespace":"default"}
 {"level":"debug","ts":1596670496.0534427,"logger":"kubemetrics","msg":"Starting collecting operator types"}
-{"level":"debug","ts":1596670496.0534692,"logger":"kubemetrics","msg":"Generating metric families","apiVersion":"pulumi.com/v1alpha1","kind":"Stack"}
+{"level":"debug","ts":1596670496.0534692,"logger":"kubemetrics","msg":"Generating metric families","apiVersion":"pulumi.com/v1","kind":"Stack"}
 {"level":"debug","ts":1596670496.6598341,"logger":"kubemetrics","msg":"Starting serving custom resource metrics"}
 {"level":"debug","ts":1596670497.2633405,"logger":"k8sutil","msg":"Found namespace","Namespace":"default"}
 {"level":"debug","ts":1596670497.263389,"logger":"k8sutil","msg":"Found podname","Pod.Name":"pulumi-k8s-operator-oflyicyz-c5fcb74bb-nwmmg"}
@@ -275,11 +275,11 @@ kubectl get stacks -o json -w
 
 ```bash
 {
-    "apiVersion": "pulumi.com/v1alpha1",
+    "apiVersion": "pulumi.com/v1",
     "kind": "Stack",
     "metadata": {
         "annotations": {
-            "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"pulumi.com/v1alpha1\",\"kind\":\"Stack\",\"metadata\":{\"annotations\":{\"pulumi.com/autonamed\":\"true\"},\"labels\":{\"app.kubernetes.io/managed-by\":\"pulumi\"},\"name\":\"app-stack-b6n7y519\"},\"spec\":{\"accessTokenSecret\":\"accesstoken-dnfb5jg2\",\"commit\":\"b19759220f25476605620fdfffeface39a630246\",\"destroyOnFinalize\":true,\"projectRepo\":\"https://github.com/metral/pulumi-blue-green\",\"stack\":\"metral/pulumi-blue-green/dev\"}}\n",
+            "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"pulumi.com/v1\",\"kind\":\"Stack\",\"metadata\":{\"annotations\":{\"pulumi.com/autonamed\":\"true\"},\"labels\":{\"app.kubernetes.io/managed-by\":\"pulumi\"},\"name\":\"app-stack-b6n7y519\"},\"spec\":{\"accessTokenSecret\":\"accesstoken-dnfb5jg2\",\"commit\":\"b19759220f25476605620fdfffeface39a630246\",\"destroyOnFinalize\":true,\"projectRepo\":\"https://github.com/metral/pulumi-blue-green\",\"stack\":\"metral/pulumi-blue-green/dev\"}}\n",
             "pulumi.com/autonamed": "true"
         },
         "creationTimestamp": "2020-08-05T23:48:57Z",
@@ -293,7 +293,7 @@ kubectl get stacks -o json -w
         "name": "app-stack-b6n7y519",
         "namespace": "default",
         "resourceVersion": "12841791",
-        "selfLink": "/apis/pulumi.com/v1alpha1/namespaces/default/stacks/app-stack-b6n7y519",
+        "selfLink": "/apis/pulumi.com/v1/namespaces/default/stacks/app-stack-b6n7y519",
         "uid": "99820358-e022-4478-a1eb-37a708989c08"
     },
     "spec": {
