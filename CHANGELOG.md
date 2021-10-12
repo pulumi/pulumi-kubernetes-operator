@@ -4,6 +4,12 @@ CHANGELOG
 ## HEAD (Unreleased)
 (None)
 
+## 1.0.0 (2021-10-12)
+**First GA release**
+Follow installation instructions [here](https://github.com/pulumi/pulumi-kubernetes-operator#deploy-the-operator).
+
+- Upgrade to v3.14.0 of Pulumi [#227](https://github.com/pulumi/pulumi-kubernetes-operator/pull/227)
+
 ## 1.0.0-rc1 (2021-10-11)
 - Promote v1alpha1 CRD to v1 but maintain backward compatibility [#220](https://github.com/pulumi/pulumi-kubernetes-operator/pull/220)
 
