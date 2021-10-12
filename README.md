@@ -22,6 +22,8 @@ You can use an existing cluster, or [get started](https://www.pulumi.com/docs/ge
 
 ### Using kubectl
 
+First, download the [latest release](https://github.com/pulumi/pulumi-kubernetes-operator/releases) `source code` tar ball and expand it locally.
+
 Deploy the CustomResourceDefinitions (CRDs) for the operator.
 
 ```bash
