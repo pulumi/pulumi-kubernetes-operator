@@ -43,6 +43,8 @@ kubectl apply -f deploy/yaml
 import * as pulumi from "@pulumi/pulumi";
 import * as kubernetes from "@pulumi/kubernetes";
 
+const crds = new kubernetes.yaml.ConfigFile("crds", {file: "https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/master/deploy/crds/pulumi.com_stacks.yaml"});
+
 const operatorServiceAccount = new kubernetes.core.v1.ServiceAccount("operatorServiceAccount", {metadata: {
     name: "pulumi-kubernetes-operator",
 }});
@@ -131,6 +133,16 @@ const operatorRole = new kubernetes.rbac.v1.Role("operatorRole", {
                 "watch",
             ],
         },
+        {
+            apiGroups: ["coordination.k8s.io"],
+            resources: ["leases"],
+            verbs: [
+                "create",
+                "get",
+                "list",
+                "update",
+            ],
+        },
     ],
 });
 const operatorRoleBinding = new kubernetes.rbac.v1.RoleBinding("operatorRoleBinding", {
@@ -171,7 +183,7 @@ const operatorDeployment = new kubernetes.apps.v1.Deployment("operatorDeployment
                 }],
                 containers: [{
                     name: "pulumi-kubernetes-operator",
-                    image: "pulumi/pulumi-kubernetes-operator:v0.0.7",
+                    image: "pulumi/pulumi-kubernetes-operator:v1.0.0",
                     args: ["--zap-level=debug"],
                     imagePullPolicy: "Always",
                     env: [
@@ -197,10 +209,11 @@ const operatorDeployment = new kubernetes.apps.v1.Deployment("operatorDeployment
                         },
                     ],
                 }],
+                terminationGracePeriodSeconds: 300, // Should be same or larger than GRACEFUL_SHUTDOWN_TIMEOUT_DURATION
             },
         },
     },
-});
+}, {dependsOn: crds});
 ```
 </details>
 
@@ -209,7 +222,18 @@ const operatorDeployment = new kubernetes.apps.v1.Deployment("operatorDeployment
 
 ```python
 import pulumi
+from pulumi.resource import ResourceOptions
 import pulumi_kubernetes as kubernetes
+
+# Work around https://github.com/pulumi/pulumi-kubernetes/issues/1481
+def delete_status():
+    def f(o):
+        if "status" in o:
+            del o["status"]
+    return f
+
+crds = kubernetes.yaml.ConfigFile("crds", file="https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/master/deploy/crds/pulumi.com_stacks.yaml",
+    transformations=[delete_status()])
 
 operator_service_account = kubernetes.core.v1.ServiceAccount("operatorServiceAccount", metadata={
     "name": "pulumi-kubernetes-operator",
@@ -299,6 +323,16 @@ operator_role = kubernetes.rbac.v1.Role("operatorRole",
                 "watch",
             ],
         },
+        {
+            "api_groups": ["coordination.k8s.io"],
+            "resources": ["leases"],
+            "verbs": [
+                "create",
+                "get",
+                "list",
+                "update",
+            ],
+        }, 
     ])
 operator_role_binding = kubernetes.rbac.v1.RoleBinding("operatorRoleBinding",
     metadata={
@@ -337,7 +371,7 @@ operator_deployment = kubernetes.apps.v1.Deployment("operatorDeployment",
                 }],
                 "containers": [{
                     "name": "pulumi-kubernetes-operator",
-                    "image": "pulumi/pulumi-kubernetes-operator:v0.0.7",
+                    "image": "pulumi/pulumi-kubernetes-operator:v1.0.0",
                     "command": ["pulumi-kubernetes-operator"],
                     "args": ["--zap-level=debug"],
                     "image_pull_policy": "Always",
@@ -365,8 +399,10 @@ operator_deployment = kubernetes.apps.v1.Deployment("operatorDeployment",
                     ],
                 }],
             },
+            "terminationGracePeriodSeconds": 300,
         },
-    })
+    },
+    opts=ResourceOptions(depends_on=crds))
 ```
 </details>
 
@@ -376,27 +412,35 @@ operator_deployment = kubernetes.apps.v1.Deployment("operatorDeployment",
 ```csharp
 using Pulumi;
 using Kubernetes = Pulumi.Kubernetes;
+using Pulumi.Kubernetes.Types.Inputs.Core.V1;
+using Pulumi.Kubernetes.Types.Inputs.Apps.V1;
+using Pulumi.Kubernetes.Types.Inputs.Meta.V1;
+using Pulumi.Kubernetes.Types.Inputs.Rbac.V1;
 
 class MyStack : Stack
 {
     public MyStack()
     {
-        var operatorServiceAccount = new Kubernetes.Core.v1.ServiceAccount("operatorServiceAccount", new Kubernetes.Core.v1.ServiceAccountArgs
+        var crds = new Kubernetes.Yaml.ConfigFile("crds", new Kubernetes.Yaml.ConfigFileArgs{
+            File = "https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/master/deploy/crds/pulumi.com_stacks.yaml"
+        });
+
+        var operatorServiceAccount = new Kubernetes.Core.V1.ServiceAccount("operatorServiceAccount", new ServiceAccountArgs
         {
-            Metadata = new Kubernetes.Meta.Inputs.ObjectMetaArgs
+            Metadata = new Kubernetes.Types.Inputs.Meta.V1.ObjectMetaArgs
             {
                 Name = "pulumi-kubernetes-operator",
             },
         });
-        var operatorRole = new Kubernetes.Rbac.v1.Role("operatorRole", new Kubernetes.Rbac.v1.RoleArgs
+        var operatorRole = new Kubernetes.Rbac.V1.Role("operatorRole", new RoleArgs
         {
-            Metadata = new Kubernetes.Meta.Inputs.ObjectMetaArgs
+            Metadata = new ObjectMetaArgs
             {
                 Name = "pulumi-kubernetes-operator",
             },
             Rules = 
             {
-                new Kubernetes.Rbac.Inputs.PolicyRuleArgs
+                new PolicyRuleArgs
                 {
                     ApiGroups = 
                     {
@@ -424,7 +468,7 @@ class MyStack : Stack
                         "watch",
                     },
                 },
-                new Kubernetes.Rbac.Inputs.PolicyRuleArgs
+                new PolicyRuleArgs
                 {
                     ApiGroups = 
                     {
@@ -448,7 +492,7 @@ class MyStack : Stack
                         "watch",
                     },
                 },
-                new Kubernetes.Rbac.Inputs.PolicyRuleArgs
+                new PolicyRuleArgs
                 {
                     ApiGroups = 
                     {
@@ -464,7 +508,7 @@ class MyStack : Stack
                         "get",
                     },
                 },
-                new Kubernetes.Rbac.Inputs.PolicyRuleArgs
+                new PolicyRuleArgs
                 {
                     ApiGroups = 
                     {
@@ -483,7 +527,7 @@ class MyStack : Stack
                         "update",
                     },
                 },
-                new Kubernetes.Rbac.Inputs.PolicyRuleArgs
+                new PolicyRuleArgs
                 {
                     ApiGroups = 
                     {
@@ -498,7 +542,7 @@ class MyStack : Stack
                         "get",
                     },
                 },
-                new Kubernetes.Rbac.Inputs.PolicyRuleArgs
+                new PolicyRuleArgs
                 {
                     ApiGroups = 
                     {
@@ -514,7 +558,7 @@ class MyStack : Stack
                         "get",
                     },
                 },
-                new Kubernetes.Rbac.Inputs.PolicyRuleArgs
+                new PolicyRuleArgs
                 {
                     ApiGroups = 
                     {
@@ -535,70 +579,88 @@ class MyStack : Stack
                         "watch",
                     },
                 },
+                new PolicyRuleArgs
+                {
+                    ApiGroups = 
+                    {
+                        "coordination.k8s.io",
+                    },
+                    Resources = 
+                    {
+                        "leases",
+                    },
+                    Verbs = 
+                    {
+                        "create",
+                        "get",
+                        "list",
+                        "update",
+                    },
+                },
             },
         });
-        var operatorRoleBinding = new Kubernetes.Rbac.v1.RoleBinding("operatorRoleBinding", new Kubernetes.Rbac.v1.RoleBindingArgs
+        var operatorRoleBinding = new Kubernetes.Rbac.V1.RoleBinding("operatorRoleBinding", new RoleBindingArgs
         {
-            Metadata = new Kubernetes.Meta.Inputs.ObjectMetaArgs
+            Metadata = new ObjectMetaArgs
             {
                 Name = "pulumi-kubernetes-operator",
             },
             Subjects = 
             {
-                new Kubernetes.Rbac.Inputs.SubjectArgs
+                new SubjectArgs
                 {
                     Kind = "ServiceAccount",
                     Name = "pulumi-kubernetes-operator",
                 },
             },
-            RoleRef = new Kubernetes.Rbac.Inputs.RoleRefArgs
+            RoleRef = new RoleRefArgs
             {
                 Kind = "Role",
                 Name = "pulumi-kubernetes-operator",
                 ApiGroup = "rbac.authorization.k8s.io",
             },
         });
-        var operatorDeployment = new Kubernetes.Apps.v1.Deployment("operatorDeployment", new Kubernetes.Apps.v1.DeploymentArgs
+        var operatorDeployment = new Kubernetes.Apps.V1.Deployment("operatorDeployment", new DeploymentArgs
         {
-            Metadata = new Kubernetes.Meta.Inputs.ObjectMetaArgs
+            Metadata = new ObjectMetaArgs
             {
                 Name = "pulumi-kubernetes-operator",
             },
-            Spec = new Kubernetes.Apps.Inputs.DeploymentSpecArgs
+            Spec = new Kubernetes.Types.Inputs.Apps.V1.DeploymentSpecArgs
             {
                 Replicas = 1,
-                Selector = new Kubernetes.Meta.Inputs.LabelSelectorArgs
+                Selector = new LabelSelectorArgs
                 {
                     MatchLabels = 
                     {
                         { "name", "pulumi-kubernetes-operator" },
                     },
                 },
-                Template = new Kubernetes.Core.Inputs.PodTemplateSpecArgs
+                Template = new PodTemplateSpecArgs
                 {
-                    Metadata = new Kubernetes.Meta.Inputs.ObjectMetaArgs
+                    Metadata = new ObjectMetaArgs
                     {
                         Labels = 
                         {
                             { "name", "pulumi-kubernetes-operator" },
                         },
                     },
-                    Spec = new Kubernetes.Core.Inputs.PodSpecArgs
+                    Spec = new PodSpecArgs
                     {
                         ServiceAccountName = "pulumi-kubernetes-operator",
                         ImagePullSecrets = 
                         {
-                            new Kubernetes.Core.Inputs.LocalObjectReferenceArgs
+                            new LocalObjectReferenceArgs
                             {
                                 Name = "pulumi-kubernetes-operator",
                             },
                         },
                         Containers = 
                         {
-                            new Kubernetes.Core.Inputs.ContainerArgs
+                            new ContainerArgs
                             {
                                 Name = "pulumi-kubernetes-operator",
-                                Image = "pulumi/pulumi-kubernetes-operator:v0.0.7",
+                                Image = "pulumi/pulumi-kubernetes-operator:v1.0.0",
                                 Command = 
                                 {
                                     "pulumi-kubernetes-operator",
@@ -610,29 +672,29 @@ class MyStack : Stack
                                 ImagePullPolicy = "Always",
                                 Env = 
                                 {
-                                    new Kubernetes.Core.Inputs.EnvVarArgs
+                                    new EnvVarArgs
                                     {
                                         Name = "WATCH_NAMESPACE",
-                                        ValueFrom = new Kubernetes.Core.Inputs.EnvVarSourceArgs
+                                        ValueFrom = new EnvVarSourceArgs
                                         {
-                                            FieldRef = new Kubernetes.Core.Inputs.ObjectFieldSelectorArgs
+                                            FieldRef = new ObjectFieldSelectorArgs
                                             {
                                                 FieldPath = "metadata.namespace",
                                             },
                                         },
                                     },
-                                    new Kubernetes.Core.Inputs.EnvVarArgs
+                                    new EnvVarArgs
                                     {
                                         Name = "POD_NAME",
-                                        ValueFrom = new Kubernetes.Core.Inputs.EnvVarSourceArgs
+                                        ValueFrom = new EnvVarSourceArgs
                                         {
-                                            FieldRef = new Kubernetes.Core.Inputs.ObjectFieldSelectorArgs
+                                            FieldRef = new ObjectFieldSelectorArgs
                                             {
                                                 FieldPath = "metadata.name",
                                             },
                                         },
                                     },
-                                    new Kubernetes.Core.Inputs.EnvVarArgs
+                                    new EnvVarArgs
                                     {
                                         Name = "OPERATOR_NAME",
                                         Value = "pulumi-kubernetes-operator",
@@ -640,9 +702,12 @@ class MyStack : Stack
                                 },
                             },
                         },
+                        TerminationGracePeriodSeconds = 300,
                     },
                 },
             },
+        }, new CustomResourceOptions{
+            DependsOn = {crds},
         });
     }
 
@@ -661,12 +726,20 @@ import (
 	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
 	metav1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/meta/v1"
 	rbacv1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/rbac/v1"
+	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/yaml"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
-		_, err := corev1.NewServiceAccount(ctx, "operatorServiceAccount", &corev1.ServiceAccountArgs{
+		crds, err := yaml.NewConfigFile(ctx, "crds", &yaml.ConfigFileArgs{
+			File: "https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/master/deploy/crds/pulumi.com_stacks.yaml",
+		})
+		if err != nil {
+			return err
+		}
+
+		_, err = corev1.NewServiceAccount(ctx, "operatorServiceAccount", &corev1.ServiceAccountArgs{
 			Metadata: &metav1.ObjectMetaArgs{
 				Name: pulumi.String("pulumi-kubernetes-operator"),
 			},
@@ -789,6 +862,20 @@ func main() {
 						pulumi.String("watch"),
 					},
 				},
+				&rbacv1.PolicyRuleArgs{
+					ApiGroups: pulumi.StringArray{
+						pulumi.String("coordination.k8s.io"),
+					},
+					Resources: pulumi.StringArray{
+						pulumi.String("leases"),
+					},
+					Verbs: pulumi.StringArray{
+						pulumi.String("create"),
+						pulumi.String("get"),
+						pulumi.String("list"),
+						pulumi.String("update"),
+					},
+				},
 			},
 		})
 		if err != nil {
@@ -840,7 +927,7 @@ func main() {
 						Containers: corev1.ContainerArray{
 							&corev1.ContainerArgs{
 								Name:  pulumi.String("pulumi-kubernetes-operator"),
-								Image: pulumi.String("pulumi/pulumi-kubernetes-operator:v0.0.7"),
+								Image: pulumi.String("pulumi/pulumi-kubernetes-operator:v1.0.0"),
 								Command: pulumi.StringArray{
 									pulumi.String("pulumi-kubernetes-operator"),
 								},
@@ -872,10 +959,11 @@ func main() {
 								},
 							},
 						},
+						TerminationGracePeriodSeconds: pulumi.Int(300),
 					},
 				},
 			},
-		})
+		}, pulumi.DependsOn([]pulumi.Resource{crds}))
 		if err != nil {
 			return err
 		}
