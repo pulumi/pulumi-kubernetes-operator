@@ -8,6 +8,11 @@ interface ServiceAccountArgs {
     namespace: pulumi.Input<string>;
     provider: k8s.Provider;
 }
+
+export function installCRDs(name: string, fileURL: string): k8s.yaml.ConfigFile {
+    return new k8s.yaml.ConfigFile(name, {file: fileURL})
+}
+
 export function createServiceAccount(
     name: string,
     args: ServiceAccountArgs,
@@ -109,6 +114,16 @@ export function createRole(
                     "watch",
                 ],
             },
+            {
+                apiGroups: ["coordination.k8s.io"],
+                resources: ["leases"],
+                verbs: [
+                    "create",
+                    "get",
+                    "list",
+                    "update",
+                ],
+            },
         ],
     },{provider: args.provider});
 }
@@ -149,6 +164,9 @@ export class PulumiKubernetesOperator extends pulumi.ComponentResource {
         args: PulumiKubernetesOperatorArgs,
         opts: pulumi.ComponentResourceOptions = {}) {
         super("pulumi-kubernetes-operator", name, args, opts);
+
+        // Install the CRD
+        const crds = installCRDs(name, "https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/master/deploy/crds/pulumi.com_stacks.yaml");
 
         // Create the service account.
         const serviceAccount = createServiceAccount(name, {
@@ -193,9 +211,8 @@ export class PulumiKubernetesOperator extends pulumi.ComponentResource {
                         }],
                         containers: [{
                             name: "pulumi-kubernetes-operator",
-                            image: "pulumi/pulumi-kubernetes-operator:v0.0.7",
+                            image: "pulumi/pulumi-kubernetes-operator:v1.0.0",
                             args: ["--zap-level=debug"],
-                            imagePullPolicy: "Always",
                             env: [
                                 {
                                     name: "WATCH_NAMESPACE",
@@ -219,9 +236,10 @@ export class PulumiKubernetesOperator extends pulumi.ComponentResource {
                                 },
                             ],
                         }],
+                        terminationGracePeriodSeconds: 300,
                     },
                 },
             },
-        }, {dependsOn: roleBinding});
+        }, {dependsOn: [crds, roleBinding]});
     }
 }

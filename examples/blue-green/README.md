@@ -28,6 +28,8 @@ initial version to the new version.
 * [Get Started with Pulumi and Kubernetes][get-started-k8s].
 * You can use an existing Kubernetes cluster, or create a new [managed Kubernetes cluster](https://www.pulumi.com/docs/tutorials/kubernetes/#clusters).
 
+**NOTE**: This example uses a Kubernetes Load Balancer Service. Please make sure your Kubernetes provider can provision load balancers. Specifically, this will not work on `Minikube` or `Kind`.
+
 ## App Deployment
 
 The application is a stateless HTTP server that returns request information and
@@ -90,10 +92,10 @@ At the V2 commit, we'll have deployed the following resources in Kubernetes.
     pulumi config set --secret pulumiAccessToken <YOUR_PULUMI_API_TOKEN>
     pulumi config set stackProjectRepo https://github.com/metral/pulumi-blue-green
     pulumi config set stackCommit b19759220f25476605620fdfffeface39a630246
+    pulumi config set stackName <YOUR_ORG>/pulumi-blue-green/dev
     ```
 
-1. Next, open `index.ts` and edit the `stack` field in the Stack CustomResource
-   to replace `<YOUR_ORG>` with your Pulumi user / organization.
+1. Make sure to use your Pulumi organization or user name instead of `<YOUR_ORG>` above.
 
 ## Run the Update
 
@@ -393,9 +395,7 @@ program Stacks in this fashion showcases how Pulumi can be used to manage
 Stacks natively in Kubernetes, opening up opportunities for further integration
 and automation pipelines.
 
-Lastly, a branch polling feature is [coming soon][branch-poll] to track Git branches
-and automatically roll out changes as commits get pushed to the branch, so that
-you don't have to manually update commits.
+The operator is also able to [track Git branches][branch-poll] and automatically roll out changes as commits get pushed to the branch, so that you don't have to manually update commits.
 
 ## Clean Up
 
@@ -421,6 +421,6 @@ stack.
 [pulumi-config]: https://www.pulumi.com/docs/reference/config
 [get-started-k8s]: https://www.pulumi.com/docs/get-started/kubernetes/
 [pulumi-service]: https://app.pulumi.com
-[stack-api-type]: https://github.com/pulumi/pulumi-kubernetes-operator/blob/34b881610e87f0734c80a329cfdf5ce4c95b4f5d/pkg/apis/pulumi/v1alpha1/stack_types.go#L104-L110
+[stack-api-type]: https://github.com/pulumi/pulumi-kubernetes-operator/blob/master/docs/stacks.md
 [pulumi-k8s-app]: https://github.com/metral/pulumi-blue-green
 [branch-poll]: https://github.com/pulumi/pulumi-kubernetes-operator/issues/50
