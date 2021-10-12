@@ -35,7 +35,15 @@ const appStack = new k8s.apiextensions.CustomResource("app-stack", {
     apiVersion: 'pulumi.com/v1',
     kind: 'Stack',
     spec: {
-        accessTokenSecret: apiAccessToken.metadata.name,
+        envRefs: {
+            PULUMI_ACCESS_TOKEN: {
+                type: "Secret",
+                secret: {
+                    name: apiAccessToken.metadata.name,
+                    key: "accessToken",
+                },
+            },
+        },
         stack: stackName,
         projectRepo: stackProjectRepo,
         commit: stackCommit,
