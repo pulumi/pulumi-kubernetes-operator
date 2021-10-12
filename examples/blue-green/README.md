@@ -395,9 +395,7 @@ program Stacks in this fashion showcases how Pulumi can be used to manage
 Stacks natively in Kubernetes, opening up opportunities for further integration
 and automation pipelines.
 
-Lastly, a branch polling feature is [coming soon][branch-poll] to track Git branches
-and automatically roll out changes as commits get pushed to the branch, so that
-you don't have to manually update commits.
+The operator is also able to [track Git branches][branch-poll] and automatically roll out changes as commits get pushed to the branch, so that you don't have to manually update commits.
 
 ## Clean Up
 
@@ -423,6 +421,6 @@ stack.
 [pulumi-config]: https://www.pulumi.com/docs/reference/config
 [get-started-k8s]: https://www.pulumi.com/docs/get-started/kubernetes/
 [pulumi-service]: https://app.pulumi.com
-[stack-api-type]: https://github.com/pulumi/pulumi-kubernetes-operator/blob/34b881610e87f0734c80a329cfdf5ce4c95b4f5d/pkg/apis/pulumi/v1alpha1/stack_types.go#L104-L110
+[stack-api-type]: https://github.com/pulumi/pulumi-kubernetes-operator/blob/master/docs/stacks.md
 [pulumi-k8s-app]: https://github.com/metral/pulumi-blue-green
 [branch-poll]: https://github.com/pulumi/pulumi-kubernetes-operator/issues/50

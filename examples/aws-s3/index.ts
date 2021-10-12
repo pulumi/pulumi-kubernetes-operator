@@ -32,8 +32,7 @@ const awsSecretAccessKey = config.requireSecret("awsSecretAccessKey");
 const awsSessionToken = config.requireSecret("awsSessionToken");
 
 const stackName = config.require("stackName");
-const stackProjectRepo = config.require("stackProjectRepo");
-const stackCommit = config.require("stackCommit");
+const stackProjectRepo = config.get("stackProjectRepo") || "https://github.com/joeduffy/test-s3-op-project";
 
 // Create the creds as Kubernetes Secrets.
 const accessToken = new kx.Secret("accesstoken", {
@@ -54,12 +53,41 @@ const mystack = new k8s.apiextensions.CustomResource("my-stack", {
     spec: {
         stack: stackName,
         projectRepo: stackProjectRepo,
-        commit: stackCommit,
-        accessTokenSecret: accessToken.metadata.name,
+        branch: "refs/heads/master",
+        envRefs: {
+            PULUMI_ACCESS_TOKEN: 
+            {
+                type: "Secret",
+                secret: {
+                    name: accessToken.metadata.name,
+                    key: "accessToken",
+                },
+            },
+            AWS_ACCESS_KEY_ID: {
+                type: "Secret",
+                secret: {
+                    name: awsCreds.metadata.name,
+                    key: "AWS_ACCESS_KEY_ID",
+                },
+            },
+            AWS_SECRET_ACCESS_KEY: {
+                type: "Secret",
+                secret: {
+                    name: awsCreds.metadata.name,
+                    key: "AWS_SECRET_ACCESS_KEY",
+                },
+            },
+            AWS_SESSION_TOKEN: {
+                type: "Secret",
+                secret: {
+                    name: awsCreds.metadata.name,
+                    key: "AWS_SESSION_TOKEN",
+                }
+            }
+        },
         config: {
             "aws:region": "us-west-2",
         },
-        envSecrets: [awsCreds.metadata.name],
         destroyOnFinalize: true,
     },
 }, {dependsOn: pulumiOperator.deployment});
