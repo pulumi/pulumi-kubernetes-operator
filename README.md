@@ -12,6 +12,8 @@ A Kubernetes operator that deploys Pulumi updates by cloning Git repos and runni
   - [Using kubectl](#using-kubectl-1)
   - [Using Pulumi](#using-pulumi-1)
   - [Extended Examples](#extended-examples)
+* [Stack CR Documentation](#stack-cr-documentation)
+* [Prometheus Metrics Integraton](#prometheus-metrics-integration)
 * [Development](#development)
 
 ## Deploy the Operator
@@ -1000,9 +1002,13 @@ Check out [Create Pulumi Stacks using Pulumi](./docs/create-stacks-using-pulumi.
 - [Managing a Kubernetes Blue/Green Deployment](./examples/blue-green)
 - [AWS S3 Buckets](./examples/aws-s3)
 
-### Stack CR Documentation
+## Stack CR Documentation
 
-- Detailed documentation on Stack Custom Resource is available [here](./docs/stacks.md)
+Detailed documentation on Stack Custom Resource is available [here](./docs/stacks.md).
+
+## Prometheus Metrics Integration
+
+Details on metrics emitted by the Pulumi Kubernetes Operator as instructions on getting them to flow to Prometheus are available [here](./docs/metrics.md).
 
 ## Development
 
