@@ -53,18 +53,14 @@ func updateStackCallback(oldObj, newObj interface{}) {
 		return
 	}
 
-	// fresh transition to failure
+	// transition to failure
 	if newStack.Status.LastUpdate != nil && newStack.Status.LastUpdate.State == shared.FailedStackStateMessage {
-		if oldStack.Status.LastUpdate == nil || oldStack.Status.LastUpdate.State != newStack.Status.LastUpdate.State {
-			numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(1)
-		}
+		numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(1)
 	}
 
 	// transition to success from failure
 	if newStack.Status.LastUpdate != nil && newStack.Status.LastUpdate.State == shared.SucceededStackStateMessage {
-		if oldStack.Status.LastUpdate != nil && oldStack.Status.LastUpdate.State == shared.FailedStackStateMessage {
-			numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(0)
-		}
+		numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(0)
 	}
 }
 
