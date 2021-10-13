@@ -45,7 +45,7 @@ Installing the `kube-prometheus-stack` Helm Chart is the simplest means to have 
 
 Use the following Pulumi Program to install a `Kube-Prometheus-Stack` Helm Release on your cluster
 
-**Important** - please note the override of the `serviceMonitorSelectorNilUsesHelmValues` value. Not setting this will potentially prevent the Operator metrics services from being scrapped.
+**Important** - please note the override of the `serviceMonitorSelectorNilUsesHelmValues` value. Not setting this will potentially prevent the Operator metrics services from being scraped.
 ```typescript
 import * as pulumi from "@pulumi/pulumi";
 import * as kubernetes from "@pulumi/kubernetes";
