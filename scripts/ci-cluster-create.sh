@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -o nounset -o errexit -o pipefail
 
 echo Creating ephemeral Kubernetes cluster for CI testing...

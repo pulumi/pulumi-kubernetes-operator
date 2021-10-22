@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -o nounset -o errexit -o pipefail
 
 export GO111MODULE=on
@@ -19,5 +19,5 @@ if [ "$build_static" == "static" ]; then
 fi
 
 # Build the operator.
-/bin/bash -c "go build -o $name -ldflags \"${ldflags:-}\" $extra_args ./cmd/manager/main.go"
+/usr/bin/env bash -c "go build -o $name -ldflags \"${ldflags:-}\" $extra_args ./cmd/manager/main.go"
 chmod +x "$name"
