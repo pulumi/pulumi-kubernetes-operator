@@ -2,6 +2,9 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
+(None)
+
+## 1.1.0 (2021-10-27)
 - Avoid double install of dependencies [#230](https://github.com/pulumi/pulumi-kubernetes-operator/pull/230)
 - Update to v3.16.0 of Pulumi [#230](https://github.com/pulumi/pulumi-kubernetes-operator/pull/230)
 
