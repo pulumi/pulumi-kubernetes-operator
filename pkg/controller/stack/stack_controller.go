@@ -9,8 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
-	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
 	"io"
 	"os"
 	"os/exec"
@@ -18,6 +16,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
+	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
 
 	"github.com/operator-framework/operator-lib/handler"
 	libpredicate "github.com/operator-framework/operator-lib/predicate"
@@ -629,7 +630,6 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 		ProjectPath: sess.stack.RepoDir,
 		CommitHash:  sess.stack.Commit,
 		Branch:      sess.stack.Branch,
-		Setup:       sess.InstallProjectDependencies,
 		Auth:        gitAuth,
 	}
 
