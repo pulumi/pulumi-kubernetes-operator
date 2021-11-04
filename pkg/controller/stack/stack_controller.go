@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/tools/record"
+
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
 
@@ -75,13 +77,17 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileStack{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileStack{
+		client:   mgr.GetClient(),
+		scheme:   mgr.GetScheme(),
+		recorder: mgr.GetEventRecorderFor("stack-controller"),
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	var err error
-	maxConcurrentReconciles := 10
+	maxConcurrentReconciles := defaultMaxConcurrentReconciles
 	maxConcurrentReconcilesStr, set := os.LookupEnv("MAX_CONCURRENT_RECONCILES")
 	if set {
 		maxConcurrentReconciles, err = strconv.Atoi(maxConcurrentReconcilesStr)
@@ -137,8 +143,9 @@ var _ reconcile.Reconciler = &ReconcileStack{}
 type ReconcileStack struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client   client.Client
+	scheme   *runtime.Scheme
+	recorder record.EventRecorder
 }
 
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
@@ -176,13 +183,17 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		sess.stack.Commit == "" &&
 		sess.stack.Branch == "" {
 
-		reqLogger.Info("Stack CustomResource needs to specify either 'branch' or 'commit' for the tracking repo.")
+		msg := "Stack CustomResource needs to specify either 'branch' or 'commit' for the tracking repo."
+		r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), msg)
+		reqLogger.Info(msg)
+
 		return reconcile.Result{}, err
 	}
 
 	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
 	gitAuth, err := sess.SetupGitAuth()
 	if err != nil {
+		r.emitEvent(instance, pulumiv1.StackGitAuthFailureEvent(), "Failed to setup git authentication: %v", err.Error())
 		reqLogger.Error(err, "Failed to setup git authentication", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
 	}
@@ -194,6 +205,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	}
 
 	if err = sess.SetupPulumiWorkdir(gitAuth); err != nil {
+		r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
 		reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
 	}
@@ -208,13 +220,14 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
 	if err = sess.SetEnvs(stack.Envs, request.Namespace); err != nil {
-		if err2 := sess.markStackFailed(errors.Wrap(err, "could not find ConfigMap for Envs"), instance, currentCommit, ""); err2 != nil {
+		if err2 := r.markStackFailed(sess, instance, errors.Wrap(err, "could not find ConfigMap for Envs"), currentCommit, ""); err2 != nil {
 			return reconcile.Result{}, err2
 		}
 		return reconcile.Result{}, err
 	}
 	if err = sess.SetSecretEnvs(stack.SecretEnvs, request.Namespace); err != nil {
-		if err2 := sess.markStackFailed(errors.Wrap(err, "could not find Secret for SecretEnvs"), instance, currentCommit, ""); err2 != nil {
+		if err2 := r.markStackFailed(sess, instance, errors.Wrap(err, "could not find Secret for SecretEnvs"),
+			currentCommit, ""); err2 != nil {
 			return reconcile.Result{}, err2
 		}
 		return reconcile.Result{}, err
@@ -256,6 +269,8 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			// Reconcile every 60 seconds to check for new commits to the branch.
 			return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
 		}
+
+		r.emitEvent(instance, pulumiv1.StackUpdateDetectedEvent(), "New commit detected: %q.", currentCommit)
 		reqLogger.Info("New commit hash found", "Current commit", currentCommit,
 			"Last commit", instance.Status.LastUpdate.LastSuccessfulCommit)
 	}
@@ -264,7 +279,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	if sess.stack.Refresh {
 		permalink, err := sess.RefreshStack(sess.stack.ExpectNoRefreshChanges)
 		if err != nil {
-			if err2 := sess.markStackFailed(errors.Wrap(err, "refreshing stack"), instance, currentCommit, permalink); err2 != nil {
+			if err2 := r.markStackFailed(sess, instance, errors.Wrap(err, "refreshing stack"), currentCommit, permalink); err2 != nil {
 				return reconcile.Result{}, err2
 			}
 			return reconcile.Result{}, err
@@ -292,6 +307,10 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	status, permalink, result, err := sess.UpdateStack()
 	switch status {
 	case shared.StackUpdateConflict:
+		r.emitEvent(instance,
+			pulumiv1.StackUpdateConflictDetectedEvent(),
+			"Conflict with another concurrent update. "+
+				"If Stack CR specifies 'retryOnUpdateConflict' a retry will trigger automatically.")
 		if sess.stack.RetryOnUpdateConflict {
 			reqLogger.Error(err, "Conflict with another concurrent update -- will retry shortly", "Stack.Name", stack.Stack)
 			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
@@ -299,11 +318,12 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		reqLogger.Error(err, "Conflict with another concurrent update -- NOT retrying", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, nil
 	case shared.StackNotFound:
+		r.emitEvent(instance, pulumiv1.StackNotFoundEvent(), "Stack not found. Will retry.")
 		reqLogger.Error(err, "Stack not found -- will retry shortly", "Stack.Name", stack.Stack, "Err:")
 		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	default:
 		if err != nil {
-			if err2 := sess.markStackFailed(err, instance, currentCommit, permalink); err2 != nil {
+			if err2 := r.markStackFailed(sess, instance, err, currentCommit, permalink); err2 != nil {
 				return reconcile.Result{}, err2
 			}
 			return reconcile.Result{}, err
@@ -313,6 +333,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	// Step 5. Capture outputs onto the resulting status object.
 	outs, err := sess.GetStackOutputs(result.Outputs)
 	if err != nil {
+		r.emitEvent(instance, pulumiv1.StackOutputRetrievalFailureEvent(), "Failed to get Stack outputs: %v.", err.Error())
 		reqLogger.Error(err, "Failed to get Stack outputs", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
 	}
@@ -338,7 +359,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{}, err
 	}
 	reqLogger.Info("Successfully updated status for Stack", "Stack.Name", stack.Stack)
-
+	r.emitEvent(instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack.")
 	if trackBranch {
 		// Reconcile every 60 seconds to check for new commits to the branch.
 		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
@@ -347,7 +368,12 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	return reconcile.Result{}, nil
 }
 
-func (sess *reconcileStackSession) markStackFailed(err error, instance *pulumiv1.Stack, currentCommit string, permalink shared.Permalink) error {
+func (r *ReconcileStack) emitEvent(instance *pulumiv1.Stack, event pulumiv1.StackEvent, messageFmt string, args ...interface{}) {
+	r.recorder.Eventf(instance, event.EventType(), event.Reason(), messageFmt, args...)
+}
+
+func (r *ReconcileStack) markStackFailed(sess *reconcileStackSession, instance *pulumiv1.Stack, err error, currentCommit string, permalink shared.Permalink) error {
+	r.emitEvent(instance, pulumiv1.StackUpdateFailureEvent(), "Failed to update Stack: %v.", err.Error())
 	sess.logger.Error(err, "Failed to update Stack", "Stack.Name", sess.stack.Stack)
 	// Update Stack status with failed state
 	instance.Status.LastUpdate.LastAttemptedCommit = currentCommit
