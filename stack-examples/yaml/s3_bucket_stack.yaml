@@ -42,7 +42,7 @@ spec:
       secret:
         name: pulumi-aws-secrets
         key: AWS_SESSION_TOKEN
-  stack: joeduffy/s3-op-project/dev
+  stack: <ACCOUNT_NAME>/s3-op-project/dev
   projectRepo: https://github.com/joeduffy/test-s3-op-project
   commit: 3edeafe930e2121358f56c7a9adc41f18505149e
   config:
