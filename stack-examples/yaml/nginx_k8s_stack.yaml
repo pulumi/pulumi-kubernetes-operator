@@ -17,7 +17,7 @@ spec:
       secret:
         name: pulumi-api-secret
         key: accessToken
-  stack: joeduffy/nginx/dev
+  stack: <ACCOUNT_NAME>/nginx/dev
   projectRepo: https://github.com/metral/pulumi-nginx
-  commit: 2b0889718d3e63feeb6079ccd5e4488d8601e353
+  branch: "refs/heads/master"
   destroyOnFinalize: true

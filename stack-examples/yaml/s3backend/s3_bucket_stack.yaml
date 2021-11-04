@@ -1,14 +1,6 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: pulumi-api-secret
-type: Opaque
-stringData:
-  accessToken: "<REDACTED: PULUMI_ACCESS_TOKEN>"
----
-apiVersion: v1
-kind: Secret
-metadata:
   name: pulumi-aws-secrets
 type: Opaque
 stringData:
@@ -21,12 +13,13 @@ kind: Stack
 metadata:
   name: s3-bucket-stack
 spec:
+  backend: "s3://<S3 BUCKET>"
+  secretsProvider: "awskms:///<KMS KEY ARN>?region=<REGION>"
   envRefs:
-    PULUMI_ACCESS_TOKEN:
-      type: Secret
-      secret:
-        name: pulumi-api-secret
-        key: accessToken
+    AWS_DEFAULT_REGION:
+      type: Literal
+      literal:
+        value: <REGION>
     AWS_ACCESS_KEY_ID:
       type: Secret
       secret:
@@ -42,7 +35,7 @@ spec:
       secret:
         name: pulumi-aws-secrets
         key: AWS_SESSION_TOKEN
-  stack: <ACCOUNT_NAME>/s3-op-project/dev
+  stack: "s3backend.s3-op-project.dev"
   projectRepo: https://github.com/joeduffy/test-s3-op-project
   commit: 3edeafe930e2121358f56c7a9adc41f18505149e
   config:
