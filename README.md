@@ -46,7 +46,7 @@ $ brew install pulumi
 
 #### Login to Your Chosen State Backend
 
-By default, Pulumi (and the Pulumi Kubernetes Operator) uses the [Pulumi managed SaaS backend](https://app.pulumi.com/). 
+The operator stores additional metadata about provisioned resources. By default, Pulumi (and the Pulumi Kubernetes Operator) uses the [Pulumi managed SaaS backend](https://app.pulumi.com/) to store this state and manage concurrency. 
 However, in addition to the managed backend, Pulumi also readily integrates with a variety of state backends, like [S3](https://www.pulumi.com/docs/intro/concepts/state/#logging-into-the-aws-s3-backend), [Azure Blob Storage](https://www.pulumi.com/docs/intro/concepts/state/#logging-into-the-azure-blob-storage-backend), [Google Cloud Storage](https://www.pulumi.com/docs/intro/concepts/state/#logging-into-the-google-cloud-storage-backend), etc. See [here](https://www.pulumi.com/docs/intro/concepts/state/#deciding-on-a-backend) for a detailed discussion on choosing a state backend. 
 
 Login to Pulumi using your chosen state backend. For simplicity we will only cover the Pulumi managed SaaS state backend and AWS S3 here:
