@@ -76,7 +76,7 @@ At this point your `pulumi` CLI is configured to work with the Pulumi SaaS backe
 <summary> AWS S3 Backend </summary>
 
 1. First, you will need to create an S3 bucket manually, either through the [AWS CLI](https://aws.amazon.com/cli/) or the [AWS Console](https://console.aws.amazon.com/).
-1. If you have already [configured](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html) the AWS CLI to use credential files, single sign-on etc., Pulumi will automatically respect and use these settings. Alternatively you can simply set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables to the access key and secret access key respectively.
+1. If you have already [configured](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html) the AWS CLI to use credential files, single sign-on etc., Pulumi will automatically respect and use these settings. Alternatively you can set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables to the access key and secret access key respectively.
 1. To use the AWS S3 backend, pass the `s3://<bucket-name>` as your `<backend-url>` to `pulumi login`, i.e.:
    ```
    $ pulumi login s3://<bucket-name>
