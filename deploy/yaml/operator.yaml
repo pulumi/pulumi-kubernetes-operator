@@ -23,6 +23,7 @@ spec:
           image: pulumi/pulumi-kubernetes-operator:v1.1.0
           args:
             - "--zap-level=error"
+            - "--zap-time-encoding=iso8601"
           volumeMounts:
             - mountPath: /tmp
               name: tmp-dir

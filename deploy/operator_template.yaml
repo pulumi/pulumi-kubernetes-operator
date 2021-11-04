@@ -23,6 +23,7 @@ spec:
           image: <IMG_NAME>:<IMG_VERSION>
           args:
             - "--zap-level=error"
+            - "--zap-time-encoding=iso8601"
           volumeMounts:
             - mountPath: /tmp
               name: tmp-dir

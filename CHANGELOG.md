@@ -2,7 +2,7 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
-(None)
+- Default timestamps are now iso8601 in logs. Remove `"--zap-time-encoding=iso8601"` line from deployment spec to revert to old timestamps [#234](https://github.com/pulumi/pulumi-kubernetes-operator/pull/234)
 
 ## 1.1.0 (2021-10-27)
 - Avoid double install of dependencies [#230](https://github.com/pulumi/pulumi-kubernetes-operator/pull/230)
