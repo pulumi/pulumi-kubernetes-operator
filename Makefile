@@ -3,6 +3,7 @@ GIT_COMMIT := $(shell git rev-parse --short HEAD)
 VERSION := $(GIT_COMMIT)
 PUBLISH_IMAGE_NAME := pulumi/pulumi-kubernetes-operator
 IMAGE_NAME := docker.io/$(shell whoami)/pulumi-kubernetes-operator
+CURRENT_RELEASE := $(shell git describe --abbrev=0 --tags)
 RELEASE ?= $(shell git describe --abbrev=0 --tags)
 
 default: build
@@ -47,6 +48,11 @@ deploy:
 	kubectl apply -f deploy/yaml/role.yaml
 	kubectl apply -f deploy/yaml/role_binding.yaml
 	sed -e "s#<IMG_NAME>:<IMG_VERSION>#$(IMAGE_NAME):$(VERSION)#g" deploy/operator_template.yaml | kubectl apply -f -
+
+prep: prep-spec prep-docs
+
+prep-docs:
+	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" README.md
 
 # Run make prep-spec RELEASE=<next-tag> to prep the spec
 prep-spec:

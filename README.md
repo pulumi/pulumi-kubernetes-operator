@@ -126,7 +126,7 @@ kubectl apply -f deploy/yaml
 import * as pulumi from "@pulumi/pulumi";
 import * as kubernetes from "@pulumi/kubernetes";
 
-const crds = new kubernetes.yaml.ConfigFile("crds", {file: "https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.1.0/deploy/crds/pulumi.com_stacks.yaml"});
+const crds = new kubernetes.yaml.ConfigFile("crds", {file: "https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.2.0/deploy/crds/pulumi.com_stacks.yaml"});
 
 const operatorServiceAccount = new kubernetes.core.v1.ServiceAccount("operatorServiceAccount", {metadata: {
     name: "pulumi-kubernetes-operator",
@@ -266,7 +266,7 @@ const operatorDeployment = new kubernetes.apps.v1.Deployment("operatorDeployment
                 }],
                 containers: [{
                     name: "pulumi-kubernetes-operator",
-                    image: "pulumi/pulumi-kubernetes-operator:v1.1.0",
+                    image: "pulumi/pulumi-kubernetes-operator:v1.2.0",
                     args: ["--zap-level=debug"],
                     imagePullPolicy: "Always",
                     env: [
@@ -324,7 +324,7 @@ def delete_status():
     return f
 
 crds = kubernetes.yaml.ConfigFile("crds",
-    file="https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.1.0/deploy/crds/pulumi.com_stacks.yaml",
+    file="https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.2.0/deploy/crds/pulumi.com_stacks.yaml",
     transformations=[delete_status()])
 
 operator_service_account = kubernetes.core.v1.ServiceAccount("operatorServiceAccount", metadata={
@@ -463,7 +463,7 @@ operator_deployment = kubernetes.apps.v1.Deployment("operatorDeployment",
                 }],
                 "containers": [{
                     "name": "pulumi-kubernetes-operator",
-                    "image": "pulumi/pulumi-kubernetes-operator:v1.1.0",
+                    "image": "pulumi/pulumi-kubernetes-operator:v1.2.0",
                     "command": ["pulumi-kubernetes-operator"],
                     "args": ["--zap-level=debug"],
                     "image_pull_policy": "Always",
@@ -522,7 +522,7 @@ class MyStack : Stack
     public MyStack()
     {
         var crds = new Kubernetes.Yaml.ConfigFile("crds", new Kubernetes.Yaml.ConfigFileArgs{
-            File = "https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.1.0/deploy/crds/pulumi.com_stacks.yaml"
+            File = "https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.2.0/deploy/crds/pulumi.com_stacks.yaml"
         });
 
         var operatorServiceAccount = new Kubernetes.Core.V1.ServiceAccount("operatorServiceAccount", new ServiceAccountArgs
@@ -760,7 +760,7 @@ class MyStack : Stack
                             new ContainerArgs
                             {
                                 Name = "pulumi-kubernetes-operator",
-                                Image = "pulumi/pulumi-kubernetes-operator:v1.1.0",
+                                Image = "pulumi/pulumi-kubernetes-operator:v1.2.0",
                                 Command = 
                                 {
                                     "pulumi-kubernetes-operator",
@@ -841,7 +841,7 @@ import (
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		crds, err := yaml.NewConfigFile(ctx, "crds", &yaml.ConfigFileArgs{
-			File: "https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.1.0/deploy/crds/pulumi.com_stacks.yaml",
+			File: "https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.2.0/deploy/crds/pulumi.com_stacks.yaml",
 		})
 		if err != nil {
 			return err
@@ -1035,7 +1035,7 @@ func main() {
 						Containers: corev1.ContainerArray{
 							&corev1.ContainerArgs{
 								Name:  pulumi.String("pulumi-kubernetes-operator"),
-								Image: pulumi.String("pulumi/pulumi-kubernetes-operator:v1.1.0"),
+								Image: pulumi.String("pulumi/pulumi-kubernetes-operator:v1.2.0"),
 								Command: pulumi.StringArray{
 									pulumi.String("pulumi-kubernetes-operator"),
 								},
