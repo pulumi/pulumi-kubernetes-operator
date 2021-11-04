@@ -2,8 +2,22 @@
 
 ## Overview
 
-- [Create an NGINX Deployment in-cluster](#nginx-deployment)
-- [Create AWS S3 Buckets](#aws-s3-buckets)
+- [Create Pulumi Stacks using kubectl](#create-pulumi-stacks-using-kubectl)
+  - [Overview](#overview)
+  - [Introduction](#introduction)
+  - [NGINX Deployment](#nginx-deployment)
+    - [Create Stack](#create-stack)
+      - [With Pulumi SaaS Backend](#with-pulumi-saas-backend)
+      - [With S3 State Backend](#with-s3-state-backend)
+    - [Get the stack details](#get-the-stack-details)
+    - [Delete the Stack and Cleanup](#delete-the-stack-and-cleanup)
+  - [AWS S3 Buckets](#aws-s3-buckets)
+    - [Create Stack](#create-stack-1)
+      - [With Pulumi SaaS Backend](#with-pulumi-saas-backend-1)
+      - [With S3 Backend](#with-s3-backend)
+    - [Get the stack details](#get-the-stack-details-1)
+    - [Delete the Stack and Cleanup](#delete-the-stack-and-cleanup-1)
+  - [Troubleshooting](#troubleshooting)
 
 ## Introduction
 
@@ -47,21 +61,35 @@ In the details `stack.status` will show:
 
 ## NGINX Deployment
 
-Create a NGINX Deployment in-cluster to the operator, using its ServiceAccount.
+Create an NGINX Deployment in the same cluster as the operator, using its ServiceAccount.
 
-Check out [`../stack-examples/yaml/nginx_k8s_stack.yaml`](../stack-examples/yaml/nginx_k8s_stack.yaml).
+### Create Stack
+Based on what backend you have chosen, choose from one of the following set of instructions:
 
-Update the Pulumi API token Secret to use your Pulumi credentials.
+#### With Pulumi SaaS Backend
 
-Also update the `stack` org to match your account, leaving the stack project name as-is to work with the example repo's `Pulumi.yaml`. 
+When using the Pulumi SaaS backend:
+1. Download  [`nginx_k8s_stack.yaml`](../stack-examples/yaml/nginx_k8s_stack.yaml).
+1. Update the Pulumi API token Secret to use your Pulumi credentials.
+1. Update the `stack` org to match your account, leaving the stack project name as-is to work with the example repo's `Pulumi.yaml`. 
+1. Deploy the Stack CustomResource:
+   ```
+   kubectl apply -f nginx_k8s_stack.yaml
+   ```
 
-Deploy the Stack CustomResource:
+#### With S3 State Backend
 
-```
-kubectl apply -f ../stack-examples/yaml/nginx_k8s_stack.yaml
-```
+When using the S3 Bucket backed state backend:
+1. Download [`s3backend/nginx_k8s_stack.yaml`](../stack-examples/yaml/s3backend/nginx_k8s_stack.yaml).
+1. Update `backend` reference in the spec to refer to the S3 bucket where state should be stored.
+1. Update the `aws-creds-secret` secret to refer to AWS credentials necessary to access the state backend bucket.
+1. Update the `KMS Key ARN` and region to refer to the KMS key to use as a secrets encryption provider.
+1. Deploy the Stack CustomResource:
+   ```
+   kubectl apply -f s3backend/nginx_k8s_stack.yaml
+   ```
 
-Get the stack details.
+### Get the stack details
 
 ```bash
 kubectl get stack nginx-k8s-stack -o json
@@ -105,32 +133,49 @@ kubectl get stack nginx-k8s-stack -o json
 ```
 </details>
 
-Delete the Stack CustomResource, and then its secrets.
+### Delete the Stack and Cleanup
 
 If `destroyOnFinalize: true` was set on the Stack when created, it will destroy
 the stack's resources and the stack before the CR is deleted.
 
 ```bash
 kubectl delete stack nginx-k8s-stack
+
+# For SaaS backend
 kubectl delete secret pulumi-api-secret
+
+# For S3 backend
+kubectl delete secret aws-creds-secret 
 ```
 
 ## AWS S3 Buckets
 
 Deploys an AWS S3 Buckets Stack and its AWS secrets.
 
-Check out [`../stack-examples/yaml/s3_bucket_stack.yaml`](../stack-examples/yaml/s3_bucket_stack.yaml) to start with a simple example.
+### Create Stack
+Based on what backend you have chosen, choose from one of the following set of instructions:
 
-Update the Pulumi API token Secret, `stack`, and the cloud provider Secret to use
-your Pulumi and AWS credentials.
+#### With Pulumi SaaS Backend
 
-Deploy the Stack CustomResource:
+1. Download [`s3_bucket_stack.yaml`](../stack-examples/yaml/s3_bucket_stack.yaml) to start with a simple example.
+1. Update the Pulumi API token Secret, `stack`, and the cloud provider Secret to use your Pulumi and AWS credentials.
+1. Deploy the Stack CustomResource:
+   ```
+   kubectl apply -f s3_bucket_stack.yaml
+   ```
 
-```
-kubectl apply -f ../stack-examples/yaml/s3_bucket_stack.yaml
-```
+#### With S3 Backend
 
-Get the stack details.
+1. Download [`s3backend/s3_bucket_stack.yaml`](../stack-examples/yaml/s3backend/s3_bucket_stack.yaml) to start with a simple example.
+1. Update `backend` reference in the spec to refer to the S3 bucket where state should be stored.
+1. Update the `pulumi-aws-secrets` secret to refer to AWS credentials necessary to access the state backend bucket.
+1. Update the `KMS Key ARN` and `region` to refer to the KMS key to use as a secrets encryption provider.
+1. Deploy the Stack CustomResource:
+   ```
+   kubectl apply -f s3backend/s3_bucket_stack.yaml
+   ```
+
+### Get the stack details
 
 ```bash
 kubectl get stack s3-bucket-stack -o json
@@ -183,24 +228,29 @@ kubectl get stack s3-bucket-stack -o json
 ```
 </details>
 
-Now, you can make a change to the CR - like changing the `commit` to deploy to a different commit (`cc5442870f1195216d6bc340c14f8ae7d28cf3e2`). Applying this to the cluster will drive a Pulumi deployment to update the stack.
+Now, you can make a change to the CR - like changing the `commit` to deploy to a different commit (e.g. `cc5442870f1195216d6bc340c14f8ae7d28cf3e2` which adds another S3 bucket). Applying this to the cluster will drive a Pulumi deployment to update the stack.
 
 
 ```bash
 kubectl apply -f ../stack-examples/yaml/s3_bucket_stack.yaml
 ```
 
-Delete the Stack CustomResource, and then its secrets.
+### Delete the Stack and Cleanup
 
 If `destroyOnFinalize: true` was set on the Stack when created, it will destroy
 the stack's resources and the stack before the CR is deleted.
 
 ```bash
 kubectl delete stack s3-bucket-stack
+
+# For SaaS backend
 kubectl delete secret pulumi-api-secret
+
+# For S3 backend
+kubectl delete secret pulumi-aws-secrets
 ```
 
-Check out [`../stack-examples/yaml/ext_s3_bucket_stack.yaml`](../stack-examples/yaml/ext_s3_bucket_stack.yaml) for an extended options exmaple.
+Check out [`ext_s3_bucket_stack.yaml`](../stack-examples/yaml/ext_s3_bucket_stack.yaml) for an extended options exmaple.
 
 ## Troubleshooting
 
