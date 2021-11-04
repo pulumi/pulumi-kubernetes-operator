@@ -30,7 +30,7 @@ spec:
       secret:
         name: aws-creds-secret
         key: AWS_SECRET_ACCESS_KEY
-    AWS_SESION_TOKEN:
+    AWS_SESSION_TOKEN:
       type: Secret
       secret:
         name: aws-creds-secret
