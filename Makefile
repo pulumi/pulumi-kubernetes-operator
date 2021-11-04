@@ -49,6 +49,7 @@ deploy:
 	kubectl apply -f deploy/yaml/role_binding.yaml
 	sed -e "s#<IMG_NAME>:<IMG_VERSION>#$(IMAGE_NAME):$(VERSION)#g" deploy/operator_template.yaml | kubectl apply -f -
 
+# Run make prep RELEASE=<next-tag> to prep next release
 prep: prep-spec prep-docs
 
 prep-docs:
