@@ -112,7 +112,7 @@ kubectl apply -f deploy/yaml
 ### Using Pulumi
 
 <details>
-<summary>Typescript</summary>
+<summary>TypeScript</summary>
 
 1. Create a directory, e.g. `pulumi-operator` and set it as your current directory
 1. Run the following command to scaffold a new Pulumi program:
