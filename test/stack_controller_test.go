@@ -6,8 +6,6 @@ import (
 	"context"
 	"encoding/base32"
 	"fmt"
-	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
-	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -16,6 +14,9 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
+	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
 
 	"gopkg.in/src-d/go-git.v4"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -441,9 +442,37 @@ var _ = Describe("Stack Controller", func() {
 
 		// Define the stack spec
 		spec := shared.StackSpec{
-			AccessTokenSecret: pulumiAPISecret.Name,
-			SecretEnvs: []string{
-				pulumiAWSSecret.Name,
+			EnvRefs: map[string]shared.ResourceRef{
+				"AWS_ACCESS_KEY_ID": {
+					SelectorType: shared.ResourceSelectorSecret,
+					ResourceSelector: shared.ResourceSelector{
+						SecretRef: &shared.SecretSelector{
+							Name:      pulumiAWSSecret.Name,
+							Namespace: pulumiAWSSecret.Namespace,
+							Key:       "AWS_ACCESS_KEY_ID",
+						},
+					},
+				},
+				"AWS_SECRET_ACCESS_KEY": {
+					SelectorType: shared.ResourceSelectorSecret,
+					ResourceSelector: shared.ResourceSelector{
+						SecretRef: &shared.SecretSelector{
+							Name:      pulumiAWSSecret.Name,
+							Namespace: pulumiAWSSecret.Namespace,
+							Key:       "AWS_SECRET_ACCESS_KEY",
+						},
+					},
+				},
+				"AWS_SESSION_TOKEN": {
+					SelectorType: shared.ResourceSelectorSecret,
+					ResourceSelector: shared.ResourceSelector{
+						SecretRef: &shared.SecretSelector{
+							Name:      pulumiAWSSecret.Name,
+							Namespace: pulumiAWSSecret.Namespace,
+							Key:       "AWS_SESSION_TOKEN",
+						},
+					},
+				},
 			},
 			Backend:         fmt.Sprintf(`s3://%s`, s3Backend),
 			SecretsProvider: fmt.Sprintf(`awskms:///%s?region=us-east-2`, kmsKey),
@@ -531,7 +560,6 @@ func generateStackV1(name, namespace string, spec shared.StackSpec) *pulumiv1.St
 		Spec: spec,
 	}
 }
-
 
 func generateSecret(name, namespace string, data map[string][]byte) *corev1.Secret {
 	return &corev1.Secret{
