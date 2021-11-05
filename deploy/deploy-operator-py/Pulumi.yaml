@@ -1,0 +1,6 @@
+name: deploy-operator-py
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: Deploy the Pulumi Kubernetes Operator
