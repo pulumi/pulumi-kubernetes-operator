@@ -1,0 +1,3 @@
+name: deploy-operator-go
+runtime: go
+description: Deploy Pulumi Kubernetes Operator
