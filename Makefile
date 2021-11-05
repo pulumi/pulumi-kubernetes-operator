@@ -50,7 +50,7 @@ deploy:
 	sed -e "s#<IMG_NAME>:<IMG_VERSION>#$(IMAGE_NAME):$(VERSION)#g" deploy/operator_template.yaml | kubectl apply -f -
 
 # Run make prep RELEASE=<next-tag> to prep next release
-prep: prep-spec prep-docs
+prep: prep-spec prep-docs prep-code
 
 prep-docs:
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" README.md
@@ -58,6 +58,9 @@ prep-docs:
 # Run make prep-spec RELEASE=<next-tag> to prep the spec
 prep-spec:
 	sed -e "s#<IMG_NAME>:<IMG_VERSION>#$(PUBLISH_IMAGE_NAME):$(RELEASE)#g" deploy/operator_template.yaml > deploy/yaml/operator.yaml
+
+prep-code:
+	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" deploy/deploy-operator-ts/index.ts deploy/deploy-operator-py/__main__.py deploy/deploy-operator-go/main.go deploy/deploy-operator-cs/MyStack.cs
 
 version:
 	@echo $(VERSION)
