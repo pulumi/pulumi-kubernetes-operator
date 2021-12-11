@@ -116,7 +116,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>branch</b></td>
         <td>string</td>
         <td>
-          (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This is mutually exclusive with the Commit setting. Either value needs to be specified.<br/>
+          (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This is mutually exclusive with the Commit setting. Either value needs to be specified. When specified, the operator will periodically poll to check if the branch has any new commits. The frequency of the polling is configurable through ResyncFrequencySeconds, defaulting to every 60 seconds.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -131,6 +131,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td>map[string]string</td>
         <td>
           (optional) Config is the configuration for this stack, which can be optionally specified inline. If this is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>continueResyncOnCommitMatch</b></td>
+        <td>boolean</td>
+        <td>
+          (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying to update stacks even if the commit matches. This might be useful in environments where Pulumi programs have dynamic elements for example, calls to internal APIs where GitOps style commit tracking is not sufficient. Defaults to false, i.e. when a particular commit is successfully run, the operator will not attempt to rerun the program at that commit again.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -194,6 +201,15 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td>string</td>
         <td>
           (optional) RepoDir is the directory to work from in the project's source repository where Pulumi.yaml is located. It is used in case Pulumi.yaml is not in the project source root.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>resyncFrequencySeconds</b></td>
+        <td>integer</td>
+        <td>
+          (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at the specified frequency even if no changes to the custom-resource are detected. If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency. The minimal resync frequency supported is 60 seconds.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1641,6 +1657,15 @@ LastUpdate contains details of the status of the last update.
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>lastResyncTime</b></td>
+        <td>string</td>
+        <td>
+          LastResyncTime contains a timestamp for the last time a resync of the stack took place.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>lastSuccessfulCommit</b></td>
         <td>string</td>
         <td>
@@ -1775,7 +1800,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>branch</b></td>
         <td>string</td>
         <td>
-          (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This is mutually exclusive with the Commit setting. Either value needs to be specified.<br/>
+          (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This is mutually exclusive with the Commit setting. Either value needs to be specified. When specified, the operator will periodically poll to check if the branch has any new commits. The frequency of the polling is configurable through ResyncFrequencySeconds, defaulting to every 60 seconds.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1790,6 +1815,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td>map[string]string</td>
         <td>
           (optional) Config is the configuration for this stack, which can be optionally specified inline. If this is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>continueResyncOnCommitMatch</b></td>
+        <td>boolean</td>
+        <td>
+          (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying to update stacks even if the commit matches. This might be useful in environments where Pulumi programs have dynamic elements for example, calls to internal APIs where GitOps style commit tracking is not sufficient. Defaults to false, i.e. when a particular commit is successfully run, the operator will not attempt to rerun the program at that commit again.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1853,6 +1885,15 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td>string</td>
         <td>
           (optional) RepoDir is the directory to work from in the project's source repository where Pulumi.yaml is located. It is used in case Pulumi.yaml is not in the project source root.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>resyncFrequencySeconds</b></td>
+        <td>integer</td>
+        <td>
+          (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at the specified frequency even if no changes to the custom-resource are detected. If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency. The minimal resync frequency supported is 60 seconds.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -3297,6 +3338,15 @@ LastUpdate contains details of the status of the last update.
         <td>string</td>
         <td>
           Last commit attempted<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastResyncTime</b></td>
+        <td>string</td>
+        <td>
+          LastResyncTime contains a timestamp for the last time a resync of the stack took place.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
         </td>
         <td>false</td>
       </tr><tr>

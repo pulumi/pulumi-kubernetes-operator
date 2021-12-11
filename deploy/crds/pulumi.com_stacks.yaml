@@ -39,7 +39,7 @@ spec:
                 description: '(optional) Backend is an optional backend URL to use for all Pulumi operations.<br/> Examples:<br/>   - Pulumi Service:              "https://app.pulumi.com" (default)<br/>   - Self-managed Pulumi Service: "https://pulumi.acmecorp.com" <br/>   - Local:                       "file://./einstein" <br/>   - AWS:                         "s3://<my-pulumi-state-bucket>" <br/>   - Azure:                       "azblob://<my-pulumi-state-bucket>" <br/>   - GCP:                         "gs://<my-pulumi-state-bucket>" <br/> See: https://www.pulumi.com/docs/intro/concepts/state/'
                 type: string
               branch:
-                description: (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This is mutually exclusive with the Commit setting. Either value needs to be specified.
+                description: (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This is mutually exclusive with the Commit setting. Either value needs to be specified. When specified, the operator will periodically poll to check if the branch has any new commits. The frequency of the polling is configurable through ResyncFrequencySeconds, defaulting to every 60 seconds.
                 type: string
               commit:
                 description: (optional) Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This is mutually exclusive with the Branch setting. Either value needs to be specified.
@@ -49,6 +49,9 @@ spec:
                   type: string
                 description: (optional) Config is the configuration for this stack, which can be optionally specified inline. If this is omitted, configuration is assumed to be checked in and taken from the source repository.
                 type: object
+              continueResyncOnCommitMatch:
+                description: (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying to update stacks even if the commit matches. This might be useful in environments where Pulumi programs have dynamic elements for example, calls to internal APIs where GitOps style commit tracking is not sufficient. Defaults to false, i.e. when a particular commit is successfully run, the operator will not attempt to rerun the program at that commit again.
+                type: boolean
               destroyOnFinalize:
                 description: (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
                 type: boolean
@@ -409,6 +412,10 @@ spec:
               repoDir:
                 description: (optional) RepoDir is the directory to work from in the project's source repository where Pulumi.yaml is located. It is used in case Pulumi.yaml is not in the project source root.
                 type: string
+              resyncFrequencySeconds:
+                description: (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at the specified frequency even if no changes to the custom-resource are detected. If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency. The minimal resync frequency supported is 60 seconds.
+                format: int64
+                type: integer
               retryOnUpdateConflict:
                 description: (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop in the event that the update hits a HTTP 409 conflict due to another update in progress. This is only recommended if you are sure that the stack updates are idempotent, and if you are willing to accept retry loops until all spawned retries succeed. This will also create a more populated, and randomized activity timeline for the stack in the Pulumi Service.
                 type: boolean
@@ -493,6 +500,10 @@ spec:
                 properties:
                   lastAttemptedCommit:
                     description: Last commit attempted
+                    type: string
+                  lastResyncTime:
+                    description: LastResyncTime contains a timestamp for the last time a resync of the stack took place.
+                    format: date-time
                     type: string
                   lastSuccessfulCommit:
                     description: Last commit successfully applied
@@ -538,7 +549,7 @@ spec:
                 description: '(optional) Backend is an optional backend URL to use for all Pulumi operations.<br/> Examples:<br/>   - Pulumi Service:              "https://app.pulumi.com" (default)<br/>   - Self-managed Pulumi Service: "https://pulumi.acmecorp.com" <br/>   - Local:                       "file://./einstein" <br/>   - AWS:                         "s3://<my-pulumi-state-bucket>" <br/>   - Azure:                       "azblob://<my-pulumi-state-bucket>" <br/>   - GCP:                         "gs://<my-pulumi-state-bucket>" <br/> See: https://www.pulumi.com/docs/intro/concepts/state/'
                 type: string
               branch:
-                description: (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This is mutually exclusive with the Commit setting. Either value needs to be specified.
+                description: (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This is mutually exclusive with the Commit setting. Either value needs to be specified. When specified, the operator will periodically poll to check if the branch has any new commits. The frequency of the polling is configurable through ResyncFrequencySeconds, defaulting to every 60 seconds.
                 type: string
               commit:
                 description: (optional) Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This is mutually exclusive with the Branch setting. Either value needs to be specified.
@@ -548,6 +559,9 @@ spec:
                   type: string
                 description: (optional) Config is the configuration for this stack, which can be optionally specified inline. If this is omitted, configuration is assumed to be checked in and taken from the source repository.
                 type: object
+              continueResyncOnCommitMatch:
+                description: (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying to update stacks even if the commit matches. This might be useful in environments where Pulumi programs have dynamic elements for example, calls to internal APIs where GitOps style commit tracking is not sufficient. Defaults to false, i.e. when a particular commit is successfully run, the operator will not attempt to rerun the program at that commit again.
+                type: boolean
               destroyOnFinalize:
                 description: (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
                 type: boolean
@@ -908,6 +922,10 @@ spec:
               repoDir:
                 description: (optional) RepoDir is the directory to work from in the project's source repository where Pulumi.yaml is located. It is used in case Pulumi.yaml is not in the project source root.
                 type: string
+              resyncFrequencySeconds:
+                description: (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at the specified frequency even if no changes to the custom-resource are detected. If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency. The minimal resync frequency supported is 60 seconds.
+                format: int64
+                type: integer
               retryOnUpdateConflict:
                 description: (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop in the event that the update hits a HTTP 409 conflict due to another update in progress. This is only recommended if you are sure that the stack updates are idempotent, and if you are willing to accept retry loops until all spawned retries succeed. This will also create a more populated, and randomized activity timeline for the stack in the Pulumi Service.
                 type: boolean
@@ -992,6 +1010,10 @@ spec:
                 properties:
                   lastAttemptedCommit:
                     description: Last commit attempted
+                    type: string
+                  lastResyncTime:
+                    description: LastResyncTime contains a timestamp for the last time a resync of the stack took place.
+                    format: date-time
                     type: string
                   lastSuccessfulCommit:
                     description: Last commit successfully applied
