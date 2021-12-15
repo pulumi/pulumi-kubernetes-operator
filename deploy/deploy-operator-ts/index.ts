@@ -1,7 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as kubernetes from "@pulumi/kubernetes";
 
-const crds = new kubernetes.yaml.ConfigFile("crds", {file: "https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.2.1/deploy/crds/pulumi.com_stacks.yaml"});
+const crds = new kubernetes.yaml.ConfigFile("crds", {file: "https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.3.0/deploy/crds/pulumi.com_stacks.yaml"});
 
 const operatorServiceAccount = new kubernetes.core.v1.ServiceAccount("operator-service-account");
 const operatorRole = new kubernetes.rbac.v1.Role("operator-role", {
@@ -127,7 +127,7 @@ const operatorDeployment = new kubernetes.apps.v1.Deployment("pulumi-kubernetes-
                 serviceAccountName: operatorServiceAccount.metadata.name,
                 containers: [{
                     name: "pulumi-kubernetes-operator",
-                    image: "pulumi/pulumi-kubernetes-operator:v1.2.1",
+                    image: "pulumi/pulumi-kubernetes-operator:v1.3.0",
                     args: ["--zap-level=error", "--zap-time-encoding=iso8601"],
                     imagePullPolicy: "Always",
                     env: [

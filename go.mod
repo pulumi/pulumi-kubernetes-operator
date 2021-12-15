@@ -16,7 +16,7 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.30.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
-	github.com/pulumi/pulumi/sdk/v3 v3.17.0
+	github.com/pulumi/pulumi/sdk/v3 v3.19.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	github.com/whilp/git-urls v1.0.0

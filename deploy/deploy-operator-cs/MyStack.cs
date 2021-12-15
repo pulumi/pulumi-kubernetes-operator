@@ -10,7 +10,7 @@ class MyStack : Stack
     public MyStack()
     {
         var crds = new Kubernetes.Yaml.ConfigFile("crds", new Kubernetes.Yaml.ConfigFileArgs{
-            File = "https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.2.1/deploy/crds/pulumi.com_stacks.yaml"
+            File = "https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.3.0/deploy/crds/pulumi.com_stacks.yaml"
         });
 
         var operatorServiceAccount = new Kubernetes.Core.V1.ServiceAccount("operator-service-account", new ServiceAccountArgs{});
@@ -223,7 +223,7 @@ class MyStack : Stack
                             new ContainerArgs
                             {
                                 Name = "pulumi-kubernetes-operator",
-                                Image = "pulumi/pulumi-kubernetes-operator:v1.2.1",
+                                Image = "pulumi/pulumi-kubernetes-operator:v1.3.0",
                                 Command = 
                                 {
                                     "pulumi-kubernetes-operator",

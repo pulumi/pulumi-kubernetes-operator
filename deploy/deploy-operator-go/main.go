@@ -20,7 +20,7 @@ import (
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		// Download file
-		filePath, cleanup, err := downloadFile("https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.2.1/deploy/crds/pulumi.com_stacks.yaml")
+		filePath, cleanup, err := downloadFile("https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.3.0/deploy/crds/pulumi.com_stacks.yaml")
 		if err != nil {
 			return err
 		}
@@ -203,7 +203,7 @@ func main() {
 						Containers: corev1.ContainerArray{
 							&corev1.ContainerArgs{
 								Name:  pulumi.String("pulumi-kubernetes-operator"),
-								Image: pulumi.String("pulumi/pulumi-kubernetes-operator:v1.2.1"),
+								Image: pulumi.String("pulumi/pulumi-kubernetes-operator:v1.3.0"),
 								Command: pulumi.StringArray{
 									pulumi.String("pulumi-kubernetes-operator"),
 								},
