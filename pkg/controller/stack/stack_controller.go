@@ -375,7 +375,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	r.emitEvent(instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack.")
 	if trackBranch || sess.stack.ContinueResyncOnCommitMatch {
 		// Reconcile every 60 seconds to check for new commits to the branch.
-		reqLogger.Debug("Will requeue in %d seconds", resyncFreqSeconds)
+		reqLogger.Debug("Will requeue in", "seconds", resyncFreqSeconds)
 		return reconcile.Result{RequeueAfter: time.Duration(resyncFreqSeconds) * time.Second}, nil
 	}
 
