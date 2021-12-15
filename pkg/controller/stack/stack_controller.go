@@ -17,14 +17,11 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/client-go/tools/record"
-
-	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
-	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
-
 	"github.com/operator-framework/operator-lib/handler"
 	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/pkg/errors"
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
+	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
 	"github.com/pulumi/pulumi-kubernetes-operator/version"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -38,10 +35,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -262,17 +261,30 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	// If a branch is specified, then track changes to the branch.
 	trackBranch := len(sess.stack.Branch) > 0
 
+	resyncFreqSeconds := sess.stack.ResyncFrequencySeconds
+	if sess.stack.ResyncFrequencySeconds != 0 && sess.stack.ResyncFrequencySeconds < 60 {
+		resyncFreqSeconds = 60
+	}
+
+	if trackBranch || sess.stack.ContinueResyncOnCommitMatch {
+		if resyncFreqSeconds == 0 {
+			resyncFreqSeconds = 60
+		}
+	}
+
 	if trackBranch {
 		reqLogger.Info("Checking current HEAD commit hash", "Current commit", currentCommit)
-		if instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit {
-			reqLogger.Info("Commit hash unchanged. Will poll again in 60 seconds.")
-			// Reconcile every 60 seconds to check for new commits to the branch.
-			return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
+		if instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit && !sess.stack.ContinueResyncOnCommitMatch {
+			reqLogger.Info("Commit hash unchanged. Will poll again.", "pollFrequencySeconds", resyncFreqSeconds)
+			// Reconcile every resyncFreqSeconds to check for new commits to the branch.
+			return reconcile.Result{RequeueAfter: time.Duration(resyncFreqSeconds) * time.Second}, nil
 		}
 
-		r.emitEvent(instance, pulumiv1.StackUpdateDetectedEvent(), "New commit detected: %q.", currentCommit)
-		reqLogger.Info("New commit hash found", "Current commit", currentCommit,
-			"Last commit", instance.Status.LastUpdate.LastSuccessfulCommit)
+		if instance.Status.LastUpdate.LastSuccessfulCommit != currentCommit {
+			r.emitEvent(instance, pulumiv1.StackUpdateDetectedEvent(), "New commit detected: %q.", currentCommit)
+			reqLogger.Info("New commit hash found", "Current commit", currentCommit,
+				"Last commit", instance.Status.LastUpdate.LastSuccessfulCommit)
+		}
 	}
 
 	// Step 3. If a stack refresh is requested, run it now.
@@ -352,6 +364,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		LastAttemptedCommit:  currentCommit,
 		LastSuccessfulCommit: currentCommit,
 		Permalink:            permalink,
+		LastResyncTime:       metav1.Now(),
 	}
 	err = sess.updateResourceStatus(instance)
 	if err != nil {
@@ -360,9 +373,10 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	}
 	reqLogger.Info("Successfully updated status for Stack", "Stack.Name", stack.Stack)
 	r.emitEvent(instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack.")
-	if trackBranch {
+	if trackBranch || sess.stack.ContinueResyncOnCommitMatch {
 		// Reconcile every 60 seconds to check for new commits to the branch.
-		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
+		reqLogger.Debug("Will requeue in", "seconds", resyncFreqSeconds)
+		return reconcile.Result{RequeueAfter: time.Duration(resyncFreqSeconds) * time.Second}, nil
 	}
 
 	return reconcile.Result{}, nil
@@ -379,6 +393,7 @@ func (r *ReconcileStack) markStackFailed(sess *reconcileStackSession, instance *
 	instance.Status.LastUpdate.LastAttemptedCommit = currentCommit
 	instance.Status.LastUpdate.State = shared.FailedStackStateMessage
 	instance.Status.LastUpdate.Permalink = permalink
+	instance.Status.LastUpdate.LastResyncTime = metav1.Now()
 
 	if err2 := sess.updateResourceStatus(instance); err2 != nil {
 		msg := "Failed to update status for a failed Stack update"

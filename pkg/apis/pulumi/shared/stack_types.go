@@ -2,8 +2,10 @@ package shared
 
 import (
 	"context"
+
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // StackSpec defines the desired state of Pulumi Stack being managed by this operator.
@@ -96,7 +98,15 @@ type StackSpec struct {
 	Commit string `json:"commit,omitempty"`
 	// (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This
 	// is mutually exclusive with the Commit setting. Either value needs to be specified.
+	// When specified, the operator will periodically poll to check if the branch has any new commits.
+	// The frequency of the polling is configurable through ResyncFrequencySeconds, defaulting to every 60 seconds.
 	Branch string `json:"branch,omitempty"`
+	// (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying to update stacks
+	// even if the commit matches. This might be useful in environments where Pulumi programs have dynamic elements
+	// for example, calls to internal APIs where GitOps style commit tracking is not sufficient.
+	// Defaults to false, i.e. when a particular commit is successfully run, the operator will not attempt to rerun the
+	// program at that commit again.
+	ContinueResyncOnCommitMatch bool `json:"continueResyncOnCommitMatch,omitempty"`
 
 	// Lifecycle:
 
@@ -122,6 +132,12 @@ type StackSpec struct {
 	// creating stacks that do not exist in the tracking git repo.
 	// The default behavior is to create a stack if it doesn't exist.
 	UseLocalStackOnly bool `json:"useLocalStackOnly,omitempty"`
+
+	// (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at
+	// the specified frequency even if no changes to the custom-resource are detected.
+	// If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency.
+	// The minimal resync frequency supported is 60 seconds.
+	ResyncFrequencySeconds int64 `json:"resyncFrequencySeconds,omitempty"`
 }
 
 // GitAuthConfig specifies git authentication configuration options.
@@ -288,6 +304,8 @@ type StackUpdateState struct {
 	LastSuccessfulCommit string `json:"lastSuccessfulCommit,omitempty"`
 	// Permalink is the Pulumi Console URL of the stack operation.
 	Permalink Permalink `json:"permalink,omitempty"`
+	// LastResyncTime contains a timestamp for the last time a resync of the stack took place.
+	LastResyncTime metav1.Time `json:"lastResyncTime,omitempty"`
 }
 
 // StackUpdateStatus is the status code for the result of a Stack Update run.
