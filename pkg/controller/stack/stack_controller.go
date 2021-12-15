@@ -266,10 +266,13 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		resyncFreqSeconds = 60
 	}
 
-	if trackBranch {
+	if trackBranch || sess.stack.ContinueResyncOnCommitMatch {
 		if resyncFreqSeconds == 0 {
 			resyncFreqSeconds = 60
 		}
+	}
+
+	if trackBranch {
 		reqLogger.Info("Checking current HEAD commit hash", "Current commit", currentCommit)
 		if instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit && !sess.stack.ContinueResyncOnCommitMatch {
 			reqLogger.Info("Commit hash unchanged. Will poll again.", "pollFrequencySeconds", resyncFreqSeconds)
@@ -372,6 +375,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	r.emitEvent(instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack.")
 	if trackBranch || sess.stack.ContinueResyncOnCommitMatch {
 		// Reconcile every 60 seconds to check for new commits to the branch.
+		reqLogger.Debug("Will requeue in %d seconds", resyncFreqSeconds)
 		return reconcile.Result{RequeueAfter: time.Duration(resyncFreqSeconds) * time.Second}, nil
 	}
 
