@@ -5,6 +5,7 @@ CHANGELOG
 
 ## 1.3.0 (2021-12-15)
 - Add ability to resync stacks periodically [#243](https://github.com/pulumi/pulumi-kubernetes-operator/pull/243)
+- Bump to Pulumi v3.19.0 [#246](https://github.com/pulumi/pulumi-kubernetes-operator/pull/246)
 
 ## 1.2.1 (2021-11-05)
 - Simplified pulumi program installation instructions [#238](https://github.com/pulumi/pulumi-kubernetes-operator/pull/238)
