@@ -2,6 +2,8 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
+
+## 1.3.0 (2021-12-15)
 - Add ability to resync stacks periodically [#243](https://github.com/pulumi/pulumi-kubernetes-operator/pull/243)
 
 ## 1.2.1 (2021-11-05)
