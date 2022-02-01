@@ -1205,6 +1205,8 @@ func contains(list []string, s string) bool {
 func setupInClusterKubeconfig() error {
 	const certFp = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 	const tokenFp = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	const namespaceFp = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+
 	kubeFp := os.ExpandEnv("$HOME/.kube")
 	kubeconfigFp := fmt.Sprintf("%s/config", kubeFp)
 
@@ -1215,6 +1217,10 @@ func setupInClusterKubeconfig() error {
 	token, err := waitForFile(tokenFp)
 	if err != nil {
 		return errors.Wrap(err, "failed to open in-cluster ServiceAccount token")
+	}
+	namespace, err := waitForFile(namespaceFp)
+	if err != nil {
+		return errors.Wrap(err, "failed to open in-cluster ServiceAccount namespace")
 	}
 
 	// Compute the kubeconfig using the cert and token.
@@ -1229,6 +1235,7 @@ contexts:
 - context:
     cluster: local
     user: local
+    %s
   name: local
 current-context: local
 kind: Config
@@ -1236,7 +1243,7 @@ users:
 - name: local
   user:
     token: %s
-`, string(base64.StdEncoding.EncodeToString(cert)), os.ExpandEnv("$KUBERNETES_PORT_443_TCP_ADDR"), string(token))
+`, string(base64.StdEncoding.EncodeToString(cert)), os.ExpandEnv("$KUBERNETES_PORT_443_TCP_ADDR"), inferNamespace(string(namespace)), string(token))
 
 	err = os.Mkdir(os.ExpandEnv(kubeFp), 0755)
 	if err != nil {
