@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+## HEAD (Unreleased)
+
+- Use configured namespace for envRef Secrets, instead of defaulting to 'default'
+
 ## 1.4.0 (2022-02-02)
 
 **BREAKING CHANGES**
