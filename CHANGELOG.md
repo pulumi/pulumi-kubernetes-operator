@@ -4,6 +4,7 @@ CHANGELOG
 ## HEAD (Unreleased)
 
 - Default namespace for resources that don't provide one is now the service accounts namespace (where the operator is likely running) instead of "default"
+- Bump dependencies and Pulumi binary to v3.32.2
 
 ## 1.3.0 (2021-12-15)
 - Add ability to resync stacks periodically [#243](https://github.com/pulumi/pulumi-kubernetes-operator/pull/243)
