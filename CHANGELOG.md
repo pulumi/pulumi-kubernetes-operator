@@ -3,8 +3,11 @@ CHANGELOG
 
 ## 1.4.0 (2022-02-02)
 
+**BREAKING CHANGES**
 - Default namespace for resources that don't provide one is now the service accounts namespace (where the operator is likely running) instead of "default"
-  Note - this is a potential breaking change. To revert to the previous behavior unset `PULUMI_INFER_NAMESPACE` in the operator pod spec environment variables
+  To revert to the previous behavior unset `PULUMI_INFER_NAMESPACE` in the [operator pod spec](https://github.com/pulumi/pulumi-kubernetes-operator/blob/master/deploy/yaml/operator.yaml) environment variables
+
+- Default namespace for resources that don't provide one is now the service accounts namespace (where the operator is likely running) instead of "default"
   (https://github.com/pulumi/pulumi-kubernetes-operator/pull/249/)
 - Bump dependencies and Pulumi binary to v3.32.2 (https://github.com/pulumi/pulumi-kubernetes-operator/pull/250)
 
