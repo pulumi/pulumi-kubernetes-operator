@@ -567,7 +567,7 @@ func (sess *reconcileStackSession) resolveResourceRef(ref *shared.ResourceRef) (
 			config := &corev1.Secret{}
 			namespace := ref.SecretRef.Namespace
 			if namespace == "" {
-				namespace = "default"
+				namespace = sess.namespace
 			}
 			if err := sess.getLatestResource(config, types.NamespacedName{Name: ref.SecretRef.Name, Namespace: namespace}); err != nil {
 				return "", errors.Wrapf(err, "Namespace=%s Name=%s", ref.SecretRef.Namespace, ref.SecretRef.Name)
