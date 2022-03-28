@@ -2,7 +2,7 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
-- Add the ability to deploy the operator via a Helm chart
+- Add the ability to deploy the operator via a Helm chart [#261](https://github.com/pulumi/pulumi-kubernetes-operator/pull/261)
 
 ## 1.5.0 (2022-03-14)
 - Use configured namespace for envRef Secrets, instead of defaulting to 'default'
