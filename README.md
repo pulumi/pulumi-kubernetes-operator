@@ -15,6 +15,7 @@ To learn more about the Pulumi Kubernetes Operator visit the [Pulumi documentati
       - [Login to Your Chosen State Backend](#login-to-your-chosen-state-backend)
   - [Deploy the Operator](#deploy-the-operator)
     - [Using kubectl](#using-kubectl)
+    - [Using Helm](#using-helm)
     - [Using Pulumi](#using-pulumi)
   - [Create Pulumi Stack CustomResources](#create-pulumi-stack-customresources)
     - [Using kubectl](#using-kubectl-1)
@@ -108,6 +109,11 @@ Deploy the API resources for the operator.
 ```bash
 kubectl apply -f deploy/yaml
 ```
+
+### Using Helm
+1. Go to the [`deploy/chart`](deploy/chart/values.yaml) directory.
+2. (Optional) Adjust the default values as desired.
+3. Run `helm upgrade --install pulumi-kubernetes-operator --wait .`
 
 ### Using Pulumi
 

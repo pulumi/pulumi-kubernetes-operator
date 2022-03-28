@@ -1,0 +1,10 @@
+apiVersion: v2
+name: pulumi-kubernetes-operator
+description: A Helm chart for the Pulumi Kubernetes Operator
+keywords:
+  - pulumi
+sources:
+  - https://github.com/pulumi/pulumi-kubernetes-operator
+icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
+version: v0.1.0
+appVersion: v1.5.0

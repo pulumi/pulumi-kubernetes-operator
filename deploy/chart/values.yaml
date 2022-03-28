@@ -1,0 +1,86 @@
+image:
+  repository: pulumi/pulumi-kubernetes-operator
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: latest
+
+imagePullSecrets: []
+
+# Create a Secret to store your Pulumi access token for use by Stack CRDs
+pulumiTokenSecret:
+  # Set this to true and provide a token to create the secret
+  create: false
+  # Raw Pulumi token value
+  token:
+  # Name of the Secret to be created
+  secretName: pulumi-access-token
+  # Key that will contain the token
+  secretKey: token
+
+# Additional command arguments to pass to the controller
+extraArgs:
+  - --zap-level=error
+  - --zap-time-encoding=iso8601
+
+# Additional environment variables to pass to the controller
+extraEnv:
+  - name: OPERATOR_NAME
+    value: "pulumi-kubernetes-operator"
+  - name: GRACEFUL_SHUTDOWN_TIMEOUT_DURATION
+    value: "5m"
+  - name: MAX_CONCURRENT_RECONCILES
+    value: "10"
+  - name: PULUMI_INFER_NAMESPACE
+    value: "1"
+
+rbac:
+  create: true
+
+terminationGracePeriodSeconds: 300
+
+nameOverride: ""
+
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  {}
+  # fsGroup: 2000
+
+securityContext:
+  {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+resources:
+  {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
