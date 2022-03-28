@@ -33,6 +33,7 @@ extraEnv:
   - name: PULUMI_INFER_NAMESPACE
     value: "1"
 
+# Create operator RBAC
 rbac:
   create: true
 
