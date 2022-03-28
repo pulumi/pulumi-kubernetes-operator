@@ -2,7 +2,7 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
-(None)
+- Add the ability to deploy the operator via a Helm chart
 
 ## 1.5.0 (2022-03-14)
 - Use configured namespace for envRef Secrets, instead of defaulting to 'default'
