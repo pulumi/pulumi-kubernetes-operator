@@ -16,7 +16,14 @@ spec:
     singular: stack
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    - jsonPath: .status.lastUpdate.state
+      name: STATE
+      type: string
+    name: v1
     schema:
       openAPIV3Schema:
         description: Stack is the Schema for the stacks API
