@@ -2,7 +2,7 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
-(None)
+- Add `State` to `additionalPrinterColumns`
 
 ## 1.5.0 (2022-03-14)
 - Use configured namespace for envRef Secrets, instead of defaulting to 'default'
