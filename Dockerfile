@@ -1,4 +1,4 @@
-FROM pulumi/pulumi:3.23.2
+FROM pulumi/pulumi:3.30.0
 
 ENV OPERATOR=/usr/local/bin/pulumi-kubernetes-operator
 
