@@ -2,7 +2,11 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
+(None)
+
+## 1.6.0 (2022-04-21)
 - Add `State` to `additionalPrinterColumns`
+- Bump to v3.3.30 of Pulumi which should simplify recovering from pending operations (see https://github.com/pulumi/pulumi/issues/4265)
 
 ## 1.5.0 (2022-03-14)
 - Use configured namespace for envRef Secrets, instead of defaulting to 'default'
