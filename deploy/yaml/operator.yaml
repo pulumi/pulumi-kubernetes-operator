@@ -20,7 +20,7 @@ spec:
           emptyDir: {}
       containers:
         - name: pulumi-kubernetes-operator
-          image: pulumi/pulumi-kubernetes-operator:v1.5.0
+          image: pulumi/pulumi-kubernetes-operator:v1.6.0
           args:
             - "--zap-level=error"
             - "--zap-time-encoding=iso8601"
