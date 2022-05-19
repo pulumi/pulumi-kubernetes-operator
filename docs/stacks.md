@@ -85,13 +85,6 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         </tr>
     </thead>
     <tbody><tr>
-        <td><b>projectRepo</b></td>
-        <td>string</td>
-        <td>
-          ProjectRepo is the git source control repository from which we fetch the project code and configuration.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
         <td><b>stack</b></td>
         <td>string</td>
         <td>
@@ -187,6 +180,20 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td>string</td>
         <td>
           (optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options:   * Personal access token   * SSH private key (and it's optional password)   * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>program</b></td>
+        <td>object</td>
+        <td>
+          (optional) Program can be set to provide the Pulumi program as inline YAML instead of in a remote Git project repo.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>projectRepo</b></td>
+        <td>string</td>
+        <td>
+          ProjectRepo is the git source control repository from which we fetch the project code and configuration.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1769,13 +1776,6 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         </tr>
     </thead>
     <tbody><tr>
-        <td><b>projectRepo</b></td>
-        <td>string</td>
-        <td>
-          ProjectRepo is the git source control repository from which we fetch the project code and configuration.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
         <td><b>stack</b></td>
         <td>string</td>
         <td>
@@ -1871,6 +1871,20 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td>string</td>
         <td>
           (optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options:   * Personal access token   * SSH private key (and it's optional password)   * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>program</b></td>
+        <td>object</td>
+        <td>
+          (optional) Program can be set to provide the Pulumi program as inline YAML instead of in a remote Git project repo.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>projectRepo</b></td>
+        <td>string</td>
+        <td>
+          ProjectRepo is the git source control repository from which we fetch the project code and configuration.<br/>
         </td>
         <td>false</td>
       </tr><tr>

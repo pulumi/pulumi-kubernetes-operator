@@ -2,6 +2,7 @@ package shared
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -67,7 +68,7 @@ type StackSpec struct {
 	// Source control:
 
 	// ProjectRepo is the git source control repository from which we fetch the project code and configuration.
-	ProjectRepo string `json:"projectRepo"`
+	ProjectRepo string `json:"projectRepo,omitempty"`
 	// (optional) GitAuthSecret is the the name of a secret containing an
 	// authentication option for the git repository.
 	// There are 3 different authentication options:
@@ -107,6 +108,15 @@ type StackSpec struct {
 	// Defaults to false, i.e. when a particular commit is successfully run, the operator will not attempt to rerun the
 	// program at that commit again.
 	ContinueResyncOnCommitMatch bool `json:"continueResyncOnCommitMatch,omitempty"`
+
+	// Inline source code:
+
+	// (optional) Program can be set to provide the Pulumi program as inline YAML instead of in a remote Git
+	// project repo.
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Program json.RawMessage `json:"program,omitempty"`
 
 	// Lifecycle:
 

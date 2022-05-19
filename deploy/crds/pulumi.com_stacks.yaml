@@ -16,14 +16,7 @@ spec:
     singular: stack
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - jsonPath: .metadata.creationTimestamp
-      name: AGE
-      type: date
-    - jsonPath: .status.lastUpdate.state
-      name: STATE
-      type: string
-    name: v1
+  - name: v1
     schema:
       openAPIV3Schema:
         description: Stack is the Schema for the stacks API
@@ -410,6 +403,10 @@ spec:
               gitAuthSecret:
                 description: '(optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options:   * Personal access token   * SSH private key (and it''s optional password)   * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.'
                 type: string
+              program:
+                description: (optional) Program can be set to provide the Pulumi program as inline YAML instead of in a remote Git project repo.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               projectRepo:
                 description: ProjectRepo is the git source control repository from which we fetch the project code and configuration.
                 type: string
@@ -496,7 +493,6 @@ spec:
                 description: (optional) UseLocalStackOnly can be set to true to prevent the operator from creating stacks that do not exist in the tracking git repo. The default behavior is to create a stack if it doesn't exist.
                 type: boolean
             required:
-            - projectRepo
             - stack
             type: object
           status:
@@ -920,6 +916,10 @@ spec:
               gitAuthSecret:
                 description: '(optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options:   * Personal access token   * SSH private key (and it''s optional password)   * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.'
                 type: string
+              program:
+                description: (optional) Program can be set to provide the Pulumi program as inline YAML instead of in a remote Git project repo.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               projectRepo:
                 description: ProjectRepo is the git source control repository from which we fetch the project code and configuration.
                 type: string
@@ -1006,7 +1006,6 @@ spec:
                 description: (optional) UseLocalStackOnly can be set to true to prevent the operator from creating stacks that do not exist in the tracking git repo. The default behavior is to create a stack if it doesn't exist.
                 type: boolean
             required:
-            - projectRepo
             - stack
             type: object
           status:

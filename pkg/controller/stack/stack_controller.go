@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -666,14 +667,6 @@ func (sess *reconcileStackSession) lookupPulumiAccessToken() (string, bool) {
 }
 
 func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) error {
-	repo := auto.GitRepo{
-		URL:         sess.stack.ProjectRepo,
-		ProjectPath: sess.stack.RepoDir,
-		CommitHash:  sess.stack.Commit,
-		Branch:      sess.stack.Branch,
-		Auth:        gitAuth,
-	}
-
 	sess.logger.Debug("Setting up pulumi workdir for stack", "stack", sess.stack)
 	// Create a new workspace.
 	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
@@ -692,8 +685,30 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 		}
 	}()
 
+	localWorkspaceOpts := []auto.LocalWorkspaceOption{auto.WorkDir(dir), secretsProvider}
+
+	if sess.stack.ProjectRepo != "" && sess.stack.Program != nil {
+		return fmt.Errorf("only one of projectRepo and program can be set for declaring where the Pulumi program for this stack is defined")
+	}
+	if sess.stack.ProjectRepo != "" {
+		// We will pull source code from a remote Git repo.
+		repo := auto.GitRepo{
+			URL:         sess.stack.ProjectRepo,
+			ProjectPath: sess.stack.RepoDir,
+			CommitHash:  sess.stack.Commit,
+			Branch:      sess.stack.Branch,
+			Auth:        gitAuth,
+		}
+		localWorkspaceOpts = append(localWorkspaceOpts, auto.Repo(repo))
+	} else if sess.stack.Program != nil {
+		// We write the program directly into the Pulumi.yaml file in the working directory.
+		os.WriteFile(path.Join(dir, "Pulumi.yaml"), sess.stack.Program, 0644)
+	} else {
+		return fmt.Errorf("one of projectRepo and program must be set to declare where the Pulumi program for this stack is defined")
+	}
+
 	var w auto.Workspace
-	w, err = auto.NewLocalWorkspace(context.Background(), auto.WorkDir(dir), auto.Repo(repo), secretsProvider)
+	w, err = auto.NewLocalWorkspace(context.Background(), localWorkspaceOpts...)
 	if err != nil {
 		return errors.Wrap(err, "failed to create local workspace")
 	}

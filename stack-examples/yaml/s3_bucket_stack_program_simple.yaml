@@ -1,0 +1,16 @@
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: s3-bucket-stack
+spec:
+  stack: lukehoban/s3-op-project/dev
+  program:
+    name: s3-op-project
+    runtime: yaml
+    resources:
+      bucket:
+        type: aws:s3:Bucket
+    outputs:
+      bucketName: ${bucket.id}
+  config:
+    aws:region: us-east-2
