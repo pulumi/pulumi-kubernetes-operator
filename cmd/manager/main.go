@@ -39,6 +39,8 @@ const (
 	defaultGracefulShutdownTimeout = 5 * time.Minute
 )
 
+var errEmptyWatchNamespaces = errors.New("WATCH_NAMESPACE has only empty entries")
+
 // Change below variables to serve metrics on different host or port.
 var (
 	metricsHost               = "0.0.0.0"
@@ -120,8 +122,18 @@ func main() {
 	// Also note that you may face performance issues when using this with a high number of namespaces.
 	// More Info: https://godoc.org/github.com/kubernetes-sigs/controller-runtime/pkg/cache#MultiNamespacedCacheBuilder
 	if strings.Contains(namespace, ",") {
+		// An input like `",,"` is very likely to be accidental; bail rather than proceeding with
+		// default or undefined behaviour.
+		if len(strings.TrimLeft(namespace, ", \t")) == 0 {
+			log.Error(errEmptyWatchNamespaces, "unable to configure controller manager")
+			os.Exit(1)
+		}
+		namespaces := strings.Split(namespace, ",")
 		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(namespace, ","))
+		// This makes the leader election scoped to a watched namespace, and thereby to this
+		// deployment of the operator.
+		options.LeaderElectionNamespace = namespaces[0]
+		options.NewCache = cache.MultiNamespacedCacheBuilder(namespaces)
 	}
 
 	// Create a new manager to provide shared dependencies and start components
