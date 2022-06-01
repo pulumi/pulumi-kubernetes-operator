@@ -272,7 +272,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		}
 	}
 
-	if trackBranch {
+	if trackBranch && instance.Status.LastUpdate != nil {
 		reqLogger.Info("Checking current HEAD commit hash", "Current commit", currentCommit)
 		if instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit && !sess.stack.ContinueResyncOnCommitMatch {
 			reqLogger.Info("Commit hash unchanged. Will poll again.", "pollFrequencySeconds", resyncFreqSeconds)
