@@ -272,7 +272,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		}
 	}
 
-	if trackBranch {
+	if trackBranch && instance.Status.LastUpdate != nil {
 		reqLogger.Info("Checking current HEAD commit hash", "Current commit", currentCommit)
 		if instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit && !sess.stack.ContinueResyncOnCommitMatch {
 			reqLogger.Info("Commit hash unchanged. Will poll again.", "pollFrequencySeconds", resyncFreqSeconds)
@@ -390,6 +390,9 @@ func (r *ReconcileStack) markStackFailed(sess *reconcileStackSession, instance *
 	r.emitEvent(instance, pulumiv1.StackUpdateFailureEvent(), "Failed to update Stack: %v.", err.Error())
 	sess.logger.Error(err, "Failed to update Stack", "Stack.Name", sess.stack.Stack)
 	// Update Stack status with failed state
+	if instance.Status.LastUpdate == nil {
+		instance.Status.LastUpdate = &shared.StackUpdateState{}
+	}
 	instance.Status.LastUpdate.LastAttemptedCommit = currentCommit
 	instance.Status.LastUpdate.State = shared.FailedStackStateMessage
 	instance.Status.LastUpdate.Permalink = permalink
