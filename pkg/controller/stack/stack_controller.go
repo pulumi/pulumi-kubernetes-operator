@@ -147,6 +147,13 @@ type ReconcileStack struct {
 	recorder record.EventRecorder
 }
 
+func validateGitRepo(repo shared.StackSpec) error {
+	if repo.Commit == "" && repo.Branch == "" {
+		return errors.New("Stack CustomResource needs to specify either 'branch' or 'commit' for the tracking repo.")
+	}
+	return nil
+}
+
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
 func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
@@ -170,21 +177,38 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	stack := instance.Spec
 
-	// Check if the Stack instance is marked to be deleted, which is
-	// indicated by the deletion timestamp being set.
-	isStackMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
-
 	// Create a new reconciliation session.
 	sess := newReconcileStackSession(reqLogger, stack, r.client, request.Namespace)
 
-	// Ensure either branch or commit has been specified in the stack CR if stack is not marked for deletion
-	if !isStackMarkedToBeDeleted &&
-		sess.stack.Commit == "" &&
-		sess.stack.Branch == "" {
+	// Check if the Stack instance is marked to be deleted, which is
+	// indicated by the deletion timestamp being set.
+	isStackMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
+	// Finalize the stack if being deleted, or add a finalizer if not.
+	if isStackMarkedToBeDeleted {
+		if contains(instance.GetFinalizers(), pulumiFinalizer) {
+			err := sess.finalize(instance)
+			// Manage extra status here
+			return reconcile.Result{}, err
+		}
+	} else {
+		if !contains(instance.GetFinalizers(), pulumiFinalizer) {
+			// Add finalizer to Stack if not being deleted
+			err := sess.addFinalizer(instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			time.Sleep(2 * time.Second) // arbitrary sleep after finalizer add to avoid stale obj for permalink
+			// Add default permalink for the stack in the Pulumi Service.
+			if err := sess.addDefaultPermalink(instance); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+	}
 
-		msg := "Stack CustomResource needs to specify either 'branch' or 'commit' for the tracking repo."
-		r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), msg)
-		reqLogger.Info(msg)
+	// Ensure either branch or commit has been specified in the stack CR
+	if err = validateGitRepo(sess.stack); err != nil {
+		r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
+		reqLogger.Info(err.Error())
 
 		return reconcile.Result{}, err
 	}
@@ -230,32 +254,6 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			return reconcile.Result{}, err2
 		}
 		return reconcile.Result{}, err
-	}
-
-	// Check if the Stack instance is marked to be deleted, which is
-	// indicated by the deletion timestamp being set.
-	isStackMarkedToBeDeleted = instance.GetDeletionTimestamp() != nil
-
-	// Finalize the stack, or add a finalizer based on the deletion timestamp.
-	if isStackMarkedToBeDeleted {
-		if contains(instance.GetFinalizers(), pulumiFinalizer) {
-			err := sess.finalize(instance)
-			// Manage extra status here
-			return reconcile.Result{}, err
-		}
-	} else {
-		if !contains(instance.GetFinalizers(), pulumiFinalizer) {
-			// Add finalizer to Stack if not being deleted
-			err := sess.addFinalizer(instance)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-			time.Sleep(2 * time.Second) // arbitrary sleep after finalizer add to avoid stale obj for permalink
-			// Add default permalink for the stack in the Pulumi Service.
-			if err := sess.addDefaultPermalink(instance); err != nil {
-				return reconcile.Result{}, err
-			}
-		}
 	}
 
 	// If a branch is specified, then track changes to the branch.
