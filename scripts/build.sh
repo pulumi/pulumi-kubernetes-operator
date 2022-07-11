@@ -15,7 +15,7 @@ extra_args=""
 if [ "$build_static" == "static" ]; then
 	export CGO_ENABLED=0
 	ldflags="$ldflags -w -extldflags \"-static\""
-	extra_args="-x -a -tags netgo"
+	extra_args="-tags netgo"
 fi
 
 # Build the operator.
