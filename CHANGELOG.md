@@ -2,7 +2,8 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
-(None)
+- Bump to v3.36.0 of Pulumi, to support short branch names in .spec.branch after
+  [pulumi/pulumi#10118](https://github.com/pulumi/pulumi/pull/10118)
 
 ## 1.7.0 (2022-06-09)
 - Use the first namespace from the env entry WATCH_NAMESPACE for leadership election, when the value is a list; and bail if the value is malformed [#278](https://github.com/pulumi/pulumi-kubernetes-operator/pull/278)
