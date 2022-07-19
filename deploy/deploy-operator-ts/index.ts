@@ -98,6 +98,7 @@ const operatorRole = new kubernetes.rbac.v1.Role("operator-role", {
         },
     ],
 });
+
 const operatorRoleBinding = new kubernetes.rbac.v1.RoleBinding("operator-role-binding", {
     subjects: [{
         kind: "ServiceAccount",
@@ -109,6 +110,7 @@ const operatorRoleBinding = new kubernetes.rbac.v1.RoleBinding("operator-role-bi
         apiGroup: "rbac.authorization.k8s.io",
     },
 });
+
 const operatorDeployment = new kubernetes.apps.v1.Deployment("pulumi-kubernetes-operator", {
     spec: {
         replicas: 1,
