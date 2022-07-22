@@ -2,7 +2,9 @@ CHANGELOG
 =========
 
 ## HEAD (Unreleased)
-(None)
+- Bump to Pulumi v3.36.0 (go 1.18)
+- Use go 1.18 for builds
+- CI update to go 1.18
 
 ## 1.7.0 (2022-06-09)
 - Use the first namespace from the env entry WATCH_NAMESPACE for leadership election, when the value is a list; and bail if the value is malformed [#278](https://github.com/pulumi/pulumi-kubernetes-operator/pull/278)
