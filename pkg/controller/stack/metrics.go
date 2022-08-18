@@ -5,7 +5,7 @@ package stack
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
-	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
+	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
@@ -43,12 +43,12 @@ func newStackCallback(obj interface{}) {
 }
 
 func updateStackCallback(oldObj, newObj interface{}) {
-	oldStack, ok := oldObj.(*pulumiv1alpha1.Stack)
+	oldStack, ok := oldObj.(*pulumiv1.Stack)
 	if !ok {
 		return
 	}
 
-	newStack, ok := newObj.(*pulumiv1alpha1.Stack)
+	newStack, ok := newObj.(*pulumiv1.Stack)
 	if !ok {
 		return
 	}

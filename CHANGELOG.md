@@ -6,6 +6,7 @@ CHANGELOG
 - CI update to go 1.18
 - Bump to v3.36.0 of Pulumi, to support short branch names in .spec.branch after
   [pulumi/pulumi#10118](https://github.com/pulumi/pulumi/pull/10118)
+- Fix `stacks_failing` prometheus metric for `Stack`s with apiVersion `v1`
 
 ## 1.7.0 (2022-06-09)
 - Use the first namespace from the env entry WATCH_NAMESPACE for leadership election, when the value is a list; and bail if the value is malformed [#278](https://github.com/pulumi/pulumi-kubernetes-operator/pull/278)
