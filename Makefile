@@ -14,7 +14,7 @@ install-crds:
 codegen: install-controller-gen install-crdoc generate-k8s generate-crds generate-crdocs
 
 install-controller-gen:
-	@echo "Installing controller-gen to GOPATH/bin"; pushd /tmp >& /dev/null && go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0 ; popd >& /dev/null
+	@echo "Installing controller-gen to GOPATH/bin"; pushd /tmp >& /dev/null && go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2 ; popd >& /dev/null
 
 install-crdoc:
 	@echo "Installing crdoc to go GOPATH/bin"; pushd /tmp >& /dev/null && go install fybrik.io/crdoc@v0.5.2; popd >& /dev/null

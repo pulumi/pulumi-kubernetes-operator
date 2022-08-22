@@ -109,7 +109,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>backend</b></td>
         <td>string</td>
         <td>
-          (optional) Backend is an optional backend URL to use for all Pulumi operations.<br/> Examples:<br/>   - Pulumi Service:              "https://app.pulumi.com" (default)<br/>   - Self-managed Pulumi Service: "https://pulumi.acmecorp.com" <br/>   - Local:                       "file://./einstein" <br/>   - AWS:                         "s3://<my-pulumi-state-bucket>" <br/>   - Azure:                       "azblob://<my-pulumi-state-bucket>" <br/>   - GCP:                         "gs://<my-pulumi-state-bucket>" <br/> See: https://www.pulumi.com/docs/intro/concepts/state/<br/>
+          (optional) Backend is an optional backend URL to use for all Pulumi operations.<br/> Examples:<br/> - Pulumi Service:              "https://app.pulumi.com" (default)<br/> - Self-managed Pulumi Service: "https://pulumi.acmecorp.com" <br/> - Local:                       "file://./einstein" <br/> - AWS:                         "s3://<my-pulumi-state-bucket>" <br/> - Azure:                       "azblob://<my-pulumi-state-bucket>" <br/> - GCP:                         "gs://<my-pulumi-state-bucket>" <br/> See: https://www.pulumi.com/docs/intro/concepts/state/<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -179,14 +179,14 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b><a href="#stackspecgitauth">gitAuth</a></b></td>
         <td>object</td>
         <td>
-          (optional) GitAuth allows configuring git authentication options There are 3 different authentication options:   * SSH private key (and its optional password)   * Personal access token   * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials.<br/>
+          (optional) GitAuth allows configuring git authentication options There are 3 different authentication options: * SSH private key (and its optional password) * Personal access token * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>gitAuthSecret</b></td>
         <td>string</td>
         <td>
-          (optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options:   * Personal access token   * SSH private key (and it's optional password)   * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.<br/>
+          (optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options: * Personal access token * SSH private key (and it's optional password) * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -230,7 +230,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>secretsProvider</b></td>
         <td>string</td>
         <td>
-          (optional) SecretsProvider is used to initialize a Stack with alternative encryption. Examples:   - AWS:   "awskms:///arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"   - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"   - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"   - See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-with-alternative-encryption<br/>
+          (optional) SecretsProvider is used to initialize a Stack with alternative encryption. Examples: - AWS:   "awskms:///arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1" - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname" - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY" - See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-with-alternative-encryption<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -433,7 +433,7 @@ SecretRef refers to a Kubernetes secret
 
 
 
-(optional) GitAuth allows configuring git authentication options There are 3 different authentication options:   * SSH private key (and its optional password)   * Personal access token   * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials.
+(optional) GitAuth allows configuring git authentication options There are 3 different authentication options: * SSH private key (and its optional password) * Personal access token * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials.
 
 <table>
     <thead>
@@ -1793,7 +1793,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>backend</b></td>
         <td>string</td>
         <td>
-          (optional) Backend is an optional backend URL to use for all Pulumi operations.<br/> Examples:<br/>   - Pulumi Service:              "https://app.pulumi.com" (default)<br/>   - Self-managed Pulumi Service: "https://pulumi.acmecorp.com" <br/>   - Local:                       "file://./einstein" <br/>   - AWS:                         "s3://<my-pulumi-state-bucket>" <br/>   - Azure:                       "azblob://<my-pulumi-state-bucket>" <br/>   - GCP:                         "gs://<my-pulumi-state-bucket>" <br/> See: https://www.pulumi.com/docs/intro/concepts/state/<br/>
+          (optional) Backend is an optional backend URL to use for all Pulumi operations.<br/> Examples:<br/> - Pulumi Service:              "https://app.pulumi.com" (default)<br/> - Self-managed Pulumi Service: "https://pulumi.acmecorp.com" <br/> - Local:                       "file://./einstein" <br/> - AWS:                         "s3://<my-pulumi-state-bucket>" <br/> - Azure:                       "azblob://<my-pulumi-state-bucket>" <br/> - GCP:                         "gs://<my-pulumi-state-bucket>" <br/> See: https://www.pulumi.com/docs/intro/concepts/state/<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1863,14 +1863,14 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b><a href="#stackspecgitauth-1">gitAuth</a></b></td>
         <td>object</td>
         <td>
-          (optional) GitAuth allows configuring git authentication options There are 3 different authentication options:   * SSH private key (and its optional password)   * Personal access token   * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials.<br/>
+          (optional) GitAuth allows configuring git authentication options There are 3 different authentication options: * SSH private key (and its optional password) * Personal access token * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>gitAuthSecret</b></td>
         <td>string</td>
         <td>
-          (optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options:   * Personal access token   * SSH private key (and it's optional password)   * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.<br/>
+          (optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options: * Personal access token * SSH private key (and it's optional password) * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1914,7 +1914,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>secretsProvider</b></td>
         <td>string</td>
         <td>
-          (optional) SecretsProvider is used to initialize a Stack with alternative encryption. Examples:   - AWS:   "awskms:///arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"   - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"   - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"   - See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-with-alternative-encryption<br/>
+          (optional) SecretsProvider is used to initialize a Stack with alternative encryption. Examples: - AWS:   "awskms:///arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1" - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname" - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY" - See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-with-alternative-encryption<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2117,7 +2117,7 @@ SecretRef refers to a Kubernetes secret
 
 
 
-(optional) GitAuth allows configuring git authentication options There are 3 different authentication options:   * SSH private key (and its optional password)   * Personal access token   * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials.
+(optional) GitAuth allows configuring git authentication options There are 3 different authentication options: * SSH private key (and its optional password) * Personal access token * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials.
 
 <table>
     <thead>

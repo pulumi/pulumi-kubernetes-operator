@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.5.0
+    controller-gen.kubebuilder.io/version: v0.9.2
   creationTimestamp: null
   name: stacks.pulumi.com
 spec:
@@ -16,58 +15,86 @@ spec:
     singular: stack
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - jsonPath: .metadata.creationTimestamp
-      name: AGE
-      type: date
-    - jsonPath: .status.lastUpdate.state
-      name: STATE
-      type: string
-    name: v1
+  - name: v1
     schema:
       openAPIV3Schema:
         description: Stack is the Schema for the stacks API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
           spec:
-            description: StackSpec defines the desired state of Pulumi Stack being managed by this operator.
+            description: StackSpec defines the desired state of Pulumi Stack being
+              managed by this operator.
             properties:
               accessTokenSecret:
-                description: '(optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN instead.'
+                description: '(optional) AccessTokenSecret is the name of a secret
+                  containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated:
+                  use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN
+                  instead.'
                 type: string
               backend:
-                description: '(optional) Backend is an optional backend URL to use for all Pulumi operations.<br/> Examples:<br/>   - Pulumi Service:              "https://app.pulumi.com" (default)<br/>   - Self-managed Pulumi Service: "https://pulumi.acmecorp.com" <br/>   - Local:                       "file://./einstein" <br/>   - AWS:                         "s3://<my-pulumi-state-bucket>" <br/>   - Azure:                       "azblob://<my-pulumi-state-bucket>" <br/>   - GCP:                         "gs://<my-pulumi-state-bucket>" <br/> See: https://www.pulumi.com/docs/intro/concepts/state/'
+                description: '(optional) Backend is an optional backend URL to use
+                  for all Pulumi operations.<br/> Examples:<br/> - Pulumi Service:              "https://app.pulumi.com"
+                  (default)<br/> - Self-managed Pulumi Service: "https://pulumi.acmecorp.com"
+                  <br/> - Local:                       "file://./einstein" <br/> -
+                  AWS:                         "s3://<my-pulumi-state-bucket>" <br/>
+                  - Azure:                       "azblob://<my-pulumi-state-bucket>"
+                  <br/> - GCP:                         "gs://<my-pulumi-state-bucket>"
+                  <br/> See: https://www.pulumi.com/docs/intro/concepts/state/'
                 type: string
               branch:
-                description: (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This is mutually exclusive with the Commit setting. Either value needs to be specified. When specified, the operator will periodically poll to check if the branch has any new commits. The frequency of the polling is configurable through ResyncFrequencySeconds, defaulting to every 60 seconds.
+                description: (optional) Branch is the branch name to deploy, either
+                  the simple or fully qualified ref name, e.g. refs/heads/master.
+                  This is mutually exclusive with the Commit setting. Either value
+                  needs to be specified. When specified, the operator will periodically
+                  poll to check if the branch has any new commits. The frequency of
+                  the polling is configurable through ResyncFrequencySeconds, defaulting
+                  to every 60 seconds.
                 type: string
               commit:
-                description: (optional) Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This is mutually exclusive with the Branch setting. Either value needs to be specified.
+                description: (optional) Commit is the hash of the commit to deploy.
+                  If used, HEAD will be in detached mode. This is mutually exclusive
+                  with the Branch setting. Either value needs to be specified.
                 type: string
               config:
                 additionalProperties:
                   type: string
-                description: (optional) Config is the configuration for this stack, which can be optionally specified inline. If this is omitted, configuration is assumed to be checked in and taken from the source repository.
+                description: (optional) Config is the configuration for this stack,
+                  which can be optionally specified inline. If this is omitted, configuration
+                  is assumed to be checked in and taken from the source repository.
                 type: object
               continueResyncOnCommitMatch:
-                description: (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying to update stacks even if the commit matches. This might be useful in environments where Pulumi programs have dynamic elements for example, calls to internal APIs where GitOps style commit tracking is not sufficient. Defaults to false, i.e. when a particular commit is successfully run, the operator will not attempt to rerun the program at that commit again.
+                description: (optional) ContinueResyncOnCommitMatch - when true -
+                  informs the operator to continue trying to update stacks even if
+                  the commit matches. This might be useful in environments where Pulumi
+                  programs have dynamic elements for example, calls to internal APIs
+                  where GitOps style commit tracking is not sufficient. Defaults to
+                  false, i.e. when a particular commit is successfully run, the operator
+                  will not attempt to rerun the program at that commit again.
                 type: boolean
               destroyOnFinalize:
-                description: (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
+                description: (optional) DestroyOnFinalize can be set to true to destroy
+                  the stack completely upon deletion of the CRD.
                 type: boolean
               envRefs:
                 additionalProperties:
-                  description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                  description: ResourceRef identifies a resource from which information
+                    can be loaded. Environment variables, files on the filesystem,
+                    Kubernetes secrets and literal strings are currently supported.
                   properties:
                     env:
-                      description: Env selects an environment variable set on the operator process
+                      description: Env selects an environment variable set on the
+                        operator process
                       properties:
                         name:
                           description: Name of the environment variable
@@ -76,10 +103,12 @@ spec:
                       - name
                       type: object
                     filesystem:
-                      description: FileSystem selects a file on the operator's file system
+                      description: FileSystem selects a file on the operator's file
+                        system
                       properties:
                         path:
-                          description: Path on the filesystem to use to load information from.
+                          description: Path on the filesystem to use to load information
+                            from.
                           type: string
                       required:
                       - path
@@ -103,41 +132,62 @@ spec:
                           description: Name of the secret
                           type: string
                         namespace:
-                          description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                          description: Namespace where the secret is stored. Defaults
+                            to 'default' if omitted.
                           type: string
                       required:
                       - key
                       - name
                       type: object
                     type:
-                      description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                      description: 'SelectorType is required and signifies the type
+                        of selector. Must be one of: Env, FS, Secret, Literal'
                       type: string
                   required:
                   - type
                   type: object
-                description: (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where the variables' values should be loaded from (one of literal, environment variable, file on the filesystem, or Kubernetes secret) as values.
+                description: (optional) EnvRefs is an optional map containing environment
+                  variables as keys and stores descriptors to where the variables'
+                  values should be loaded from (one of literal, environment variable,
+                  file on the filesystem, or Kubernetes secret) as values.
                 type: object
               envSecrets:
-                description: '(optional) SecretEnvs is an optional array of secret names containing environment variables to set. Deprecated: use EnvRefs instead.'
+                description: '(optional) SecretEnvs is an optional array of secret
+                  names containing environment variables to set. Deprecated: use EnvRefs
+                  instead.'
                 items:
                   type: string
                 type: array
               envs:
-                description: '(optional) Envs is an optional array of config maps containing environment variables to set. Deprecated: use EnvRefs instead.'
+                description: '(optional) Envs is an optional array of config maps
+                  containing environment variables to set. Deprecated: use EnvRefs
+                  instead.'
                 items:
                   type: string
                 type: array
               expectNoRefreshChanges:
-                description: (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have changes during a refresh before the update is run. This could occur, for example, is a resource's state is changing outside of Pulumi (e.g., metadata, timestamps).
+                description: (optional) ExpectNoRefreshChanges can be set to true
+                  if a stack is not expected to have changes during a refresh before
+                  the update is run. This could occur, for example, is a resource's
+                  state is changing outside of Pulumi (e.g., metadata, timestamps).
                 type: boolean
               gitAuth:
-                description: '(optional) GitAuth allows configuring git authentication options There are 3 different authentication options:   * SSH private key (and its optional password)   * Personal access token   * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials.'
+                description: '(optional) GitAuth allows configuring git authentication
+                  options There are 3 different authentication options: * SSH private
+                  key (and its optional password) * Personal access token * Basic
+                  auth username and password Only one authentication mode will be
+                  considered if more than one option is specified, with ssh private
+                  key/password preferred first, then personal access token, and finally
+                  basic auth credentials.'
                 properties:
                   accessToken:
-                    description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                    description: ResourceRef identifies a resource from which information
+                      can be loaded. Environment variables, files on the filesystem,
+                      Kubernetes secrets and literal strings are currently supported.
                     properties:
                       env:
-                        description: Env selects an environment variable set on the operator process
+                        description: Env selects an environment variable set on the
+                          operator process
                         properties:
                           name:
                             description: Name of the environment variable
@@ -146,10 +196,12 @@ spec:
                         - name
                         type: object
                       filesystem:
-                        description: FileSystem selects a file on the operator's file system
+                        description: FileSystem selects a file on the operator's file
+                          system
                         properties:
                           path:
-                            description: Path on the filesystem to use to load information from.
+                            description: Path on the filesystem to use to load information
+                              from.
                             type: string
                         required:
                         - path
@@ -173,26 +225,34 @@ spec:
                             description: Name of the secret
                             type: string
                           namespace:
-                            description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                            description: Namespace where the secret is stored. Defaults
+                              to 'default' if omitted.
                             type: string
                         required:
                         - key
                         - name
                         type: object
                       type:
-                        description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                        description: 'SelectorType is required and signifies the type
+                          of selector. Must be one of: Env, FS, Secret, Literal'
                         type: string
                     required:
                     - type
                     type: object
                   basicAuth:
-                    description: BasicAuth configures git authentication through basic auth — i.e. username and password. Both UserName and Password are required.
+                    description: BasicAuth configures git authentication through basic
+                      auth — i.e. username and password. Both UserName and Password
+                      are required.
                     properties:
                       password:
-                        description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                        description: ResourceRef identifies a resource from which
+                          information can be loaded. Environment variables, files
+                          on the filesystem, Kubernetes secrets and literal strings
+                          are currently supported.
                         properties:
                           env:
-                            description: Env selects an environment variable set on the operator process
+                            description: Env selects an environment variable set on
+                              the operator process
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -201,10 +261,12 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's file system
+                            description: FileSystem selects a file on the operator's
+                              file system
                             properties:
                               path:
-                                description: Path on the filesystem to use to load information from.
+                                description: Path on the filesystem to use to load
+                                  information from.
                                 type: string
                             required:
                             - path
@@ -228,23 +290,29 @@ spec:
                                 description: Name of the secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                                description: Namespace where the secret is stored.
+                                  Defaults to 'default' if omitted.
                                 type: string
                             required:
                             - key
                             - name
                             type: object
                           type:
-                            description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                            description: 'SelectorType is required and signifies the
+                              type of selector. Must be one of: Env, FS, Secret, Literal'
                             type: string
                         required:
                         - type
                         type: object
                       userName:
-                        description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                        description: ResourceRef identifies a resource from which
+                          information can be loaded. Environment variables, files
+                          on the filesystem, Kubernetes secrets and literal strings
+                          are currently supported.
                         properties:
                           env:
-                            description: Env selects an environment variable set on the operator process
+                            description: Env selects an environment variable set on
+                              the operator process
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -253,10 +321,12 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's file system
+                            description: FileSystem selects a file on the operator's
+                              file system
                             properties:
                               path:
-                                description: Path on the filesystem to use to load information from.
+                                description: Path on the filesystem to use to load
+                                  information from.
                                 type: string
                             required:
                             - path
@@ -280,14 +350,16 @@ spec:
                                 description: Name of the secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                                description: Namespace where the secret is stored.
+                                  Defaults to 'default' if omitted.
                                 type: string
                             required:
                             - key
                             - name
                             type: object
                           type:
-                            description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                            description: 'SelectorType is required and signifies the
+                              type of selector. Must be one of: Env, FS, Secret, Literal'
                             type: string
                         required:
                         - type
@@ -297,13 +369,18 @@ spec:
                     - userName
                     type: object
                   sshAuth:
-                    description: SSHAuth configures ssh-based auth for git authentication. SSHPrivateKey is required but password is optional.
+                    description: SSHAuth configures ssh-based auth for git authentication.
+                      SSHPrivateKey is required but password is optional.
                     properties:
                       password:
-                        description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                        description: ResourceRef identifies a resource from which
+                          information can be loaded. Environment variables, files
+                          on the filesystem, Kubernetes secrets and literal strings
+                          are currently supported.
                         properties:
                           env:
-                            description: Env selects an environment variable set on the operator process
+                            description: Env selects an environment variable set on
+                              the operator process
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -312,10 +389,12 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's file system
+                            description: FileSystem selects a file on the operator's
+                              file system
                             properties:
                               path:
-                                description: Path on the filesystem to use to load information from.
+                                description: Path on the filesystem to use to load
+                                  information from.
                                 type: string
                             required:
                             - path
@@ -339,23 +418,29 @@ spec:
                                 description: Name of the secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                                description: Namespace where the secret is stored.
+                                  Defaults to 'default' if omitted.
                                 type: string
                             required:
                             - key
                             - name
                             type: object
                           type:
-                            description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                            description: 'SelectorType is required and signifies the
+                              type of selector. Must be one of: Env, FS, Secret, Literal'
                             type: string
                         required:
                         - type
                         type: object
                       sshPrivateKey:
-                        description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                        description: ResourceRef identifies a resource from which
+                          information can be loaded. Environment variables, files
+                          on the filesystem, Kubernetes secrets and literal strings
+                          are currently supported.
                         properties:
                           env:
-                            description: Env selects an environment variable set on the operator process
+                            description: Env selects an environment variable set on
+                              the operator process
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -364,10 +449,12 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's file system
+                            description: FileSystem selects a file on the operator's
+                              file system
                             properties:
                               path:
-                                description: Path on the filesystem to use to load information from.
+                                description: Path on the filesystem to use to load
+                                  information from.
                                 type: string
                             required:
                             - path
@@ -391,14 +478,16 @@ spec:
                                 description: Name of the secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                                description: Namespace where the secret is stored.
+                                  Defaults to 'default' if omitted.
                                 type: string
                             required:
                             - key
                             - name
                             type: object
                           type:
-                            description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                            description: 'SelectorType is required and signifies the
+                              type of selector. Must be one of: Env, FS, Secret, Literal'
                             type: string
                         required:
                         - type
@@ -408,38 +497,70 @@ spec:
                     type: object
                 type: object
               gitAuthSecret:
-                description: '(optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options:   * Personal access token   * SSH private key (and it''s optional password)   * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.'
+                description: '(optional) GitAuthSecret is the the name of a secret
+                  containing an authentication option for the git repository. There
+                  are 3 different authentication options: * Personal access token
+                  * SSH private key (and it''s optional password) * Basic auth username
+                  and password Only one authentication mode will be considered if
+                  more than one option is specified, with ssh private key/password
+                  preferred first, then personal access token, and finally basic auth
+                  credentials. Deprecated. Use GitAuth instead.'
                 type: string
               projectRepo:
-                description: ProjectRepo is the git source control repository from which we fetch the project code and configuration.
+                description: ProjectRepo is the git source control repository from
+                  which we fetch the project code and configuration.
                 type: string
               refresh:
-                description: (optional) Refresh can be set to true to refresh the stack before it is updated.
+                description: (optional) Refresh can be set to true to refresh the
+                  stack before it is updated.
                 type: boolean
               repoDir:
-                description: (optional) RepoDir is the directory to work from in the project's source repository where Pulumi.yaml is located. It is used in case Pulumi.yaml is not in the project source root.
+                description: (optional) RepoDir is the directory to work from in the
+                  project's source repository where Pulumi.yaml is located. It is
+                  used in case Pulumi.yaml is not in the project source root.
                 type: string
               resyncFrequencySeconds:
-                description: (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at the specified frequency even if no changes to the custom-resource are detected. If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency. The minimal resync frequency supported is 60 seconds.
+                description: (optional) ResyncFrequencySeconds when set to a non-zero
+                  value, triggers a resync of the stack at the specified frequency
+                  even if no changes to the custom-resource are detected. If branch
+                  tracking is enabled (branch is non-empty), commit polling will occur
+                  at this frequency. The minimal resync frequency supported is 60
+                  seconds.
                 format: int64
                 type: integer
               retryOnUpdateConflict:
-                description: (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop in the event that the update hits a HTTP 409 conflict due to another update in progress. This is only recommended if you are sure that the stack updates are idempotent, and if you are willing to accept retry loops until all spawned retries succeed. This will also create a more populated, and randomized activity timeline for the stack in the Pulumi Service.
+                description: (optional) RetryOnUpdateConflict issues a stack update
+                  retry reconciliation loop in the event that the update hits a HTTP
+                  409 conflict due to another update in progress. This is only recommended
+                  if you are sure that the stack updates are idempotent, and if you
+                  are willing to accept retry loops until all spawned retries succeed.
+                  This will also create a more populated, and randomized activity
+                  timeline for the stack in the Pulumi Service.
                 type: boolean
               secrets:
                 additionalProperties:
                   type: string
-                description: '(optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository. Deprecated: use SecretRefs instead.'
+                description: '(optional) Secrets is the secret configuration for this
+                  stack, which can be optionally specified inline. If this is omitted,
+                  secrets configuration is assumed to be checked in and taken from
+                  the source repository. Deprecated: use SecretRefs instead.'
                 type: object
               secretsProvider:
-                description: '(optional) SecretsProvider is used to initialize a Stack with alternative encryption. Examples:   - AWS:   "awskms:///arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"   - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"   - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"   - See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-with-alternative-encryption'
+                description: '(optional) SecretsProvider is used to initialize a Stack
+                  with alternative encryption. Examples: - AWS:   "awskms:///arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"
+                  - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"
+                  - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"
+                  - See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-with-alternative-encryption'
                 type: string
               secretsRef:
                 additionalProperties:
-                  description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                  description: ResourceRef identifies a resource from which information
+                    can be loaded. Environment variables, files on the filesystem,
+                    Kubernetes secrets and literal strings are currently supported.
                   properties:
                     env:
-                      description: Env selects an environment variable set on the operator process
+                      description: Env selects an environment variable set on the
+                        operator process
                       properties:
                         name:
                           description: Name of the environment variable
@@ -448,10 +569,12 @@ spec:
                       - name
                       type: object
                     filesystem:
-                      description: FileSystem selects a file on the operator's file system
+                      description: FileSystem selects a file on the operator's file
+                        system
                       properties:
                         path:
-                          description: Path on the filesystem to use to load information from.
+                          description: Path on the filesystem to use to load information
+                            from.
                           type: string
                       required:
                       - path
@@ -475,25 +598,34 @@ spec:
                           description: Name of the secret
                           type: string
                         namespace:
-                          description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                          description: Namespace where the secret is stored. Defaults
+                            to 'default' if omitted.
                           type: string
                       required:
                       - key
                       - name
                       type: object
                     type:
-                      description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                      description: 'SelectorType is required and signifies the type
+                        of selector. Must be one of: Env, FS, Secret, Literal'
                       type: string
                   required:
                   - type
                   type: object
-                description: (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
+                description: (optional) SecretRefs is the secret configuration for
+                  this stack which can be specified through ResourceRef. If this is
+                  omitted, secrets configuration is assumed to be checked in and taken
+                  from the source repository.
                 type: object
               stack:
-                description: Stack is the fully qualified name of the stack to deploy (<org>/<stack>).
+                description: Stack is the fully qualified name of the stack to deploy
+                  (<org>/<stack>).
                 type: string
               useLocalStackOnly:
-                description: (optional) UseLocalStackOnly can be set to true to prevent the operator from creating stacks that do not exist in the tracking git repo. The default behavior is to create a stack if it doesn't exist.
+                description: (optional) UseLocalStackOnly can be set to true to prevent
+                  the operator from creating stacks that do not exist in the tracking
+                  git repo. The default behavior is to create a stack if it doesn't
+                  exist.
                 type: boolean
             required:
             - projectRepo
@@ -503,29 +635,34 @@ spec:
             description: StackStatus defines the observed state of Stack
             properties:
               lastUpdate:
-                description: LastUpdate contains details of the status of the last update.
+                description: LastUpdate contains details of the status of the last
+                  update.
                 properties:
                   lastAttemptedCommit:
                     description: Last commit attempted
                     type: string
                   lastResyncTime:
-                    description: LastResyncTime contains a timestamp for the last time a resync of the stack took place.
+                    description: LastResyncTime contains a timestamp for the last
+                      time a resync of the stack took place.
                     format: date-time
                     type: string
                   lastSuccessfulCommit:
                     description: Last commit successfully applied
                     type: string
                   permalink:
-                    description: Permalink is the Pulumi Console URL of the stack operation.
+                    description: Permalink is the Pulumi Console URL of the stack
+                      operation.
                     type: string
                   state:
-                    description: State is the state of the stack update - one of `succeeded` or `failed`
+                    description: State is the state of the stack update - one of `succeeded`
+                      or `failed`
                     type: string
                 type: object
               outputs:
                 additionalProperties:
                   x-kubernetes-preserve-unknown-fields: true
-                description: Outputs contains the exported stack output variables resulting from a deployment.
+                description: Outputs contains the exported stack output variables
+                  resulting from a deployment.
                 type: object
             type: object
         type: object
@@ -536,48 +673,86 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: 'Stack is the Schema for the stacks API. Deprecated: Note Stacks from pulumi.com/v1alpha1 is deprecated in favor of pulumi.com/v1. It is completely backward compatible. Users are strongly encouraged to switch to pulumi.com/v1.'
+        description: 'Stack is the Schema for the stacks API. Deprecated: Note Stacks
+          from pulumi.com/v1alpha1 is deprecated in favor of pulumi.com/v1. It is
+          completely backward compatible. Users are strongly encouraged to switch
+          to pulumi.com/v1.'
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
           spec:
-            description: StackSpec defines the desired state of Pulumi Stack being managed by this operator.
+            description: StackSpec defines the desired state of Pulumi Stack being
+              managed by this operator.
             properties:
               accessTokenSecret:
-                description: '(optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN instead.'
+                description: '(optional) AccessTokenSecret is the name of a secret
+                  containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated:
+                  use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN
+                  instead.'
                 type: string
               backend:
-                description: '(optional) Backend is an optional backend URL to use for all Pulumi operations.<br/> Examples:<br/>   - Pulumi Service:              "https://app.pulumi.com" (default)<br/>   - Self-managed Pulumi Service: "https://pulumi.acmecorp.com" <br/>   - Local:                       "file://./einstein" <br/>   - AWS:                         "s3://<my-pulumi-state-bucket>" <br/>   - Azure:                       "azblob://<my-pulumi-state-bucket>" <br/>   - GCP:                         "gs://<my-pulumi-state-bucket>" <br/> See: https://www.pulumi.com/docs/intro/concepts/state/'
+                description: '(optional) Backend is an optional backend URL to use
+                  for all Pulumi operations.<br/> Examples:<br/> - Pulumi Service:              "https://app.pulumi.com"
+                  (default)<br/> - Self-managed Pulumi Service: "https://pulumi.acmecorp.com"
+                  <br/> - Local:                       "file://./einstein" <br/> -
+                  AWS:                         "s3://<my-pulumi-state-bucket>" <br/>
+                  - Azure:                       "azblob://<my-pulumi-state-bucket>"
+                  <br/> - GCP:                         "gs://<my-pulumi-state-bucket>"
+                  <br/> See: https://www.pulumi.com/docs/intro/concepts/state/'
                 type: string
               branch:
-                description: (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This is mutually exclusive with the Commit setting. Either value needs to be specified. When specified, the operator will periodically poll to check if the branch has any new commits. The frequency of the polling is configurable through ResyncFrequencySeconds, defaulting to every 60 seconds.
+                description: (optional) Branch is the branch name to deploy, either
+                  the simple or fully qualified ref name, e.g. refs/heads/master.
+                  This is mutually exclusive with the Commit setting. Either value
+                  needs to be specified. When specified, the operator will periodically
+                  poll to check if the branch has any new commits. The frequency of
+                  the polling is configurable through ResyncFrequencySeconds, defaulting
+                  to every 60 seconds.
                 type: string
               commit:
-                description: (optional) Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This is mutually exclusive with the Branch setting. Either value needs to be specified.
+                description: (optional) Commit is the hash of the commit to deploy.
+                  If used, HEAD will be in detached mode. This is mutually exclusive
+                  with the Branch setting. Either value needs to be specified.
                 type: string
               config:
                 additionalProperties:
                   type: string
-                description: (optional) Config is the configuration for this stack, which can be optionally specified inline. If this is omitted, configuration is assumed to be checked in and taken from the source repository.
+                description: (optional) Config is the configuration for this stack,
+                  which can be optionally specified inline. If this is omitted, configuration
+                  is assumed to be checked in and taken from the source repository.
                 type: object
               continueResyncOnCommitMatch:
-                description: (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying to update stacks even if the commit matches. This might be useful in environments where Pulumi programs have dynamic elements for example, calls to internal APIs where GitOps style commit tracking is not sufficient. Defaults to false, i.e. when a particular commit is successfully run, the operator will not attempt to rerun the program at that commit again.
+                description: (optional) ContinueResyncOnCommitMatch - when true -
+                  informs the operator to continue trying to update stacks even if
+                  the commit matches. This might be useful in environments where Pulumi
+                  programs have dynamic elements for example, calls to internal APIs
+                  where GitOps style commit tracking is not sufficient. Defaults to
+                  false, i.e. when a particular commit is successfully run, the operator
+                  will not attempt to rerun the program at that commit again.
                 type: boolean
               destroyOnFinalize:
-                description: (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
+                description: (optional) DestroyOnFinalize can be set to true to destroy
+                  the stack completely upon deletion of the CRD.
                 type: boolean
               envRefs:
                 additionalProperties:
-                  description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                  description: ResourceRef identifies a resource from which information
+                    can be loaded. Environment variables, files on the filesystem,
+                    Kubernetes secrets and literal strings are currently supported.
                   properties:
                     env:
-                      description: Env selects an environment variable set on the operator process
+                      description: Env selects an environment variable set on the
+                        operator process
                       properties:
                         name:
                           description: Name of the environment variable
@@ -586,10 +761,12 @@ spec:
                       - name
                       type: object
                     filesystem:
-                      description: FileSystem selects a file on the operator's file system
+                      description: FileSystem selects a file on the operator's file
+                        system
                       properties:
                         path:
-                          description: Path on the filesystem to use to load information from.
+                          description: Path on the filesystem to use to load information
+                            from.
                           type: string
                       required:
                       - path
@@ -613,41 +790,62 @@ spec:
                           description: Name of the secret
                           type: string
                         namespace:
-                          description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                          description: Namespace where the secret is stored. Defaults
+                            to 'default' if omitted.
                           type: string
                       required:
                       - key
                       - name
                       type: object
                     type:
-                      description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                      description: 'SelectorType is required and signifies the type
+                        of selector. Must be one of: Env, FS, Secret, Literal'
                       type: string
                   required:
                   - type
                   type: object
-                description: (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where the variables' values should be loaded from (one of literal, environment variable, file on the filesystem, or Kubernetes secret) as values.
+                description: (optional) EnvRefs is an optional map containing environment
+                  variables as keys and stores descriptors to where the variables'
+                  values should be loaded from (one of literal, environment variable,
+                  file on the filesystem, or Kubernetes secret) as values.
                 type: object
               envSecrets:
-                description: '(optional) SecretEnvs is an optional array of secret names containing environment variables to set. Deprecated: use EnvRefs instead.'
+                description: '(optional) SecretEnvs is an optional array of secret
+                  names containing environment variables to set. Deprecated: use EnvRefs
+                  instead.'
                 items:
                   type: string
                 type: array
               envs:
-                description: '(optional) Envs is an optional array of config maps containing environment variables to set. Deprecated: use EnvRefs instead.'
+                description: '(optional) Envs is an optional array of config maps
+                  containing environment variables to set. Deprecated: use EnvRefs
+                  instead.'
                 items:
                   type: string
                 type: array
               expectNoRefreshChanges:
-                description: (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have changes during a refresh before the update is run. This could occur, for example, is a resource's state is changing outside of Pulumi (e.g., metadata, timestamps).
+                description: (optional) ExpectNoRefreshChanges can be set to true
+                  if a stack is not expected to have changes during a refresh before
+                  the update is run. This could occur, for example, is a resource's
+                  state is changing outside of Pulumi (e.g., metadata, timestamps).
                 type: boolean
               gitAuth:
-                description: '(optional) GitAuth allows configuring git authentication options There are 3 different authentication options:   * SSH private key (and its optional password)   * Personal access token   * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials.'
+                description: '(optional) GitAuth allows configuring git authentication
+                  options There are 3 different authentication options: * SSH private
+                  key (and its optional password) * Personal access token * Basic
+                  auth username and password Only one authentication mode will be
+                  considered if more than one option is specified, with ssh private
+                  key/password preferred first, then personal access token, and finally
+                  basic auth credentials.'
                 properties:
                   accessToken:
-                    description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                    description: ResourceRef identifies a resource from which information
+                      can be loaded. Environment variables, files on the filesystem,
+                      Kubernetes secrets and literal strings are currently supported.
                     properties:
                       env:
-                        description: Env selects an environment variable set on the operator process
+                        description: Env selects an environment variable set on the
+                          operator process
                         properties:
                           name:
                             description: Name of the environment variable
@@ -656,10 +854,12 @@ spec:
                         - name
                         type: object
                       filesystem:
-                        description: FileSystem selects a file on the operator's file system
+                        description: FileSystem selects a file on the operator's file
+                          system
                         properties:
                           path:
-                            description: Path on the filesystem to use to load information from.
+                            description: Path on the filesystem to use to load information
+                              from.
                             type: string
                         required:
                         - path
@@ -683,26 +883,34 @@ spec:
                             description: Name of the secret
                             type: string
                           namespace:
-                            description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                            description: Namespace where the secret is stored. Defaults
+                              to 'default' if omitted.
                             type: string
                         required:
                         - key
                         - name
                         type: object
                       type:
-                        description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                        description: 'SelectorType is required and signifies the type
+                          of selector. Must be one of: Env, FS, Secret, Literal'
                         type: string
                     required:
                     - type
                     type: object
                   basicAuth:
-                    description: BasicAuth configures git authentication through basic auth — i.e. username and password. Both UserName and Password are required.
+                    description: BasicAuth configures git authentication through basic
+                      auth — i.e. username and password. Both UserName and Password
+                      are required.
                     properties:
                       password:
-                        description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                        description: ResourceRef identifies a resource from which
+                          information can be loaded. Environment variables, files
+                          on the filesystem, Kubernetes secrets and literal strings
+                          are currently supported.
                         properties:
                           env:
-                            description: Env selects an environment variable set on the operator process
+                            description: Env selects an environment variable set on
+                              the operator process
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -711,10 +919,12 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's file system
+                            description: FileSystem selects a file on the operator's
+                              file system
                             properties:
                               path:
-                                description: Path on the filesystem to use to load information from.
+                                description: Path on the filesystem to use to load
+                                  information from.
                                 type: string
                             required:
                             - path
@@ -738,23 +948,29 @@ spec:
                                 description: Name of the secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                                description: Namespace where the secret is stored.
+                                  Defaults to 'default' if omitted.
                                 type: string
                             required:
                             - key
                             - name
                             type: object
                           type:
-                            description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                            description: 'SelectorType is required and signifies the
+                              type of selector. Must be one of: Env, FS, Secret, Literal'
                             type: string
                         required:
                         - type
                         type: object
                       userName:
-                        description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                        description: ResourceRef identifies a resource from which
+                          information can be loaded. Environment variables, files
+                          on the filesystem, Kubernetes secrets and literal strings
+                          are currently supported.
                         properties:
                           env:
-                            description: Env selects an environment variable set on the operator process
+                            description: Env selects an environment variable set on
+                              the operator process
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -763,10 +979,12 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's file system
+                            description: FileSystem selects a file on the operator's
+                              file system
                             properties:
                               path:
-                                description: Path on the filesystem to use to load information from.
+                                description: Path on the filesystem to use to load
+                                  information from.
                                 type: string
                             required:
                             - path
@@ -790,14 +1008,16 @@ spec:
                                 description: Name of the secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                                description: Namespace where the secret is stored.
+                                  Defaults to 'default' if omitted.
                                 type: string
                             required:
                             - key
                             - name
                             type: object
                           type:
-                            description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                            description: 'SelectorType is required and signifies the
+                              type of selector. Must be one of: Env, FS, Secret, Literal'
                             type: string
                         required:
                         - type
@@ -807,13 +1027,18 @@ spec:
                     - userName
                     type: object
                   sshAuth:
-                    description: SSHAuth configures ssh-based auth for git authentication. SSHPrivateKey is required but password is optional.
+                    description: SSHAuth configures ssh-based auth for git authentication.
+                      SSHPrivateKey is required but password is optional.
                     properties:
                       password:
-                        description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                        description: ResourceRef identifies a resource from which
+                          information can be loaded. Environment variables, files
+                          on the filesystem, Kubernetes secrets and literal strings
+                          are currently supported.
                         properties:
                           env:
-                            description: Env selects an environment variable set on the operator process
+                            description: Env selects an environment variable set on
+                              the operator process
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -822,10 +1047,12 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's file system
+                            description: FileSystem selects a file on the operator's
+                              file system
                             properties:
                               path:
-                                description: Path on the filesystem to use to load information from.
+                                description: Path on the filesystem to use to load
+                                  information from.
                                 type: string
                             required:
                             - path
@@ -849,23 +1076,29 @@ spec:
                                 description: Name of the secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                                description: Namespace where the secret is stored.
+                                  Defaults to 'default' if omitted.
                                 type: string
                             required:
                             - key
                             - name
                             type: object
                           type:
-                            description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                            description: 'SelectorType is required and signifies the
+                              type of selector. Must be one of: Env, FS, Secret, Literal'
                             type: string
                         required:
                         - type
                         type: object
                       sshPrivateKey:
-                        description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                        description: ResourceRef identifies a resource from which
+                          information can be loaded. Environment variables, files
+                          on the filesystem, Kubernetes secrets and literal strings
+                          are currently supported.
                         properties:
                           env:
-                            description: Env selects an environment variable set on the operator process
+                            description: Env selects an environment variable set on
+                              the operator process
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -874,10 +1107,12 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's file system
+                            description: FileSystem selects a file on the operator's
+                              file system
                             properties:
                               path:
-                                description: Path on the filesystem to use to load information from.
+                                description: Path on the filesystem to use to load
+                                  information from.
                                 type: string
                             required:
                             - path
@@ -901,14 +1136,16 @@ spec:
                                 description: Name of the secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                                description: Namespace where the secret is stored.
+                                  Defaults to 'default' if omitted.
                                 type: string
                             required:
                             - key
                             - name
                             type: object
                           type:
-                            description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                            description: 'SelectorType is required and signifies the
+                              type of selector. Must be one of: Env, FS, Secret, Literal'
                             type: string
                         required:
                         - type
@@ -918,38 +1155,70 @@ spec:
                     type: object
                 type: object
               gitAuthSecret:
-                description: '(optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options:   * Personal access token   * SSH private key (and it''s optional password)   * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.'
+                description: '(optional) GitAuthSecret is the the name of a secret
+                  containing an authentication option for the git repository. There
+                  are 3 different authentication options: * Personal access token
+                  * SSH private key (and it''s optional password) * Basic auth username
+                  and password Only one authentication mode will be considered if
+                  more than one option is specified, with ssh private key/password
+                  preferred first, then personal access token, and finally basic auth
+                  credentials. Deprecated. Use GitAuth instead.'
                 type: string
               projectRepo:
-                description: ProjectRepo is the git source control repository from which we fetch the project code and configuration.
+                description: ProjectRepo is the git source control repository from
+                  which we fetch the project code and configuration.
                 type: string
               refresh:
-                description: (optional) Refresh can be set to true to refresh the stack before it is updated.
+                description: (optional) Refresh can be set to true to refresh the
+                  stack before it is updated.
                 type: boolean
               repoDir:
-                description: (optional) RepoDir is the directory to work from in the project's source repository where Pulumi.yaml is located. It is used in case Pulumi.yaml is not in the project source root.
+                description: (optional) RepoDir is the directory to work from in the
+                  project's source repository where Pulumi.yaml is located. It is
+                  used in case Pulumi.yaml is not in the project source root.
                 type: string
               resyncFrequencySeconds:
-                description: (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at the specified frequency even if no changes to the custom-resource are detected. If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency. The minimal resync frequency supported is 60 seconds.
+                description: (optional) ResyncFrequencySeconds when set to a non-zero
+                  value, triggers a resync of the stack at the specified frequency
+                  even if no changes to the custom-resource are detected. If branch
+                  tracking is enabled (branch is non-empty), commit polling will occur
+                  at this frequency. The minimal resync frequency supported is 60
+                  seconds.
                 format: int64
                 type: integer
               retryOnUpdateConflict:
-                description: (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop in the event that the update hits a HTTP 409 conflict due to another update in progress. This is only recommended if you are sure that the stack updates are idempotent, and if you are willing to accept retry loops until all spawned retries succeed. This will also create a more populated, and randomized activity timeline for the stack in the Pulumi Service.
+                description: (optional) RetryOnUpdateConflict issues a stack update
+                  retry reconciliation loop in the event that the update hits a HTTP
+                  409 conflict due to another update in progress. This is only recommended
+                  if you are sure that the stack updates are idempotent, and if you
+                  are willing to accept retry loops until all spawned retries succeed.
+                  This will also create a more populated, and randomized activity
+                  timeline for the stack in the Pulumi Service.
                 type: boolean
               secrets:
                 additionalProperties:
                   type: string
-                description: '(optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository. Deprecated: use SecretRefs instead.'
+                description: '(optional) Secrets is the secret configuration for this
+                  stack, which can be optionally specified inline. If this is omitted,
+                  secrets configuration is assumed to be checked in and taken from
+                  the source repository. Deprecated: use SecretRefs instead.'
                 type: object
               secretsProvider:
-                description: '(optional) SecretsProvider is used to initialize a Stack with alternative encryption. Examples:   - AWS:   "awskms:///arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"   - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"   - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"   - See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-with-alternative-encryption'
+                description: '(optional) SecretsProvider is used to initialize a Stack
+                  with alternative encryption. Examples: - AWS:   "awskms:///arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"
+                  - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"
+                  - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"
+                  - See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-with-alternative-encryption'
                 type: string
               secretsRef:
                 additionalProperties:
-                  description: ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+                  description: ResourceRef identifies a resource from which information
+                    can be loaded. Environment variables, files on the filesystem,
+                    Kubernetes secrets and literal strings are currently supported.
                   properties:
                     env:
-                      description: Env selects an environment variable set on the operator process
+                      description: Env selects an environment variable set on the
+                        operator process
                       properties:
                         name:
                           description: Name of the environment variable
@@ -958,10 +1227,12 @@ spec:
                       - name
                       type: object
                     filesystem:
-                      description: FileSystem selects a file on the operator's file system
+                      description: FileSystem selects a file on the operator's file
+                        system
                       properties:
                         path:
-                          description: Path on the filesystem to use to load information from.
+                          description: Path on the filesystem to use to load information
+                            from.
                           type: string
                       required:
                       - path
@@ -985,25 +1256,34 @@ spec:
                           description: Name of the secret
                           type: string
                         namespace:
-                          description: Namespace where the secret is stored. Defaults to 'default' if omitted.
+                          description: Namespace where the secret is stored. Defaults
+                            to 'default' if omitted.
                           type: string
                       required:
                       - key
                       - name
                       type: object
                     type:
-                      description: 'SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal'
+                      description: 'SelectorType is required and signifies the type
+                        of selector. Must be one of: Env, FS, Secret, Literal'
                       type: string
                   required:
                   - type
                   type: object
-                description: (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
+                description: (optional) SecretRefs is the secret configuration for
+                  this stack which can be specified through ResourceRef. If this is
+                  omitted, secrets configuration is assumed to be checked in and taken
+                  from the source repository.
                 type: object
               stack:
-                description: Stack is the fully qualified name of the stack to deploy (<org>/<stack>).
+                description: Stack is the fully qualified name of the stack to deploy
+                  (<org>/<stack>).
                 type: string
               useLocalStackOnly:
-                description: (optional) UseLocalStackOnly can be set to true to prevent the operator from creating stacks that do not exist in the tracking git repo. The default behavior is to create a stack if it doesn't exist.
+                description: (optional) UseLocalStackOnly can be set to true to prevent
+                  the operator from creating stacks that do not exist in the tracking
+                  git repo. The default behavior is to create a stack if it doesn't
+                  exist.
                 type: boolean
             required:
             - projectRepo
@@ -1013,29 +1293,34 @@ spec:
             description: StackStatus defines the observed state of Stack
             properties:
               lastUpdate:
-                description: LastUpdate contains details of the status of the last update.
+                description: LastUpdate contains details of the status of the last
+                  update.
                 properties:
                   lastAttemptedCommit:
                     description: Last commit attempted
                     type: string
                   lastResyncTime:
-                    description: LastResyncTime contains a timestamp for the last time a resync of the stack took place.
+                    description: LastResyncTime contains a timestamp for the last
+                      time a resync of the stack took place.
                     format: date-time
                     type: string
                   lastSuccessfulCommit:
                     description: Last commit successfully applied
                     type: string
                   permalink:
-                    description: Permalink is the Pulumi Console URL of the stack operation.
+                    description: Permalink is the Pulumi Console URL of the stack
+                      operation.
                     type: string
                   state:
-                    description: State is the state of the stack update - one of `succeeded` or `failed`
+                    description: State is the state of the stack update - one of `succeeded`
+                      or `failed`
                     type: string
                 type: object
               outputs:
                 additionalProperties:
                   x-kubernetes-preserve-unknown-fields: true
-                description: Outputs contains the exported stack output variables resulting from a deployment.
+                description: Outputs contains the exported stack output variables
+                  resulting from a deployment.
                 type: object
             type: object
         type: object
@@ -1043,9 +1328,3 @@ spec:
     storage: false
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
