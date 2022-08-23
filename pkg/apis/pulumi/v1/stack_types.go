@@ -21,6 +21,8 @@ type StackStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=stacks,scope=Namespaced
 // +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.lastUpdate.state"
 type Stack struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
