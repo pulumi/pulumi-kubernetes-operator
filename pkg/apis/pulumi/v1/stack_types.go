@@ -10,9 +10,12 @@ import (
 
 // StackStatus defines the observed state of Stack
 type StackStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+	// Outputs contains the exported stack output variables resulting from a deployment.
+	Outputs shared.StackOutputs `json:"outputs,omitempty"`
+	// LastUpdate contains details of the status of the last update.
+	LastUpdate *shared.StackUpdateState `json:"lastUpdate,omitempty"`
+	// ObservedGeneration records the value of .meta.generation at the point the controller last processed this object
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -27,8 +30,8 @@ type Stack struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   shared.StackSpec   `json:"spec,omitempty"`
-	Status shared.StackStatus `json:"status,omitempty"`
+	Spec   shared.StackSpec `json:"spec,omitempty"`
+	Status StackStatus      `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

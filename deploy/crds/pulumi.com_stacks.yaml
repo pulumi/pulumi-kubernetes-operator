@@ -665,6 +665,11 @@ spec:
                       or `failed`
                     type: string
                 type: object
+              observedGeneration:
+                description: ObservedGeneration records the value of .meta.generation
+                  at the point the controller last processed this object
+                format: int64
+                type: integer
               outputs:
                 additionalProperties:
                   x-kubernetes-preserve-unknown-fields: true

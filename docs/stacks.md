@@ -1623,6 +1623,15 @@ StackStatus defines the observed state of Stack
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          ObservedGeneration records the value of .meta.generation at the point the controller last processed this object<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>outputs</b></td>
         <td>map[string]JSON</td>
         <td>
