@@ -147,7 +147,7 @@ type ReconcileStack struct {
 
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
-func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Request) (_ reconcile.Result, reterr error) {
 	reqLogger := logging.WithValues(log, "Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Stack")
 
@@ -200,6 +200,18 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
+	// This makes sure the status reflects the completion of reconcilation. Any non-error return is
+	// regarded as complete, whether the object ended up in a ready state or not.
+	saveStatus := func() {
+		if reterr == nil {
+			instance.Status.ObservedGeneration = instance.GetGeneration()
+			if err := sess.updateResourceStatus(ctx, instance); err != nil {
+				log.Error(err, "unable to save object status")
+			}
+		}
+	}
+	defer saveStatus()
+
 	// Ensure either branch or commit has been specified in the stack CR if stack is not marked for deletion
 	if !isStackMarkedToBeDeleted &&
 		sess.stack.Commit == "" &&
@@ -242,17 +254,12 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
 	if err = sess.SetEnvs(stack.Envs, request.Namespace); err != nil {
-		if err2 := r.markStackFailed(sess, instance, errors.Wrap(err, "could not find ConfigMap for Envs"), currentCommit, ""); err2 != nil {
-			return reconcile.Result{}, err2
-		}
-		return reconcile.Result{}, err
+		r.markStackFailed(sess, instance, errors.Wrap(err, "could not find ConfigMap for Envs"), currentCommit, "")
+		return reconcile.Result{Requeue: true}, nil
 	}
 	if err = sess.SetSecretEnvs(stack.SecretEnvs, request.Namespace); err != nil {
-		if err2 := r.markStackFailed(sess, instance, errors.Wrap(err, "could not find Secret for SecretEnvs"),
-			currentCommit, ""); err2 != nil {
-			return reconcile.Result{}, err2
-		}
-		return reconcile.Result{}, err
+		r.markStackFailed(sess, instance, errors.Wrap(err, "could not find Secret for SecretEnvs"), currentCommit, "")
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// This is enough preparation to be able to destroy the stack, if it's being deleted, or to
@@ -273,7 +280,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			}
 			time.Sleep(2 * time.Second) // arbitrary sleep after finalizer add to avoid stale obj for permalink
 			// Add default permalink for the stack in the Pulumi Service.
-			if err := sess.addDefaultPermalink(instance); err != nil {
+			if err := sess.addDefaultPermalink(ctx, instance); err != nil {
 				return reconcile.Result{}, err
 			}
 		}
@@ -312,10 +319,8 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	if sess.stack.Refresh {
 		permalink, err := sess.RefreshStack(sess.stack.ExpectNoRefreshChanges)
 		if err != nil {
-			if err2 := r.markStackFailed(sess, instance, errors.Wrap(err, "refreshing stack"), currentCommit, permalink); err2 != nil {
-				return reconcile.Result{}, err2
-			}
-			return reconcile.Result{}, err
+			r.markStackFailed(sess, instance, errors.Wrap(err, "refreshing stack"), currentCommit, permalink)
+			return reconcile.Result{Requeue: true}, nil
 		}
 		err = sess.getLatestResource(instance, request.NamespacedName)
 		if err != nil {
@@ -327,7 +332,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		}
 		instance.Status.LastUpdate.Permalink = permalink
 
-		err = sess.updateResourceStatus(instance)
+		err = sess.updateResourceStatus(ctx, instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Stack status for refresh", "Stack.Name", stack.Stack)
 			return reconcile.Result{}, err
@@ -356,10 +361,8 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	default:
 		if err != nil {
-			if err2 := r.markStackFailed(sess, instance, err, currentCommit, permalink); err2 != nil {
-				return reconcile.Result{}, err2
-			}
-			return reconcile.Result{}, err
+			r.markStackFailed(sess, instance, err, currentCommit, permalink)
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
 
@@ -387,7 +390,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		Permalink:            permalink,
 		LastResyncTime:       metav1.Now(),
 	}
-	err = sess.updateResourceStatus(instance)
+	err = sess.updateResourceStatus(ctx, instance)
 	if err != nil {
 		reqLogger.Error(err, "Failed to update Stack status", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, err
@@ -407,7 +410,8 @@ func (r *ReconcileStack) emitEvent(instance *pulumiv1.Stack, event pulumiv1.Stac
 	r.recorder.Eventf(instance, event.EventType(), event.Reason(), messageFmt, args...)
 }
 
-func (r *ReconcileStack) markStackFailed(sess *reconcileStackSession, instance *pulumiv1.Stack, err error, currentCommit string, permalink shared.Permalink) error {
+// markStackFailed updates the status of the Stack object `instance` locally, to reflect a failure to process the stack.
+func (r *ReconcileStack) markStackFailed(sess *reconcileStackSession, instance *pulumiv1.Stack, err error, currentCommit string, permalink shared.Permalink) {
 	r.emitEvent(instance, pulumiv1.StackUpdateFailureEvent(), "Failed to update Stack: %v.", err.Error())
 	sess.logger.Error(err, "Failed to update Stack", "Stack.Name", sess.stack.Stack)
 	// Update Stack status with failed state
@@ -418,14 +422,6 @@ func (r *ReconcileStack) markStackFailed(sess *reconcileStackSession, instance *
 	instance.Status.LastUpdate.State = shared.FailedStackStateMessage
 	instance.Status.LastUpdate.Permalink = permalink
 	instance.Status.LastUpdate.LastResyncTime = metav1.Now()
-
-	if err2 := sess.updateResourceStatus(instance); err2 != nil {
-		msg := "Failed to update status for a failed Stack update"
-		err3 := errors.Wrapf(err, err2.Error())
-		sess.logger.Error(err3, msg)
-		return err3
-	}
-	return nil
 }
 
 func (sess *reconcileStackSession) finalize(stack *pulumiv1.Stack) error {
@@ -1108,7 +1104,7 @@ func (sess *reconcileStackSession) SetupGitAuth() (*auto.GitAuth, error) {
 }
 
 // Add default permalink for the stack in the Pulumi Service.
-func (sess *reconcileStackSession) addDefaultPermalink(stack *pulumiv1.Stack) error {
+func (sess *reconcileStackSession) addDefaultPermalink(ctx context.Context, stack *pulumiv1.Stack) error {
 	namespacedName := types.NamespacedName{Name: stack.Name, Namespace: stack.Namespace}
 	err := sess.getLatestResource(stack, namespacedName)
 	if err != nil {
@@ -1126,7 +1122,7 @@ func (sess *reconcileStackSession) addDefaultPermalink(stack *pulumiv1.Stack) er
 		stack.Status.LastUpdate = &shared.StackUpdateState{}
 	}
 	stack.Status.LastUpdate.Permalink = shared.Permalink(info.URL)
-	err = sess.updateResourceStatus(stack)
+	err = sess.updateResourceStatus(ctx, stack)
 	if err != nil {
 		sess.logger.Error(err, "Failed to update Stack status with default permalink", "Stack.Name", stack.Spec.Stack)
 		return err
@@ -1145,15 +1141,15 @@ func (sess *reconcileStackSession) updateResource(o client.Object) error {
 	})
 }
 
-func (sess *reconcileStackSession) updateResourceStatus(o *pulumiv1.Stack) error {
+func (sess *reconcileStackSession) updateResourceStatus(ctx context.Context, o *pulumiv1.Stack) error {
 	name := types.NamespacedName{Name: o.Name, Namespace: o.Namespace}
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		var s pulumiv1.Stack
-		if err := sess.kubeClient.Get(context.TODO(), name, &s); err != nil {
+		if err := sess.kubeClient.Get(ctx, name, &s); err != nil {
 			return err
 		}
 		s.Status = o.Status
-		return sess.kubeClient.Status().Update(context.TODO(), &s)
+		return sess.kubeClient.Status().Update(ctx, &s)
 	})
 }
 
