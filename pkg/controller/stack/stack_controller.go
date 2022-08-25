@@ -209,7 +209,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), msg)
 		reqLogger.Info(msg)
 
-		return reconcile.Result{}, err
+		return reconcile.Result{}, errors.New(msg)
 	}
 
 	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
