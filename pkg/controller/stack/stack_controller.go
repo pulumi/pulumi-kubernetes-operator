@@ -220,8 +220,9 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		msg := "Stack CustomResource needs to specify either 'branch' or 'commit' for the tracking repo."
 		r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), msg)
 		reqLogger.Info(msg)
-
-		return reconcile.Result{}, errors.New(msg)
+		r.markStackFailed(sess, instance, errors.New(msg), "", "")
+		// this object won't be processable until the spec is changed, so no reason to requeue explicitly
+		return reconcile.Result{}, nil
 	}
 
 	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
@@ -229,7 +230,8 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	if err != nil {
 		r.emitEvent(instance, pulumiv1.StackGitAuthFailureEvent(), "Failed to setup git authentication: %v", err.Error())
 		reqLogger.Error(err, "Failed to setup git authentication", "Stack.Name", stack.Stack)
-		return reconcile.Result{}, err
+		r.markStackFailed(sess, instance, err, "", "")
+		return reconcile.Result{}, nil
 	}
 
 	if gitAuth.SSHPrivateKey != "" {
@@ -241,7 +243,9 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	if err = sess.SetupPulumiWorkdir(gitAuth); err != nil {
 		r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
 		reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
-		return reconcile.Result{}, err
+		r.markStackFailed(sess, instance, err, "", "")
+		// this can fail for reasons which might go away without intervention; so, retry explicitly
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Delete the temporary directory after the reconciliation is completed (regardless of success or failure).
