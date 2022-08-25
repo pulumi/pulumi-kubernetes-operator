@@ -15,8 +15,26 @@ type StackStatus struct {
 	// LastUpdate contains details of the status of the last update.
 	LastUpdate *shared.StackUpdateState `json:"lastUpdate,omitempty"`
 	// ObservedGeneration records the value of .meta.generation at the point the controller last processed this object
+	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
+
+// The conditions form part of the API. They work as follows:
+//  - while the stack is being processed, the condition `Reconciling` will be present with a value of `True`
+//  - if the stack is processed to completion, the condition `Ready` will be present with a value of `True`
+//  - if the stack failed, the condition `Ready` will be present with a value of `False`
+//  - if the stack failed and has not been requeued to retry, the condition `Stalled` will be present with a value of `True`
+//
+// Assuming a stack has been seen by the controller, it will either have Ready=True, or Ready=False
+// and possibly one of {Stalled,Reconciling}=True.
+
+const (
+	ReadyCondition       = "Ready"
+	StalledCondition     = "Stalled"
+	ReconcilingCondition = "Reconciling"
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

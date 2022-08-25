@@ -7,6 +7,7 @@ package v1
 
 import (
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -98,6 +99,13 @@ func (in *StackStatus) DeepCopyInto(out *StackStatus) {
 		in, out := &in.LastUpdate, &out.LastUpdate
 		*out = new(shared.StackUpdateState)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.Conditions != nil {
+		in, out := &in.Conditions, &out.Conditions
+		*out = make([]metav1.Condition, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 }
 
