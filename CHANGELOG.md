@@ -4,7 +4,7 @@ CHANGELOG
 ## HEAD (Unreleased)
 - Use go 1.18 for builds
 - CI update to go 1.18
-- Bump to v3.36.0 of Pulumi, to support short branch names in .spec.branch after
+- Bump to v3.86.0 of Pulumi, to support short branch names in .spec.branch after
   [pulumi/pulumi#10118](https://github.com/pulumi/pulumi/pull/10118)
 - Fix `stacks_failing` prometheus metric for `Stack`s with apiVersion `v1`
 
