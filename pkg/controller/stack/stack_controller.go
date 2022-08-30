@@ -153,7 +153,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Fetch the Stack instance
 	instance := &pulumiv1.Stack{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -320,7 +320,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Step 3. If a stack refresh is requested, run it now.
 	if sess.stack.Refresh {
-		permalink, err := sess.RefreshStack(sess.stack.ExpectNoRefreshChanges)
+		permalink, err := sess.RefreshStack(ctx, sess.stack.ExpectNoRefreshChanges)
 		if err != nil {
 			r.markStackFailed(sess, instance, errors.Wrap(err, "refreshing stack"), currentCommit, permalink)
 			return reconcile.Result{Requeue: true}, nil
@@ -340,7 +340,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Step 4. Run a `pulumi up --skip-preview`.
 	// TODO: is it possible to support a --dry-run with a preview?
-	status, permalink, result, err := sess.UpdateStack()
+	status, permalink, result, err := sess.UpdateStack(ctx)
 	switch status {
 	case shared.StackUpdateConflict:
 		r.emitEvent(instance,
@@ -417,7 +417,7 @@ func (sess *reconcileStackSession) finalize(ctx context.Context, stack *pulumiv1
 	// Run finalization logic for pulumiFinalizer. If the
 	// finalization logic fails, don't remove the finalizer so
 	// that we can retry during the next reconciliation.
-	if err := sess.finalizeStack(); err != nil {
+	if err := sess.finalizeStack(ctx); err != nil {
 		sess.logger.Error(err, "Failed to run Pulumi finalizer", "Stack.Name", stack.Spec.Stack)
 		return err
 	}
@@ -443,10 +443,10 @@ func (sess *reconcileStackSession) removeFinalizerAndUpdate(ctx context.Context,
 	})
 }
 
-func (sess *reconcileStackSession) finalizeStack() error {
+func (sess *reconcileStackSession) finalizeStack(ctx context.Context) error {
 	// Destroy the stack resources and stack.
 	if sess.stack.DestroyOnFinalize {
-		if err := sess.DestroyStack(); err != nil {
+		if err := sess.DestroyStack(ctx); err != nil {
 			return err
 		}
 	}
@@ -653,11 +653,11 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd, workspace
 	return stdout.String(), stderr.String(), err
 }
 
-func (sess *reconcileStackSession) lookupPulumiAccessToken() (string, bool) {
+func (sess *reconcileStackSession) lookupPulumiAccessToken(ctx context.Context) (string, bool) {
 	if sess.stack.AccessTokenSecret != "" {
 		// Fetch the API token from the named secret.
 		secret := &corev1.Secret{}
-		if err := sess.kubeClient.Get(context.TODO(),
+		if err := sess.kubeClient.Get(ctx,
 			types.NamespacedName{Name: sess.stack.AccessTokenSecret, Namespace: sess.namespace}, secret); err != nil {
 			sess.logger.Error(err, "Could not find secret for Pulumi API access",
 				"Namespace", sess.namespace, "Stack.AccessTokenSecret", sess.stack.AccessTokenSecret)
@@ -705,7 +705,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(ctx context.Context, gitAu
 	}()
 
 	var w auto.Workspace
-	w, err = auto.NewLocalWorkspace(context.Background(), auto.WorkDir(dir), auto.Repo(repo), secretsProvider)
+	w, err = auto.NewLocalWorkspace(ctx, auto.WorkDir(dir), auto.Repo(repo), secretsProvider)
 	if err != nil {
 		return errors.Wrap(err, "failed to create local workspace")
 	}
@@ -715,7 +715,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(ctx context.Context, gitAu
 	if sess.stack.Backend != "" {
 		w.SetEnvVar("PULUMI_BACKEND_URL", sess.stack.Backend)
 	}
-	if accessToken, found := sess.lookupPulumiAccessToken(); found {
+	if accessToken, found := sess.lookupPulumiAccessToken(ctx); found {
 		w.SetEnvVar("PULUMI_ACCESS_TOKEN", accessToken)
 	}
 
@@ -746,7 +746,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(ctx context.Context, gitAu
 	sess.logger.Debug("Initial autostack config", "config", c)
 
 	// Ensure stack settings file in workspace is populated appropriately.
-	if err = sess.ensureStackSettings(context.Background(), w); err != nil {
+	if err = sess.ensureStackSettings(ctx, w); err != nil {
 		return err
 	}
 
@@ -758,7 +758,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(ctx context.Context, gitAu
 	}
 
 	// Install project dependencies
-	if err = sess.InstallProjectDependencies(context.Background(), sess.autoStack.Workspace()); err != nil {
+	if err = sess.InstallProjectDependencies(ctx, sess.autoStack.Workspace()); err != nil {
 		return errors.Wrap(err, "installing project dependencies")
 	}
 
@@ -785,7 +785,7 @@ func (sess *reconcileStackSession) ensureStackSettings(ctx context.Context, w au
 		// https://github.com/pulumi/pulumi-kubernetes-operator/issues/135
 		stackConfig.SecretsProvider = sess.stack.SecretsProvider
 	}
-	if err := w.SaveStackSettings(context.Background(), sess.stack.Stack, stackConfig); err != nil {
+	if err := w.SaveStackSettings(ctx, sess.stack.Stack, stackConfig); err != nil {
 		return errors.Wrap(err, "failed to save stack settings.")
 	}
 	return nil
@@ -910,16 +910,14 @@ func (sess *reconcileStackSession) UpdateConfig(ctx context.Context) error {
 	return nil
 }
 
-func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (shared.Permalink, error) {
+func (sess *reconcileStackSession) RefreshStack(ctx context.Context, expectNoChanges bool) (shared.Permalink, error) {
 	writer := sess.logger.LogWriterDebug("Pulumi Refresh")
 	defer contract.IgnoreClose(writer)
 	opts := []optrefresh.Option{optrefresh.ProgressStreams(writer), optrefresh.UserAgent(execAgent)}
 	if expectNoChanges {
 		opts = append(opts, optrefresh.ExpectNoChanges())
 	}
-	result, err := sess.autoStack.Refresh(
-		context.Background(),
-		opts...)
+	result, err := sess.autoStack.Refresh(ctx, opts...)
 	if err != nil {
 		return "", errors.Wrapf(err, "refreshing stack %q", sess.stack.Stack)
 	}
@@ -935,11 +933,11 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (shared.Pe
 // UpdateStack runs the update on the stack and returns an update status code
 // and error. In certain cases, an update may be unabled to proceed due to locking,
 // in which case the operator will requeue itself to retry later.
-func (sess *reconcileStackSession) UpdateStack() (shared.StackUpdateStatus, shared.Permalink, *auto.UpResult, error) {
+func (sess *reconcileStackSession) UpdateStack(ctx context.Context) (shared.StackUpdateStatus, shared.Permalink, *auto.UpResult, error) {
 	writer := sess.logger.LogWriterDebug("Pulumi Update")
 	defer contract.IgnoreClose(writer)
 
-	result, err := sess.autoStack.Up(context.Background(), optup.ProgressStreams(writer), optup.UserAgent(execAgent))
+	result, err := sess.autoStack.Up(ctx, optup.ProgressStreams(writer), optup.UserAgent(execAgent))
 	if err != nil {
 		// If this is the "conflict" error message, we will want to gracefully quit and retry.
 		if auto.IsConcurrentUpdateError(err) {
@@ -983,19 +981,16 @@ func (sess *reconcileStackSession) GetStackOutputs(outs auto.OutputMap) (shared.
 	return o, nil
 }
 
-func (sess *reconcileStackSession) DestroyStack() error {
+func (sess *reconcileStackSession) DestroyStack(ctx context.Context) error {
 	writer := sess.logger.LogWriterInfo("Pulumi Destroy")
 	defer contract.IgnoreClose(writer)
 
-	_, err := sess.autoStack.Destroy(context.Background(),
-		optdestroy.ProgressStreams(writer),
-		optdestroy.UserAgent(execAgent),
-	)
+	_, err := sess.autoStack.Destroy(ctx, optdestroy.ProgressStreams(writer), optdestroy.UserAgent(execAgent))
 	if err != nil {
 		return errors.Wrapf(err, "destroying resources for stack '%s'", sess.stack.Stack)
 	}
 
-	err = sess.autoStack.Workspace().RemoveStack(context.Background(), sess.stack.Stack)
+	err = sess.autoStack.Workspace().RemoveStack(ctx, sess.stack.Stack)
 	if err != nil {
 		return errors.Wrapf(err, "removing stack '%s'", sess.stack.Stack)
 	}
@@ -1059,7 +1054,7 @@ func (sess *reconcileStackSession) SetupGitAuth(ctx context.Context) (*auto.GitA
 
 		// Fetch the named secret.
 		secret := &corev1.Secret{}
-		if err := sess.kubeClient.Get(context.TODO(), namespacedName, secret); err != nil {
+		if err := sess.kubeClient.Get(ctx, namespacedName, secret); err != nil {
 			sess.logger.Error(err, "Could not find secret for access to the git repository",
 				"Namespace", sess.namespace, "Stack.GitAuthSecret", sess.stack.GitAuthSecret)
 			return nil, err
