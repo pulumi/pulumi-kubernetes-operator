@@ -8,6 +8,10 @@ RELEASE ?= $(shell git describe --abbrev=0 --tags)
 
 default: build
 
+.PHONY: download-test-deps
+download-test-deps:
+	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
 install-crds:
 	kubectl apply -f deploy/crds/pulumi.com_stacks.yaml
 
@@ -40,8 +44,8 @@ build-static:
 push-image:
 	docker push $(IMAGE_NAME):$(VERSION)
 
-test: install-crds
-	ginkgo -v ./test/...
+test: codegen download-test-deps
+	KUBEBUILDER_ASSETS="$(shell setup-envtest --use-env use -p path)" go test -v ./test/...
 
 deploy:
 	kubectl apply -f deploy/yaml/service_account.yaml
