@@ -199,14 +199,20 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
-	// This makes sure the status reflects the completion of reconcilation. Any non-error return is
-	// regarded as complete, whether the object ended up in a ready state or not.
+	// This makes sure the status reflects the outcome of reconcilation. Any non-error return means
+	// the object definition was observed, whether the object ended up in a ready state or not. An
+	// error return (now we have successfully fetched the object) means it is "in progress" and not
+	// ready.
 	saveStatus := func() {
 		if reterr == nil {
 			instance.Status.ObservedGeneration = instance.GetGeneration()
-			if err := sess.patchStatus(ctx, instance); err != nil {
-				log.Error(err, "unable to save object status")
-			}
+		} else {
+			// controller-runtime will requeue the object, so reflect that in the conditions by
+			// saying it is still in progress.
+			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, reterr.Error())
+		}
+		if err := sess.patchStatus(ctx, instance); err != nil {
+			log.Error(err, "unable to save object status")
 		}
 	}
 	defer saveStatus()
@@ -220,8 +226,16 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), msg)
 		reqLogger.Info(msg)
 		r.markStackFailed(sess, instance, errors.New(msg), "", "")
+		instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, msg)
 		// this object won't be processable until the spec is changed, so no reason to requeue explicitly
 		return reconcile.Result{}, nil
+	}
+
+	// We're ready to do some actual work. Until we have a definitive outcome, mark the stack as
+	// reconciling.
+	instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingProcessingReason, pulumiv1.ReconcilingProcessingMessage)
+	if err = sess.patchStatus(ctx, instance); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
@@ -230,6 +244,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		r.emitEvent(instance, pulumiv1.StackGitAuthFailureEvent(), "Failed to setup git authentication: %v", err.Error())
 		reqLogger.Error(err, "Failed to setup git authentication", "Stack.Name", stack.Stack)
 		r.markStackFailed(sess, instance, err, "", "")
+		instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
 		return reconcile.Result{}, nil
 	}
 
@@ -243,6 +258,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
 		reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
 		r.markStackFailed(sess, instance, err, "", "")
+		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
 		// this can fail for reasons which might go away without intervention; so, retry explicitly
 		return reconcile.Result{Requeue: true}, nil
 	}
@@ -257,11 +273,15 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
 	if err = sess.SetEnvs(ctx, stack.Envs, request.Namespace); err != nil {
-		r.markStackFailed(sess, instance, errors.Wrap(err, "could not find ConfigMap for Envs"), currentCommit, "")
+		err := errors.Wrap(err, "could not find ConfigMap for Envs")
+		r.markStackFailed(sess, instance, err, currentCommit, "")
+		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err = sess.SetSecretEnvs(ctx, stack.SecretEnvs, request.Namespace); err != nil {
-		r.markStackFailed(sess, instance, errors.Wrap(err, "could not find Secret for SecretEnvs"), currentCommit, "")
+		err := errors.Wrap(err, "could not find Secret for SecretEnvs")
+		r.markStackFailed(sess, instance, err, currentCommit, "")
+		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -308,6 +328,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		if instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit && !sess.stack.ContinueResyncOnCommitMatch {
 			reqLogger.Info("Commit hash unchanged. Will poll again.", "pollFrequencySeconds", resyncFreqSeconds)
 			// Reconcile every resyncFreqSeconds to check for new commits to the branch.
+			instance.Status.MarkReadyCondition()
 			return reconcile.Result{RequeueAfter: time.Duration(resyncFreqSeconds) * time.Second}, nil
 		}
 
@@ -323,6 +344,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		permalink, err := sess.RefreshStack(ctx, sess.stack.ExpectNoRefreshChanges)
 		if err != nil {
 			r.markStackFailed(sess, instance, errors.Wrap(err, "refreshing stack"), currentCommit, permalink)
+			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
 			return reconcile.Result{Requeue: true}, nil
 		}
 		if instance.Status.LastUpdate == nil {
@@ -349,20 +371,28 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 				"If Stack CR specifies 'retryOnUpdateConflict' a retry will trigger automatically.")
 		if sess.stack.RetryOnUpdateConflict {
 			reqLogger.Error(err, "Conflict with another concurrent update -- will retry shortly", "Stack.Name", stack.Stack)
+			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, "conflict with concurrent update, retryOnUpdateConflict set")
 			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 		}
 		reqLogger.Error(err, "Conflict with another concurrent update -- NOT retrying", "Stack.Name", stack.Stack)
+		instance.Status.MarkStalledCondition(pulumiv1.StalledConflictReason, "conflict with concurrent update, retryOnUpdateConflict not set")
 		return reconcile.Result{}, nil
 	case shared.StackNotFound:
 		r.emitEvent(instance, pulumiv1.StackNotFoundEvent(), "Stack not found. Will retry.")
 		reqLogger.Error(err, "Stack not found -- will retry shortly", "Stack.Name", stack.Stack, "Err:")
+		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, "stack not found in backend; retrying")
 		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	default:
 		if err != nil {
 			r.markStackFailed(sess, instance, err, currentCommit, permalink)
+			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
 			return reconcile.Result{Requeue: true}, nil
 		}
 	}
+
+	// At this point, the stack has been processed successfully. Mark it as ready, and rely on the
+	// post-return hook `saveStatus` to account for any last minute exceptions.
+	instance.Status.MarkReadyCondition()
 
 	// Step 5. Capture outputs onto the resulting status object.
 	outs, err := sess.GetStackOutputs(result.Outputs)
@@ -384,6 +414,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		Permalink:            permalink,
 		LastResyncTime:       metav1.Now(),
 	}
+
 	r.emitEvent(instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack.")
 	if trackBranch || sess.stack.ContinueResyncOnCommitMatch {
 		// Reconcile every 60 seconds to check for new commits to the branch.
