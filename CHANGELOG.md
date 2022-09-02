@@ -7,7 +7,7 @@ CHANGELOG
 ## 1.8.0 (2022-09-01)
 - Use go 1.18 for builds
 - CI update to go 1.18
-- Bump to v3.39.0 of Pulumi, to support short branch names in .spec.branch after
+- Bump to v3.39.1 of Pulumi, to support short branch names in .spec.branch after
   [pulumi/pulumi#10118](https://github.com/pulumi/pulumi/pull/10118)
 - Fix `stacks_failing` prometheus metric for `Stack`s with apiVersion `v1` (https://github.com/pulumi/pulumi-kubernetes-operator/pull/308)
 - Bump image and pulumi/pulumi dependencies to v3.39.0 (https://github.com/pulumi/pulumi-kubernetes-operator/pull/315/)
