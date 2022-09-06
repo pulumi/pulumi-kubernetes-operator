@@ -1,0 +1,9 @@
+{
+    "name": "use-rabbitmq",
+    "main": "index.js",
+    "dependencies": {
+        "@pulumi/kubernetes": "^3.0.0",
+        "@pulumi/pulumi": "^3.0.0",
+        "@pulumi/rabbitmq": "^3.2.0"
+    }
+}
