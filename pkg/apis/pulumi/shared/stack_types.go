@@ -75,6 +75,10 @@ type StackSpec struct {
 
 	// Lifecycle:
 
+	// (optional) Targets is a list of URNs of resources to update exclusively. If supplied, only
+	// resources mentioned will be updated.
+	Targets []string `json:"targets,omitempty"`
+
 	// (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying
 	// to update stacks even if the revision of the source matches. This might be useful in
 	// environments where Pulumi programs have dynamic elements for example, calls to internal APIs

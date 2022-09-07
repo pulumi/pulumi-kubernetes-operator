@@ -674,6 +674,13 @@ spec:
                 description: Stack is the fully qualified name of the stack to deploy
                   (<org>/<stack>).
                 type: string
+              targets:
+                description: (optional) Targets is a list of URNs of resources to
+                  update exclusively. If supplied, only resources mentioned will be
+                  updated.
+                items:
+                  type: string
+                type: array
               useLocalStackOnly:
                 description: (optional) UseLocalStackOnly can be set to true to prevent
                   the operator from creating stacks that do not exist in the tracking
@@ -1450,6 +1457,13 @@ spec:
                 description: Stack is the fully qualified name of the stack to deploy
                   (<org>/<stack>).
                 type: string
+              targets:
+                description: (optional) Targets is a list of URNs of resources to
+                  update exclusively. If supplied, only resources mentioned will be
+                  updated.
+                items:
+                  type: string
+                type: array
               useLocalStackOnly:
                 description: (optional) UseLocalStackOnly can be set to true to prevent
                   the operator from creating stacks that do not exist in the tracking

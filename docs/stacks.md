@@ -255,6 +255,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>targets</b></td>
+        <td>[]string</td>
+        <td>
+          (optional) Targets is a list of URNs of resources to update exclusively. If supplied, only resources mentioned will be updated.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>useLocalStackOnly</b></td>
         <td>boolean</td>
         <td>
@@ -2138,6 +2145,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td>map[string]object</td>
         <td>
           (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>targets</b></td>
+        <td>[]string</td>
+        <td>
+          (optional) Targets is a list of URNs of resources to update exclusively. If supplied, only resources mentioned will be updated.<br/>
         </td>
         <td>false</td>
       </tr><tr>
