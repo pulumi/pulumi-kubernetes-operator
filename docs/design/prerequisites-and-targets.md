@@ -76,10 +76,11 @@ stack.
 
 ## How this design solves the stale provider state problem
 
-To solve the stale provider state problem, you would make two stacks:
+To solve the stale provider state problem:
 
- - the first targets the provider URN
- - the second runs the program as usual, and refers to the first as a prerequisite.
+ - create a Stack that runs your program as usual;
+ - find the URN of the provider that uses state, and create a second Stack that targets that provider;
+ - update the first Stack so that it gives the second Stack as a prerequisite.
 
 The effect is that the provider state is updated before the "main" program runs, so it will have
 up-to-date credentials.
