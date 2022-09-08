@@ -44,7 +44,7 @@ var (
 const namespace = "default"
 const pulumiAPISecretName = "pulumi-api-secret"
 const pulumiAWSSecretName = "pulumi-aws-secrets"
-const timeout = time.Minute * 10
+const timeout = time.Minute
 const interval = time.Second * 1
 
 var _ = Describe("Stack Controller", func() {
@@ -311,7 +311,7 @@ var _ = Describe("Stack Controller", func() {
 					configChanged.Status.LastUpdate.State == shared.FailedStackStateMessage
 			}
 			return false
-		})
+		}, timeout, interval).Should(BeTrue())
 
 		// Update the stack commit to a different commit. Need retries because of
 		// competing retries within the operator due to failure.
