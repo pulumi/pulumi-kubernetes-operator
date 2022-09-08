@@ -670,9 +670,12 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		}
 	}
 
+	// targets are used for both refresh and up, if present
+	targets := stack.Targets
+
 	// Step 3. If a stack refresh is requested, run it now.
 	if sess.stack.Refresh {
-		permalink, err := sess.RefreshStack(ctx, sess.stack.ExpectNoRefreshChanges)
+		permalink, err := sess.RefreshStack(ctx, sess.stack.ExpectNoRefreshChanges, targets)
 		if err != nil {
 			r.markStackFailed(sess, instance, fmt.Errorf("refreshing stack: %w", err), currentCommit, permalink)
 			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
@@ -693,7 +696,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Step 4. Run a `pulumi up --skip-preview`.
 	// TODO: is it possible to support a --dry-run with a preview?
-	status, permalink, result, err := sess.UpdateStack(ctx)
+	status, permalink, result, err := sess.UpdateStack(ctx, targets)
 	switch status {
 	case shared.StackUpdateConflict:
 		r.emitEvent(instance,
@@ -1350,13 +1353,17 @@ func (sess *reconcileStackSession) UpdateConfig(ctx context.Context) error {
 	return nil
 }
 
-func (sess *reconcileStackSession) RefreshStack(ctx context.Context, expectNoChanges bool) (shared.Permalink, error) {
+func (sess *reconcileStackSession) RefreshStack(ctx context.Context, expectNoChanges bool, targets []string) (shared.Permalink, error) {
 	writer := sess.logger.LogWriterDebug("Pulumi Refresh")
 	defer contract.IgnoreClose(writer)
 	opts := []optrefresh.Option{optrefresh.ProgressStreams(writer), optrefresh.UserAgent(execAgent)}
 	if expectNoChanges {
 		opts = append(opts, optrefresh.ExpectNoChanges())
 	}
+	if targets != nil {
+		opts = append(opts, optrefresh.Target(targets))
+	}
+
 	result, err := sess.autoStack.Refresh(ctx, opts...)
 	if err != nil {
 		return "", fmt.Errorf("refreshing stack %q: %w", sess.stack.Stack, err)
@@ -1373,11 +1380,16 @@ func (sess *reconcileStackSession) RefreshStack(ctx context.Context, expectNoCha
 // UpdateStack runs the update on the stack and returns an update status code
 // and error. In certain cases, an update may be unabled to proceed due to locking,
 // in which case the operator will requeue itself to retry later.
-func (sess *reconcileStackSession) UpdateStack(ctx context.Context) (shared.StackUpdateStatus, shared.Permalink, *auto.UpResult, error) {
+func (sess *reconcileStackSession) UpdateStack(ctx context.Context, targets []string) (shared.StackUpdateStatus, shared.Permalink, *auto.UpResult, error) {
 	writer := sess.logger.LogWriterDebug("Pulumi Update")
 	defer contract.IgnoreClose(writer)
 
-	result, err := sess.autoStack.Up(ctx, optup.ProgressStreams(writer), optup.UserAgent(execAgent))
+	opts := []optup.Option{optup.ProgressStreams(writer), optup.UserAgent(execAgent)}
+	if targets != nil {
+		opts = append(opts, optup.Target(targets))
+	}
+
+	result, err := sess.autoStack.Up(ctx, opts...)
 	if err != nil {
 		// If this is the "conflict" error message, we will want to gracefully quit and retry.
 		if auto.IsConcurrentUpdateError(err) {
