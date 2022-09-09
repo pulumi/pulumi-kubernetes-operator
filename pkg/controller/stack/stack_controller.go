@@ -1139,9 +1139,15 @@ func (sess *reconcileStackSession) updateResource(o client.Object) error {
 	})
 }
 
-func (sess *reconcileStackSession) updateResourceStatus(o client.Object) error {
+func (sess *reconcileStackSession) updateResourceStatus(o *pulumiv1.Stack) error {
+	name := types.NamespacedName{Name: o.Name, Namespace: o.Namespace}
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		return sess.kubeClient.Status().Update(context.TODO(), o)
+		var s pulumiv1.Stack
+		if err := sess.kubeClient.Get(context.TODO(), name, &s); err != nil {
+			return err
+		}
+		s.Status = o.Status
+		return sess.kubeClient.Status().Update(context.TODO(), &s)
 	})
 }
 

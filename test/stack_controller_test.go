@@ -44,8 +44,9 @@ var (
 const namespace = "default"
 const pulumiAPISecretName = "pulumi-api-secret"
 const pulumiAWSSecretName = "pulumi-aws-secrets"
-const timeout = time.Minute
-const interval = time.Second * 1
+const k8sOpTimeout = 10 * time.Second
+const stackExecTimeout = 3 * time.Minute
+const interval = time.Second * 5
 
 var _ = Describe("Stack Controller", func() {
 	whoami, err := exec.Command("pulumi", "whoami").Output()
@@ -102,7 +103,7 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			return !fetched.CreationTimestamp.IsZero() && fetched.Data != nil
-		}, timeout, interval).Should(BeTrue())
+		}, k8sOpTimeout, interval).Should(BeTrue())
 
 		// Create the Pulumi AWS k8s secret
 		pulumiAWSSecret = generateSecret(pulumiAWSSecretName, namespace,
@@ -121,7 +122,7 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			return !fetched.CreationTimestamp.IsZero() && fetched.Data != nil
-		}, timeout, interval).Should(BeTrue())
+		}, k8sOpTimeout, interval).Should(BeTrue())
 
 		// Create the passphrase secret
 		passphraseSecret = generateSecret("passphrase-secret", namespace,
@@ -138,7 +139,7 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			return !fetched.CreationTimestamp.IsZero() && fetched.Data != nil
-		}, timeout, interval).Should(BeTrue())
+		}, k8sOpTimeout, interval).Should(BeTrue())
 	})
 
 	AfterEach(func() {
@@ -159,7 +160,7 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			return len(stacksList.Items) == 0
-		}, timeout, interval).Should(BeTrue())
+		}, stackExecTimeout, interval).Should(BeTrue()) // stacks will be finalized, so allow time for that to happen
 
 		if pulumiAPISecret != nil {
 			By("Deleting the Stack Pulumi API Secret")
@@ -167,7 +168,7 @@ var _ = Describe("Stack Controller", func() {
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: pulumiAPISecret.Name, Namespace: namespace}, pulumiAPISecret)
 				return k8serrors.IsNotFound(err)
-			}, timeout, interval).Should(BeTrue())
+			}, k8sOpTimeout, interval).Should(BeTrue())
 		}
 		if pulumiAWSSecret != nil {
 			By("Deleting the Stack AWS Credentials Secret")
@@ -175,7 +176,7 @@ var _ = Describe("Stack Controller", func() {
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: pulumiAWSSecret.Name, Namespace: namespace}, pulumiAWSSecret)
 				return k8serrors.IsNotFound(err)
-			}, timeout, interval).Should(BeTrue())
+			}, k8sOpTimeout, interval).Should(BeTrue())
 		}
 		if passphraseSecret != nil {
 			By("Deleting the Passphrase Secret")
@@ -183,7 +184,7 @@ var _ = Describe("Stack Controller", func() {
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: passphraseSecret.Name, Namespace: namespace}, passphraseSecret)
 				return k8serrors.IsNotFound(err)
-			}, timeout, interval).Should(BeTrue())
+			}, k8sOpTimeout, interval).Should(BeTrue())
 		}
 	})
 
@@ -237,7 +238,7 @@ var _ = Describe("Stack Controller", func() {
 			}
 
 			return stackUpdatedToCommit(&fetched.Status, stack.Spec.Commit)
-		}, timeout, interval).Should(BeTrue())
+		}, stackExecTimeout, interval).Should(BeTrue())
 		// Validate outputs.
 		Expect(fetched.Status.Outputs).Should(BeEquivalentTo(shared.StackOutputs{
 			"region":       v1.JSON{Raw: []byte(`"us-west-2"`)},
@@ -254,7 +255,7 @@ var _ = Describe("Stack Controller", func() {
 		Eventually(func() bool {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, toDelete)
 			return k8serrors.IsNotFound(err)
-		}, timeout, interval).Should(BeTrue())
+		}, stackExecTimeout, interval).Should(BeTrue()) // allow time for finalizer to run
 	})
 
 	It("Should deploy an AWS S3 Stack successfully, then deploy a commit update successfully", func() {
@@ -292,7 +293,7 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			return stackUpdatedToCommit(&original.Status, stack.Spec.Commit)
-		}, timeout, interval).Should(BeTrue())
+		}, stackExecTimeout, interval).Should(BeTrue())
 
 		// Update the stack config (this time to cause a failure)
 		original.Spec.Config["aws:region"] = "us-nonexistent-1"
@@ -311,7 +312,7 @@ var _ = Describe("Stack Controller", func() {
 					configChanged.Status.LastUpdate.State == shared.FailedStackStateMessage
 			}
 			return false
-		}, timeout, interval).Should(BeTrue())
+		}, stackExecTimeout, interval).Should(BeTrue())
 
 		// Update the stack commit to a different commit. Need retries because of
 		// competing retries within the operator due to failure.
@@ -324,7 +325,7 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			return true
-		}, timeout, interval).Should(BeTrue(), "%#v", configChanged)
+		}, stackExecTimeout, interval).Should(BeTrue(), "%#v", configChanged)
 
 		// Check that the stack update was attempted but failed
 		fetched := &pulumiv1.Stack{}
@@ -339,7 +340,7 @@ var _ = Describe("Stack Controller", func() {
 					fetched.Status.LastUpdate.State == shared.FailedStackStateMessage
 			}
 			return false
-		}, timeout, interval).Should(BeTrue())
+		}, stackExecTimeout, interval).Should(BeTrue())
 
 		Eventually(func() bool {
 			if err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched); err != nil {
@@ -351,7 +352,7 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			return true
-		}, timeout, interval).Should(BeTrue())
+		}, k8sOpTimeout, interval).Should(BeTrue())
 
 		// Check that the stack update attempted and succeeded after the region fix
 		Eventually(func() bool {
@@ -360,7 +361,7 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			return stackUpdatedToCommit(&fetched.Status, commit)
-		}, timeout, interval).Should(BeTrue())
+		}, stackExecTimeout, interval).Should(BeTrue())
 
 		// Delete the Stack
 		toDelete := &pulumiv1.Stack{}
@@ -370,7 +371,7 @@ var _ = Describe("Stack Controller", func() {
 		Eventually(func() bool {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, toDelete)
 			return k8serrors.IsNotFound(err)
-		}, timeout, interval).Should(BeTrue())
+		}, stackExecTimeout, interval).Should(BeTrue())
 	})
 
 	It("Should deploy an AWS S3 Stack successfully with credentials passed through EnvRefs", func() {
@@ -381,12 +382,7 @@ var _ = Describe("Stack Controller", func() {
 
 		// Write a secret to a temp directory. This is a stand-in for other mechanisms to reify the secrets
 		// on the file system. This is not a recommended way to store/pass secrets.
-		Eventually(func() bool {
-			if err = os.WriteFile(filepath.Join(secretsDir, pulumiAPISecretName), []byte(pulumiAccessToken), 0600); err != nil {
-				return false
-			}
-			return true
-		}, timeout, interval).Should(BeTrue())
+		Expect(os.WriteFile(filepath.Join(secretsDir, pulumiAPISecretName), []byte(pulumiAccessToken), 0600)).To(Succeed())
 
 		// Define the stack spec
 		spec := shared.StackSpec{
@@ -421,7 +417,7 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			return stackUpdatedToCommit(&fetched.Status, stack.Spec.Commit)
-		}, timeout, interval).Should(BeTrue())
+		}, stackExecTimeout, interval).Should(BeTrue())
 	})
 
 	It("Should deploy an AWS S3 Stack successfully using S3 backend", func() {
@@ -500,7 +496,7 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 			return stackUpdatedToCommit(&initial.Status, stack.Spec.Commit)
-		}, timeout, interval).Should(BeTrue())
+		}, stackExecTimeout, interval).Should(BeTrue())
 
 		// Check that secrets are not leaked
 		Expect(initial.Status.Outputs).Should(HaveKeyWithValue(
@@ -514,7 +510,7 @@ var _ = Describe("Stack Controller", func() {
 		Eventually(func() bool {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, toDelete)
 			return k8serrors.IsNotFound(err)
-		}, timeout, interval).Should(BeTrue())
+		}, stackExecTimeout, interval).Should(BeTrue())
 	})
 })
 
