@@ -144,14 +144,11 @@ var _ = Describe("Stack Controller", func() {
 
 	AfterEach(func() {
 		By("Deleting left over stacks")
-		deletionPolicy := metav1.DeletePropagationForeground
 		Expect(k8sClient.DeleteAllOf(
 			ctx,
 			&pulumiv1alpha1.Stack{},
 			client.InNamespace(namespace),
-			&client.DeleteAllOfOptions{
-				DeleteOptions: client.DeleteOptions{PropagationPolicy: &deletionPolicy},
-			},
+			&client.DeleteAllOfOptions{},
 		)).Should(Succeed())
 
 		Eventually(func() bool {
