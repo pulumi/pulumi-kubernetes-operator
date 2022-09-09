@@ -38,7 +38,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
@@ -168,14 +167,39 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
-	stack := instance.Spec
+	// Deletion/finalization protocol: Usually
+	// (https://book.kubebuilder.io/reference/using-finalizers.html) you would add a finalizer when
+	// you first see an object; and, when an object is being deleted, do clean up and exit instead
+	// of continuing on to process it. For this controller, clean-up may need some preparation
+	// (e.g., fetching the git repo), and there is a risk that finalization cannot be completed if
+	// that preparation fails (e.g., the git repo doesn't exist). To mitigate this, an object isn't
+	// given a finalizer until preparation has succeeded once (see under Step 2).
 
-	// Check if the Stack instance is marked to be deleted, which is
-	// indicated by the deletion timestamp being set.
+	// Check if the Stack instance is marked to be deleted, which is indicated by the deletion
+	// timestamp being set.
 	isStackMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
+	// If there's no finalizer, it's either been cleaned up, never been seen, or never gotten far
+	// enough to need cleaning up.
+	if isStackMarkedToBeDeleted && !contains(instance.GetFinalizers(), pulumiFinalizer) {
+		return reconcile.Result{}, nil
+	}
 
-	// Create a new reconciliation session.
+	// This helper helps with updates, from here onwards.
+	stack := instance.Spec
 	sess := newReconcileStackSession(reqLogger, stack, r.client, request.Namespace)
+
+	// We can exit early if there is no clean-up to do.
+	if isStackMarkedToBeDeleted && !stack.DestroyOnFinalize {
+		// We know `!(isStackMarkedToBeDeleted && !contains(finalizer))` from above, and now
+		// `isStackMarkedToBeDeleted`, implying `contains(finalizer)`; but this would be correct
+		// even if it's a no-op.
+		controllerutil.RemoveFinalizer(instance, pulumiFinalizer)
+		err := sess.updateResource(instance)
+		if err != nil {
+			sess.logger.Error(err, "Failed to delete Pulumi finalizer", "Stack.Name", instance.Spec.Stack)
+		}
+		return reconcile.Result{}, err
+	}
 
 	// Ensure either branch or commit has been specified in the stack CR if stack is not marked for deletion
 	if !isStackMarkedToBeDeleted &&
@@ -232,11 +256,9 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
-	// Check if the Stack instance is marked to be deleted, which is
-	// indicated by the deletion timestamp being set.
-	isStackMarkedToBeDeleted = instance.GetDeletionTimestamp() != nil
+	// This is enough preparation to be able to destroy the stack, if it's being deleted, or to
+	// consider it destroyable, if not.
 
-	// Finalize the stack, or add a finalizer based on the deletion timestamp.
 	if isStackMarkedToBeDeleted {
 		if contains(instance.GetFinalizers(), pulumiFinalizer) {
 			err := sess.finalize(instance)
@@ -425,14 +447,6 @@ func (sess *reconcileStackSession) finalize(stack *pulumiv1.Stack) error {
 		return err
 	}
 
-	// Since the client is hitting a cache, waiting for the deletion here will guarantee that the next
-	// reconciliation will see that the CR has been deleted and
-	// that there's nothing left to do.
-	if err := sess.waitForDeletion(stack); err != nil {
-		log.Info("Failed waiting for Stack deletion")
-		return err
-	}
-
 	return nil
 }
 
@@ -447,7 +461,7 @@ func (sess *reconcileStackSession) finalizeStack() error {
 	return nil
 }
 
-//addFinalizer will add this attribute to the Stack CR
+// addFinalizer will add this attribute to the Stack CR
 func (sess *reconcileStackSession) addFinalizer(stack *pulumiv1.Stack) error {
 	sess.logger.Debug("Adding Finalizer for the Stack", "Stack.Name", stack.Name)
 	namespacedName := types.NamespacedName{Name: stack.Name, Namespace: stack.Namespace}
@@ -1129,23 +1143,6 @@ func (sess *reconcileStackSession) updateResourceStatus(o client.Object) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		return sess.kubeClient.Status().Update(context.TODO(), o)
 	})
-}
-
-func (sess *reconcileStackSession) waitForDeletion(o client.Object) error {
-	key := client.ObjectKeyFromObject(o)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	return wait.PollImmediateUntil(time.Millisecond*10, func() (bool, error) {
-		err := sess.getLatestResource(o, key)
-		if k8serrors.IsNotFound(err) {
-			return true, nil
-		}
-		if err != nil {
-			return false, err
-		}
-		return false, nil
-	}, ctx.Done())
 }
 
 // addSSHKeysToKnownHosts scans the public SSH keys for the project repository URL
