@@ -3,15 +3,15 @@
 package tests
 
 import (
+	"context"
 	"os"
+	"path/filepath"
 	"testing"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
 
 	// Used to auth against GKE clusters that use gcloud creds.
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -41,6 +41,7 @@ var cfg *rest.Config
 var k8sClient client.Client
 var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
+var shutdownController func()
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -63,13 +64,12 @@ func TestAPIs(t *testing.T) {
 }
 
 var secretsDir string
-var _ = BeforeSuite(func(done Done) {
+var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping test environment")
-	t := true
 	testEnv = &envtest.Environment{
-		UseExistingCluster: &t,
+		CRDDirectoryPaths: []string{filepath.Join("..", "deploy", "crds")},
 	}
 
 	cfg, err := testEnv.Start()
@@ -93,10 +93,12 @@ var _ = BeforeSuite(func(done Done) {
 	err = controller.Add(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
+	ctx, cancel := context.WithCancel(ctrl.SetupSignalHandler())
 	go func() {
-		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred())
 	}()
+	shutdownController = cancel
 
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
@@ -106,13 +108,13 @@ var _ = BeforeSuite(func(done Done) {
 	if err != nil {
 		Fail("Failed to create secret temp directory")
 	}
-
-	close(done)
 }, 60)
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
-	gexec.KillAndWait(5 * time.Second)
+	if shutdownController != nil {
+		shutdownController()
+	}
 	err := testEnv.Stop()
 	Expect(err).ToNot(HaveOccurred())
 

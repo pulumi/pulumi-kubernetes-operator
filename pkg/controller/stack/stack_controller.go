@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -620,37 +619,44 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd, workspace
 	}
 
 	// Capture stdout and stderr.
-	stdoutR, stdoutW := io.Pipe()
-	stderrR, stderrW := io.Pipe()
-	cmd.Stdout = stdoutW
-	cmd.Stderr = stderrW
-
-	// Start the command asynchronously.
-	err := cmd.Start()
+	stdoutR, err := cmd.StdoutPipe()
+	if err != nil {
+		return "", "", err
+	}
+	stderrR, err := cmd.StderrPipe()
 	if err != nil {
 		return "", "", err
 	}
 
-	// Kick off some goroutines to stream the output asynchronously. Since Pulumi can take
-	// a while to run, this helps to debug issues that might be ongoing before a command completes.
+	// Start the command asynchronously.
+	err = cmd.Start()
+	if err != nil {
+		return "", "", err
+	}
+
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
+
+	// We want to echo both stderr and stdout as they are written; so at least one of them must be
+	// in another goroutine.
+	stderrClosed := make(chan struct{})
+	errs := bufio.NewScanner(stderrR)
 	go func() {
-		outs := bufio.NewScanner(stdoutR)
-		for outs.Scan() {
-			text := outs.Text()
-			sess.logger.Debug(title, "Dir", cmd.Dir, "Path", cmd.Path, "Args", cmd.Args, "Stdout", text)
-			stdout.WriteString(text + "\n")
-		}
-	}()
-	go func() {
-		errs := bufio.NewScanner(stderrR)
 		for errs.Scan() {
 			text := errs.Text()
 			sess.logger.Debug(title, "Dir", cmd.Dir, "Path", cmd.Path, "Args", cmd.Args, "Text", text)
 			stderr.WriteString(text + "\n")
 		}
+		close(stderrClosed)
 	}()
+
+	outs := bufio.NewScanner(stdoutR)
+	for outs.Scan() {
+		text := outs.Text()
+		sess.logger.Debug(title, "Dir", cmd.Dir, "Path", cmd.Path, "Args", cmd.Args, "Stdout", text)
+		stdout.WriteString(text + "\n")
+	}
+	<-stderrClosed
 
 	// Now wait for the command to finish. No matter what, return everything written to stdout and
 	// stderr, in addition to the resulting error, if any.
@@ -1139,9 +1145,15 @@ func (sess *reconcileStackSession) updateResource(o client.Object) error {
 	})
 }
 
-func (sess *reconcileStackSession) updateResourceStatus(o client.Object) error {
+func (sess *reconcileStackSession) updateResourceStatus(o *pulumiv1.Stack) error {
+	name := types.NamespacedName{Name: o.Name, Namespace: o.Namespace}
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		return sess.kubeClient.Status().Update(context.TODO(), o)
+		var s pulumiv1.Stack
+		if err := sess.kubeClient.Get(context.TODO(), name, &s); err != nil {
+			return err
+		}
+		s.Status = o.Status
+		return sess.kubeClient.Status().Update(context.TODO(), &s)
 	})
 }
 
