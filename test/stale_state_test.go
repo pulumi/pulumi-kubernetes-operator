@@ -16,9 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	// corev1 "k8s.io/api/core/v1"
-	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -75,7 +72,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 				ResyncFrequencySeconds:      3600, // ) but not otherwise.
 			},
 		}
-		stackObj.Name = randString()
+		stackObj.Name = fixture + "-" + randString()
 		stackObj.Namespace = "default"
 
 		return stackObj
@@ -104,22 +101,8 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 		waitForStackSuccess(useRabbitStack)
 	})
 
-	cleanupStack := func(stack *pulumiv1.Stack) {
-		if stack != nil {
-			err := k8sClient.Delete(context.TODO(), stack)
-			Expect(err).ToNot(HaveOccurred())
-			// block until the API server has deleted it, so that the controller has a chance to
-			// destroy its resources
-			EventuallyWithOffset(1, func() bool {
-				var s pulumiv1.Stack
-				k := types.NamespacedName{Name: stack.Name, Namespace: stack.Namespace}
-				return k8serrors.IsNotFound(k8sClient.Get(context.TODO(), k, &s))
-			}, "20s", "1s").Should(BeTrue())
-		}
-	}
-
 	AfterEach(func() {
-		cleanupStack(setupStack)
+		deleteAndWaitForFinalization(setupStack)
 		if strings.HasPrefix(tmp, os.TempDir()) {
 			Expect(os.RemoveAll(tmp)).To(Succeed())
 		}
@@ -131,10 +114,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 			ctx := context.TODO()
 
 			// now "rotate" the credentials, by rerunning the setup stack in such a way as to recreate the passphrase
-			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
-				Name:      setupStack.Name,
-				Namespace: setupStack.Namespace,
-			}, setupStack)).To(Succeed())
+			refetch(setupStack)
 			setupStack.Spec.Config = map[string]string{"password": randString()}
 			waitForStackSince = time.Now()
 			Expect(k8sClient.Update(ctx, setupStack)).To(Succeed())
@@ -146,30 +126,16 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 			// the following both sets "refresh" on the stack, meaning it will try to refresh state
 			// before running the program; and, since it mutates the object, serves to requeue it for
 			// the controller to reconcile.
-			Expect(k8sClient.Get(ctx, types.NamespacedName{
-				Name:      useRabbitStack.Name,
-				Namespace: useRabbitStack.Namespace,
-			}, useRabbitStack)).To(Succeed())
+			refetch(useRabbitStack)
 			useRabbitStack.Spec.Refresh = true
 			Expect(k8sClient.Update(ctx, useRabbitStack)).To(Succeed())
-
-			Eventually(func() bool {
-				k := types.NamespacedName{Name: useRabbitStack.Name, Namespace: useRabbitStack.Namespace}
-				var s pulumiv1.Stack
-				err := k8sClient.Get(ctx, k, &s)
-				if err != nil {
-					return false
-				}
-				return s.Status.LastUpdate != nil &&
-					s.Status.LastUpdate.State == shared.FailedStackStateMessage &&
-					s.Status.LastUpdate.LastResyncTime.Time.After(waitForStackSince)
-			}, "20s", "1s").Should(BeTrue(), "stack fails when set to refresh")
+			waitForStackFailure(useRabbitStack)
 		})
 
 		It("succeeds at refreshing when a targeted stack is run first", func() {
 			ctx := context.TODO()
 
-			// Get the URN of the provider, which we're gong to target in this "helper" stack
+			// Get the URN of the provider, which we're going to target in this "helper" stack
 			var s pulumiv1.Stack
 			Expect(k8sClient.Get(ctx, types.NamespacedName{
 				Name:      useRabbitStack.Name,
@@ -199,6 +165,50 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 			useRabbitStack.Spec.Refresh = true
 			Expect(k8sClient.Update(ctx, useRabbitStack)).To(Succeed())
 
+			waitForStackSuccess(useRabbitStack)
+		})
+
+		It("succeeds at refreshing when a targeted stack is given as a prerequisite", func() {
+			ctx := context.TODO()
+
+			// Get the URN of the provider, which we're going to target in this "helper" stack
+			refetch(useRabbitStack)
+			providerURNJSON := useRabbitStack.Status.Outputs["providerURN"]
+			var providerURN string
+			Expect(json.Unmarshal(providerURNJSON.Raw, &providerURN)).To(Succeed())
+			Expect(providerURN).ToNot(BeEmpty())
+
+			// this runs a stack which we'll use to refresh the state of the credentials. It
+			// refreshes the _same_ state because it uses the same backend stack name, since the
+			// stack is named for the fixture (in createStack).
+			targetedStack := createStack("use-rabbitmq")
+			targetedStack.Spec.Targets = []string{providerURN}
+			Expect(k8sClient.Create(ctx, targetedStack)).To(Succeed())
+			waitForStackSuccess(targetedStack)
+
+			// _Now_ change the password again; the targeted stack succeeded, and won't be run again
+			// unless it's requeued (by the prerequisite mechanism, assumably).
+			refetch(setupStack)
+			setupStack.Spec.Config["password"] = randString()
+			waitForStackSince = time.Now()
+			Expect(k8sClient.Update(ctx, setupStack)).To(Succeed())
+			waitForStackSuccess(setupStack)
+
+			// the following both sets "refresh" on the stack, meaning it will try to refresh state
+			// before running the program, and gives the above stack as a prerequisite. Since it
+			// also mutates the object, the update serves to requeue it for the controller to
+			// reconcile.
+			refetch(useRabbitStack) // this is fetched above; but, avoid future coincidences ..
+			useRabbitStack.Spec.Refresh = true
+			useRabbitStack.Spec.Prerequisites = []shared.PrerequisiteRef{
+				{Name: targetedStack.Name},
+			}
+			waitForStackSince = time.Now()
+			Expect(k8sClient.Update(ctx, useRabbitStack)).To(Succeed())
+
+			// We'd expect this to fail, because its state was invalidated by running the setupStack
+			// with a fresh password; _unless_ something prompts the targeted stack to be run again,
+			// updating the state.
 			waitForStackSuccess(useRabbitStack)
 		})
 	})
