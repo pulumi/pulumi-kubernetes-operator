@@ -3,7 +3,6 @@ package tests
 import (
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -15,74 +14,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	git "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 )
-
-func makeFixtureIntoRepo(repoDir, fixture string) error {
-	repo, err := git.PlainInit(repoDir, false)
-	if err != nil {
-		return err
-	}
-
-	if err := filepath.Walk(fixture, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return os.MkdirAll(filepath.Join(repoDir, path), info.Mode())
-		}
-		// copy symlinks as-is, so I can test what happens with broken symlinks
-		if info.Mode()&os.ModeSymlink > 0 {
-			target, err := os.Readlink(path)
-			if err != nil {
-				return err
-			}
-			return os.Symlink(target, filepath.Join(repoDir, path))
-		}
-
-		source, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer source.Close()
-
-		target, err := os.Create(filepath.Join(repoDir, path))
-		if err != nil {
-			return err
-		}
-		defer target.Close()
-
-		_, err = io.Copy(target, source)
-		return err
-	}); err != nil {
-		return err
-	}
-
-	wt, err := repo.Worktree()
-	if err != nil {
-		return err
-	}
-	wt.Add(".")
-	wt.Commit("Initial revision from fixture "+fixture, &git.CommitOptions{
-		Author: &object.Signature{
-			Name:  "Pulumi Test",
-			Email: "pulumi.test@example.com",
-		},
-	})
-	// this makes sure there's a default branch
-	if err = wt.Checkout(&git.CheckoutOptions{
-		Branch: plumbing.NewBranchReferenceName("default"),
-		Create: true,
-	}); err != nil {
-		return err
-	}
-
-	return nil
-}
 
 var _ = Describe("Stack controller status", func() {
 	var (
@@ -123,7 +57,6 @@ var _ = Describe("Stack controller status", func() {
 				Backend: fmt.Sprintf("file://%s", backendDir),
 				GitSource: &shared.GitSource{
 					ProjectRepo: gitDir,
-					RepoDir:     "testdata/success",
 					Branch:      "default",
 				},
 				EnvRefs: map[string]shared.ResourceRef{
@@ -149,9 +82,8 @@ var _ = Describe("Stack controller status", func() {
 				Backend: fmt.Sprintf("file://%s", backendDir),
 				GitSource: &shared.GitSource{
 					ProjectRepo: gitDir,
-					RepoDir:     "testdata/success", // this would work, but ...
-					Branch:      "",                 // )
-					Commit:      "",                 // ) ... supplying neither of these makes it invalid
+					Branch:      "", // )
+					Commit:      "", // ) ... supplying neither of these makes it invalid
 				},
 				EnvRefs: map[string]shared.ResourceRef{
 					"PULUMI_CONFIG_PASSPHRASE": shared.NewLiteralResourceRef("password"),
@@ -176,7 +108,6 @@ var _ = Describe("Stack controller status", func() {
 				Backend: fmt.Sprintf("file://%s", backendDir),
 				GitSource: &shared.GitSource{
 					ProjectRepo: gitDir,
-					RepoDir:     "testdata/success",
 					Branch:      "default",
 				},
 				EnvRefs: map[string]shared.ResourceRef{
@@ -212,7 +143,7 @@ var _ = Describe("Stack controller status", func() {
 				Backend: fmt.Sprintf("file://%s", backendDir),
 				GitSource: &shared.GitSource{
 					ProjectRepo: gitDir,
-					RepoDir:     "testdata/doesnotexist",
+					RepoDir:     "doesnotexist",
 					Branch:      "default",
 				},
 				EnvRefs: map[string]shared.ResourceRef{

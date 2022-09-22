@@ -68,7 +68,6 @@ var _ = Describe("Cross-namespace refs", func() {
 				Backend: fmt.Sprintf("file://%s", backendDir),
 				GitSource: &shared.GitSource{
 					ProjectRepo: gitDir,
-					RepoDir:     "testdata/success",
 					Branch:      "default",
 				},
 				EnvRefs: map[string]shared.ResourceRef{
@@ -105,7 +104,6 @@ var _ = Describe("Cross-namespace refs", func() {
 					Backend: fmt.Sprintf("file://%s", backendDir),
 					GitSource: &shared.GitSource{
 						ProjectRepo: gitDir,
-						RepoDir:     "testdata/success",
 						Branch:      "default",
 					},
 					EnvRefs: map[string]shared.ResourceRef{

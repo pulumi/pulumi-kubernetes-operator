@@ -29,7 +29,7 @@ var _ = Describe("go build caching", func() {
 	BeforeEach(func() {
 		tmpdir, err := os.MkdirTemp("", "pulumi-test")
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(os.RemoveAll, tmpdir)
+		DeferCleanup(removeTempDir, tmpdir)
 
 		gitdir = filepath.Join(tmpdir, "git")
 		makeFixtureIntoRepo(gitdir, "testdata/go-build")
@@ -48,7 +48,6 @@ var _ = Describe("go build caching", func() {
 				Backend: fmt.Sprintf("file://%s", tmpdir),
 				GitSource: &shared.GitSource{
 					ProjectRepo: gitdir,
-					RepoDir:     "testdata/go-build",
 					Branch:      "default",
 				},
 				EnvRefs: map[string]shared.ResourceRef{
