@@ -4,6 +4,7 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("mechanism for refreshing stale state", func() {
+var _ = When("a stack uses a provider with credentials kept in state", func() {
 	// This models a situation in which the program constructs a provider using credentials which
 	// are then rotated. Pulumi has difficulty with this if you want to refresh the state, since the
 	// provider will be constructed from the credentials in the state, which are out of date. The
@@ -41,15 +42,18 @@ var _ = Describe("mechanism for refreshing stale state", func() {
 		env        = map[string]string{
 			"PULUMI_CONFIG_PASSPHRASE": "foobarbaz",
 		}
+		useRabbitStack *pulumiv1.Stack
 	)
 
 	createStack := func(fixture string) *pulumiv1.Stack {
 		// NB fixture here is the directory _under_ testdata, e.g., `run-rabbitmq`
 		targetPath := filepath.Join(tmp, fixture)
-		repoPath := filepath.Join(targetPath, "repo")
+		repoPath := filepath.Join(targetPath, randString())
 
 		ExpectWithOffset(1, makeFixtureIntoRepo(repoPath, filepath.Join("testdata", fixture))).To(Succeed())
 
+		// This is deterministic so that tests can create Stack objects that target the same stack
+		// in the same backend.
 		backend := fmt.Sprintf("file://%s", targetPath)
 
 		envRefs := map[string]shared.ResourceRef{}
@@ -71,7 +75,7 @@ var _ = Describe("mechanism for refreshing stale state", func() {
 				ResyncFrequencySeconds:      3600, // ) but not otherwise.
 			},
 		}
-		stackObj.Name = fixture
+		stackObj.Name = randString()
 		stackObj.Namespace = "default"
 
 		return stackObj
@@ -89,62 +93,113 @@ var _ = Describe("mechanism for refreshing stale state", func() {
 		env["KUBECONFIG"] = kubeconfig
 
 		setupStack = createStack("run-rabbitmq")
-		setupStack.Spec.Config = map[string]string{"passwordLength": "16"} // changing this will force it to regenerate the password
+		setupStack.Spec.Config = map[string]string{"password": randString()} // changing this will force it to restart RabbitMQ with the new creds
 		Expect(k8sClient.Create(ctx, setupStack)).To(Succeed())
 		waitForStackSuccess(setupStack)
+
+		// running this the first time should succeed -- the program will run and get the
+		// credentials from the secret, which then go into the stack state.
+		useRabbitStack = createStack("use-rabbitmq")
+		Expect(k8sClient.Create(context.TODO(), useRabbitStack)).To(Succeed())
+		waitForStackSuccess(useRabbitStack)
 	})
 
-	AfterEach(func() {
-		if setupStack != nil {
-			err := k8sClient.Delete(context.TODO(), setupStack)
+	cleanupStack := func(stack *pulumiv1.Stack) {
+		if stack != nil {
+			err := k8sClient.Delete(context.TODO(), stack)
 			Expect(err).ToNot(HaveOccurred())
 			// block until the API server has deleted it, so that the controller has a chance to
 			// destroy its resources
-			Eventually(func() bool {
+			EventuallyWithOffset(1, func() bool {
 				var s pulumiv1.Stack
-				k := types.NamespacedName{Name: setupStack.Name, Namespace: setupStack.Namespace}
+				k := types.NamespacedName{Name: stack.Name, Namespace: stack.Namespace}
 				return k8serrors.IsNotFound(k8sClient.Get(context.TODO(), k, &s))
 			}, "20s", "1s").Should(BeTrue())
 		}
+	}
+
+	AfterEach(func() {
+		cleanupStack(setupStack)
 		if strings.HasPrefix(tmp, os.TempDir()) {
 			Expect(os.RemoveAll(tmp)).To(Succeed())
 		}
 	})
 
-	It("fails to complete when the credentials are rotated", func() {
-		ctx := context.TODO()
-		// this first step should succeed -- the program will run and get the credentials from the
-		// secret.
-		stack := createStack("use-rabbitmq")
-		Expect(k8sClient.Create(ctx, stack)).To(Succeed())
-		waitForStackSuccess(stack)
+	When("the credentials are rotated", func() {
 
-		// now "rotate" the credentials, by rerunning the setup stack in such a way as to recreate the passphrase
-		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
-			Name:      setupStack.Name,
-			Namespace: setupStack.Namespace,
-		}, setupStack)).To(Succeed())
-		setupStack.Spec.Config = map[string]string{"passwordLength": "18"}
-		waitForStackSince = time.Now()
-		Expect(k8sClient.Update(ctx, setupStack)).To(Succeed())
-		waitForStackSuccess(setupStack)
+		BeforeEach(func() {
+			ctx := context.TODO()
 
-		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
-			Name:      stack.Name,
-			Namespace: stack.Namespace,
-		}, stack)).To(Succeed())
-		stack.Spec.Refresh = true
-		Expect(k8sClient.Update(ctx, stack)).To(Succeed())
-		Eventually(func() bool {
-			k := types.NamespacedName{Name: stack.Name, Namespace: stack.Namespace}
+			// now "rotate" the credentials, by rerunning the setup stack in such a way as to recreate the passphrase
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{
+				Name:      setupStack.Name,
+				Namespace: setupStack.Namespace,
+			}, setupStack)).To(Succeed())
+			setupStack.Spec.Config = map[string]string{"password": randString()}
+			waitForStackSince = time.Now()
+			Expect(k8sClient.Update(ctx, setupStack)).To(Succeed())
+			waitForStackSuccess(setupStack)
+		})
+
+		It("fails to refresh without intervention", func() {
+			ctx := context.TODO()
+			// the following both sets "refresh" on the stack, meaning it will try to refresh state
+			// before running the program; and, since it mutates the object, serves to requeue it for
+			// the controller to reconcile.
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      useRabbitStack.Name,
+				Namespace: useRabbitStack.Namespace,
+			}, useRabbitStack)).To(Succeed())
+			useRabbitStack.Spec.Refresh = true
+			Expect(k8sClient.Update(ctx, useRabbitStack)).To(Succeed())
+
+			Eventually(func() bool {
+				k := types.NamespacedName{Name: useRabbitStack.Name, Namespace: useRabbitStack.Namespace}
+				var s pulumiv1.Stack
+				err := k8sClient.Get(ctx, k, &s)
+				if err != nil {
+					return false
+				}
+				return s.Status.LastUpdate != nil &&
+					s.Status.LastUpdate.State == shared.FailedStackStateMessage &&
+					s.Status.LastUpdate.LastResyncTime.Time.After(waitForStackSince)
+			}, "20s", "1s").Should(BeTrue(), "stack fails when set to refresh")
+		})
+
+		It("succeeds at refreshing when a targeted stack is run first", func() {
+			ctx := context.TODO()
+
+			// Get the URN of the provider, which we're gong to target in this "helper" stack
 			var s pulumiv1.Stack
-			err := k8sClient.Get(context.TODO(), k, &s)
-			if err != nil {
-				return false
-			}
-			return s.Status.LastUpdate != nil &&
-				s.Status.LastUpdate.State == shared.FailedStackStateMessage &&
-				s.Status.LastUpdate.LastResyncTime.Time.After(waitForStackSince)
-		}, "20s", "1s").Should(BeTrue(), "stack fails when set to refresh")
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      useRabbitStack.Name,
+				Namespace: useRabbitStack.Namespace,
+			}, &s)).To(Succeed())
+			providerURNJSON := s.Status.Outputs["providerURN"]
+			var providerURN string
+			Expect(json.Unmarshal(providerURNJSON.Raw, &providerURN)).To(Succeed())
+			Expect(providerURN).ToNot(BeEmpty())
+
+			// this runs a stack which we'll use to refresh the state of the credentials. It
+			// refreshes the _same_ state because it uses the same backend stack name, since the
+			// stack is named for the fixture (in createStack).
+			targetedStack := createStack("use-rabbitmq")
+			targetedStack.Spec.Targets = []string{providerURN}
+			Expect(k8sClient.Create(ctx, targetedStack)).To(Succeed())
+			waitForStackSuccess(targetedStack)
+
+			// the following both sets "refresh" on the stack, meaning it will try to refresh state
+			// before running the program; and, since it mutates the object, serves to requeue it for
+			// the controller to reconcile.
+			waitForStackSince = time.Now()
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      useRabbitStack.Name,
+				Namespace: useRabbitStack.Namespace,
+			}, useRabbitStack)).To(Succeed())
+			useRabbitStack.Spec.Refresh = true
+			Expect(k8sClient.Update(ctx, useRabbitStack)).To(Succeed())
+
+			waitForStackSuccess(useRabbitStack)
+		})
 	})
 })

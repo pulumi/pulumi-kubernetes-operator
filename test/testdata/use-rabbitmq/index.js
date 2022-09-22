@@ -19,4 +19,4 @@ const exchange = new rabbitmq.Exchange('foo', {
     },
 }, { provider });
 
-exports.user = provider.minioAccessKey;
+exports.providerURN = provider.urn;

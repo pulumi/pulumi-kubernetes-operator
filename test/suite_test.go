@@ -241,6 +241,12 @@ func expectInProgress(conditions []metav1.Condition) {
 	ExpectWithOffset(1, apimeta.FindStatusCondition(conditions, pulumiv1.StalledCondition)).To(BeNil(), "Stalled condition is absent")
 }
 
+// The keys of fixtureIgnore are filenames to ignore when making adding files to a repo from a
+// fixture directory.
+var fixtureIgnore = map[string]struct{}{
+	"node_modules": struct{}{},
+}
+
 // makeFixtureIntoRepo creates a git repo in `repoDir` given a path `fixture` to a directory of
 // files to be committed to the repo.
 func makeFixtureIntoRepo(repoDir, fixture string) error {
@@ -251,6 +257,12 @@ func makeFixtureIntoRepo(repoDir, fixture string) error {
 
 	if err := filepath.Walk(fixture, func(fullpath string, info os.FileInfo, err error) error {
 		if fullpath == fixture {
+			return nil
+		}
+		if _, ok := fixtureIgnore[info.Name()]; ok {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		path := fullpath[len(fixture)+1:] // trim fixture and the slash following
