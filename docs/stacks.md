@@ -190,6 +190,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#stackspecprerequisitesindex">prerequisites</a></b></td>
+        <td>[]object</td>
+        <td>
+          (optional) Prerequisites is a list of references to other stacks, each with a constraint on how long ago it must have succeeded. This can be used to make sure e.g., state is re-evaluated before running a stack that depends on it.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecprogramref">programRef</a></b></td>
         <td>object</td>
         <td>
@@ -1518,6 +1525,67 @@ SecretRef refers to a Kubernetes secret
 </table>
 
 
+### Stack.spec.prerequisites[index]
+<sup><sup>[↩ Parent](#stackspec)</sup></sup>
+
+
+
+PrerequisiteRef refers to another stack, and gives requirements for the prerequisite to be considered satisfied.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the Stack resource that is a prerequisite.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecprerequisitesindexrequirement">requirement</a></b></td>
+        <td>object</td>
+        <td>
+          Requirement gives specific requirements for the prerequisite; the base requirement is that the referenced stack is in a successful state.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.prerequisites[index].requirement
+<sup><sup>[↩ Parent](#stackspecprerequisitesindex)</sup></sup>
+
+
+
+Requirement gives specific requirements for the prerequisite; the base requirement is that the referenced stack is in a successful state.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>succeededWithinDuration</b></td>
+        <td>string</td>
+        <td>
+          SucceededWithinDuration gives a duration within which the prerequisite must have reached a succeeded state; e.g., "1h" means "the prerequisite must be successful, and have become so in the last hour". Fields (should there ever be more than one) are not intended to be mutually exclusive.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.programRef
 <sup><sup>[↩ Parent](#stackspec)</sup></sup>
 
@@ -2080,6 +2148,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td>string</td>
         <td>
           (optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options: * Personal access token * SSH private key (and it's optional password) * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecprerequisitesindex-1">prerequisites</a></b></td>
+        <td>[]object</td>
+        <td>
+          (optional) Prerequisites is a list of references to other stacks, each with a constraint on how long ago it must have succeeded. This can be used to make sure e.g., state is re-evaluated before running a stack that depends on it.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -3405,6 +3480,67 @@ SecretRef refers to a Kubernetes secret
         <td>string</td>
         <td>
           Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.prerequisites[index]
+<sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
+
+
+
+PrerequisiteRef refers to another stack, and gives requirements for the prerequisite to be considered satisfied.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the Stack resource that is a prerequisite.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecprerequisitesindexrequirement-1">requirement</a></b></td>
+        <td>object</td>
+        <td>
+          Requirement gives specific requirements for the prerequisite; the base requirement is that the referenced stack is in a successful state.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.prerequisites[index].requirement
+<sup><sup>[↩ Parent](#stackspecprerequisitesindex-1)</sup></sup>
+
+
+
+Requirement gives specific requirements for the prerequisite; the base requirement is that the referenced stack is in a successful state.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>succeededWithinDuration</b></td>
+        <td>string</td>
+        <td>
+          SucceededWithinDuration gives a duration within which the prerequisite must have reached a succeeded state; e.g., "1h" means "the prerequisite must be successful, and have become so in the last hour". Fields (should there ever be more than one) are not intended to be mutually exclusive.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
