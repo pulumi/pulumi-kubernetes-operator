@@ -344,15 +344,14 @@ type LiteralRef struct {
 	Value string `json:"value"`
 }
 
+const ReconcileRequestAnnotation = "pulumi.com/reconciliation-request"
+
 // StackStatus defines the observed state of Stack
 type StackStatus struct {
 	// Outputs contains the exported stack output variables resulting from a deployment.
 	Outputs StackOutputs `json:"outputs,omitempty"`
 	// LastUpdate contains details of the status of the last update.
 	LastUpdate *StackUpdateState `json:"lastUpdate,omitempty"`
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 }
 
 type StackOutputs map[string]apiextensionsv1.JSON

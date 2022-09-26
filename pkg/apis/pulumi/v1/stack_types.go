@@ -18,6 +18,9 @@ type StackStatus struct {
 	// ObservedGeneration records the value of .meta.generation at the point the controller last processed this object
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	// ObservedReconcileRequest records the value of the annotation named for
+	// `ReconcileRequestAnnotation` when it was last seen.
+	ObservedReconcileRequest string `json:"observedReconcileRequest,omitempty"`
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }

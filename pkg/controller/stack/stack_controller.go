@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/operator-framework/operator-lib/handler"
-	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
@@ -46,6 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	ctrlhandler "sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -138,16 +138,10 @@ func add(mgr manager.Manager, r *ReconcileStack) error {
 		return err
 	}
 
-	// Filter out update events if an object's metadata.generation is
-	// unchanged, or if the object never had a generation update.
-	//  - https://github.com/operator-framework/operator-lib/blob/main/predicate/nogeneration.go#L29-L34
-	//  - https://github.com/operator-framework/operator-sdk/issues/2795
-	//  - https://github.com/kubernetes-sigs/kubebuilder/issues/1103
-	//  - https://github.com/kubernetes-sigs/controller-runtime/pull/553
-	//  - https://book-v1.book.kubebuilder.io/basics/status_subresource.html
-	// Set up predicates.
+	// Filter for update events where an object's metadata.generation is changed (no spec change!),
+	// or the "force reconcile" annotation is used (and not marked as handled).
 	predicates := []predicate.Predicate{
-		predicate.Or(predicate.GenerationChangedPredicate{}, libpredicate.NoGenerationPredicate{}),
+		predicate.Or(predicate.GenerationChangedPredicate{}, ReconcileRequestedPredicate{}),
 	}
 
 	stackInformer, err := mgr.GetCache().GetInformer(context.Background(), &pulumiv1.Stack{})
@@ -285,6 +279,52 @@ func add(mgr manager.Manager, r *ReconcileStack) error {
 	return nil
 }
 
+// ReconcileRequestedPredicate filters (returns true) for resources that are updated with a new or
+// amended annotation value at `ReconcileRequestAnnotation`.
+//
+// Reconciliation request protocol:
+//
+// This gives a means of prompting the controller to reconsider a resource that otherwise might not
+// be queued, e.g., because it has already reached a success state. This is useful for command-line
+// tooling (e.g., you can trigger updates with `kubectl annotate`), and is the mechanism used to
+// requeue prerequisites that are not up to date.
+//
+// The protocol works like this:
+
+//   - when you want the object to be considered for reconciliation, annotate it with the key
+//     `shared.ReconcileRequestAnnotation` and any likely-to-be-unique value. This causes the object
+//     to be queued for consideration by the controller;
+//   - the controller shall save the value of the annotation to `.status.observedReconcileRequest`
+//     whenever it processes a resource without returning an error. This is so you can check the
+//     status to see whether the annotation has been seen (similar to `.status.observedGeneration`).
+//
+// This protocol is the same mechanism used by many Flux controllers, as explained at
+// https://pkg.go.dev/github.com/fluxcd/pkg/runtime/predicates#ReconcileRequestedPredicate and
+// related documentation.
+type ReconcileRequestedPredicate struct {
+	predicate.Funcs
+}
+
+func getReconcileRequestAnnotation(obj client.Object) (string, bool) {
+	r, ok := obj.GetAnnotations()[shared.ReconcileRequestAnnotation]
+	return r, ok
+}
+
+// Update filters update events based on whether the request reconciliation annotation has been
+// added or amended.
+func (p ReconcileRequestedPredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+	if vNew, ok := getReconcileRequestAnnotation(e.ObjectNew); ok {
+		if vOld, ok := getReconcileRequestAnnotation(e.ObjectOld); ok {
+			return vNew != vOld
+		}
+		return true // new object has it, old one doesn't
+	}
+	return false // either removed, or present in neither object
+}
+
 // blank assignment to verify that ReconcileStack implements reconcile.Reconciler
 var _ reconcile.Reconciler = &ReconcileStack{}
 
@@ -383,6 +423,9 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	saveStatus := func() {
 		if reterr == nil {
 			instance.Status.ObservedGeneration = instance.GetGeneration()
+			if req, ok := getReconcileRequestAnnotation(instance); ok {
+				instance.Status.ObservedReconcileRequest = req
+			}
 		} else {
 			// controller-runtime will requeue the object, so reflect that in the conditions by
 			// saying it is still in progress.

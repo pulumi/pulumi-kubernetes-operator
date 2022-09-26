@@ -1830,6 +1830,13 @@ StackStatus defines the observed state of Stack
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>observedReconcileRequest</b></td>
+        <td>string</td>
+        <td>
+          ObservedReconcileRequest records the value of the annotation named for `ReconcileRequestAnnotation` when it was last seen.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>outputs</b></td>
         <td>map[string]JSON</td>
         <td>

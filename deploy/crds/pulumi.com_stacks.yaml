@@ -821,6 +821,10 @@ spec:
                   at the point the controller last processed this object
                 format: int64
                 type: integer
+              observedReconcileRequest:
+                description: ObservedReconcileRequest records the value of the annotation
+                  named for `ReconcileRequestAnnotation` when it was last seen.
+                type: string
               outputs:
                 additionalProperties:
                   x-kubernetes-preserve-unknown-fields: true
