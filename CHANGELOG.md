@@ -6,6 +6,8 @@ CHANGELOG
 - Exit processing early when a stack is ready to be garbage collected
   [#322](https://github.com/pulumi/pulumi-kubernetes-operator/pull/322)
 - Fix a goroutine leak [#319](https://github.com/pulumi/pulumi-kubernetes-operator/pull/319)
+- Use status conditions to indicate ready/in-progress/stalled status
+  [#316](https://github.com/pulumi/pulumi-kubernetes-operator/pull/316)
 
 ## 1.8.0 (2022-09-01)
 - Use go 1.18 for builds

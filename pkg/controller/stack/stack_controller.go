@@ -147,13 +147,13 @@ type ReconcileStack struct {
 
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
-func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Request) (_ reconcile.Result, reterr error) {
 	reqLogger := logging.WithValues(log, "Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Stack")
 
 	// Fetch the Stack instance
 	instance := &pulumiv1.Stack{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -192,13 +192,30 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		// We know `!(isStackMarkedToBeDeleted && !contains(finalizer))` from above, and now
 		// `isStackMarkedToBeDeleted`, implying `contains(finalizer)`; but this would be correct
 		// even if it's a no-op.
-		controllerutil.RemoveFinalizer(instance, pulumiFinalizer)
-		err := sess.updateResource(instance)
+		err := sess.removeFinalizerAndUpdate(ctx, instance)
 		if err != nil {
 			sess.logger.Error(err, "Failed to delete Pulumi finalizer", "Stack.Name", instance.Spec.Stack)
 		}
 		return reconcile.Result{}, err
 	}
+
+	// This makes sure the status reflects the outcome of reconcilation. Any non-error return means
+	// the object definition was observed, whether the object ended up in a ready state or not. An
+	// error return (now we have successfully fetched the object) means it is "in progress" and not
+	// ready.
+	saveStatus := func() {
+		if reterr == nil {
+			instance.Status.ObservedGeneration = instance.GetGeneration()
+		} else {
+			// controller-runtime will requeue the object, so reflect that in the conditions by
+			// saying it is still in progress.
+			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, reterr.Error())
+		}
+		if err := sess.patchStatus(ctx, instance); err != nil {
+			log.Error(err, "unable to save object status")
+		}
+	}
+	defer saveStatus()
 
 	// Ensure either branch or commit has been specified in the stack CR if stack is not marked for deletion
 	if !isStackMarkedToBeDeleted &&
@@ -208,16 +225,27 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		msg := "Stack CustomResource needs to specify either 'branch' or 'commit' for the tracking repo."
 		r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), msg)
 		reqLogger.Info(msg)
+		r.markStackFailed(sess, instance, errors.New(msg), "", "")
+		instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, msg)
+		// this object won't be processable until the spec is changed, so no reason to requeue explicitly
+		return reconcile.Result{}, nil
+	}
 
+	// We're ready to do some actual work. Until we have a definitive outcome, mark the stack as
+	// reconciling.
+	instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingProcessingReason, pulumiv1.ReconcilingProcessingMessage)
+	if err = sess.patchStatus(ctx, instance); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
-	gitAuth, err := sess.SetupGitAuth()
+	gitAuth, err := sess.SetupGitAuth(ctx)
 	if err != nil {
 		r.emitEvent(instance, pulumiv1.StackGitAuthFailureEvent(), "Failed to setup git authentication: %v", err.Error())
 		reqLogger.Error(err, "Failed to setup git authentication", "Stack.Name", stack.Stack)
-		return reconcile.Result{}, err
+		r.markStackFailed(sess, instance, err, "", "")
+		instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
+		return reconcile.Result{}, nil
 	}
 
 	if gitAuth.SSHPrivateKey != "" {
@@ -226,10 +254,13 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		sess.addSSHKeysToKnownHosts(sess.stack.ProjectRepo)
 	}
 
-	if err = sess.SetupPulumiWorkdir(gitAuth); err != nil {
+	if err = sess.SetupPulumiWorkdir(ctx, gitAuth); err != nil {
 		r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
 		reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
-		return reconcile.Result{}, err
+		r.markStackFailed(sess, instance, err, "", "")
+		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
+		// this can fail for reasons which might go away without intervention; so, retry explicitly
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Delete the temporary directory after the reconciliation is completed (regardless of success or failure).
@@ -241,18 +272,17 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	}
 
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
-	if err = sess.SetEnvs(stack.Envs, request.Namespace); err != nil {
-		if err2 := r.markStackFailed(sess, instance, errors.Wrap(err, "could not find ConfigMap for Envs"), currentCommit, ""); err2 != nil {
-			return reconcile.Result{}, err2
-		}
-		return reconcile.Result{}, err
+	if err = sess.SetEnvs(ctx, stack.Envs, request.Namespace); err != nil {
+		err := errors.Wrap(err, "could not find ConfigMap for Envs")
+		r.markStackFailed(sess, instance, err, currentCommit, "")
+		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
+		return reconcile.Result{Requeue: true}, nil
 	}
-	if err = sess.SetSecretEnvs(stack.SecretEnvs, request.Namespace); err != nil {
-		if err2 := r.markStackFailed(sess, instance, errors.Wrap(err, "could not find Secret for SecretEnvs"),
-			currentCommit, ""); err2 != nil {
-			return reconcile.Result{}, err2
-		}
-		return reconcile.Result{}, err
+	if err = sess.SetSecretEnvs(ctx, stack.SecretEnvs, request.Namespace); err != nil {
+		err := errors.Wrap(err, "could not find Secret for SecretEnvs")
+		r.markStackFailed(sess, instance, err, currentCommit, "")
+		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// This is enough preparation to be able to destroy the stack, if it's being deleted, or to
@@ -260,20 +290,20 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	if isStackMarkedToBeDeleted {
 		if contains(instance.GetFinalizers(), pulumiFinalizer) {
-			err := sess.finalize(instance)
+			err := sess.finalize(ctx, instance)
 			// Manage extra status here
 			return reconcile.Result{}, err
 		}
 	} else {
 		if !contains(instance.GetFinalizers(), pulumiFinalizer) {
 			// Add finalizer to Stack if not being deleted
-			err := sess.addFinalizer(instance)
+			err := sess.addFinalizerAndUpdate(ctx, instance)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
 			time.Sleep(2 * time.Second) // arbitrary sleep after finalizer add to avoid stale obj for permalink
 			// Add default permalink for the stack in the Pulumi Service.
-			if err := sess.addDefaultPermalink(instance); err != nil {
+			if err := sess.addDefaultPermalink(ctx, instance); err != nil {
 				return reconcile.Result{}, err
 			}
 		}
@@ -298,6 +328,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		if instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit && !sess.stack.ContinueResyncOnCommitMatch {
 			reqLogger.Info("Commit hash unchanged. Will poll again.", "pollFrequencySeconds", resyncFreqSeconds)
 			// Reconcile every resyncFreqSeconds to check for new commits to the branch.
+			instance.Status.MarkReadyCondition()
 			return reconcile.Result{RequeueAfter: time.Duration(resyncFreqSeconds) * time.Second}, nil
 		}
 
@@ -310,24 +341,18 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Step 3. If a stack refresh is requested, run it now.
 	if sess.stack.Refresh {
-		permalink, err := sess.RefreshStack(sess.stack.ExpectNoRefreshChanges)
+		permalink, err := sess.RefreshStack(ctx, sess.stack.ExpectNoRefreshChanges)
 		if err != nil {
-			if err2 := r.markStackFailed(sess, instance, errors.Wrap(err, "refreshing stack"), currentCommit, permalink); err2 != nil {
-				return reconcile.Result{}, err2
-			}
-			return reconcile.Result{}, err
-		}
-		err = sess.getLatestResource(instance, request.NamespacedName)
-		if err != nil {
-			sess.logger.Error(err, "Failed to get latest Stack to update refresh status", "Stack.Name", instance.Spec.Stack)
-			return reconcile.Result{}, err
+			r.markStackFailed(sess, instance, errors.Wrap(err, "refreshing stack"), currentCommit, permalink)
+			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
+			return reconcile.Result{Requeue: true}, nil
 		}
 		if instance.Status.LastUpdate == nil {
 			instance.Status.LastUpdate = &shared.StackUpdateState{}
 		}
 		instance.Status.LastUpdate.Permalink = permalink
 
-		err = sess.updateResourceStatus(instance)
+		err = sess.patchStatus(ctx, instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Stack status for refresh", "Stack.Name", stack.Stack)
 			return reconcile.Result{}, err
@@ -337,7 +362,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Step 4. Run a `pulumi up --skip-preview`.
 	// TODO: is it possible to support a --dry-run with a preview?
-	status, permalink, result, err := sess.UpdateStack()
+	status, permalink, result, err := sess.UpdateStack(ctx)
 	switch status {
 	case shared.StackUpdateConflict:
 		r.emitEvent(instance,
@@ -346,22 +371,28 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 				"If Stack CR specifies 'retryOnUpdateConflict' a retry will trigger automatically.")
 		if sess.stack.RetryOnUpdateConflict {
 			reqLogger.Error(err, "Conflict with another concurrent update -- will retry shortly", "Stack.Name", stack.Stack)
+			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, "conflict with concurrent update, retryOnUpdateConflict set")
 			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 		}
 		reqLogger.Error(err, "Conflict with another concurrent update -- NOT retrying", "Stack.Name", stack.Stack)
+		instance.Status.MarkStalledCondition(pulumiv1.StalledConflictReason, "conflict with concurrent update, retryOnUpdateConflict not set")
 		return reconcile.Result{}, nil
 	case shared.StackNotFound:
 		r.emitEvent(instance, pulumiv1.StackNotFoundEvent(), "Stack not found. Will retry.")
 		reqLogger.Error(err, "Stack not found -- will retry shortly", "Stack.Name", stack.Stack, "Err:")
+		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, "stack not found in backend; retrying")
 		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	default:
 		if err != nil {
-			if err2 := r.markStackFailed(sess, instance, err, currentCommit, permalink); err2 != nil {
-				return reconcile.Result{}, err2
-			}
-			return reconcile.Result{}, err
+			r.markStackFailed(sess, instance, err, currentCommit, permalink)
+			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
+
+	// At this point, the stack has been processed successfully. Mark it as ready, and rely on the
+	// post-return hook `saveStatus` to account for any last minute exceptions.
+	instance.Status.MarkReadyCondition()
 
 	// Step 5. Capture outputs onto the resulting status object.
 	outs, err := sess.GetStackOutputs(result.Outputs)
@@ -374,11 +405,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		reqLogger.Info("Stack outputs are empty. Skipping status update", "Stack.Name", stack.Stack)
 		return reconcile.Result{}, nil
 	}
-	err = sess.getLatestResource(instance, request.NamespacedName)
-	if err != nil {
-		sess.logger.Error(err, "Failed to get latest Stack to update successful Stack status", "Stack.Name", instance.Spec.Stack)
-		return reconcile.Result{}, err
-	}
+
 	instance.Status.Outputs = outs
 	instance.Status.LastUpdate = &shared.StackUpdateState{
 		State:                shared.SucceededStackStateMessage,
@@ -387,12 +414,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		Permalink:            permalink,
 		LastResyncTime:       metav1.Now(),
 	}
-	err = sess.updateResourceStatus(instance)
-	if err != nil {
-		reqLogger.Error(err, "Failed to update Stack status", "Stack.Name", stack.Stack)
-		return reconcile.Result{}, err
-	}
-	reqLogger.Info("Successfully updated status for Stack", "Stack.Name", stack.Stack)
+
 	r.emitEvent(instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack.")
 	if trackBranch || sess.stack.ContinueResyncOnCommitMatch {
 		// Reconcile every 60 seconds to check for new commits to the branch.
@@ -407,7 +429,8 @@ func (r *ReconcileStack) emitEvent(instance *pulumiv1.Stack, event pulumiv1.Stac
 	r.recorder.Eventf(instance, event.EventType(), event.Reason(), messageFmt, args...)
 }
 
-func (r *ReconcileStack) markStackFailed(sess *reconcileStackSession, instance *pulumiv1.Stack, err error, currentCommit string, permalink shared.Permalink) error {
+// markStackFailed updates the status of the Stack object `instance` locally, to reflect a failure to process the stack.
+func (r *ReconcileStack) markStackFailed(sess *reconcileStackSession, instance *pulumiv1.Stack, err error, currentCommit string, permalink shared.Permalink) {
 	r.emitEvent(instance, pulumiv1.StackUpdateFailureEvent(), "Failed to update Stack: %v.", err.Error())
 	sess.logger.Error(err, "Failed to update Stack", "Stack.Name", sess.stack.Stack)
 	// Update Stack status with failed state
@@ -418,41 +441,43 @@ func (r *ReconcileStack) markStackFailed(sess *reconcileStackSession, instance *
 	instance.Status.LastUpdate.State = shared.FailedStackStateMessage
 	instance.Status.LastUpdate.Permalink = permalink
 	instance.Status.LastUpdate.LastResyncTime = metav1.Now()
-
-	if err2 := sess.updateResourceStatus(instance); err2 != nil {
-		msg := "Failed to update status for a failed Stack update"
-		err3 := errors.Wrapf(err, err2.Error())
-		sess.logger.Error(err3, msg)
-		return err3
-	}
-	return nil
 }
 
-func (sess *reconcileStackSession) finalize(stack *pulumiv1.Stack) error {
+func (sess *reconcileStackSession) finalize(ctx context.Context, stack *pulumiv1.Stack) error {
 	sess.logger.Info("Finalizing the stack")
 	// Run finalization logic for pulumiFinalizer. If the
 	// finalization logic fails, don't remove the finalizer so
 	// that we can retry during the next reconciliation.
-	if err := sess.finalizeStack(); err != nil {
+	if err := sess.finalizeStack(ctx); err != nil {
 		sess.logger.Error(err, "Failed to run Pulumi finalizer", "Stack.Name", stack.Spec.Stack)
 		return err
 	}
 
-	// Remove pulumiFinalizer. Once all finalizers have been
-	// removed, the object will be deleted.
-	controllerutil.RemoveFinalizer(stack, pulumiFinalizer)
-	if err := sess.updateResource(stack); err != nil {
-		sess.logger.Error(err, "Failed to delete Pulumi finalizer", "Stack.Name", stack.Spec.Stack)
-		return err
-	}
-
-	return nil
+	return sess.removeFinalizerAndUpdate(ctx, stack)
 }
 
-func (sess *reconcileStackSession) finalizeStack() error {
+// removeFinalizerAndUpdate makes sure this controller's finalizer is not present in the instance
+// given, and updates the object with the Kubernetes API client. It will retry if there is a
+// conflict, which is a possibility since other processes may be removing finalizers at the same
+// time.
+func (sess *reconcileStackSession) removeFinalizerAndUpdate(ctx context.Context, instance *pulumiv1.Stack) error {
+	key := client.ObjectKeyFromObject(instance)
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		var stack pulumiv1.Stack
+		if err := sess.kubeClient.Get(ctx, key, &stack); err != nil {
+			return err
+		}
+		// TODO: in more recent controller-runtime, the following returns a bool, and we could avoid
+		// the update if not necessary.
+		controllerutil.RemoveFinalizer(&stack, pulumiFinalizer)
+		return sess.kubeClient.Update(ctx, &stack)
+	})
+}
+
+func (sess *reconcileStackSession) finalizeStack(ctx context.Context) error {
 	// Destroy the stack resources and stack.
 	if sess.stack.DestroyOnFinalize {
-		if err := sess.DestroyStack(); err != nil {
+		if err := sess.DestroyStack(ctx); err != nil {
 			return err
 		}
 	}
@@ -460,22 +485,20 @@ func (sess *reconcileStackSession) finalizeStack() error {
 	return nil
 }
 
-// addFinalizer will add this attribute to the Stack CR
-func (sess *reconcileStackSession) addFinalizer(stack *pulumiv1.Stack) error {
+// addFinalizerAndUpdate adds this controller's finalizer to the given object, and updates it with
+// the Kubernetes API client. The update is retried, in case e.g., somebody else has updated the
+// spec.
+func (sess *reconcileStackSession) addFinalizerAndUpdate(ctx context.Context, stack *pulumiv1.Stack) error {
 	sess.logger.Debug("Adding Finalizer for the Stack", "Stack.Name", stack.Name)
-	namespacedName := types.NamespacedName{Name: stack.Name, Namespace: stack.Namespace}
-	err := sess.getLatestResource(stack, namespacedName)
-	if err != nil {
-		sess.logger.Error(err, "Failed to get latest Stack to add Pulumi finalizer", "Stack.Name", stack.Spec.Stack)
-		return err
-	}
-	controllerutil.AddFinalizer(stack, pulumiFinalizer)
-	err = sess.updateResource(stack)
-	if err != nil {
-		sess.logger.Error(err, "Failed to add Pulumi finalizer", "Stack.Name", stack.Spec.Stack)
-		return err
-	}
-	return nil
+	key := client.ObjectKeyFromObject(stack)
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		var stack pulumiv1.Stack
+		if err := sess.kubeClient.Get(ctx, key, &stack); err != nil {
+			return err
+		}
+		controllerutil.AddFinalizer(&stack, pulumiFinalizer)
+		return sess.kubeClient.Update(ctx, &stack)
+	})
 }
 
 type reconcileStackSession struct {
@@ -487,9 +510,6 @@ type reconcileStackSession struct {
 	workdir    string
 	rootDir    string
 }
-
-// blank assignment to verify that reconcileStackSession implements shared.StackController.
-var _ shared.StackController = &reconcileStackSession{}
 
 func newReconcileStackSession(
 	logger logging.Logger,
@@ -507,10 +527,10 @@ func newReconcileStackSession(
 
 // SetEnvs populates the environment the stack run with values
 // from an array of Kubernetes ConfigMaps in a Namespace.
-func (sess *reconcileStackSession) SetEnvs(configMapNames []string, namespace string) error {
+func (sess *reconcileStackSession) SetEnvs(ctx context.Context, configMapNames []string, namespace string) error {
 	for _, env := range configMapNames {
-		config := &corev1.ConfigMap{}
-		if err := sess.getLatestResource(config, types.NamespacedName{Name: env, Namespace: namespace}); err != nil {
+		var config corev1.ConfigMap
+		if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: env, Namespace: namespace}, &config); err != nil {
 			return errors.Wrapf(err, "Namespace=%s Name=%s", namespace, env)
 		}
 		if err := sess.autoStack.Workspace().SetEnvVars(config.Data); err != nil {
@@ -522,10 +542,10 @@ func (sess *reconcileStackSession) SetEnvs(configMapNames []string, namespace st
 
 // SetSecretEnvs populates the environment of the stack run with values
 // from an array of Kubernetes Secrets in a Namespace.
-func (sess *reconcileStackSession) SetSecretEnvs(secrets []string, namespace string) error {
+func (sess *reconcileStackSession) SetSecretEnvs(ctx context.Context, secrets []string, namespace string) error {
 	for _, env := range secrets {
-		config := &corev1.Secret{}
-		if err := sess.getLatestResource(config, types.NamespacedName{Name: env, Namespace: namespace}); err != nil {
+		var config corev1.Secret
+		if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: env, Namespace: namespace}, &config); err != nil {
 			return errors.Wrapf(err, "Namespace=%s Name=%s", namespace, env)
 		}
 		envvars := map[string]string{}
@@ -541,10 +561,10 @@ func (sess *reconcileStackSession) SetSecretEnvs(secrets []string, namespace str
 
 // SetEnvRefsForWorkspace populates environment variables for workspace using items in
 // the EnvRefs field in the stack specification.
-func (sess *reconcileStackSession) SetEnvRefsForWorkspace(w auto.Workspace) error {
+func (sess *reconcileStackSession) SetEnvRefsForWorkspace(ctx context.Context, w auto.Workspace) error {
 	envRefs := sess.stack.EnvRefs
 	for envVar, ref := range envRefs {
-		val, err := sess.resolveResourceRef(&ref)
+		val, err := sess.resolveResourceRef(ctx, &ref)
 		if err != nil {
 			return errors.Wrapf(err, "resolving env variable reference for: %q", envVar)
 		}
@@ -553,7 +573,7 @@ func (sess *reconcileStackSession) SetEnvRefsForWorkspace(w auto.Workspace) erro
 	return nil
 }
 
-func (sess *reconcileStackSession) resolveResourceRef(ref *shared.ResourceRef) (string, error) {
+func (sess *reconcileStackSession) resolveResourceRef(ctx context.Context, ref *shared.ResourceRef) (string, error) {
 	switch ref.SelectorType {
 	case shared.ResourceSelectorEnv:
 		if ref.Env != nil {
@@ -580,12 +600,12 @@ func (sess *reconcileStackSession) resolveResourceRef(ref *shared.ResourceRef) (
 		return "", errors.New("Missing filesystem reference in ResourceRef")
 	case shared.ResourceSelectorSecret:
 		if ref.SecretRef != nil {
-			config := &corev1.Secret{}
+			var config corev1.Secret
 			namespace := ref.SecretRef.Namespace
 			if namespace == "" {
 				namespace = sess.namespace
 			}
-			if err := sess.getLatestResource(config, types.NamespacedName{Name: ref.SecretRef.Name, Namespace: namespace}); err != nil {
+			if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: ref.SecretRef.Name, Namespace: namespace}, &config); err != nil {
 				return "", errors.Wrapf(err, "Namespace=%s Name=%s", ref.SecretRef.Namespace, ref.SecretRef.Name)
 			}
 			secretVal, ok := config.Data[ref.SecretRef.Key]
@@ -664,11 +684,11 @@ func (sess *reconcileStackSession) runCmd(title string, cmd *exec.Cmd, workspace
 	return stdout.String(), stderr.String(), err
 }
 
-func (sess *reconcileStackSession) lookupPulumiAccessToken() (string, bool) {
+func (sess *reconcileStackSession) lookupPulumiAccessToken(ctx context.Context) (string, bool) {
 	if sess.stack.AccessTokenSecret != "" {
 		// Fetch the API token from the named secret.
 		secret := &corev1.Secret{}
-		if err := sess.kubeClient.Get(context.TODO(),
+		if err := sess.kubeClient.Get(ctx,
 			types.NamespacedName{Name: sess.stack.AccessTokenSecret, Namespace: sess.namespace}, secret); err != nil {
 			sess.logger.Error(err, "Could not find secret for Pulumi API access",
 				"Namespace", sess.namespace, "Stack.AccessTokenSecret", sess.stack.AccessTokenSecret)
@@ -688,7 +708,7 @@ func (sess *reconcileStackSession) lookupPulumiAccessToken() (string, bool) {
 	return "", false
 }
 
-func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) error {
+func (sess *reconcileStackSession) SetupPulumiWorkdir(ctx context.Context, gitAuth *auto.GitAuth) error {
 	repo := auto.GitRepo{
 		URL:         sess.stack.ProjectRepo,
 		ProjectPath: sess.stack.RepoDir,
@@ -716,7 +736,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	}()
 
 	var w auto.Workspace
-	w, err = auto.NewLocalWorkspace(context.Background(), auto.WorkDir(dir), auto.Repo(repo), secretsProvider)
+	w, err = auto.NewLocalWorkspace(ctx, auto.WorkDir(dir), auto.Repo(repo), secretsProvider)
 	if err != nil {
 		return errors.Wrap(err, "failed to create local workspace")
 	}
@@ -726,15 +746,14 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	if sess.stack.Backend != "" {
 		w.SetEnvVar("PULUMI_BACKEND_URL", sess.stack.Backend)
 	}
-	if accessToken, found := sess.lookupPulumiAccessToken(); found {
+	if accessToken, found := sess.lookupPulumiAccessToken(ctx); found {
 		w.SetEnvVar("PULUMI_ACCESS_TOKEN", accessToken)
 	}
 
-	if err = sess.SetEnvRefsForWorkspace(w); err != nil {
+	if err = sess.SetEnvRefsForWorkspace(ctx, w); err != nil {
 		return err
 	}
 
-	ctx := context.Background()
 	var a auto.Stack
 
 	if sess.stack.UseLocalStackOnly {
@@ -758,7 +777,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	sess.logger.Debug("Initial autostack config", "config", c)
 
 	// Ensure stack settings file in workspace is populated appropriately.
-	if err = sess.ensureStackSettings(context.Background(), w); err != nil {
+	if err = sess.ensureStackSettings(ctx, w); err != nil {
 		return err
 	}
 
@@ -770,7 +789,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(gitAuth *auto.GitAuth) err
 	}
 
 	// Install project dependencies
-	if err = sess.InstallProjectDependencies(context.Background(), sess.autoStack.Workspace()); err != nil {
+	if err = sess.InstallProjectDependencies(ctx, sess.autoStack.Workspace()); err != nil {
 		return errors.Wrap(err, "installing project dependencies")
 	}
 
@@ -797,7 +816,7 @@ func (sess *reconcileStackSession) ensureStackSettings(ctx context.Context, w au
 		// https://github.com/pulumi/pulumi-kubernetes-operator/issues/135
 		stackConfig.SecretsProvider = sess.stack.SecretsProvider
 	}
-	if err := w.SaveStackSettings(context.Background(), sess.stack.Stack, stackConfig); err != nil {
+	if err := w.SaveStackSettings(ctx, sess.stack.Stack, stackConfig); err != nil {
 		return errors.Wrap(err, "failed to save stack settings.")
 	}
 	return nil
@@ -906,7 +925,7 @@ func (sess *reconcileStackSession) UpdateConfig(ctx context.Context) error {
 	}
 
 	for k, ref := range sess.stack.SecretRefs {
-		resolved, err := sess.resolveResourceRef(&ref)
+		resolved, err := sess.resolveResourceRef(ctx, &ref)
 		if err != nil {
 			return errors.Wrapf(err, "updating secretRef for: %q", k)
 		}
@@ -922,16 +941,14 @@ func (sess *reconcileStackSession) UpdateConfig(ctx context.Context) error {
 	return nil
 }
 
-func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (shared.Permalink, error) {
+func (sess *reconcileStackSession) RefreshStack(ctx context.Context, expectNoChanges bool) (shared.Permalink, error) {
 	writer := sess.logger.LogWriterDebug("Pulumi Refresh")
 	defer contract.IgnoreClose(writer)
 	opts := []optrefresh.Option{optrefresh.ProgressStreams(writer), optrefresh.UserAgent(execAgent)}
 	if expectNoChanges {
 		opts = append(opts, optrefresh.ExpectNoChanges())
 	}
-	result, err := sess.autoStack.Refresh(
-		context.Background(),
-		opts...)
+	result, err := sess.autoStack.Refresh(ctx, opts...)
 	if err != nil {
 		return "", errors.Wrapf(err, "refreshing stack %q", sess.stack.Stack)
 	}
@@ -947,11 +964,11 @@ func (sess *reconcileStackSession) RefreshStack(expectNoChanges bool) (shared.Pe
 // UpdateStack runs the update on the stack and returns an update status code
 // and error. In certain cases, an update may be unabled to proceed due to locking,
 // in which case the operator will requeue itself to retry later.
-func (sess *reconcileStackSession) UpdateStack() (shared.StackUpdateStatus, shared.Permalink, *auto.UpResult, error) {
+func (sess *reconcileStackSession) UpdateStack(ctx context.Context) (shared.StackUpdateStatus, shared.Permalink, *auto.UpResult, error) {
 	writer := sess.logger.LogWriterDebug("Pulumi Update")
 	defer contract.IgnoreClose(writer)
 
-	result, err := sess.autoStack.Up(context.Background(), optup.ProgressStreams(writer), optup.UserAgent(execAgent))
+	result, err := sess.autoStack.Up(ctx, optup.ProgressStreams(writer), optup.UserAgent(execAgent))
 	if err != nil {
 		// If this is the "conflict" error message, we will want to gracefully quit and retry.
 		if auto.IsConcurrentUpdateError(err) {
@@ -995,19 +1012,16 @@ func (sess *reconcileStackSession) GetStackOutputs(outs auto.OutputMap) (shared.
 	return o, nil
 }
 
-func (sess *reconcileStackSession) DestroyStack() error {
+func (sess *reconcileStackSession) DestroyStack(ctx context.Context) error {
 	writer := sess.logger.LogWriterInfo("Pulumi Destroy")
 	defer contract.IgnoreClose(writer)
 
-	_, err := sess.autoStack.Destroy(context.Background(),
-		optdestroy.ProgressStreams(writer),
-		optdestroy.UserAgent(execAgent),
-	)
+	_, err := sess.autoStack.Destroy(ctx, optdestroy.ProgressStreams(writer), optdestroy.UserAgent(execAgent))
 	if err != nil {
 		return errors.Wrapf(err, "destroying resources for stack '%s'", sess.stack.Stack)
 	}
 
-	err = sess.autoStack.Workspace().RemoveStack(context.Background(), sess.stack.Stack)
+	err = sess.autoStack.Workspace().RemoveStack(ctx, sess.stack.Stack)
 	if err != nil {
 		return errors.Wrapf(err, "removing stack '%s'", sess.stack.Stack)
 	}
@@ -1018,19 +1032,19 @@ func (sess *reconcileStackSession) DestroyStack() error {
 // repository of the stack. If neither gitAuth or gitAuthSecret are set,
 // a pointer to a zero value of GitAuth is returned — representing
 // unauthenticated git access.
-func (sess *reconcileStackSession) SetupGitAuth() (*auto.GitAuth, error) {
+func (sess *reconcileStackSession) SetupGitAuth(ctx context.Context) (*auto.GitAuth, error) {
 	gitAuth := &auto.GitAuth{}
 
 	if sess.stack.GitAuth != nil {
 		if sess.stack.GitAuth.SSHAuth != nil {
-			privateKey, err := sess.resolveResourceRef(&sess.stack.GitAuth.SSHAuth.SSHPrivateKey)
+			privateKey, err := sess.resolveResourceRef(ctx, &sess.stack.GitAuth.SSHAuth.SSHPrivateKey)
 			if err != nil {
 				return nil, errors.Wrap(err, "resolving gitAuth SSH private key")
 			}
 			gitAuth.SSHPrivateKey = privateKey
 
 			if sess.stack.GitAuth.SSHAuth.Password != nil {
-				password, err := sess.resolveResourceRef(sess.stack.GitAuth.SSHAuth.Password)
+				password, err := sess.resolveResourceRef(ctx, sess.stack.GitAuth.SSHAuth.Password)
 				if err != nil {
 					return nil, errors.Wrap(err, "resolving gitAuth SSH password")
 				}
@@ -1041,7 +1055,7 @@ func (sess *reconcileStackSession) SetupGitAuth() (*auto.GitAuth, error) {
 		}
 
 		if sess.stack.GitAuth.PersonalAccessToken != nil {
-			accessToken, err := sess.resolveResourceRef(sess.stack.GitAuth.PersonalAccessToken)
+			accessToken, err := sess.resolveResourceRef(ctx, sess.stack.GitAuth.PersonalAccessToken)
 			if err != nil {
 				return nil, errors.Wrap(err, "resolving gitAuth personal access token")
 			}
@@ -1054,12 +1068,12 @@ func (sess *reconcileStackSession) SetupGitAuth() (*auto.GitAuth, error) {
 				"'personalAccessToken', 'sshPrivateKey' or 'basicAuth'")
 		}
 
-		userName, err := sess.resolveResourceRef(&sess.stack.GitAuth.BasicAuth.UserName)
+		userName, err := sess.resolveResourceRef(ctx, &sess.stack.GitAuth.BasicAuth.UserName)
 		if err != nil {
 			return nil, errors.Wrap(err, "resolving gitAuth username")
 		}
 
-		password, err := sess.resolveResourceRef(&sess.stack.GitAuth.BasicAuth.Password)
+		password, err := sess.resolveResourceRef(ctx, &sess.stack.GitAuth.BasicAuth.Password)
 		if err != nil {
 			return nil, errors.Wrap(err, "resolving gitAuth password")
 		}
@@ -1071,7 +1085,7 @@ func (sess *reconcileStackSession) SetupGitAuth() (*auto.GitAuth, error) {
 
 		// Fetch the named secret.
 		secret := &corev1.Secret{}
-		if err := sess.kubeClient.Get(context.TODO(), namespacedName, secret); err != nil {
+		if err := sess.kubeClient.Get(ctx, namespacedName, secret); err != nil {
 			sess.logger.Error(err, "Could not find secret for access to the git repository",
 				"Namespace", sess.namespace, "Stack.GitAuthSecret", sess.stack.GitAuthSecret)
 			return nil, err
@@ -1108,15 +1122,9 @@ func (sess *reconcileStackSession) SetupGitAuth() (*auto.GitAuth, error) {
 }
 
 // Add default permalink for the stack in the Pulumi Service.
-func (sess *reconcileStackSession) addDefaultPermalink(stack *pulumiv1.Stack) error {
-	namespacedName := types.NamespacedName{Name: stack.Name, Namespace: stack.Namespace}
-	err := sess.getLatestResource(stack, namespacedName)
-	if err != nil {
-		sess.logger.Error(err, "Failed to get latest Stack to update Stack Permalink URL", "Stack.Name", stack.Spec.Stack)
-		return err
-	}
+func (sess *reconcileStackSession) addDefaultPermalink(ctx context.Context, stack *pulumiv1.Stack) error {
 	// Get stack URL.
-	info, err := sess.autoStack.Info(context.Background())
+	info, err := sess.autoStack.Info(ctx)
 	if err != nil {
 		sess.logger.Error(err, "Failed to update Stack status with default permalink", "Stack.Name", stack.Spec.Stack)
 		return err
@@ -1126,35 +1134,28 @@ func (sess *reconcileStackSession) addDefaultPermalink(stack *pulumiv1.Stack) er
 		stack.Status.LastUpdate = &shared.StackUpdateState{}
 	}
 	stack.Status.LastUpdate.Permalink = shared.Permalink(info.URL)
-	err = sess.updateResourceStatus(stack)
+	err = sess.patchStatus(ctx, stack)
 	if err != nil {
-		sess.logger.Error(err, "Failed to update Stack status with default permalink", "Stack.Name", stack.Spec.Stack)
 		return err
 	}
 	sess.logger.Debug("Successfully updated Stack with default permalink", "Stack.Name", stack.Spec.Stack)
 	return nil
 }
 
-func (sess *reconcileStackSession) getLatestResource(o client.Object, namespacedName types.NamespacedName) error {
-	return sess.kubeClient.Get(context.TODO(), namespacedName, o)
-}
-
-func (sess *reconcileStackSession) updateResource(o client.Object) error {
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		return sess.kubeClient.Update(context.TODO(), o)
-	})
-}
-
-func (sess *reconcileStackSession) updateResourceStatus(o *pulumiv1.Stack) error {
-	name := types.NamespacedName{Name: o.Name, Namespace: o.Namespace}
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		var s pulumiv1.Stack
-		if err := sess.kubeClient.Get(context.TODO(), name, &s); err != nil {
-			return err
-		}
-		s.Status = o.Status
-		return sess.kubeClient.Status().Update(context.TODO(), &s)
-	})
+// patchStatus updates the recorded status of a stack using a patch. The patch is calculated with
+// respect to a freshly fetched object, to better avoid conflicts.
+func (sess *reconcileStackSession) patchStatus(ctx context.Context, o *pulumiv1.Stack) error {
+	var s pulumiv1.Stack
+	if err := sess.kubeClient.Get(ctx, types.NamespacedName{
+		Namespace: o.GetNamespace(),
+		Name:      o.GetName(),
+	}, &s); err != nil {
+		return err
+	}
+	s1 := s.DeepCopy()
+	s1.Status = o.Status
+	patch := client.MergeFrom(&s)
+	return sess.kubeClient.Status().Patch(ctx, s1, patch)
 }
 
 // addSSHKeysToKnownHosts scans the public SSH keys for the project repository URL

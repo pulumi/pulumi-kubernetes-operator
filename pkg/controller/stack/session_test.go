@@ -3,6 +3,7 @@
 package stack
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
@@ -180,7 +181,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithSecrets() {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			session := newReconcileStackSession(logger, shared.StackSpec{GitAuthSecret: test.gitAuthSecret}, client, namespace)
-			gitAuth, err := session.SetupGitAuth()
+			gitAuth, err := session.SetupGitAuth(context.TODO())
 			if test.err != nil {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.err.Error())
@@ -436,7 +437,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			session := newReconcileStackSession(logger, shared.StackSpec{GitAuth: test.gitAuth}, client, namespace)
-			gitAuth, err := session.SetupGitAuth()
+			gitAuth, err := session.SetupGitAuth(context.TODO())
 			if test.err != nil {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.err.Error())

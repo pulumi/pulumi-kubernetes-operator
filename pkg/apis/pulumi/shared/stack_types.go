@@ -1,9 +1,6 @@
 package shared
 
 import (
-	"context"
-
-	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -338,38 +335,3 @@ const (
 
 // Permalink is the Pulumi Service URL of the stack operation.
 type Permalink string
-
-// StackController contains methods to operate a Pulumi Project and Stack in an update.
-//
-// Ignoring operator codegen of interface as it is an API contract for implementation,
-// not a type that is used in kubernetes.
-// +kubebuilder:object:generate=false
-type StackController interface {
-	// Project setup:
-
-	// InstallProjectDependencies installs the package manager dependencies for the project's language.
-	InstallProjectDependencies(ctx context.Context, workspace auto.Workspace) error
-	// SetEnvs populates the environment of the stack run with values
-	// from an array of Kubernetes ConfigMaps in a Namespace.
-	SetEnvs(configMapNames []string, namespace string) error
-	// SetSecretEnvs populates the environment of the stack run with values
-	// from an array of Kubernetes Secrets in a Namespace.
-	SetSecretEnvs(secretNames []string, namespace string) error
-
-	// Lifecycle:
-
-	// UpdateConfig updates the stack configuration values and secret values by
-	// combining any configuration values checked into the source repository with
-	// the Config values provided in the Stack, overriding values that match and exist.
-	UpdateConfig(ctx context.Context) error
-	// RefreshStack refreshes the stack before the update step is run, and
-	// errors the run if changes were not expected but found after the refresh.
-	RefreshStack(expectNoChanges bool) (Permalink, error)
-	// UpdateStack deploys the stack's resources, computes the new desired
-	// state, and returns the update's status.
-	UpdateStack() (StackUpdateStatus, Permalink, *auto.UpResult, error)
-	// GetStackOutputs returns all of the the stack's output properties.
-	GetStackOutputs(outputs auto.OutputMap) (StackOutputs, error)
-	// DestroyStack destroys the stack's resources and state, and the stack itself.
-	DestroyStack() error
-}

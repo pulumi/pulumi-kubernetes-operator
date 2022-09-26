@@ -234,7 +234,7 @@ var _ = Describe("Stack Controller", func() {
 				return false
 			}
 
-			return stackUpdatedToCommit(&fetched.Status, stack.Spec.Commit)
+			return stackUpdatedToCommit(fetched.Status.LastUpdate, stack.Spec.Commit)
 		}, stackExecTimeout, interval).Should(BeTrue())
 		// Validate outputs.
 		Expect(fetched.Status.Outputs).Should(BeEquivalentTo(shared.StackOutputs{
@@ -289,7 +289,7 @@ var _ = Describe("Stack Controller", func() {
 			if err != nil {
 				return false
 			}
-			return stackUpdatedToCommit(&original.Status, stack.Spec.Commit)
+			return stackUpdatedToCommit(original.Status.LastUpdate, stack.Spec.Commit)
 		}, stackExecTimeout, interval).Should(BeTrue())
 
 		// Update the stack config (this time to cause a failure)
@@ -357,7 +357,7 @@ var _ = Describe("Stack Controller", func() {
 			if err != nil {
 				return false
 			}
-			return stackUpdatedToCommit(&fetched.Status, commit)
+			return stackUpdatedToCommit(fetched.Status.LastUpdate, commit)
 		}, stackExecTimeout, interval).Should(BeTrue())
 
 		// Delete the Stack
@@ -413,7 +413,7 @@ var _ = Describe("Stack Controller", func() {
 			if err != nil {
 				return false
 			}
-			return stackUpdatedToCommit(&fetched.Status, stack.Spec.Commit)
+			return stackUpdatedToCommit(fetched.Status.LastUpdate, stack.Spec.Commit)
 		}, stackExecTimeout, interval).Should(BeTrue())
 	})
 
@@ -492,7 +492,7 @@ var _ = Describe("Stack Controller", func() {
 			if err != nil {
 				return false
 			}
-			return stackUpdatedToCommit(&initial.Status, stack.Spec.Commit)
+			return stackUpdatedToCommit(initial.Status.LastUpdate, stack.Spec.Commit)
 		}, stackExecTimeout, interval).Should(BeTrue())
 
 		// Check that secrets are not leaked
@@ -525,11 +525,11 @@ func getCurrentCommit(path string) (string, error) {
 	return ref.Hash().String(), nil
 }
 
-func stackUpdatedToCommit(stackStatus *shared.StackStatus, commit string) bool {
-	if stackStatus.LastUpdate != nil {
-		return stackStatus.LastUpdate.LastSuccessfulCommit == commit &&
-			stackStatus.LastUpdate.LastAttemptedCommit == commit &&
-			stackStatus.LastUpdate.State == shared.SucceededStackStateMessage
+func stackUpdatedToCommit(lastUpdate *shared.StackUpdateState, commit string) bool {
+	if lastUpdate != nil {
+		return lastUpdate.LastSuccessfulCommit == commit &&
+			lastUpdate.LastAttemptedCommit == commit &&
+			lastUpdate.State == shared.SucceededStackStateMessage
 	}
 	return false
 }
