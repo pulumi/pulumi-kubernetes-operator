@@ -47,7 +47,7 @@ $ brew install pulumi
 #### Login to Your Chosen State Backend
 
 The operator stores additional metadata about provisioned resources. By default, Pulumi (and the Pulumi Kubernetes Operator) uses the [Pulumi managed SaaS backend](https://app.pulumi.com/) to store this state and manage concurrency. 
-However, in addition to the managed backend, Pulumi also readily integrates with a variety of state backends, like [S3](https://www.pulumi.com/docs/intro/concepts/state/#logging-into-the-aws-s3-backend), [Azure Blob Storage](https://www.pulumi.com/docs/intro/concepts/state/#logging-into-the-azure-blob-storage-backend), [Google Cloud Storage](https://www.pulumi.com/docs/intro/concepts/state/#logging-into-the-google-cloud-storage-backend), etc. See [here](https://www.pulumi.com/docs/intro/concepts/state/#deciding-on-a-backend) for a detailed discussion on choosing a state backend. 
+However, in addition to the managed backend, Pulumi also readily integrates with a variety of state backends, like [S3](https://www.pulumi.com/docs/intro/concepts/state/#logging-into-the-aws-s3-backend), [Azure Blob Storage](https://www.pulumi.com/docs/intro/concepts/state/#logging-into-the-azure-blob-storage-backend), [Google Cloud Storage](https://www.pulumi.com/docs/intro/concepts/state/#logging-into-the-google-cloud-storage-backend), etc. See [here](https://www.pulumi.com/docs/intro/concepts/state/#deciding-on-a-backend) for a detailed discussion on choosing a state backend.
 
 Login to Pulumi using your chosen state backend. For simplicity we will only cover the Pulumi managed SaaS state backend and AWS S3 here:
 
@@ -86,7 +86,6 @@ At this point your `pulumi` CLI is configured to work with the Pulumi SaaS backe
 1. Lastly you will need to [create an AWS Key Management Service (KMS) key](https://docs.aws.amazon.com/kms/latest/developerguide/create-keys.html#create-symmetric-cmk). This key will be used by Pulumi to encrypt secret configuration values or outputs associated with stacks. Pulumi ensures all secrets are stored encrypted in transit and at rest. By default, the SaaS backend creates per-stack encryption keys to do this, however, Pulumi can leverage KMS as one of [several supported encryption providers](https://www.pulumi.com/docs/intro/concepts/secrets/#available-encryption-providers) instead, thus allowing users to self-manage their encryption keys. 
 </details>
 
-
 ## Deploy the Operator
 
 Deploy the operator to a Kubernetes cluster.
@@ -109,59 +108,63 @@ Deploy the API resources for the operator.
 kubectl apply -f deploy/yaml
 ```
 
+This will deploy the operator to the default namespace (which depends on your configuration, and is
+usually `"default"`). To deploy to a different namespace:
+
+```bash
+kubectl apply -n <namespace> -f deploy/yaml
+```
+
+You can deploy to several namespaces by repeating the above command.
+
 ### Using Pulumi
 
 First, make sure you have reviewed and performed the tasks identified in the [prerequisite section](#prerequisites).
 
-Download the [latest release](https://github.com/pulumi/pulumi-kubernetes-operator/releases) `source code` tar ball and expand it locally. 
-Change directory to the expanded tarball (e.g. `pulumi-kubernetes-operator-x.y.z`).
+We will create a Pulumi project to deploy the operator by using a template, then customize it if
+necessary, then use `pulumi up` to run it. There is a choice of template, related to the programming
+language and environment you wish to use:
 
-<details>
-<summary>TypeScript</summary>
+ - deploy/deploy-operator-cs (.NET)
+ - deploy/deploy-operator-go (Go)
+ - deploy/deploy-operator-py (Python)
+ - deploy/deploy-operator-ts (TypeScript/NodeJS)
 
-1. Go to the [`deploy/deploy-operator-ts`](deploy/deploy-operator-ts/index.ts) directory
-1. Run `pulumi stack init` and choose a stack name. If you are using the S3 backend, you may specify the KMS key as well:
-   ```shell
-   $ pulumi stack init --secrets-provider="awskms:///arn:aws:kms:...?region=<region>"
-   ```
-1. Run `yarn install` to install the dependencies
-1. Run `pulumi up`
-</details>
+Pick one of those, then create a new project in a fresh directory:
 
-<details>
-<summary>Python</summary>
+```bash
+TEMPLATE=deploy/deploy-operator-ts # for example
+mkdir deploy-operator
+cd deploy-operator
+pulumi new https://github.com/pulumi-kubernetes-operator/$TEMPLATE
+# If using the S3 state backend, you may wish to set the secrets provider here
+pulumi stack change-secrets-provider "awskms:///arn:aws:kms:...?region=<region>"
+```
 
-1. Go to the [`deploy/deploy-operator-py`](deploy/deploy-operator-py/__main__.py) directory
-1. Run `pulumi stack init` and choose a stack name. If you are using the S3 backend, you may specify the KMS key as well:
-   ```shell
-   $ pulumi stack init --secrets-provider="awskms:///arn:aws:kms:...?region=<region>"
-   ```
-1. Run `pulumi up`
-</details>
+You can then set the namespace, or namespaces, in which to deploy the operator:
 
-<details>
-<summary>C#</summary>
+```bash
+pulumi config set namespace ns1
+# OR deploy to multiple namespaces
+pulumi set config --path namespaces[0] ns1
+pulumi set config --path namespaces[1] ns2
+```
 
-1. Go to the [`deploy/deploy-operator-cs`](deploy/deploy-operator-cs/MyStack.cs) directory
-1. Run `pulumi stack init` and choose a stack name. If you are using the S3 backend, you may specify the KMS key as well:
-   ```shell
-   $ pulumi stack init --secrets-provider="awskms:///arn:aws:kms:...?region=<region>"
-   ```
-1. Run `pulumi up`
+And finally, run the program:
 
-</details>
+```bash
+pulumi up
+```
 
-<details>
-<summary>Go</summary>
+### Upgrading the operator
 
-1. Go to the [`deploy/deploy-operator-go`](deploy/deploy-operator-go/main.go) directory
-1. Run `pulumi stack init` and choose a stack name. If you are using the S3 backend, you may specify the KMS key as well:
-   ```shell
-   $ pulumi stack init --secrets-provider="awskms:///arn:aws:kms:...?region=<region>"
-   ```
-1. Run `pulumi up`
+For patch and minor version releases, you can just bump the version in your stack config and rerun
+`pulumi up`. For example, if the new version is v1.10.2, you would do this:
 
-</details>
+```bash
+pulumi config set operator-version v1.10.2
+pulumi up
+```
 
 ## Create Pulumi Stack CustomResources
 
