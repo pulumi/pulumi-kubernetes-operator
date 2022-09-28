@@ -60,6 +60,24 @@ const (
 	defaultMaxConcurrentReconciles = 10
 )
 
+const (
+	// envInsecureNoNamespaceIsolation is the name of the environment entry which, when set to a
+	// truthy value (1|true), shall allow multiple namespaces to be watched, and cross-namespace
+	// references to be accepted.
+	EnvInsecureNoNamespaceIsolation = "INSECURE_NO_NAMESPACE_ISOLATION"
+)
+
+func IsNamespaceIsolationWaived() bool {
+	switch os.Getenv(EnvInsecureNoNamespaceIsolation) {
+	case "1", "true":
+		return true
+	default:
+		return false
+	}
+}
+
+var errNamespaceIsolation = fmt.Errorf(`refs are constrained to the object's namespace unless %s is set`, EnvInsecureNoNamespaceIsolation)
+
 // Add creates a new Stack Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -605,6 +623,11 @@ func (sess *reconcileStackSession) resolveResourceRef(ctx context.Context, ref *
 			if namespace == "" {
 				namespace = sess.namespace
 			}
+			// enforce namespace isolation unless it's explicitly been waived
+			if !IsNamespaceIsolationWaived() && namespace != sess.namespace {
+				return "", errNamespaceIsolation
+			}
+
 			if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: ref.SecretRef.Name, Namespace: namespace}, &config); err != nil {
 				return "", errors.Wrapf(err, "Namespace=%s Name=%s", ref.SecretRef.Namespace, ref.SecretRef.Name)
 			}

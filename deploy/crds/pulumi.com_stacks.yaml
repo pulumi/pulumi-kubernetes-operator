@@ -139,8 +139,9 @@ spec:
                           description: Name of the secret
                           type: string
                         namespace:
-                          description: Namespace where the secret is stored. Defaults
-                            to 'default' if omitted.
+                          description: Namespace where the secret is stored. Deprecated;
+                            non-empty values will be considered invalid unless namespace
+                            isolation is disabled in the controller.
                           type: string
                       required:
                       - key
@@ -232,8 +233,9 @@ spec:
                             description: Name of the secret
                             type: string
                           namespace:
-                            description: Namespace where the secret is stored. Defaults
-                              to 'default' if omitted.
+                            description: Namespace where the secret is stored. Deprecated;
+                              non-empty values will be considered invalid unless namespace
+                              isolation is disabled in the controller.
                             type: string
                         required:
                         - key
@@ -298,7 +300,9 @@ spec:
                                 type: string
                               namespace:
                                 description: Namespace where the secret is stored.
-                                  Defaults to 'default' if omitted.
+                                  Deprecated; non-empty values will be considered
+                                  invalid unless namespace isolation is disabled in
+                                  the controller.
                                 type: string
                             required:
                             - key
@@ -358,7 +362,9 @@ spec:
                                 type: string
                               namespace:
                                 description: Namespace where the secret is stored.
-                                  Defaults to 'default' if omitted.
+                                  Deprecated; non-empty values will be considered
+                                  invalid unless namespace isolation is disabled in
+                                  the controller.
                                 type: string
                             required:
                             - key
@@ -426,7 +432,9 @@ spec:
                                 type: string
                               namespace:
                                 description: Namespace where the secret is stored.
-                                  Defaults to 'default' if omitted.
+                                  Deprecated; non-empty values will be considered
+                                  invalid unless namespace isolation is disabled in
+                                  the controller.
                                 type: string
                             required:
                             - key
@@ -486,7 +494,9 @@ spec:
                                 type: string
                               namespace:
                                 description: Namespace where the secret is stored.
-                                  Defaults to 'default' if omitted.
+                                  Deprecated; non-empty values will be considered
+                                  invalid unless namespace isolation is disabled in
+                                  the controller.
                                 type: string
                             required:
                             - key
@@ -605,8 +615,9 @@ spec:
                           description: Name of the secret
                           type: string
                         namespace:
-                          description: Namespace where the secret is stored. Defaults
-                            to 'default' if omitted.
+                          description: Namespace where the secret is stored. Deprecated;
+                            non-empty values will be considered invalid unless namespace
+                            isolation is disabled in the controller.
                           type: string
                       required:
                       - key
@@ -870,8 +881,9 @@ spec:
                           description: Name of the secret
                           type: string
                         namespace:
-                          description: Namespace where the secret is stored. Defaults
-                            to 'default' if omitted.
+                          description: Namespace where the secret is stored. Deprecated;
+                            non-empty values will be considered invalid unless namespace
+                            isolation is disabled in the controller.
                           type: string
                       required:
                       - key
@@ -963,8 +975,9 @@ spec:
                             description: Name of the secret
                             type: string
                           namespace:
-                            description: Namespace where the secret is stored. Defaults
-                              to 'default' if omitted.
+                            description: Namespace where the secret is stored. Deprecated;
+                              non-empty values will be considered invalid unless namespace
+                              isolation is disabled in the controller.
                             type: string
                         required:
                         - key
@@ -1029,7 +1042,9 @@ spec:
                                 type: string
                               namespace:
                                 description: Namespace where the secret is stored.
-                                  Defaults to 'default' if omitted.
+                                  Deprecated; non-empty values will be considered
+                                  invalid unless namespace isolation is disabled in
+                                  the controller.
                                 type: string
                             required:
                             - key
@@ -1089,7 +1104,9 @@ spec:
                                 type: string
                               namespace:
                                 description: Namespace where the secret is stored.
-                                  Defaults to 'default' if omitted.
+                                  Deprecated; non-empty values will be considered
+                                  invalid unless namespace isolation is disabled in
+                                  the controller.
                                 type: string
                             required:
                             - key
@@ -1157,7 +1174,9 @@ spec:
                                 type: string
                               namespace:
                                 description: Namespace where the secret is stored.
-                                  Defaults to 'default' if omitted.
+                                  Deprecated; non-empty values will be considered
+                                  invalid unless namespace isolation is disabled in
+                                  the controller.
                                 type: string
                             required:
                             - key
@@ -1217,7 +1236,9 @@ spec:
                                 type: string
                               namespace:
                                 description: Namespace where the secret is stored.
-                                  Defaults to 'default' if omitted.
+                                  Deprecated; non-empty values will be considered
+                                  invalid unless namespace isolation is disabled in
+                                  the controller.
                                 type: string
                             required:
                             - key
@@ -1336,8 +1357,9 @@ spec:
                           description: Name of the secret
                           type: string
                         namespace:
-                          description: Namespace where the secret is stored. Defaults
-                            to 'default' if omitted.
+                          description: Namespace where the secret is stored. Deprecated;
+                            non-empty values will be considered invalid unless namespace
+                            isolation is disabled in the controller.
                           type: string
                       required:
                       - key

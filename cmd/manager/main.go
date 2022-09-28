@@ -18,6 +18,7 @@ import (
 
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/controller"
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/controller/stack"
 	"github.com/pulumi/pulumi-kubernetes-operator/version"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
@@ -40,6 +41,9 @@ const (
 )
 
 var errEmptyWatchNamespaces = errors.New("WATCH_NAMESPACE has only empty entries")
+var errNeedNamespaceIsolationWaiver = fmt.Errorf(
+	`WATCH_NAMESPACE must be exactly one namespace, unless %s has been set`,
+	stack.EnvInsecureNoNamespaceIsolation)
 
 // Change below variables to serve metrics on different host or port.
 var (
@@ -83,6 +87,14 @@ func main() {
 	if err != nil {
 		log.Error(err, "Failed to get watch namespace")
 		os.Exit(1)
+	}
+
+	// Validate the value of WATCH_NAMESPACE against the namespace isolation guard.
+	if namespace == "" || strings.Contains(namespace, ",") {
+		if !stack.IsNamespaceIsolationWaived() {
+			log.Error(errNeedNamespaceIsolationWaiver, "invalid value in WATCH_NAMESPACE")
+			os.Exit(1)
+		}
 	}
 
 	// Get a config to talk to the apiserver
