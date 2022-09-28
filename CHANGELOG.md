@@ -3,6 +3,10 @@ CHANGELOG
 
 ## HEAD (Unreleased)
 
+- Expand the installation programs in deploy/ so they can deploy the operator to several namespaces
+  in one go, as well as upgrade the operator version.
+  [#328](https://github.com/pulumi/pulumi-kubernetes-operator/pull/328)
+
 ## 1.10.1 (2022-10-25)
 
 - Give an example of using this operator with a Flux GitRepository and webhooks, in
