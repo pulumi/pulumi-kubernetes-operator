@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -18,7 +19,6 @@ import (
 
 	"github.com/operator-framework/operator-lib/handler"
 	libpredicate "github.com/operator-framework/operator-lib/predicate"
-	"github.com/pkg/errors"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
@@ -291,13 +291,13 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
 	if err = sess.SetEnvs(ctx, stack.Envs, request.Namespace); err != nil {
-		err := errors.Wrap(err, "could not find ConfigMap for Envs")
+		err := fmt.Errorf("could not find ConfigMap for Envs: %w", err)
 		r.markStackFailed(sess, instance, err, currentCommit, "")
 		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
 		return reconcile.Result{Requeue: true}, nil
 	}
 	if err = sess.SetSecretEnvs(ctx, stack.SecretEnvs, request.Namespace); err != nil {
-		err := errors.Wrap(err, "could not find Secret for SecretEnvs")
+		err := fmt.Errorf("could not find Secret for SecretEnvs: %w", err)
 		r.markStackFailed(sess, instance, err, currentCommit, "")
 		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
 		return reconcile.Result{Requeue: true}, nil
@@ -361,7 +361,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	if sess.stack.Refresh {
 		permalink, err := sess.RefreshStack(ctx, sess.stack.ExpectNoRefreshChanges)
 		if err != nil {
-			r.markStackFailed(sess, instance, errors.Wrap(err, "refreshing stack"), currentCommit, permalink)
+			r.markStackFailed(sess, instance, fmt.Errorf("refreshing stack: %w", err), currentCommit, permalink)
 			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
 			return reconcile.Result{Requeue: true}, nil
 		}
@@ -549,10 +549,10 @@ func (sess *reconcileStackSession) SetEnvs(ctx context.Context, configMapNames [
 	for _, env := range configMapNames {
 		var config corev1.ConfigMap
 		if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: env, Namespace: namespace}, &config); err != nil {
-			return errors.Wrapf(err, "Namespace=%s Name=%s", namespace, env)
+			return fmt.Errorf("Namespace=%s Name=%s: %w", namespace, env, err)
 		}
 		if err := sess.autoStack.Workspace().SetEnvVars(config.Data); err != nil {
-			return errors.Wrapf(err, "Namespace=%s Name=%s", namespace, env)
+			return fmt.Errorf("Namespace=%s Name=%s: %w", namespace, env, err)
 		}
 	}
 	return nil
@@ -564,14 +564,14 @@ func (sess *reconcileStackSession) SetSecretEnvs(ctx context.Context, secrets []
 	for _, env := range secrets {
 		var config corev1.Secret
 		if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: env, Namespace: namespace}, &config); err != nil {
-			return errors.Wrapf(err, "Namespace=%s Name=%s", namespace, env)
+			return fmt.Errorf("Namespace=%s Name=%s: %w", namespace, env, err)
 		}
 		envvars := map[string]string{}
 		for k, v := range config.Data {
 			envvars[k] = string(v)
 		}
 		if err := sess.autoStack.Workspace().SetEnvVars(envvars); err != nil {
-			return errors.Wrapf(err, "Namespace=%s Name=%s", namespace, env)
+			return fmt.Errorf("Namespace=%s Name=%s: %w", namespace, env, err)
 		}
 	}
 	return nil
@@ -584,7 +584,7 @@ func (sess *reconcileStackSession) SetEnvRefsForWorkspace(ctx context.Context, w
 	for envVar, ref := range envRefs {
 		val, err := sess.resolveResourceRef(ctx, &ref)
 		if err != nil {
-			return errors.Wrapf(err, "resolving env variable reference for: %q", envVar)
+			return fmt.Errorf("resolving env variable reference for %q: %w", envVar, err)
 		}
 		w.SetEnvVar(envVar, val)
 	}
@@ -611,7 +611,7 @@ func (sess *reconcileStackSession) resolveResourceRef(ctx context.Context, ref *
 		if ref.FileSystem != nil {
 			contents, err := os.ReadFile(ref.FileSystem.Path)
 			if err != nil {
-				return "", errors.Wrapf(err, "reading path: %q", ref.FileSystem.Path)
+				return "", fmt.Errorf("reading path %q: %w", ref.FileSystem.Path, err)
 			}
 			return string(contents), nil
 		}
@@ -629,17 +629,17 @@ func (sess *reconcileStackSession) resolveResourceRef(ctx context.Context, ref *
 			}
 
 			if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: ref.SecretRef.Name, Namespace: namespace}, &config); err != nil {
-				return "", errors.Wrapf(err, "Namespace=%s Name=%s", ref.SecretRef.Namespace, ref.SecretRef.Name)
+				return "", fmt.Errorf("Namespace=%s Name=%s: %w", ref.SecretRef.Namespace, ref.SecretRef.Name, err)
 			}
 			secretVal, ok := config.Data[ref.SecretRef.Key]
 			if !ok {
-				return "", errors.Errorf("No key %s found in secret %s/%s", ref.SecretRef.Key, ref.SecretRef.Namespace, ref.SecretRef.Name)
+				return "", fmt.Errorf("No key %s found in secret %s/%s", ref.SecretRef.Key, ref.SecretRef.Namespace, ref.SecretRef.Name)
 			}
 			return string(secretVal), nil
 		}
 		return "", errors.New("Mising secret reference in ResourceRef")
 	default:
-		return "", errors.Errorf("Unsupported selector type: %v", ref.SelectorType)
+		return "", fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
 	}
 }
 
@@ -747,7 +747,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(ctx context.Context, gitAu
 	// Create the temporary workdir
 	dir, err := os.MkdirTemp("", "pulumi_auto")
 	if err != nil {
-		return errors.Wrap(err, "unable to create tmp directory for workspace")
+		return fmt.Errorf("unable to create tmp directory for workspace: %w", err)
 	}
 	sess.rootDir = dir
 
@@ -761,7 +761,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(ctx context.Context, gitAu
 	var w auto.Workspace
 	w, err = auto.NewLocalWorkspace(ctx, auto.WorkDir(dir), auto.Repo(repo), secretsProvider)
 	if err != nil {
-		return errors.Wrap(err, "failed to create local workspace")
+		return fmt.Errorf("failed to create local workspace: %w", err)
 	}
 
 	sess.workdir = w.WorkDir()
@@ -787,7 +787,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(ctx context.Context, gitAu
 		a, err = auto.UpsertStack(ctx, sess.stack.Stack, w)
 	}
 	if err != nil {
-		return errors.Wrapf(err, "failed to create and/or select stack: %s", sess.stack.Stack)
+		return fmt.Errorf("failed to create and/or select stack %s: %w", sess.stack.Stack, err)
 	}
 	sess.autoStack = &a
 	sess.logger.Debug("Setting autostack", "autostack", sess.autoStack)
@@ -808,12 +808,12 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(ctx context.Context, gitAu
 	err = sess.UpdateConfig(ctx)
 	if err != nil {
 		sess.logger.Error(err, "failed to set stack config", "Stack.Name", sess.stack.Stack)
-		return errors.Wrap(err, "failed to set stack config")
+		return fmt.Errorf("failed to set stack config: %w", err)
 	}
 
 	// Install project dependencies
 	if err = sess.InstallProjectDependencies(ctx, sess.autoStack.Workspace()); err != nil {
-		return errors.Wrap(err, "installing project dependencies")
+		return fmt.Errorf("installing project dependencies: %w", err)
 	}
 
 	return nil
@@ -840,7 +840,7 @@ func (sess *reconcileStackSession) ensureStackSettings(ctx context.Context, w au
 		stackConfig.SecretsProvider = sess.stack.SecretsProvider
 	}
 	if err := w.SaveStackSettings(ctx, sess.stack.Stack, stackConfig); err != nil {
-		return errors.Wrap(err, "failed to save stack settings.")
+		return fmt.Errorf("failed to save stack settings: %w", err)
 	}
 	return nil
 }
@@ -857,11 +857,11 @@ func (sess *reconcileStackSession) CleanupPulumiDir() {
 func revisionAtWorkingDir(workingDir string) (string, error) {
 	gitRepo, err := git.PlainOpenWithOptions(workingDir, &git.PlainOpenOptions{DetectDotGit: true})
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to resolve git repository from working directory: %s", workingDir)
+		return "", fmt.Errorf("failed to resolve git repository from working directory %s: %w", workingDir, err)
 	}
 	headRef, err := gitRepo.Head()
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to determine revision for git repository at %s", workingDir)
+		return "", fmt.Errorf("failed to determine revision for git repository at %s: %w", workingDir, err)
 	}
 	return headRef.Hash().String(), nil
 }
@@ -869,7 +869,7 @@ func revisionAtWorkingDir(workingDir string) (string, error) {
 func (sess *reconcileStackSession) InstallProjectDependencies(ctx context.Context, workspace auto.Workspace) error {
 	project, err := workspace.ProjectSettings(ctx)
 	if err != nil {
-		return errors.Wrap(err, "unable to get project runtime")
+		return fmt.Errorf("unable to get project runtime: %w", err)
 	}
 	sess.logger.Debug("InstallProjectDependencies", "workspace", workspace.WorkDir())
 	switch project.Runtime.Name() {
@@ -950,7 +950,7 @@ func (sess *reconcileStackSession) UpdateConfig(ctx context.Context) error {
 	for k, ref := range sess.stack.SecretRefs {
 		resolved, err := sess.resolveResourceRef(ctx, &ref)
 		if err != nil {
-			return errors.Wrapf(err, "updating secretRef for: %q", k)
+			return fmt.Errorf("updating secretRef for %q: %w", k, err)
 		}
 		m[k] = auto.ConfigValue{
 			Value:  resolved,
@@ -973,7 +973,7 @@ func (sess *reconcileStackSession) RefreshStack(ctx context.Context, expectNoCha
 	}
 	result, err := sess.autoStack.Refresh(ctx, opts...)
 	if err != nil {
-		return "", errors.Wrapf(err, "refreshing stack %q", sess.stack.Stack)
+		return "", fmt.Errorf("refreshing stack %q: %w", sess.stack.Stack, err)
 	}
 	p, err := auto.GetPermalink(result.StdOut)
 	if err != nil {
@@ -1023,10 +1023,10 @@ func (sess *reconcileStackSession) GetStackOutputs(outs auto.OutputMap) (shared.
 			// Marshal the OutputMap value only, to use in unmarshaling to StackOutputs
 			valueBytes, err := json.Marshal(v.Value)
 			if err != nil {
-				return nil, errors.Wrap(err, "marshaling stack output value interface")
+				return nil, fmt.Errorf("marshaling stack output value interface: %w", err)
 			}
 			if err := json.Unmarshal(valueBytes, &value); err != nil {
-				return nil, errors.Wrap(err, "unmarshaling stack output value")
+				return nil, fmt.Errorf("unmarshaling stack output value: %w", err)
 			}
 		}
 
@@ -1041,12 +1041,12 @@ func (sess *reconcileStackSession) DestroyStack(ctx context.Context) error {
 
 	_, err := sess.autoStack.Destroy(ctx, optdestroy.ProgressStreams(writer), optdestroy.UserAgent(execAgent))
 	if err != nil {
-		return errors.Wrapf(err, "destroying resources for stack '%s'", sess.stack.Stack)
+		return fmt.Errorf("destroying resources for stack %q: %w", sess.stack.Stack, err)
 	}
 
 	err = sess.autoStack.Workspace().RemoveStack(ctx, sess.stack.Stack)
 	if err != nil {
-		return errors.Wrapf(err, "removing stack '%s'", sess.stack.Stack)
+		return fmt.Errorf("removing stack %q: %w", sess.stack.Stack, err)
 	}
 	return nil
 }
@@ -1062,14 +1062,14 @@ func (sess *reconcileStackSession) SetupGitAuth(ctx context.Context) (*auto.GitA
 		if sess.stack.GitAuth.SSHAuth != nil {
 			privateKey, err := sess.resolveResourceRef(ctx, &sess.stack.GitAuth.SSHAuth.SSHPrivateKey)
 			if err != nil {
-				return nil, errors.Wrap(err, "resolving gitAuth SSH private key")
+				return nil, fmt.Errorf("resolving gitAuth SSH private key: %w", err)
 			}
 			gitAuth.SSHPrivateKey = privateKey
 
 			if sess.stack.GitAuth.SSHAuth.Password != nil {
 				password, err := sess.resolveResourceRef(ctx, sess.stack.GitAuth.SSHAuth.Password)
 				if err != nil {
-					return nil, errors.Wrap(err, "resolving gitAuth SSH password")
+					return nil, fmt.Errorf("resolving gitAuth SSH password: %w", err)
 				}
 				gitAuth.Password = password
 			}
@@ -1080,7 +1080,7 @@ func (sess *reconcileStackSession) SetupGitAuth(ctx context.Context) (*auto.GitA
 		if sess.stack.GitAuth.PersonalAccessToken != nil {
 			accessToken, err := sess.resolveResourceRef(ctx, sess.stack.GitAuth.PersonalAccessToken)
 			if err != nil {
-				return nil, errors.Wrap(err, "resolving gitAuth personal access token")
+				return nil, fmt.Errorf("resolving gitAuth personal access token: %w", err)
 			}
 			gitAuth.PersonalAccessToken = accessToken
 			return gitAuth, nil
@@ -1093,12 +1093,12 @@ func (sess *reconcileStackSession) SetupGitAuth(ctx context.Context) (*auto.GitA
 
 		userName, err := sess.resolveResourceRef(ctx, &sess.stack.GitAuth.BasicAuth.UserName)
 		if err != nil {
-			return nil, errors.Wrap(err, "resolving gitAuth username")
+			return nil, fmt.Errorf("resolving gitAuth username: %w", err)
 		}
 
 		password, err := sess.resolveResourceRef(ctx, &sess.stack.GitAuth.BasicAuth.Password)
 		if err != nil {
-			return nil, errors.Wrap(err, "resolving gitAuth password")
+			return nil, fmt.Errorf("resolving gitAuth password: %w", err)
 		}
 
 		gitAuth.Username = userName
@@ -1190,11 +1190,11 @@ func (sess *reconcileStackSession) addSSHKeysToKnownHosts(projectRepoURL string)
 	// e.g. git@example.com:1234:foo/bar.git returns "example.com" for host and "1234" for port
 	u, err := giturls.Parse(projectRepoURL)
 	if err != nil {
-		return errors.Wrap(err, "error parsing project repo URL to use with ssh-keyscan")
+		return fmt.Errorf("error parsing project repo URL to use with ssh-keyscan: %w", err)
 	}
 	hostPort := strings.Split(u.Host, ":")
 	if len(hostPort) == 0 || len(hostPort) > 2 {
-		return errors.Wrap(err, "error parsing project repo URL to use with ssh-keyscan")
+		return fmt.Errorf("error parsing project repo URL to use with ssh-keyscan: %w", err)
 	}
 
 	// SSH key scan the repo's URL (host port) to get the public keys.
@@ -1208,18 +1208,18 @@ func (sess *reconcileStackSession) addSSHKeysToKnownHosts(projectRepoURL string)
 	cmd.Dir = os.Getenv("HOME")
 	stdout, _, err := sess.runCmd("SSH Key Scan", cmd, nil)
 	if err != nil {
-		return errors.Wrap(err, "error running ssh-keyscan")
+		return fmt.Errorf("error running ssh-keyscan: %w", err)
 	}
 
 	// Add the repo public keys to the SSH known hosts to enforce key checking.
 	filename := fmt.Sprintf("%s/%s", os.Getenv("HOME"), ".ssh/known_hosts")
 	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
-		return errors.Wrap(err, "error running ssh-keyscan")
+		return fmt.Errorf("error running ssh-keyscan: %w", err)
 	}
 	defer f.Close()
 	if _, err = f.WriteString(stdout); err != nil {
-		return errors.Wrap(err, "error running ssh-keyscan")
+		return fmt.Errorf("error running ssh-keyscan: %w")
 	}
 	return nil
 }
@@ -1248,15 +1248,15 @@ func setupInClusterKubeconfig() error {
 
 	cert, err := waitForFile(certFp)
 	if err != nil {
-		return errors.Wrap(err, "failed to open in-cluster ServiceAccount CA certificate")
+		return fmt.Errorf("failed to open in-cluster ServiceAccount CA certificate: %w", err)
 	}
 	token, err := waitForFile(tokenFp)
 	if err != nil {
-		return errors.Wrap(err, "failed to open in-cluster ServiceAccount token")
+		return fmt.Errorf("failed to open in-cluster ServiceAccount token: %w", err)
 	}
 	namespace, err := waitForFile(namespaceFp)
 	if err != nil {
-		return errors.Wrap(err, "failed to open in-cluster ServiceAccount namespace")
+		return fmt.Errorf("failed to open in-cluster ServiceAccount namespace: %w", err)
 	}
 
 	// Compute the kubeconfig using the cert and token.
@@ -1283,11 +1283,11 @@ users:
 
 	err = os.Mkdir(os.ExpandEnv(kubeFp), 0755)
 	if err != nil {
-		return errors.Wrap(err, "failed to create .kube directory")
+		return fmt.Errorf("failed to create .kube directory: %w", err)
 	}
 	file, err := os.Create(os.ExpandEnv(kubeconfigFp))
 	if err != nil {
-		return errors.Wrap(err, "failed to create kubeconfig file")
+		return fmt.Errorf("failed to create kubeconfig file: %w", err)
 	}
 	return os.WriteFile(file.Name(), []byte(s), 0644)
 }
@@ -1313,7 +1313,7 @@ func waitForFile(fp string) ([]byte, error) {
 
 	file, err := os.ReadFile(fp)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to open file: %s", fp)
+		return nil, fmt.Errorf("failed to open file %s: %w", fp, err)
 	}
 	return file, err
 }
