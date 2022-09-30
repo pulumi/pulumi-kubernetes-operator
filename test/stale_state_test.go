@@ -13,6 +13,7 @@ import (
 
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,7 +43,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 		useRabbitStack *pulumiv1.Stack
 	)
 
-	createStack := func(fixture string) *pulumiv1.Stack {
+	createStack := func(fixture string, suffix ...string) *pulumiv1.Stack {
 		// NB fixture here is the directory _under_ testdata, e.g., `run-rabbitmq`
 		targetPath := filepath.Join(tmp, fixture)
 		repoPath := filepath.Join(targetPath, randString())
@@ -72,7 +73,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 				ResyncFrequencySeconds:      3600, // ) but not otherwise.
 			},
 		}
-		stackObj.Name = fixture + "-" + randString()
+		stackObj.Name = fixture + strings.Join(suffix, "-") + "-" + randString()
 		stackObj.Namespace = "default"
 
 		return stackObj
@@ -181,10 +182,17 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 			// this runs a stack which we'll use to refresh the state of the credentials. It
 			// refreshes the _same_ state because it uses the same backend stack name, since the
 			// stack is named for the fixture (in createStack).
-			targetedStack := createStack("use-rabbitmq")
+			targetedStack := createStack("use-rabbitmq", "helper")
 			targetedStack.Spec.Targets = []string{providerURN}
 			Expect(k8sClient.Create(ctx, targetedStack)).To(Succeed())
 			waitForStackSuccess(targetedStack)
+
+			// this is a cheat: set the succeeded time for the helper to a long time ago, so the
+			// prerequisite mechanism will kick in. Otherwise, it will see this as succeeded
+			// already, and not bother.
+			refetch(targetedStack)
+			targetedStack.Status.LastUpdate.LastResyncTime = metav1.NewTime(time.Time{})
+			Expect(k8sClient.Status().Update(ctx, targetedStack)).To(Succeed())
 
 			// _Now_ change the password again; the targeted stack succeeded, and won't be run again
 			// unless it's requeued (by the prerequisite mechanism, assumably).
@@ -201,10 +209,17 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 			refetch(useRabbitStack) // this is fetched above; but, avoid future coincidences ..
 			useRabbitStack.Spec.Refresh = true
 			useRabbitStack.Spec.Prerequisites = []shared.PrerequisiteRef{
-				{Name: targetedStack.Name},
+				{
+					Name: targetedStack.Name,
+					Requirement: &shared.RequirementSpec{
+						SucceededWithinDuration: &metav1.Duration{10 * time.Minute},
+					},
+				},
 			}
 			waitForStackSince = time.Now()
 			Expect(k8sClient.Update(ctx, useRabbitStack)).To(Succeed())
+
+			// TODO check that it's marked as reconciling pending a prerequisite
 
 			// We'd expect this to fail, because its state was invalidated by running the setupStack
 			// with a fresh password; _unless_ something prompts the targeted stack to be run again,

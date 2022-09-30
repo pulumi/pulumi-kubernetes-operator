@@ -279,6 +279,31 @@ func add(mgr manager.Manager, r *ReconcileStack) error {
 	return nil
 }
 
+var (
+	errRequirementNotRun    = fmt.Errorf("prerequisite has not run to completion")
+	errRequirementFailed    = fmt.Errorf("prerequisite failed")
+	errRequirementOutOfDate = fmt.Errorf("prerequisite succeeded but not recently enough")
+)
+
+// isRequirementSatisfied checks the given readiness requirement against the given stack, and
+// returns nil if the requirement is satisfied, and an error otherwise. The requirement can be nil
+// itself, in which case the prerequisite is only that the stack succeeded onm its last run.
+func isRequirementSatisfied(req *shared.RequirementSpec, stack pulumiv1.Stack) error {
+	if stack.Status.LastUpdate == nil {
+		return errRequirementNotRun
+	}
+	if stack.Status.LastUpdate.State != shared.SucceededStackStateMessage {
+		return errRequirementFailed
+	}
+	if req != nil && req.SucceededWithinDuration != nil {
+		lastRun := stack.Status.LastUpdate.LastResyncTime
+		if lastRun.IsZero() || time.Since(lastRun.Time) > req.SucceededWithinDuration.Duration {
+			return errRequirementOutOfDate
+		}
+	}
+	return nil
+}
+
 // ReconcileRequestedPredicate filters (returns true) for resources that are updated with a new or
 // amended annotation value at `ReconcileRequestAnnotation`.
 //
@@ -438,6 +463,66 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	// there's no reason to save the status if it's being deleted, and it'll fail anyway.
 	if !isStackMarkedToBeDeleted {
 		defer saveStatus()
+	}
+
+	// Check prerequisites, to make sure they are adequately up to date. Any prerequisite failing to
+	// be met will cause this run to be abandoned and the stack under consideration to be requeued;
+	// however, we go through all of the prerequisites anyway, so we can annotate all failing stacks
+	// to be requeued themselves.
+	var failedPrereqNames []string // in the case there's more than one, we report the names
+	var failedPrereqErr error      // in caase there's just one, we report the specific error
+
+	for _, prereq := range instance.Spec.Prerequisites {
+		var prereqStack pulumiv1.Stack
+		key := types.NamespacedName{Name: prereq.Name, Namespace: instance.Namespace}
+		err := r.client.Get(ctx, key, &prereqStack)
+		if err != nil {
+			prereqErr := fmt.Errorf("unable to fetch prerequisite %q: %w", prereq.Name, err)
+			if k8serrors.IsNotFound(err) {
+				failedPrereqNames = append(failedPrereqNames, prereq.Name)
+				failedPrereqErr = prereqErr
+				continue
+			}
+			// otherwise, report as crash
+			r.markStackFailed(sess, instance, prereqErr, "", "")
+			return reconcile.Result{}, err
+		}
+
+		// does the prerequisite stack satisfy the requirements given?
+		requireErr := isRequirementSatisfied(prereq.Requirement, prereqStack)
+		if requireErr != nil {
+			failedPrereqNames = append(failedPrereqNames, prereq.Name)
+			failedPrereqErr = fmt.Errorf("prerequisite not satisfied for %q: %w", prereq.Name, requireErr)
+			// annotate the out of date stack so that it'll be queued. The value is arbitrary; this
+			// value gives a bit of context which might be helpful when troubleshooting.
+			v := fmt.Sprintf("update prerequisite of %s at %s", instance.Name, time.Now().Format(time.RFC3339))
+			prereqStack1 := prereqStack.DeepCopy()
+			a := prereqStack1.GetAnnotations()
+			if a == nil {
+				a = map[string]string{}
+			}
+			a[shared.ReconcileRequestAnnotation] = v
+			prereqStack1.SetAnnotations(a)
+			reqLogger.Info("requesting requeue of prerequisite", "name", prereqStack1.Name, "cause", requireErr.Error())
+			if err := r.client.Patch(ctx, prereqStack1, client.MergeFrom(&prereqStack)); err != nil {
+				// A conflict here may mean the prerequisite has been changed, or it's just been
+				// run. In any case, requeueing this object means we'll see the new state of the
+				// world next time around.
+				return reconcile.Result{}, fmt.Errorf("annotating prerequisite to force requeue: %w", err)
+			}
+		}
+	}
+
+	if len(failedPrereqNames) > 1 {
+		failedPrereqErr = fmt.Errorf("multiple prerequisites were not satisfied %s", strings.Join(failedPrereqNames, ", "))
+	}
+	if failedPrereqErr != nil {
+		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingPrerequisiteNotSatisfiedReason, failedPrereqErr.Error())
+		// requeue with implicit backoff, which will likely be less responsive that we'd want since
+		// it'll quickly reach a long backoff. An alternative is to index prerequisites, then watch
+		// stacks for the purpose of queueing their dependents when they reach a successful state;
+		// which will surely rerun stacks more often that it needs to, but be more responsive.
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// We're ready to do some actual work. Until we have a definitive outcome, mark the stack as

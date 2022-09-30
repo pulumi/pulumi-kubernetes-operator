@@ -63,6 +63,8 @@ const (
 	ReconcilingProcessingMessage = "stack is being processed"
 	// Reconciling because it failed, and has been requeued
 	ReconcilingRetryReason = "RetryingAfterFailure"
+	// Reconciling because a prerequisite was not satisfied
+	ReconcilingPrerequisiteNotSatisfiedReason = "PrerequisiteNotSatisfied"
 
 	// Stalled because the .spec can't be processed as it is
 	StalledSpecInvalidReason = "SpecInvalid"
