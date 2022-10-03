@@ -17,7 +17,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = When("a stack uses a provider with credentials kept in state", func() {
@@ -114,7 +113,8 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 		BeforeEach(func() {
 			ctx := context.TODO()
 
-			// now "rotate" the credentials, by rerunning the setup stack in such a way as to recreate the passphrase
+			// "rotate" the credentials by rerunning the setup stack in such a way as to recreate
+			// the passphrase
 			refetch(setupStack)
 			setupStack.Spec.Config = map[string]string{"password": randString()}
 			waitForStackSince = time.Now()
@@ -132,44 +132,15 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 			Expect(k8sClient.Update(ctx, useRabbitStack)).To(Succeed())
 			waitForStackFailure(useRabbitStack)
 		})
+	})
 
-		It("succeeds at refreshing when a targeted stack is run first", func() {
-			ctx := context.TODO()
+	When("a targeted stack is created to update credentials", func() {
 
-			// Get the URN of the provider, which we're going to target in this "helper" stack
-			var s pulumiv1.Stack
-			Expect(k8sClient.Get(ctx, types.NamespacedName{
-				Name:      useRabbitStack.Name,
-				Namespace: useRabbitStack.Namespace,
-			}, &s)).To(Succeed())
-			providerURNJSON := s.Status.Outputs["providerURN"]
-			var providerURN string
-			Expect(json.Unmarshal(providerURNJSON.Raw, &providerURN)).To(Succeed())
-			Expect(providerURN).ToNot(BeEmpty())
+		var (
+			targetedStack *pulumiv1.Stack
+		)
 
-			// this runs a stack which we'll use to refresh the state of the credentials. It
-			// refreshes the _same_ state because it uses the same backend stack name, since the
-			// stack is named for the fixture (in createStack).
-			targetedStack := createStack("use-rabbitmq")
-			targetedStack.Spec.Targets = []string{providerURN}
-			Expect(k8sClient.Create(ctx, targetedStack)).To(Succeed())
-			waitForStackSuccess(targetedStack)
-
-			// the following both sets "refresh" on the stack, meaning it will try to refresh state
-			// before running the program; and, since it mutates the object, serves to requeue it for
-			// the controller to reconcile.
-			waitForStackSince = time.Now()
-			Expect(k8sClient.Get(ctx, types.NamespacedName{
-				Name:      useRabbitStack.Name,
-				Namespace: useRabbitStack.Namespace,
-			}, useRabbitStack)).To(Succeed())
-			useRabbitStack.Spec.Refresh = true
-			Expect(k8sClient.Update(ctx, useRabbitStack)).To(Succeed())
-
-			waitForStackSuccess(useRabbitStack)
-		})
-
-		It("succeeds at refreshing when a targeted stack is given as a prerequisite", func() {
+		BeforeEach(func() {
 			ctx := context.TODO()
 
 			// Get the URN of the provider, which we're going to target in this "helper" stack
@@ -182,49 +153,69 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 			// this runs a stack which we'll use to refresh the state of the credentials. It
 			// refreshes the _same_ state because it uses the same backend stack name, since the
 			// stack is named for the fixture (in createStack).
-			targetedStack := createStack("use-rabbitmq", "helper")
+			targetedStack = createStack("use-rabbitmq", "helper")
 			targetedStack.Spec.Targets = []string{providerURN}
 			Expect(k8sClient.Create(ctx, targetedStack)).To(Succeed())
 			waitForStackSuccess(targetedStack)
 
-			// this is a cheat: set the succeeded time for the helper to a long time ago, so the
-			// prerequisite mechanism will kick in. Otherwise, it will see this as succeeded
-			// already, and not bother.
+			// This is a cheat: set the succeeded time for the helper to longer ago than the prereq
+			// wants (below), so it'll fail the requirement. Otherwise, it will see this as
+			// succeeded already, and not bother to requeue it.
 			refetch(targetedStack)
-			targetedStack.Status.LastUpdate.LastResyncTime = metav1.NewTime(time.Time{})
+			targetedStack.Status.LastUpdate.LastResyncTime = metav1.NewTime(time.Now().Add(-11 * time.Minute))
 			Expect(k8sClient.Status().Update(ctx, targetedStack)).To(Succeed())
+		})
 
-			// _Now_ change the password again; the targeted stack succeeded, and won't be run again
-			// unless it's requeued (by the prerequisite mechanism, assumably).
-			refetch(setupStack)
-			setupStack.Spec.Config["password"] = randString()
-			waitForStackSince = time.Now()
-			Expect(k8sClient.Update(ctx, setupStack)).To(Succeed())
-			waitForStackSuccess(setupStack)
+		When("the credentials are rotated", func() {
 
-			// the following both sets "refresh" on the stack, meaning it will try to refresh state
-			// before running the program, and gives the above stack as a prerequisite. Since it
-			// also mutates the object, the update serves to requeue it for the controller to
-			// reconcile.
-			refetch(useRabbitStack) // this is fetched above; but, avoid future coincidences ..
-			useRabbitStack.Spec.Refresh = true
-			useRabbitStack.Spec.Prerequisites = []shared.PrerequisiteRef{
-				{
-					Name: targetedStack.Name,
-					Requirement: &shared.RequirementSpec{
-						SucceededWithinDuration: &metav1.Duration{10 * time.Minute},
+			BeforeEach(func() {
+				ctx := context.TODO()
+
+				// "rotate" the credentials by rerunning the setup stack in such a way as to recreate
+				// the passphrase
+				refetch(setupStack)
+				setupStack.Spec.Config = map[string]string{"password": randString()}
+				waitForStackSince = time.Now()
+				Expect(k8sClient.Update(ctx, setupStack)).To(Succeed())
+				waitForStackSuccess(setupStack)
+			})
+
+			It("fails if the targeted stack isn't run again", func() {
+				refetch(useRabbitStack) // this is fetched above; but, avoid future coincidences ..
+				useRabbitStack.Spec.Refresh = true
+				waitForStackSince = time.Now()
+				Expect(k8sClient.Update(context.TODO(), useRabbitStack)).To(Succeed())
+
+				waitForStackFailure(useRabbitStack)
+			})
+
+			It("succeeds if the targeted stack is used as a prerequisite", func() {
+				ctx := context.TODO()
+
+				// the following both sets "refresh" on the stack, meaning it will try to refresh state
+				// before running the program, and gives the above stack as a prerequisite. Since it
+				// also mutates the object, the update serves to requeue it for the controller to
+				// reconcile.
+				refetch(useRabbitStack) // this is fetched above; but, avoid future coincidences ..
+				useRabbitStack.Spec.Refresh = true
+				useRabbitStack.Spec.Prerequisites = []shared.PrerequisiteRef{
+					{
+						Name: targetedStack.Name,
+						Requirement: &shared.RequirementSpec{
+							SucceededWithinDuration: &metav1.Duration{10 * time.Minute},
+						},
 					},
-				},
-			}
-			waitForStackSince = time.Now()
-			Expect(k8sClient.Update(ctx, useRabbitStack)).To(Succeed())
+				}
+				waitForStackSince = time.Now()
+				Expect(k8sClient.Update(ctx, useRabbitStack)).To(Succeed())
 
-			// TODO check that it's marked as reconciling pending a prerequisite
+				// TODO check that it's marked as reconciling pending a prerequisite
 
-			// We'd expect this to fail, because its state was invalidated by running the setupStack
-			// with a fresh password; _unless_ something prompts the targeted stack to be run again,
-			// updating the state.
-			waitForStackSuccess(useRabbitStack)
+				// We'd expect this to fail, because its state was invalidated by running the setupStack
+				// with a fresh password; _unless_ something prompts the targeted stack to be run again,
+				// updating the state.
+				waitForStackSuccess(useRabbitStack)
+			})
 		})
 	})
 })

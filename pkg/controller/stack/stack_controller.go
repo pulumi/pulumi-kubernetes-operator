@@ -117,6 +117,9 @@ func newReconciler(mgr manager.Manager) *ReconcileStack {
 	}
 }
 
+// prerequisiteIndexFieldName is the name used for indexing the prerequisites field.
+const prerequisiteIndexFieldName = "spec.prerequisites.name"
+
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r *ReconcileStack) error {
 	var err error
@@ -154,11 +157,43 @@ func add(mgr manager.Manager, r *ReconcileStack) error {
 		DeleteFunc: deleteStackCallback,
 	})
 
+	// Maintain an index of stacks->dependents; so that when a stack succeeds, we can requeue any
+	// stacks that might be waiting for it.
+	indexer := mgr.GetFieldIndexer()
+	if err = indexer.IndexField(context.Background(), &pulumiv1.Stack{}, prerequisiteIndexFieldName, func(o client.Object) []string {
+		stack := o.(*pulumiv1.Stack)
+		names := make([]string, len(stack.Spec.Prerequisites), len(stack.Spec.Prerequisites))
+		for i := range stack.Spec.Prerequisites {
+			names[i] = stack.Spec.Prerequisites[i].Name
+		}
+		return names
+	}); err != nil {
+		return err
+	}
+
+	enqueueDependents := func(stack client.Object) []reconcile.Request {
+		var dependentStacks pulumiv1.StackList
+		err := mgr.GetClient().List(context.TODO(), &dependentStacks,
+			client.InNamespace(stack.GetNamespace()),
+			client.MatchingFields{prerequisiteIndexFieldName: stack.GetName()})
+		if err == nil {
+			reqs := make([]reconcile.Request, len(dependentStacks.Items), len(dependentStacks.Items))
+			for i := range dependentStacks.Items {
+				reqs[i].NamespacedName = client.ObjectKeyFromObject(&dependentStacks.Items[i])
+			}
+			return reqs
+		}
+		// we don't get to return an error; only to fail quietly
+		mgr.GetLogger().Error(err, "failed to fetch dependents for object", "name", stack.GetName(), "namespace", stack.GetNamespace())
+		return nil
+	}
+
 	// Watch for changes to primary resource Stack
 	err = c.Watch(&source.Kind{Type: &pulumiv1.Stack{}}, &handler.InstrumentedEnqueueRequestForObject{}, predicates...)
 	if err != nil {
 		return err
 	}
+	err = c.Watch(&source.Kind{Type: &pulumiv1.Stack{}}, ctrlhandler.EnqueueRequestsFromMapFunc(enqueueDependents))
 
 	indexer := mgr.GetFieldIndexer()
 
@@ -518,11 +553,9 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	}
 	if failedPrereqErr != nil {
 		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingPrerequisiteNotSatisfiedReason, failedPrereqErr.Error())
-		// requeue with implicit backoff, which will likely be less responsive that we'd want since
-		// it'll quickly reach a long backoff. An alternative is to index prerequisites, then watch
-		// stacks for the purpose of queueing their dependents when they reach a successful state;
-		// which will surely rerun stacks more often that it needs to, but be more responsive.
-		return reconcile.Result{Requeue: true}, nil
+		// Rely on the watcher watching prerequisites to requeue this, rather than requeuing
+		// explicitly.
+		return reconcile.Result{}, nil
 	}
 
 	// We're ready to do some actual work. Until we have a definitive outcome, mark the stack as
