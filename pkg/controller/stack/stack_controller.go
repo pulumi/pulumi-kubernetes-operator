@@ -189,13 +189,13 @@ func add(mgr manager.Manager, r *ReconcileStack) error {
 	}
 
 	// Watch for changes to primary resource Stack
-	err = c.Watch(&source.Kind{Type: &pulumiv1.Stack{}}, &handler.InstrumentedEnqueueRequestForObject{}, predicates...)
-	if err != nil {
+	if err = c.Watch(&source.Kind{Type: &pulumiv1.Stack{}}, &handler.InstrumentedEnqueueRequestForObject{}, predicates...); err != nil {
 		return err
 	}
-	err = c.Watch(&source.Kind{Type: &pulumiv1.Stack{}}, ctrlhandler.EnqueueRequestsFromMapFunc(enqueueDependents))
-
-	indexer := mgr.GetFieldIndexer()
+	// Watch stacks so that dependent stacks can be requeued when they change
+	if err = c.Watch(&source.Kind{Type: &pulumiv1.Stack{}}, ctrlhandler.EnqueueRequestsFromMapFunc(enqueueDependents)); err != nil {
+		return err
+	}
 
 	// Watch Programs, and look up which (if any) Stack refers to them when they change
 

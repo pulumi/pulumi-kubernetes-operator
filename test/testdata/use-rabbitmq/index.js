@@ -1,14 +1,19 @@
 "use strict";
+const pulumi = require("@pulumi/pulumi");
 const k8s = require("@pulumi/kubernetes");
 const rabbitmq = require("@pulumi/rabbitmq");
 
-const creds = k8s.core.v1.Secret.get('rabbitmq-user-creds', 'default/rabbitmq-creds');
+const config = new pulumi.Config();
+const port = config.requireNumber('port');
+const secretName = config.require('secretName');
+
+const creds = k8s.core.v1.Secret.get('rabbitmq-user-creds', `default/${secretName}`);
 
 const user = creds.data['user'].apply(x => Buffer.from(x, 'base64').toString('ascii'))
 const pass = creds.data['password'].apply(x => Buffer.from(x, 'base64').toString('ascii'))
 
 const provider = new rabbitmq.Provider('local-rabbitmq', {
-    endpoint: 'http://localhost:32001', // Port mapped in ../run-mino/index.js
+    endpoint: `http://localhost:${port}`,
     username: user,
     password: pass,
 });

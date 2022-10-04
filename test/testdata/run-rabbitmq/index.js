@@ -5,8 +5,9 @@ const k8s = require("@pulumi/kubernetes");
 const random = require("@pulumi/random");
 
 const config = new pulumi.Config();
-
 const secretKey = config.require('password');
+const secretName = config.require('secretName');
+const port = config.requireNumber('port');
 
 const accessKey = new random.RandomString("rabbitmq-user", {
     length: 8,
@@ -15,7 +16,7 @@ const accessKey = new random.RandomString("rabbitmq-user", {
 
 const creds = new k8s.core.v1.Secret('rabbitmq-creds', {
     metadata: {
-        name: 'rabbitmq-creds',
+        name: secretName,
     },
     stringData: {
         user: accessKey.result,
@@ -28,8 +29,7 @@ const container = new docker.Container("rabbitmq", {
     hostname: 'my-rabbit',
     envs: [pulumi.interpolate `RABBITMQ_DEFAULT_USER=${accessKey.result}`,
            pulumi.interpolate `RABBITMQ_DEFAULT_PASS=${secretKey}`],
-    ports: [{internal: 5672, external: 32000},
-            {internal: 15672, external: 32001}],
+    ports: [{internal: 15672, external: port}],
     mustRun: true,
 });
 

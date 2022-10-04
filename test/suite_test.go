@@ -65,6 +65,8 @@ var secretsDir string
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
+	rand.Seed(time.Now().UnixNano())
+
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "deploy", "crds")},
@@ -136,7 +138,6 @@ var _ = AfterSuite(func() {
 
 // randString returns a short random string that can be used in names.
 func randString() string {
-	rand.Seed(time.Now().UnixNano())
 	c := 10
 	b := make([]byte, c)
 	rand.Read(b)
