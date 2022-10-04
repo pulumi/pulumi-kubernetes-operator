@@ -64,11 +64,13 @@ var _ = Describe("Cross-namespace refs", func() {
 	It("should stall when a cross-namespace reference is used", func() {
 		stack = pulumiv1.Stack{
 			Spec: shared.StackSpec{
-				Stack:       "cross-ns-denied",
-				Backend:     fmt.Sprintf("file://%s", backendDir),
-				ProjectRepo: gitDir,
-				RepoDir:     "testdata/success",
-				Branch:      "default",
+				Stack:   "cross-ns-denied",
+				Backend: fmt.Sprintf("file://%s", backendDir),
+				GitSource: &shared.GitSource{
+					ProjectRepo: gitDir,
+					RepoDir:     "testdata/success",
+					Branch:      "default",
+				},
 				EnvRefs: map[string]shared.ResourceRef{
 					"KUBECONFIG":               shared.NewLiteralResourceRef(kubeconfig),
 					"PULUMI_CONFIG_PASSPHRASE": shared.NewLiteralResourceRef("password"),
@@ -111,11 +113,13 @@ var _ = Describe("Cross-namespace refs", func() {
 		It("should succeed despite a cross-namespace ref", func() {
 			stack = pulumiv1.Stack{
 				Spec: shared.StackSpec{
-					Stack:       "cross-ns-ok",
-					Backend:     fmt.Sprintf("file://%s", backendDir),
-					ProjectRepo: gitDir,
-					RepoDir:     "testdata/success",
-					Branch:      "default",
+					Stack:   "cross-ns-ok",
+					Backend: fmt.Sprintf("file://%s", backendDir),
+					GitSource: &shared.GitSource{
+						ProjectRepo: gitDir,
+						RepoDir:     "testdata/success",
+						Branch:      "default",
+					},
 					EnvRefs: map[string]shared.ResourceRef{
 						"KUBECONFIG":               shared.NewLiteralResourceRef(kubeconfig),
 						"PULUMI_CONFIG_PASSPHRASE": shared.NewLiteralResourceRef("password"),

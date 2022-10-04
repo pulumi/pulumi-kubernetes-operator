@@ -62,9 +62,44 @@ type StackSpec struct {
 	SecretsProvider string `json:"secretsProvider,omitempty"`
 
 	// Source control:
+	*GitSource `json:",inline"`
 
+	// Lifecycle:
+
+	// (optional) Refresh can be set to true to refresh the stack before it is updated.
+	Refresh bool `json:"refresh,omitempty"`
+	// (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have
+	// changes during a refresh before the update is run.
+	// This could occur, for example, is a resource's state is changing outside of Pulumi
+	// (e.g., metadata, timestamps).
+	ExpectNoRefreshChanges bool `json:"expectNoRefreshChanges,omitempty"`
+	// (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
+	DestroyOnFinalize bool `json:"destroyOnFinalize,omitempty"`
+	// (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop
+	// in the event that the update hits a HTTP 409 conflict due to
+	// another update in progress.
+	// This is only recommended if you are sure that the stack updates are
+	// idempotent, and if you are willing to accept retry loops until
+	// all spawned retries succeed. This will also create a more populated,
+	// and randomized activity timeline for the stack in the Pulumi Service.
+	RetryOnUpdateConflict bool `json:"retryOnUpdateConflict,omitempty"`
+
+	// (optional) UseLocalStackOnly can be set to true to prevent the operator from
+	// creating stacks that do not exist in the tracking git repo.
+	// The default behavior is to create a stack if it doesn't exist.
+	UseLocalStackOnly bool `json:"useLocalStackOnly,omitempty"`
+
+	// (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at
+	// the specified frequency even if no changes to the custom-resource are detected.
+	// If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency.
+	// The minimal resync frequency supported is 60 seconds.
+	ResyncFrequencySeconds int64 `json:"resyncFrequencySeconds,omitempty"`
+}
+
+type GitSource struct {
 	// ProjectRepo is the git source control repository from which we fetch the project code and configuration.
-	ProjectRepo string `json:"projectRepo"`
+	// +optional
+	ProjectRepo string `json:"projectRepo,omitempty"`
 	// (optional) GitAuthSecret is the the name of a secret containing an
 	// authentication option for the git repository.
 	// There are 3 different authentication options:
@@ -104,37 +139,6 @@ type StackSpec struct {
 	// Defaults to false, i.e. when a particular commit is successfully run, the operator will not attempt to rerun the
 	// program at that commit again.
 	ContinueResyncOnCommitMatch bool `json:"continueResyncOnCommitMatch,omitempty"`
-
-	// Lifecycle:
-
-	// (optional) Refresh can be set to true to refresh the stack before it is updated.
-	Refresh bool `json:"refresh,omitempty"`
-	// (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have
-	// changes during a refresh before the update is run.
-	// This could occur, for example, is a resource's state is changing outside of Pulumi
-	// (e.g., metadata, timestamps).
-	ExpectNoRefreshChanges bool `json:"expectNoRefreshChanges,omitempty"`
-	// (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
-	DestroyOnFinalize bool `json:"destroyOnFinalize,omitempty"`
-	// (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop
-	// in the event that the update hits a HTTP 409 conflict due to
-	// another update in progress.
-	// This is only recommended if you are sure that the stack updates are
-	// idempotent, and if you are willing to accept retry loops until
-	// all spawned retries succeed. This will also create a more populated,
-	// and randomized activity timeline for the stack in the Pulumi Service.
-	RetryOnUpdateConflict bool `json:"retryOnUpdateConflict,omitempty"`
-
-	// (optional) UseLocalStackOnly can be set to true to prevent the operator from
-	// creating stacks that do not exist in the tracking git repo.
-	// The default behavior is to create a stack if it doesn't exist.
-	UseLocalStackOnly bool `json:"useLocalStackOnly,omitempty"`
-
-	// (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at
-	// the specified frequency even if no changes to the custom-resource are detected.
-	// If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency.
-	// The minimal resync frequency supported is 60 seconds.
-	ResyncFrequencySeconds int64 `json:"resyncFrequencySeconds,omitempty"`
 }
 
 // GitAuthConfig specifies git authentication configuration options.

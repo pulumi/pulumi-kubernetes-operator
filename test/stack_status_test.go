@@ -131,11 +131,13 @@ var _ = Describe("Stack controller status", func() {
 
 		stack = pulumiv1.Stack{
 			Spec: shared.StackSpec{
-				Stack:       "test",
-				Backend:     fmt.Sprintf("file://%s", backendDir),
-				ProjectRepo: gitDir,
-				RepoDir:     "testdata/success",
-				Branch:      "default",
+				Stack:   "test",
+				Backend: fmt.Sprintf("file://%s", backendDir),
+				GitSource: &shared.GitSource{
+					ProjectRepo: gitDir,
+					RepoDir:     "testdata/success",
+					Branch:      "default",
+				},
 				EnvRefs: map[string]shared.ResourceRef{
 					"PULUMI_CONFIG_PASSPHRASE": shared.NewLiteralResourceRef("password"),
 					"KUBECONFIG":               shared.NewLiteralResourceRef(kubeconfig),
@@ -168,12 +170,14 @@ var _ = Describe("Stack controller status", func() {
 	It("should mark a stack as stalled if it will not complete without intervention", func() {
 		stack = pulumiv1.Stack{
 			Spec: shared.StackSpec{
-				Stack:       "test",
-				Backend:     fmt.Sprintf("file://%s", backendDir),
-				ProjectRepo: gitDir,
-				RepoDir:     "testdata/success", // this would work, but ...
-				Branch:      "",                 // )
-				Commit:      "",                 // ) ... supplying neither of these makes it invalid
+				Stack:   "test",
+				Backend: fmt.Sprintf("file://%s", backendDir),
+				GitSource: &shared.GitSource{
+					ProjectRepo: gitDir,
+					RepoDir:     "testdata/success", // this would work, but ...
+					Branch:      "",                 // )
+					Commit:      "",                 // ) ... supplying neither of these makes it invalid
+				},
 				EnvRefs: map[string]shared.ResourceRef{
 					"PULUMI_CONFIG_PASSPHRASE": shared.NewLiteralResourceRef("password"),
 				},
@@ -207,11 +211,13 @@ var _ = Describe("Stack controller status", func() {
 
 		stack = pulumiv1.Stack{
 			Spec: shared.StackSpec{
-				Stack:       "test",
-				Backend:     fmt.Sprintf("file://%s", backendDir),
-				ProjectRepo: gitDir,
-				RepoDir:     "testdata/success",
-				Branch:      "default",
+				Stack:   "test",
+				Backend: fmt.Sprintf("file://%s", backendDir),
+				GitSource: &shared.GitSource{
+					ProjectRepo: gitDir,
+					RepoDir:     "testdata/success",
+					Branch:      "default",
+				},
 				EnvRefs: map[string]shared.ResourceRef{
 					"PULUMI_CONFIG_PASSPHRASE": shared.NewLiteralResourceRef("password"),
 				},
@@ -243,11 +249,13 @@ var _ = Describe("Stack controller status", func() {
 		// reconciling, but also marked as observed (i.e., observedGeneration is saved).
 		stack = pulumiv1.Stack{
 			Spec: shared.StackSpec{
-				Stack:       "test",
-				Backend:     fmt.Sprintf("file://%s", backendDir),
-				ProjectRepo: gitDir,
-				RepoDir:     "testdata/doesnotexist",
-				Branch:      "default",
+				Stack:   "test",
+				Backend: fmt.Sprintf("file://%s", backendDir),
+				GitSource: &shared.GitSource{
+					ProjectRepo: gitDir,
+					RepoDir:     "testdata/doesnotexist",
+					Branch:      "default",
+				},
 				EnvRefs: map[string]shared.ResourceRef{
 					"PULUMI_CONFIG_PASSPHRASE": shared.NewLiteralResourceRef("password"),
 				},

@@ -646,7 +646,6 @@ spec:
                   exist.
                 type: boolean
             required:
-            - projectRepo
             - stack
             type: object
           status:
@@ -1388,7 +1387,6 @@ spec:
                   exist.
                 type: boolean
             required:
-            - projectRepo
             - stack
             type: object
           status:
