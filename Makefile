@@ -45,7 +45,8 @@ push-image:
 	docker push $(IMAGE_NAME):$(VERSION)
 
 test: codegen download-test-deps
-	KUBEBUILDER_ASSETS="$(shell setup-envtest --use-env use -p path)" go test -v ./test/...
+	KUBEBUILDER_ASSETS="$(shell setup-envtest --use-env use -p path)" \
+		ginkgo -nodes=4 --randomizeAllSpecs ./test/...
 
 deploy:
 	kubectl apply -f deploy/yaml/service_account.yaml
