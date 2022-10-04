@@ -76,8 +76,6 @@ func IsNamespaceIsolationWaived() bool {
 	}
 }
 
-var errNamespaceIsolation = fmt.Errorf(`refs are constrained to the object's namespace unless %s is set`, EnvInsecureNoNamespaceIsolation)
-
 // Add creates a new Stack Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -163,9 +161,28 @@ type ReconcileStack struct {
 	recorder record.EventRecorder
 }
 
+// StallError represents a problem that makes a Stack spec unprocessable, while otherwise being
+// valid. For example: the spec refers to a secret in another namespace. This is used to signal
+// "stall" failures within helpers -- that is, when the operator cannot process the object as it is
+// specified.
+type StallError struct {
+	error
+}
+
+func newStallErrorf(format string, args ...interface{}) error {
+	return StallError{fmt.Errorf(format, args...)}
+}
+
+func isStalledError(e error) bool {
+	var s StallError
+	return errors.As(e, &s)
+}
+
+var errNamespaceIsolation = newStallErrorf(`refs are constrained to the object's namespace unless %s is set`, EnvInsecureNoNamespaceIsolation)
+
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
-func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Request) (_ reconcile.Result, reterr error) {
+func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Request) (retres reconcile.Result, reterr error) {
 	reqLogger := logging.WithValues(log, "Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Stack")
 
@@ -276,8 +293,13 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
 		reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
 		r.markStackFailed(sess, instance, err, "", "")
+		if isStalledError(err) {
+			instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
+			return reconcile.Result{}, nil
+		}
 		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
-		// this can fail for reasons which might go away without intervention; so, retry explicitly
+		// if not explicitly stalled, this can fail for reasons which might go away without
+		// intervention; so, retry.
 		return reconcile.Result{Requeue: true}, nil
 	}
 
