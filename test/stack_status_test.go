@@ -85,6 +85,17 @@ func makeFixtureIntoRepo(repoDir, fixture string) error {
 	return nil
 }
 
+func writeKubeconfig(targetDir string) string {
+	// Create a user and write its kubeconfig out for stacks to use
+	user, err := testEnv.AddUser(envtest.User{Name: "testuser", Groups: []string{"system:masters"}}, nil)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	kc, err := user.KubeConfig()
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	kubeconfig := filepath.Join(targetDir, "kube.config")
+	ExpectWithOffset(1, os.WriteFile(kubeconfig, kc, 0666)).To(Succeed())
+	return kubeconfig
+}
+
 var _ = Describe("Stack controller status", func() {
 	var (
 		tmpDir             string
@@ -103,14 +114,7 @@ var _ = Describe("Stack controller status", func() {
 		gitDir = filepath.Join(tmpDir, "repo")
 		backendDir = filepath.Join(tmpDir, "state")
 		Expect(os.Mkdir(backendDir, 0777)).To(Succeed())
-
-		// Create a user and write its kubeconfig out for stacks to use
-		user, err := testEnv.AddUser(envtest.User{Name: "testuser", Groups: []string{"system:masters"}}, nil)
-		Expect(err).NotTo(HaveOccurred())
-		kc, err := user.KubeConfig()
-		Expect(err).NotTo(HaveOccurred())
-		kubeconfig = filepath.Join(tmpDir, "kube.config")
-		Expect(os.WriteFile(kubeconfig, kc, 0666)).To(Succeed())
+		kubeconfig = writeKubeconfig(tmpDir)
 	})
 
 	AfterEach(func() {

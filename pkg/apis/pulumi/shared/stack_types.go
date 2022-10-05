@@ -139,9 +139,10 @@ type StackSpec struct {
 
 // GitAuthConfig specifies git authentication configuration options.
 // There are 3 different authentication options:
-//   * Personal access token
-//   * SSH private key (and its optional password)
-//   * Basic auth username and password
+//   - Personal access token
+//   - SSH private key (and its optional password)
+//   - Basic auth username and password
+//
 // Only 1 authentication mode is valid.
 type GitAuthConfig struct {
 	PersonalAccessToken *ResourceRef `json:"accessToken,omitempty"`
@@ -264,7 +265,8 @@ type EnvSelector struct {
 
 // SecretSelector identifies the information to load from a Kubernetes secret.
 type SecretSelector struct {
-	// Namespace where the secret is stored. Defaults to 'default' if omitted.
+	// Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid
+	// unless namespace isolation is disabled in the controller.
 	Namespace string `json:"namespace,omitempty"`
 	// Name of the secret
 	Name string `json:"name"`

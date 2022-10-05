@@ -421,7 +421,7 @@ SecretRef refers to a Kubernetes secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Defaults to 'default' if omitted.<br/>
+          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -639,7 +639,7 @@ SecretRef refers to a Kubernetes secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Defaults to 'default' if omitted.<br/>
+          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -850,7 +850,7 @@ SecretRef refers to a Kubernetes secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Defaults to 'default' if omitted.<br/>
+          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1027,7 +1027,7 @@ SecretRef refers to a Kubernetes secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Defaults to 'default' if omitted.<br/>
+          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1238,7 +1238,7 @@ SecretRef refers to a Kubernetes secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Defaults to 'default' if omitted.<br/>
+          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1415,7 +1415,7 @@ SecretRef refers to a Kubernetes secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Defaults to 'default' if omitted.<br/>
+          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1592,7 +1592,7 @@ SecretRef refers to a Kubernetes secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Defaults to 'default' if omitted.<br/>
+          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2191,7 +2191,7 @@ SecretRef refers to a Kubernetes secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Defaults to 'default' if omitted.<br/>
+          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2409,7 +2409,7 @@ SecretRef refers to a Kubernetes secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Defaults to 'default' if omitted.<br/>
+          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2620,7 +2620,7 @@ SecretRef refers to a Kubernetes secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Defaults to 'default' if omitted.<br/>
+          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2797,7 +2797,7 @@ SecretRef refers to a Kubernetes secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Defaults to 'default' if omitted.<br/>
+          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3008,7 +3008,7 @@ SecretRef refers to a Kubernetes secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Defaults to 'default' if omitted.<br/>
+          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3185,7 +3185,7 @@ SecretRef refers to a Kubernetes secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Defaults to 'default' if omitted.<br/>
+          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3362,7 +3362,7 @@ SecretRef refers to a Kubernetes secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Defaults to 'default' if omitted.<br/>
+          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>

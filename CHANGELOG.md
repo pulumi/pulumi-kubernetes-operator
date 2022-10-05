@@ -3,6 +3,14 @@ CHANGELOG
 
 ## HEAD (Unreleased)
 
+**BREAKING CHANGES**
+
+- Deprecate watching multiple namespaces, and cross-namespace references. See the PR for how to
+  adapt your configuration if you use either of these.
+  [#329](https://github.com/pulumi/pulumi-kubernetes-operator/pull/329)
+
+**Updates and bug fixes**
+
 - Exit processing early when a stack is ready to be garbage collected
   [#322](https://github.com/pulumi/pulumi-kubernetes-operator/pull/322)
 - Fix a goroutine leak [#319](https://github.com/pulumi/pulumi-kubernetes-operator/pull/319)
