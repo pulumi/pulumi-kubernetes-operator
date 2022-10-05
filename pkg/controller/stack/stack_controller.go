@@ -35,6 +35,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -266,10 +267,9 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
 
-	// Check which kind of source we have. Since GitSource is not "omitempty", so its fields can be
-	// inline, it will be an empty value rather than nil when not supplied.
+	// Check which kind of source we have.
 	if stack.GitSource != nil {
-		// Ensure either branch or commit has been specified in the stack CR if stack is not marked for deletion
+		// Validate that there is enough specified to be able to clone the git repo.
 		if stack.GitSource.ProjectRepo == "" || (stack.GitSource.Commit == "" && stack.GitSource.Branch == "") {
 
 			msg := "Stack git source needs to specify 'projectRepo' and either 'branch' or 'commit'"
@@ -277,7 +277,8 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			reqLogger.Info(msg)
 			r.markStackFailed(sess, instance, errors.New(msg), "", "")
 			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, msg)
-			// this object won't be processable until the spec is changed, so no reason to requeue explicitly
+			// this object won't be processable until the spec is changed, so no reason to requeue
+			// explicitly
 			return reconcile.Result{}, nil
 		}
 
@@ -296,7 +297,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			sess.addSSHKeysToKnownHosts(sess.stack.ProjectRepo)
 		}
 
-		if err = sess.SetupPulumiWorkdir(ctx, gitAuth); err != nil {
+		if currentCommit, err = sess.SetupWorkdirFromGitSource(ctx, gitAuth, stack.GitSource); err != nil {
 			r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
 			reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
 			r.markStackFailed(sess, instance, err, "", "")
@@ -308,10 +309,30 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			// this can fail for reasons which might go away without intervention; so, retry explicitly
 			return reconcile.Result{Requeue: true}, nil
 		}
+	} else if source := stack.FluxSource; source != nil {
+		var sourceObject unstructured.Unstructured
+		sourceObject.SetAPIVersion(source.SourceRef.APIVersion)
+		sourceObject.SetKind(source.SourceRef.Kind)
+		if err := r.client.Get(ctx, client.ObjectKey{
+			Name:      source.SourceRef.Name,
+			Namespace: request.Namespace,
+		}, &sourceObject); err != nil {
+			// TODO consider event, status, logging (though the error belong will be logged)
+			return reconcile.Result{}, fmt.Errorf("could not resolve sourceRef: %w", err)
+		}
 
-		currentCommit, err = revisionAtWorkingDir(sess.workdir)
+		currentCommit, err = sess.SetupWorkdirFromFluxSource(ctx, sourceObject, stack.FluxSource)
 		if err != nil {
-			return reconcile.Result{}, err
+			r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
+			reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
+			r.markStackFailed(sess, instance, err, "", "")
+			if isStalledError(err) {
+				instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
+				return reconcile.Result{}, nil
+			}
+			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
+			// this can fail for reasons which might go away without intervention; so, retry explicitly
+			return reconcile.Result{Requeue: true}, nil
 		}
 	} else { // no source specified
 		err := errNoSourceSpecified
@@ -361,33 +382,61 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		}
 	}
 
-	// If a branch is specified, then track changes to the branch.
-	trackBranch := len(sess.stack.Branch) > 0
+	// Proceed/Requeue logic: this depends on the kind of source, but broadly:
+	// - if the fetched revision is the same as the last one, proceed only if
+	//   `ContinueResyncOnCommitMatch`
+	// - if not proceeding, requeue in ResyncFrequencySeconds (sic)
 
+	// requeueForSourcePoll keeps track of whether this object will need to be requeued for the
+	// purpose of polling its source.
+	requeueForSourcePoll := true
 	resyncFreqSeconds := sess.stack.ResyncFrequencySeconds
 	if sess.stack.ResyncFrequencySeconds != 0 && sess.stack.ResyncFrequencySeconds < 60 {
 		resyncFreqSeconds = 60
 	}
 
-	if trackBranch || sess.stack.ContinueResyncOnCommitMatch {
-		if resyncFreqSeconds == 0 {
-			resyncFreqSeconds = 60
-		}
-	}
+	if stack.GitSource != nil {
+		trackBranch := len(stack.GitSource.Branch) > 0
+		// this object won't need to be requeued later if it's not tracking a branch
+		requeueForSourcePoll = trackBranch
 
-	if trackBranch && instance.Status.LastUpdate != nil {
-		reqLogger.Info("Checking current HEAD commit hash", "Current commit", currentCommit)
-		if instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit && !sess.stack.ContinueResyncOnCommitMatch {
-			reqLogger.Info("Commit hash unchanged. Will poll again.", "pollFrequencySeconds", resyncFreqSeconds)
-			// Reconcile every resyncFreqSeconds to check for new commits to the branch.
-			instance.Status.MarkReadyCondition()
-			return reconcile.Result{RequeueAfter: time.Duration(resyncFreqSeconds) * time.Second}, nil
+		// when tracking a branch, rather than an exact commit, always requeue
+		if trackBranch || sess.stack.ContinueResyncOnCommitMatch {
+			if resyncFreqSeconds == 0 {
+				resyncFreqSeconds = 60
+			}
 		}
 
-		if instance.Status.LastUpdate.LastSuccessfulCommit != currentCommit {
-			r.emitEvent(instance, pulumiv1.StackUpdateDetectedEvent(), "New commit detected: %q.", currentCommit)
-			reqLogger.Info("New commit hash found", "Current commit", currentCommit,
-				"Last commit", instance.Status.LastUpdate.LastSuccessfulCommit)
+		if trackBranch && instance.Status.LastUpdate != nil {
+			reqLogger.Info("Checking current HEAD commit hash", "Current commit", currentCommit)
+			if instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit && !sess.stack.ContinueResyncOnCommitMatch {
+				reqLogger.Info("Commit hash unchanged. Will poll again.", "pollFrequencySeconds", resyncFreqSeconds)
+				// Reconcile every resyncFreqSeconds to check for new commits to the branch.
+				instance.Status.MarkReadyCondition() // FIXME: should this reflect the previous update state?
+				return reconcile.Result{RequeueAfter: time.Duration(resyncFreqSeconds) * time.Second}, nil
+			}
+
+			if instance.Status.LastUpdate.LastSuccessfulCommit != currentCommit {
+				r.emitEvent(instance, pulumiv1.StackUpdateDetectedEvent(), "New commit detected: %q.", currentCommit)
+				reqLogger.Info("New commit hash found", "Current commit", currentCommit,
+					"Last commit", instance.Status.LastUpdate.LastSuccessfulCommit)
+			}
+		}
+
+	} else if stack.FluxSource != nil {
+		if instance.Status.LastUpdate != nil {
+			if instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit && !stack.ContinueResyncOnCommitMatch {
+				reqLogger.Info("Commit hash unchanged. Will poll again.", "pollFrequencySeconds", resyncFreqSeconds)
+				// Reconcile every resyncFreqSeconds to check for new commits to the branch.
+				instance.Status.MarkReadyCondition() // FIXME: should this reflect the previous update state?
+				return reconcile.Result{RequeueAfter: time.Duration(resyncFreqSeconds) * time.Second}, nil
+			}
+
+			if instance.Status.LastUpdate.LastSuccessfulCommit != currentCommit {
+				r.emitEvent(instance, pulumiv1.StackUpdateDetectedEvent(), "New commit detected: %q.", currentCommit)
+				reqLogger.Info("New commit hash found", "Current commit", currentCommit,
+					"Last commit", instance.Status.LastUpdate.LastSuccessfulCommit)
+			}
 		}
 	}
 
@@ -468,7 +517,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	}
 
 	r.emitEvent(instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack.")
-	if trackBranch || sess.stack.ContinueResyncOnCommitMatch {
+	if requeueForSourcePoll || sess.stack.ContinueResyncOnCommitMatch {
 		// Reconcile every 60 seconds to check for new commits to the branch.
 		reqLogger.Debug("Will requeue in", "seconds", resyncFreqSeconds)
 		return reconcile.Result{RequeueAfter: time.Duration(resyncFreqSeconds) * time.Second}, nil
@@ -765,12 +814,12 @@ func (sess *reconcileStackSession) lookupPulumiAccessToken(ctx context.Context) 
 	return "", false
 }
 
-func (sess *reconcileStackSession) SetupPulumiWorkdir(ctx context.Context, gitAuth *auto.GitAuth) error {
+func (sess *reconcileStackSession) SetupWorkdirFromGitSource(ctx context.Context, gitAuth *auto.GitAuth, source *shared.GitSource) (_revision string, retErr error) {
 	repo := auto.GitRepo{
-		URL:         sess.stack.ProjectRepo,
-		ProjectPath: sess.stack.RepoDir,
-		CommitHash:  sess.stack.Commit,
-		Branch:      sess.stack.Branch,
+		URL:         source.ProjectRepo,
+		ProjectPath: source.RepoDir,
+		CommitHash:  source.Commit,
+		Branch:      source.Branch,
 		Auth:        gitAuth,
 	}
 
@@ -781,23 +830,35 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(ctx context.Context, gitAu
 	// Create the temporary workdir
 	dir, err := os.MkdirTemp("", "pulumi_auto")
 	if err != nil {
-		return fmt.Errorf("unable to create tmp directory for workspace: %w", err)
+		return "", fmt.Errorf("unable to create tmp directory for workspace: %w", err)
 	}
 	sess.rootDir = dir
 
 	// Cleanup the rootdir on failure setting up the workspace.
 	defer func() {
-		if err != nil {
-			_ = os.RemoveAll(sess.rootDir)
+		if retErr != nil {
+			_ = os.RemoveAll(dir)
+			sess.rootDir = ""
 		}
 	}()
 
 	var w auto.Workspace
 	w, err = auto.NewLocalWorkspace(ctx, auto.WorkDir(dir), auto.Repo(repo), secretsProvider)
 	if err != nil {
-		return fmt.Errorf("failed to create local workspace: %w", err)
+		return "", fmt.Errorf("failed to create local workspace: %w", err)
 	}
 
+	revision, err := revisionAtWorkingDir(w.WorkDir())
+	if err != nil {
+		return "", err
+	}
+
+	return revision, sess.setupWorkspace(ctx, w)
+}
+
+// setupWorkspace sets all the extra configuration specified by the Stack object, after you have
+// constructed a workspace from a source.
+func (sess *reconcileStackSession) setupWorkspace(ctx context.Context, w auto.Workspace) error {
 	sess.workdir = w.WorkDir()
 
 	if sess.stack.Backend != "" {
@@ -807,6 +868,7 @@ func (sess *reconcileStackSession) SetupPulumiWorkdir(ctx context.Context, gitAu
 		w.SetEnvVar("PULUMI_ACCESS_TOKEN", accessToken)
 	}
 
+	var err error
 	if err = sess.SetEnvRefsForWorkspace(ctx, w); err != nil {
 		return err
 	}
