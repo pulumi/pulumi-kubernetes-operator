@@ -3,6 +3,8 @@ CHANGELOG
 
 ## HEAD (Unreleased)
 
+## 1.9.0 (2022-10-05)
+
 **BREAKING CHANGES**
 
 - Deprecate watching multiple namespaces, and cross-namespace references. See the PR for how to
