@@ -62,7 +62,13 @@ type StackSpec struct {
 	SecretsProvider string `json:"secretsProvider,omitempty"`
 
 	// Source control:
+
+	// GitSource inlines the fields for specifying git sources; it is not itself optional, so as not
+	// to break compatibility.
 	*GitSource `json:",inline"`
+	// FluxSource specifies how to fetch source code from a Flux source object.
+	// +optional
+	FluxSource *FluxSource `json:"fluxSource,omitempty"`
 
 	// Lifecycle:
 
@@ -96,6 +102,7 @@ type StackSpec struct {
 	ResyncFrequencySeconds int64 `json:"resyncFrequencySeconds,omitempty"`
 }
 
+// GitSource specifies how to fetch from a git repository directly.
 type GitSource struct {
 	// ProjectRepo is the git source control repository from which we fetch the project code and configuration.
 	// +optional
@@ -166,6 +173,21 @@ type SSHAuth struct {
 type BasicAuth struct {
 	UserName ResourceRef `json:"userName"`
 	Password ResourceRef `json:"password"`
+}
+
+// FluxSource specifies how to fetch from a Flux source object
+type FluxSource struct {
+	SourceRef FluxSourceReference `json:"sourceRef"`
+	// Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
+	// interest, within the fetched source.
+	// +optional
+	Dir string `json:"dir,omitempty"`
+}
+
+type FluxSourceReference struct {
+	APIVersion string `json:"apiVersion"`
+	Kind       string `json:"kind"`
+	Name       string `json:"name"`
 }
 
 // ResourceRef identifies a resource from which information can be loaded.

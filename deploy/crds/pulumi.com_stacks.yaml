@@ -179,6 +179,31 @@ spec:
                   the update is run. This could occur, for example, is a resource's
                   state is changing outside of Pulumi (e.g., metadata, timestamps).
                 type: boolean
+              fluxSource:
+                description: FluxSource specifies how to fetch source code from a
+                  Flux source object.
+                properties:
+                  dir:
+                    description: Dir gives the subdirectory containing the Pulumi
+                      project (i.e., containing Pulumi.yaml) of interest, within the
+                      fetched source.
+                    type: string
+                  sourceRef:
+                    properties:
+                      apiVersion:
+                        type: string
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                    required:
+                    - apiVersion
+                    - kind
+                    - name
+                    type: object
+                required:
+                - sourceRef
+                type: object
               gitAuth:
                 description: '(optional) GitAuth allows configuring git authentication
                   options There are 3 different authentication options: * SSH private
@@ -920,6 +945,31 @@ spec:
                   the update is run. This could occur, for example, is a resource's
                   state is changing outside of Pulumi (e.g., metadata, timestamps).
                 type: boolean
+              fluxSource:
+                description: FluxSource specifies how to fetch source code from a
+                  Flux source object.
+                properties:
+                  dir:
+                    description: Dir gives the subdirectory containing the Pulumi
+                      project (i.e., containing Pulumi.yaml) of interest, within the
+                      fetched source.
+                    type: string
+                  sourceRef:
+                    properties:
+                      apiVersion:
+                        type: string
+                      kind:
+                        type: string
+                      name:
+                        type: string
+                    required:
+                    - apiVersion
+                    - kind
+                    - name
+                    type: object
+                required:
+                - sourceRef
+                type: object
               gitAuth:
                 description: '(optional) GitAuth allows configuring git authentication
                   options There are 3 different authentication options: * SSH private

@@ -169,6 +169,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#stackspecfluxsource">fluxSource</a></b></td>
+        <td>object</td>
+        <td>
+          FluxSource specifies how to fetch source code from a Flux source object.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecgitauth">gitAuth</a></b></td>
         <td>object</td>
         <td>
@@ -424,6 +431,81 @@ SecretRef refers to a Kubernetes secret
           Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.fluxSource
+<sup><sup>[↩ Parent](#stackspec)</sup></sup>
+
+
+
+FluxSource specifies how to fetch source code from a Flux source object.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#stackspecfluxsourcesourceref">sourceRef</a></b></td>
+        <td>object</td>
+        <td>
+          <br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>dir</b></td>
+        <td>string</td>
+        <td>
+          Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of interest, within the fetched source.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.fluxSource.sourceRef
+<sup><sup>[↩ Parent](#stackspecfluxsource)</sup></sup>
+
+
+
+
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
 
@@ -1939,6 +2021,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#stackspecfluxsource-1">fluxSource</a></b></td>
+        <td>object</td>
+        <td>
+          FluxSource specifies how to fetch source code from a Flux source object.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecgitauth-1">gitAuth</a></b></td>
         <td>object</td>
         <td>
@@ -2194,6 +2283,81 @@ SecretRef refers to a Kubernetes secret
           Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.fluxSource
+<sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
+
+
+
+FluxSource specifies how to fetch source code from a Flux source object.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#stackspecfluxsourcesourceref-1">sourceRef</a></b></td>
+        <td>object</td>
+        <td>
+          <br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>dir</b></td>
+        <td>string</td>
+        <td>
+          Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of interest, within the fetched source.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.fluxSource.sourceRef
+<sup><sup>[↩ Parent](#stackspecfluxsource-1)</sup></sup>
+
+
+
+
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
 
