@@ -209,11 +209,13 @@ var _ = Describe("Stack Controller", func() {
 
 		// Define the stack spec
 		localSpec := shared.StackSpec{
-			Backend:         fmt.Sprintf("file://%s", backendDir),
-			Stack:           stackName,
-			ProjectRepo:     baseDir,
-			RepoDir:         "test/testdata/empty-stack",
-			Commit:          commit,
+			Backend: fmt.Sprintf("file://%s", backendDir),
+			Stack:   stackName,
+			GitSource: &shared.GitSource{
+				ProjectRepo: baseDir,
+				RepoDir:     "test/testdata/empty-stack",
+				Commit:      commit,
+			},
 			SecretsProvider: "passphrase",
 			SecretEnvs: []string{
 				passphraseSecret.Name,
@@ -270,10 +272,12 @@ var _ = Describe("Stack Controller", func() {
 			Config: map[string]string{
 				"aws:region": "us-east-2",
 			},
-			Stack:             stackName,
-			ProjectRepo:       baseDir,
-			RepoDir:           "test/testdata/test-s3-op-project",
-			Commit:            commit,
+			Stack: stackName,
+			GitSource: &shared.GitSource{
+				ProjectRepo: baseDir,
+				RepoDir:     "test/testdata/test-s3-op-project",
+				Commit:      commit,
+			},
 			DestroyOnFinalize: true,
 		}
 
@@ -393,10 +397,12 @@ var _ = Describe("Stack Controller", func() {
 			Config: map[string]string{
 				"aws:region": "us-east-2",
 			},
-			Stack:             stackName,
-			ProjectRepo:       baseDir,
-			RepoDir:           "test/testdata/test-s3-op-project",
-			Commit:            commit,
+			Stack: stackName,
+			GitSource: &shared.GitSource{
+				ProjectRepo: baseDir,
+				RepoDir:     "test/testdata/test-s3-op-project",
+				Commit:      commit,
+			},
 			DestroyOnFinalize: true,
 		}
 		fmt.Printf("ProjectRepo: %q\n", spec.RepoDir)
@@ -472,11 +478,13 @@ var _ = Describe("Stack Controller", func() {
 			Config: map[string]string{
 				"aws:region": "us-east-2",
 			},
-			Refresh:           true,
-			Stack:             stackName,
-			ProjectRepo:       baseDir,
-			RepoDir:           "test/testdata/test-s3-op-project",
-			Commit:            commit,
+			Refresh: true,
+			Stack:   stackName,
+			GitSource: &shared.GitSource{
+				ProjectRepo: baseDir,
+				RepoDir:     "test/testdata/test-s3-op-project",
+				Commit:      commit,
+			},
 			DestroyOnFinalize: true,
 		}
 

@@ -179,6 +179,7 @@ func isStalledError(e error) bool {
 }
 
 var errNamespaceIsolation = newStallErrorf(`refs are constrained to the object's namespace unless %s is set`, EnvInsecureNoNamespaceIsolation)
+var errNoSourceSpecified = newStallErrorf(`a source for the stack must be specified`)
 
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
@@ -252,20 +253,6 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	}
 	defer saveStatus()
 
-	// Ensure either branch or commit has been specified in the stack CR if stack is not marked for deletion
-	if !isStackMarkedToBeDeleted &&
-		sess.stack.Commit == "" &&
-		sess.stack.Branch == "" {
-
-		msg := "Stack CustomResource needs to specify either 'branch' or 'commit' for the tracking repo."
-		r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), msg)
-		reqLogger.Info(msg)
-		r.markStackFailed(sess, instance, errors.New(msg), "", "")
-		instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, msg)
-		// this object won't be processable until the spec is changed, so no reason to requeue explicitly
-		return reconcile.Result{}, nil
-	}
-
 	// We're ready to do some actual work. Until we have a definitive outcome, mark the stack as
 	// reconciling.
 	instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingProcessingReason, pulumiv1.ReconcilingProcessingMessage)
@@ -273,43 +260,68 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
+	// these are used in status, and are set from some property of the source, whether it's the
+	// actual commit, or some analogue.
+	var currentCommit string
+
 	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
-	gitAuth, err := sess.SetupGitAuth(ctx)
-	if err != nil {
-		r.emitEvent(instance, pulumiv1.StackGitAuthFailureEvent(), "Failed to setup git authentication: %v", err.Error())
-		reqLogger.Error(err, "Failed to setup git authentication", "Stack.Name", stack.Stack)
-		r.markStackFailed(sess, instance, err, "", "")
-		instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
-		return reconcile.Result{}, nil
-	}
 
-	if gitAuth.SSHPrivateKey != "" {
-		// Add the project repo's public SSH keys to the SSH known hosts
-		// to perform the necessary key checking during SSH git cloning.
-		sess.addSSHKeysToKnownHosts(sess.stack.ProjectRepo)
-	}
+	// Check which kind of source we have. Since GitSource is not "omitempty", so its fields can be
+	// inline, it will be an empty value rather than nil when not supplied.
+	if stack.GitSource != nil {
+		// Ensure either branch or commit has been specified in the stack CR if stack is not marked for deletion
+		if stack.GitSource.ProjectRepo == "" || (stack.GitSource.Commit == "" && stack.GitSource.Branch == "") {
 
-	if err = sess.SetupPulumiWorkdir(ctx, gitAuth); err != nil {
-		r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
-		reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
-		r.markStackFailed(sess, instance, err, "", "")
-		if isStalledError(err) {
-			instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
+			msg := "Stack git source needs to specify 'projectRepo' and either 'branch' or 'commit'"
+			r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), msg)
+			reqLogger.Info(msg)
+			r.markStackFailed(sess, instance, errors.New(msg), "", "")
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, msg)
+			// this object won't be processable until the spec is changed, so no reason to requeue explicitly
 			return reconcile.Result{}, nil
 		}
-		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
-		// if not explicitly stalled, this can fail for reasons which might go away without
-		// intervention; so, retry.
-		return reconcile.Result{Requeue: true}, nil
+
+		gitAuth, err := sess.SetupGitAuth(ctx)
+		if err != nil {
+			r.emitEvent(instance, pulumiv1.StackGitAuthFailureEvent(), "Failed to setup git authentication: %v", err.Error())
+			reqLogger.Error(err, "Failed to setup git authentication", "Stack.Name", stack.Stack)
+			r.markStackFailed(sess, instance, err, "", "")
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
+			return reconcile.Result{}, nil
+		}
+
+		if gitAuth.SSHPrivateKey != "" {
+			// Add the project repo's public SSH keys to the SSH known hosts
+			// to perform the necessary key checking during SSH git cloning.
+			sess.addSSHKeysToKnownHosts(sess.stack.ProjectRepo)
+		}
+
+		if err = sess.SetupPulumiWorkdir(ctx, gitAuth); err != nil {
+			r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
+			reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
+			r.markStackFailed(sess, instance, err, "", "")
+			if isStalledError(err) {
+				instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
+				return reconcile.Result{}, nil
+			}
+			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
+			// this can fail for reasons which might go away without intervention; so, retry explicitly
+			return reconcile.Result{Requeue: true}, nil
+		}
+
+		currentCommit, err = revisionAtWorkingDir(sess.workdir)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	} else { // no source specified
+		err := errNoSourceSpecified
+		r.markStackFailed(sess, instance, err, "", "")
+		instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
+		return reconcile.Result{}, nil
 	}
 
 	// Delete the temporary directory after the reconciliation is completed (regardless of success or failure).
 	defer sess.CleanupPulumiDir()
-
-	currentCommit, err := revisionAtWorkingDir(sess.workdir)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
 
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
 	if err = sess.SetEnvs(ctx, stack.Envs, request.Namespace); err != nil {
