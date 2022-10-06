@@ -3,6 +3,13 @@ CHANGELOG
 
 ## HEAD (Unreleased)
 
+- Make `.spec.projectRepo` optional in the Stack CRD. This is technically a breaking change
+  according to the advice in [Kubernetes API
+  guidelines](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api_changes.md#on-compatibility),
+  but is not expected to affect any deployment. In particular, all Stack objects which are valid now
+  will continue to work as before.
+  [#332](https://github.com/pulumi/pulumi-kubernetes-operator/pull/332)
+
 ## 1.9.0 (2022-10-05)
 
 **BREAKING CHANGES**
