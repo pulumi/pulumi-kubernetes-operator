@@ -548,6 +548,14 @@ spec:
                   preferred first, then personal access token, and finally basic auth
                   credentials. Deprecated. Use GitAuth instead.'
                 type: string
+              programRef:
+                description: 'Inline YAML program:'
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
               projectRepo:
                 description: ProjectRepo is the git source control repository from
                   which we fetch the project code and configuration.
@@ -1314,6 +1322,14 @@ spec:
                   preferred first, then personal access token, and finally basic auth
                   credentials. Deprecated. Use GitAuth instead.'
                 type: string
+              programRef:
+                description: 'Inline YAML program:'
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
               projectRepo:
                 description: ProjectRepo is the git source control repository from
                   which we fetch the project code and configuration.

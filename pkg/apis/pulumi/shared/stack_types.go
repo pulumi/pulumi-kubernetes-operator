@@ -70,6 +70,9 @@ type StackSpec struct {
 	// +optional
 	FluxSource *FluxSource `json:"fluxSource,omitempty"`
 
+	// Inline YAML program:
+	ProgramRef *ProgramReference `json:"programRef,omitempty"`
+
 	// Lifecycle:
 
 	// (optional) Refresh can be set to true to refresh the stack before it is updated.
@@ -198,6 +201,11 @@ type ResourceRef struct {
 	// Env, FS, Secret, Literal
 	SelectorType     ResourceSelectorType `json:"type"`
 	ResourceSelector `json:",inline"`
+}
+
+type ProgramReference struct {
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
 }
 
 // NewEnvResourceRef creates a new environment variable resource ref.

@@ -190,6 +190,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#stackspecprogramref">programRef</a></b></td>
+        <td>object</td>
+        <td>
+          Inline YAML program:<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>projectRepo</b></td>
         <td>string</td>
         <td>
@@ -1504,6 +1511,33 @@ SecretRef refers to a Kubernetes secret
 </table>
 
 
+### Stack.spec.programRef
+<sup><sup>[↩ Parent](#stackspec)</sup></sup>
+
+
+
+Inline YAML program:
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.secretsRef[key]
 <sup><sup>[↩ Parent](#stackspec)</sup></sup>
 
@@ -2039,6 +2073,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td>string</td>
         <td>
           (optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options: * Personal access token * SSH private key (and it's optional password) * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecprogramref-1">programRef</a></b></td>
+        <td>object</td>
+        <td>
+          Inline YAML program:<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -3352,6 +3393,33 @@ SecretRef refers to a Kubernetes secret
           Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.programRef
+<sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
+
+
+
+Inline YAML program:
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
 
