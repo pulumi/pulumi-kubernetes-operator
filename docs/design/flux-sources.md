@@ -49,7 +49,7 @@ convention](https://github.com/kubernetes/community/blob/master/contributors/dev
 in which the fields would be nested in another struct, looking a bit like a tagged union.
 
 ```YAML
-# how it _should_ look, but won't ...
+# how it _should_ look, **but won't**
 spec:
   git:                 # )
     projectRepo: ...   # )
@@ -67,7 +67,7 @@ They can't be moved without manufacturing another version of the API -- probably
 is a significant undertaking (there's a Question about that, below).
 
 However, there's not that many fields in question -- just `.spec.projectRepo`, then
-`.spec.{commit,branch}` which are optional (but you must supply one), and `.spec.gitAuth` and its
+`.spec.{commit,branch}` which are optional (though you must supply one), and `.spec.gitAuth` and its
 deprecated predecessor `.spec.gitAuthSecret`, both optional. It's possible to still treat them as a
 an alternative to `sourceRef` without nesting them.
 
@@ -82,8 +82,9 @@ definition with `.projectRepo` omitted, it will parse it as having an empty valu
 same way as it would with a non-empty but invalid value. So: making it optional and using
 `omitempty` is OK in practice.
 
-The fields `.spec.repoDir` applies to both git as present now, and to sources, though it may not
-apply to alternatives (e.g., references to inline programs).
+The fields `.spec.repoDir` applies to both git as present now, and to sources, but it may not apply
+to alternatives (e.g., references to inline programs); so, it becomes part of the individual source
+spec (`.repoDir` for a git source, `dir` for a Flux source).
 
 The field `.spec.continueResyncOnCommitMatch` can apply to any source, so should remain outside the
 "union" as well. In future API versions it should be renamed to something less specific.
@@ -95,16 +96,17 @@ controller code).
 ```yaml
 # how it will look
 spec:
-  projectRepo: ...
-  gitAuth:
-    # ...
-  # OR
-  source:
-    sourceRef:
-      name: foo
-  # then
-  repoDir: ./project
+  projectRepo: ...   # )
+  gitAuth:           # ) these,
+    # ...            # )
+  repoDir: ./project # ) OR
+
+  fluxSource:        # ) this.
+    sourceRef:       # )
+      name: foo      # )
+    dir: ./project   # )
   continueResyncOnCommitMatch: true
+  # ... and the rest
 ```
 
 ### Stack status
@@ -113,17 +115,21 @@ The status type `StackUpdateState` includes the fields `.lastAttemptedCommit` an
 `.lastSuccessfulCommit`. Since Flux sources can refer to S3 buckets and OCI artifacts, they come
 with a `revision` which may or may not signify a git commit. The choices are:
 
- - put the source revision value in the `.lastAttemptedCommit` and `.lastSuccessfulCommit` fields
+ a. put the source revision value in the `.lastAttemptedCommit` and `.lastSuccessfulCommit` fields
 
 This means they will have a value, but it may not be in the format expected. Automation that doesn't
 understand the source revisions may break.
  
- - add fields which hold the last attempted and last successful source revision, and populate it
+ b. add fields which hold the last attempted and last successful source revision, and populate it
    _and_ the last commit (when there is a commit, specifically).
 
 This means the commit fields will be in the right format, but may not always have a
 value. Automation that understands the source revisions can consult those fields; automation that
 doesn't may misinterpret the lack of a commit value.
+
+For the sake of fewer API type changes, I will use a.). Automation that assumes the commit string is
+a git SHA1 may break, and we should warn about that. Automation that treats it as an opaque value
+will be fine.
 
 ### Implementation notes
 
