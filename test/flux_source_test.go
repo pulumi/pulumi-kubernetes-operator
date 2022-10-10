@@ -269,5 +269,20 @@ var _ = Describe("Flux source integration", func() {
 				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
 			})
 		})
+
+		When("the artifact cannot be fetched", func() {
+			BeforeEach(func() {
+				unstructured.SetNestedField(source.Object, artifactServer.URL+"/bogus/path/to/artifact.tar.gz",
+					"status", "artifact", "url")
+				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
+			})
+
+			It("marks the Stack as failed and to be retried", func() {
+				waitForStackFailure(stack)
+				refetch(stack)
+				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeTrue())
+				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
+			})
+		})
 	})
 })
