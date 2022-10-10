@@ -22,7 +22,7 @@ import (
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
@@ -185,14 +185,6 @@ var _ = Describe("Stack Controller", func() {
 		}
 	})
 
-	var toDelete []string
-
-	defer func() {
-		for _, d := range toDelete {
-			_ = os.RemoveAll(d)
-		}
-	}()
-
 	It("Should deploy a simple stack locally successfully", func() {
 		// Uses v1alpha1 to both create and fetch
 		var stack *pulumiv1alpha1.Stack
@@ -204,8 +196,8 @@ var _ = Describe("Stack Controller", func() {
 		// Tests run from outside the container. Using the safest existing directory to store
 		// local state for the sake of this test.
 		backendDir, err := ioutil.TempDir("", "local-state")
-		Ω(err).ShouldNot(HaveOccurred())
-		toDelete = append(toDelete, backendDir)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { os.RemoveAll(backendDir) })
 
 		// Define the stack spec
 		localSpec := shared.StackSpec{
