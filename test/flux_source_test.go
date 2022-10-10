@@ -161,6 +161,10 @@ var _ = Describe("Flux source integration", func() {
 			Expect(k8sClient.Create(context.TODO(), stack)).To(Succeed())
 		})
 
+		AfterEach(func() {
+			Expect(k8sClient.Delete(context.TODO(), stack)).To(Succeed())
+		})
+
 		It("is marked as failed and to be retried", func() {
 			waitForStackFailure(stack)
 			refetch(stack)
@@ -170,6 +174,7 @@ var _ = Describe("Flux source integration", func() {
 			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
 			Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.StalledCondition)).To(BeNil())
 		})
+
 	})
 
 	When("a Stack refers to a Flux source with a latest artifact", func() {
@@ -232,6 +237,11 @@ var _ = Describe("Flux source integration", func() {
 			}
 			stack.Name = randString()
 			stack.Namespace = "default"
+		})
+
+		// This is done just before testing the outcome, so that any adjustments to the source, or
+		// the stack, can be made before the stack is processed.
+		JustBeforeEach(func() {
 			Expect(k8sClient.Create(context.TODO(), stack)).To(Succeed())
 		})
 
@@ -243,7 +253,7 @@ var _ = Describe("Flux source integration", func() {
 		})
 
 		When("the stack runs to success", func() {
-			BeforeEach(func() {
+			JustBeforeEach(func() {
 				waitForStackSuccess(stack)
 			})
 
@@ -251,6 +261,44 @@ var _ = Describe("Flux source integration", func() {
 				refetch(stack)
 				Expect(stack.Status.LastUpdate).NotTo(BeNil())
 				Expect(stack.Status.LastUpdate.LastSuccessfulCommit).To(Equal(artifactRevision))
+			})
+		})
+
+		When("the source object is explicitly marked as not ready", func() {
+			BeforeEach(func() {
+				notready := map[string]interface{}{
+					"type":               "Ready", // ) the type "Ready" and Status != "True" are enough to
+					"status":             "False", // ) mark it as unready.
+					"reason":             "ReasonIrrelevant",
+					"message":            "the message is also irrelevant",
+					"lastTransitionTime": "2022-10-10T14:18:22Z",
+				}
+				conditions := []interface{}{notready}
+				unstructured.SetNestedSlice(source.Object, conditions, "status", "conditions")
+				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
+			})
+
+			It("marks the stack as failed and to be retried", func() {
+				waitForStackFailure(stack)
+				refetch(stack)
+				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeTrue())
+				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
+
+				By("marking the source as ready, the stack can run")
+				ready := map[string]interface{}{
+					"type":               "Ready",
+					"status":             "True",
+					"reason":             "ReasonIrrelevant",
+					"message":            "the message is also irrelevant",
+					"lastTransitionTime": "2022-10-10T14:58:22Z",
+				}
+				conditions := []interface{}{ready}
+				unstructured.SetNestedSlice(source.Object, conditions, "status", "conditions")
+				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
+
+				waitForStackSuccess(stack)
+				refetch(stack)
+				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeTrue())
 			})
 		})
 

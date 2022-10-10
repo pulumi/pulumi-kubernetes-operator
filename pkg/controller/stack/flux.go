@@ -95,3 +95,31 @@ func (sess *reconcileStackSession) SetupWorkdirFromFluxSource(ctx context.Contex
 
 	return revision, sess.setupWorkspace(ctx, w)
 }
+
+// checkFluxSourceReady looks for the conventional "Ready" condition to see if the supplied object
+// can be considered _not_ ready. It returns an error if it can determine that the object is not
+// ready, and nil if it cannot determine so.
+func checkFluxSourceReady(obj unstructured.Unstructured) error {
+	conditions, ok, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
+	if err != nil || !ok {
+		// didn't find a []Condition, so there's nothing to indicate that it's not ready
+		return nil
+	}
+	for _, c0 := range conditions {
+		var c map[string]interface{}
+		if c, ok = c0.(map[string]interface{}); !ok {
+			// condition isn't the right shape, move on
+			continue
+		}
+		if t, ok, err := unstructured.NestedString(c, "type"); ok && err == nil && t == "Ready" {
+			if v, ok, err := unstructured.NestedString(c, "status"); ok && err == nil && v == "True" {
+				// found the Ready condition and it is actually ready
+				return nil
+			}
+			// found the Ready condition and it's something other than ready
+			return fmt.Errorf("source Ready condition does not have status True %#v", c)
+		}
+	}
+	// didn't find the Ready condition
+	return nil
+}

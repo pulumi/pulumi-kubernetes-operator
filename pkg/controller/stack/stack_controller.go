@@ -325,6 +325,11 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
 			return reconcile.Result{Requeue: true}, nil
 		}
+		if err := checkFluxSourceReady(sourceObject); err != nil {
+			r.markStackFailed(sess, instance, err, "", "")
+			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
+			return reconcile.Result{Requeue: true}, nil
+		}
 
 		currentCommit, err = sess.SetupWorkdirFromFluxSource(ctx, sourceObject, stack.FluxSource)
 		if err != nil {
