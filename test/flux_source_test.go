@@ -167,7 +167,6 @@ var _ = Describe("Flux source integration", func() {
 
 		It("is marked as failed and to be retried", func() {
 			waitForStackFailure(stack)
-			refetch(stack)
 			reconcilingCondition := apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.ReconcilingCondition)
 			Expect(reconcilingCondition).ToNot(BeNil())
 			Expect(reconcilingCondition.Reason).To(Equal(pulumiv1.ReconcilingRetryReason))
@@ -258,7 +257,6 @@ var _ = Describe("Flux source integration", func() {
 			})
 
 			It("records the revision from the source", func() {
-				refetch(stack)
 				Expect(stack.Status.LastUpdate).NotTo(BeNil())
 				Expect(stack.Status.LastUpdate.LastSuccessfulCommit).To(Equal(artifactRevision))
 			})
@@ -280,7 +278,6 @@ var _ = Describe("Flux source integration", func() {
 
 			It("marks the stack as failed and to be retried", func() {
 				waitForStackFailure(stack)
-				refetch(stack)
 				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeTrue())
 				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
 
@@ -297,7 +294,6 @@ var _ = Describe("Flux source integration", func() {
 				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
 
 				waitForStackSuccess(stack)
-				refetch(stack)
 				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeTrue())
 			})
 		})
@@ -312,7 +308,6 @@ var _ = Describe("Flux source integration", func() {
 			It("rejects the tarball and fails with a retry", func() {
 				resetWaitForStack()
 				waitForStackFailure(stack)
-				refetch(stack)
 				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeTrue())
 				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
 			})
@@ -327,7 +322,6 @@ var _ = Describe("Flux source integration", func() {
 
 			It("marks the Stack as failed and to be retried", func() {
 				waitForStackFailure(stack)
-				refetch(stack)
 				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeTrue())
 				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
 			})

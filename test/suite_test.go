@@ -151,17 +151,18 @@ func resetWaitForStack() {
 	waitForStackSince = time.Now()
 }
 
+// internalWaitForStackState refetches the given stack, until its .lastUpdated.state field matches
+// the one given. NB it fetches into the pointer given, so mutates the struct it's pointing at.
 func internalWaitForStackState(stack *pulumiv1.Stack, state shared.StackUpdateStateMessage) {
 	EventuallyWithOffset(2 /* called by other helpers */, func() bool {
 		k := client.ObjectKeyFromObject(stack)
-		var s pulumiv1.Stack
-		err := k8sClient.Get(context.TODO(), k, &s)
+		err := k8sClient.Get(context.TODO(), k, stack)
 		if err != nil {
 			return false
 		}
-		return s.Status.LastUpdate != nil &&
-			s.Status.LastUpdate.State == state &&
-			s.Status.LastUpdate.LastResyncTime.Time.After(waitForStackSince)
+		return stack.Status.LastUpdate != nil &&
+			stack.Status.LastUpdate.State == state &&
+			stack.Status.LastUpdate.LastResyncTime.Time.After(waitForStackSince)
 	}, "30s", "1s").Should(BeTrue(), fmt.Sprintf("stack %q reaches state %q", stack.Name, state))
 }
 
