@@ -12,8 +12,11 @@ import (
 
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
+	yaml "sigs.k8s.io/yaml"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -67,11 +70,14 @@ var _ = Describe("Creating a YAML program", func() {
 	When("Using a stack", func() {
 
 		var tmpDir, backendDir string
+		var kubeconfig string
 
 		BeforeEach(func() {
 			var err error
 			tmpDir, err = ioutil.TempDir("", "pulumi-test")
 			Expect(err).ToNot(HaveOccurred())
+
+			kubeconfig = writeKubeconfig(tmpDir)
 
 			backendDir = filepath.Join(tmpDir, "state")
 			Expect(os.Mkdir(backendDir, 0777)).To(Succeed())
@@ -84,9 +90,95 @@ var _ = Describe("Creating a YAML program", func() {
 		})
 
 		It("should run a Program that has been added to a Stack", func() {
-			prog := pulumiv1.Program{}
-			prog.Name = randString()
-			prog.Namespace = "default"
+			prog := programFromFile("./testdata/test-program.yaml")
+			Expect(k8sClient.Create(context.TODO(), &prog)).To(Succeed())
+
+			stack := pulumiv1.Stack{
+				Spec: shared.StackSpec{
+					Stack:   randString(),
+					Backend: fmt.Sprintf("file://%s", backendDir),
+					ProgramRef: &shared.ProgramReference{
+						Name: prog.Name,
+					},
+					EnvRefs: map[string]shared.ResourceRef{
+						"PULUMI_CONFIG_PASSPHRASE": shared.NewLiteralResourceRef("password"),
+						"KUBECONFIG":               shared.NewLiteralResourceRef(kubeconfig),
+					},
+					DestroyOnFinalize: true,
+				},
+			}
+			stack.Name = randString()
+			stack.Namespace = "default"
+
+			Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
+
+			// wait until the controller has seen the stack object and completed processing it
+			var s pulumiv1.Stack
+			Eventually(func() bool {
+				err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: stack.Name}, &s)
+				if err != nil {
+					return false
+				}
+				if s.Generation == 0 {
+					return false
+				}
+				return s.Status.ObservedGeneration == s.Generation
+			}, "20s", "1s").Should(BeTrue())
+
+			var c corev1.ConfigMap
+			Eventually(func() bool {
+				err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: "test-configmap"}, &c)
+				return err == nil
+			}, "20s", "1s").Should(BeTrue())
+
+			Expect(s.Status.LastUpdate.State).To(Equal(shared.SucceededStackStateMessage))
+			Expect(apimeta.IsStatusConditionTrue(s.Status.Conditions, pulumiv1.ReadyCondition)).To(BeTrue())
+
+			By("Deleting the Stack Pulumi API Secret")
+			Expect(k8sClient.Delete(context.TODO(), &c)).Should(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: c.Name, Namespace: namespace}, &c)
+				return k8serrors.IsNotFound(err)
+			}, k8sOpTimeout, interval).Should(BeTrue())
+		})
+
+		It("should fail if given a non-existent program.", func() {
+			stack := pulumiv1.Stack{
+				Spec: shared.StackSpec{
+					Stack:   randString(),
+					Backend: fmt.Sprintf("file://%s", backendDir),
+					ProgramRef: &shared.ProgramReference{
+						Name: randString(),
+					},
+					EnvRefs: map[string]shared.ResourceRef{
+						"PULUMI_CONFIG_PASSPHRASE": shared.NewLiteralResourceRef("password"),
+					},
+				},
+			}
+			stack.Name = randString()
+			stack.Namespace = "default"
+
+			Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
+
+			// wait until the controller has seen the stack object and completed processing it
+			var s pulumiv1.Stack
+			Eventually(func() bool {
+				err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: stack.Name}, &s)
+				if err != nil {
+					return false
+				}
+				if s.Generation == 0 {
+					return false
+				}
+				return s.Status.ObservedGeneration == s.Generation
+			}, "20s", "1s").Should(BeTrue())
+
+			Expect(s.Status.LastUpdate.State).To(Equal(shared.FailedStackStateMessage))
+			Expect(apimeta.IsStatusConditionFalse(s.Status.Conditions, pulumiv1.ReadyCondition)).To(BeTrue())
+		})
+
+		It("should fail if given a syntactically correct but invalid program.", func() {
+			prog := programFromFile("./testdata/test-program-invalid.yaml")
 			Expect(k8sClient.Create(context.TODO(), &prog)).To(Succeed())
 
 			stack := pulumiv1.Stack{
@@ -119,9 +211,31 @@ var _ = Describe("Creating a YAML program", func() {
 				return s.Status.ObservedGeneration == s.Generation
 			}, "20s", "1s").Should(BeTrue())
 
-			Expect(s.Status.LastUpdate.State).To(Equal(shared.SucceededStackStateMessage))
-			Expect(apimeta.IsStatusConditionTrue(s.Status.Conditions, pulumiv1.ReadyCondition)).To(BeTrue())
+			Expect(s.Status.LastUpdate.State).To(Equal(shared.FailedStackStateMessage))
+			Expect(apimeta.IsStatusConditionFalse(s.Status.Conditions, pulumiv1.ReadyCondition)).To(BeTrue())
 		})
 	})
 
 })
+
+func programFromFile(path string) pulumiv1.Program {
+	prog := pulumiv1.Program{}
+	prog.Name = randString()
+	prog.Namespace = "default"
+
+	programFile, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Printf("%+v", err)
+		Fail(fmt.Sprintf("Couldn't read program file: %v", err))
+	}
+	spec := pulumiv1.ProgramSpec{}
+	err = yaml.Unmarshal(programFile, &spec)
+	if err != nil {
+		fmt.Printf("%+v", err)
+		Fail(fmt.Sprintf("Couldn't unmarshal program YAML: %v", err))
+	}
+
+	prog.Program = spec
+
+	return prog
+}
