@@ -317,8 +317,13 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			Name:      source.SourceRef.Name,
 			Namespace: request.Namespace,
 		}, &sourceObject); err != nil {
-			// TODO consider event, status, logging (though the error belong will be logged)
-			return reconcile.Result{}, fmt.Errorf("could not resolve sourceRef: %w", err)
+			r.markStackFailed(sess, instance, err, "", "")
+			if client.IgnoreNotFound(err) != nil {
+				return reconcile.Result{}, fmt.Errorf("could not resolve sourceRef: %w", err)
+			}
+			// TODO: revisit this, if sources are watched; perhaps it should be stalled?
+			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
+			return reconcile.Result{Requeue: true}, nil
 		}
 
 		currentCommit, err = sess.SetupWorkdirFromFluxSource(ctx, sourceObject, stack.FluxSource)

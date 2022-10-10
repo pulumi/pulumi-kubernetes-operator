@@ -136,6 +136,42 @@ var _ = Describe("Flux source integration", func() {
 		}
 	})
 
+	When("a Stack refers to a missing Flux source", func() {
+		var stack *pulumiv1.Stack
+
+		BeforeEach(func() {
+			stack = &pulumiv1.Stack{
+				Spec: shared.StackSpec{
+					Stack:   randString(),
+					Backend: fmt.Sprintf("file://%s", backendDir),
+					EnvRefs: map[string]shared.ResourceRef{
+						"PULUMI_CONFIG_PASSPHRASE": shared.NewLiteralResourceRef("password"),
+					},
+					FluxSource: &shared.FluxSource{
+						SourceRef: shared.FluxSourceReference{
+							APIVersion: "source.pulumi.com/v1",
+							Kind:       "Fake",
+							Name:       "does-not-exist",
+						},
+					},
+				},
+			}
+			stack.Name = randString()
+			stack.Namespace = "default"
+			Expect(k8sClient.Create(context.TODO(), stack)).To(Succeed())
+		})
+
+		It("is marked as failed and to be retried", func() {
+			waitForStackFailure(stack)
+			refetch(stack)
+			reconcilingCondition := apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.ReconcilingCondition)
+			Expect(reconcilingCondition).ToNot(BeNil())
+			Expect(reconcilingCondition.Reason).To(Equal(pulumiv1.ReconcilingRetryReason))
+			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
+			Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.StalledCondition)).To(BeNil())
+		})
+	})
+
 	When("a Stack refers to a Flux source with a latest artifact", func() {
 		var (
 			artifactServer   *httptest.Server
