@@ -9,6 +9,9 @@ CHANGELOG
   but is not expected to affect any deployment. In particular, all Stack objects which are valid now
   will continue to work as before.
   [#332](https://github.com/pulumi/pulumi-kubernetes-operator/pull/332)
+- Add support for referring to a [Flux source object](https://fluxcd.io/flux/components/source/api/)
+  as the source of the Pulumi program to run for a Stack.
+  [#324](https://github.com/pulumi/pulumi-kubernetes-operator/pull/324)
 
 ## 1.9.0 (2022-10-05)
 

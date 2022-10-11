@@ -20,7 +20,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
 func makeFixtureIntoRepo(repoDir, fixture string) error {
@@ -83,17 +82,6 @@ func makeFixtureIntoRepo(repoDir, fixture string) error {
 	}
 
 	return nil
-}
-
-func writeKubeconfig(targetDir string) string {
-	// Create a user and write its kubeconfig out for stacks to use
-	user, err := testEnv.AddUser(envtest.User{Name: "testuser", Groups: []string{"system:masters"}}, nil)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	kc, err := user.KubeConfig()
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	kubeconfig := filepath.Join(targetDir, "kube.config")
-	ExpectWithOffset(1, os.WriteFile(kubeconfig, kc, 0666)).To(Succeed())
-	return kubeconfig
 }
 
 var _ = Describe("Stack controller status", func() {
