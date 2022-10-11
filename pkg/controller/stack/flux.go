@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/sha1"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -36,19 +35,26 @@ func (sess *reconcileStackSession) SetupWorkdirFromFluxSource(ctx context.Contex
 
 	// this source artifact fetching code is based closely on
 	// https://github.com/fluxcd/kustomize-controller/blob/db3c321163522259595894ca6c19ed44a876976d/controllers/kustomization_controller.go#L529
-	artifactURL, ok, err := unstructured.NestedString(source.Object, "status", "artifact", "url")
-	if !ok || err != nil {
-		return "", errors.New("expected source to have .status.artifact.url, but it did not")
+
+	getField := func(field string) (string, error) {
+		value, ok, err := unstructured.NestedString(source.Object, "status", "artifact", field)
+		if !ok || err != nil || value == "" {
+			return "", fmt.Errorf("expected a non-empty string in .status.artifact.%s", field)
+		}
+		return value, nil
 	}
 
-	revision, ok, err := unstructured.NestedString(source.Object, "status", "artifact", "revision")
-	if !ok || err != nil {
-		return "", errors.New("did not find revision in .status.artifact")
+	artifactURL, err := getField("url")
+	if err != nil {
+		return "", err
 	}
-
-	checksum, ok, err := unstructured.NestedString(source.Object, "status", "artifact", "checksum")
-	if !ok || err != nil {
-		return "", errors.New("did not find revision in .status.artifact")
+	revision, err := getField("revision")
+	if err != nil {
+		return "", err
+	}
+	checksum, err := getField("checksum")
+	if err != nil {
+		return "", err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, artifactURL, nil)
