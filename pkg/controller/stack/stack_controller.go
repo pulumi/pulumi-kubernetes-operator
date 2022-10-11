@@ -180,7 +180,7 @@ func isStalledError(e error) bool {
 }
 
 var errNamespaceIsolation = newStallErrorf(`refs are constrained to the object's namespace unless %s is set`, EnvInsecureNoNamespaceIsolation)
-var errNoSourceSpecified = newStallErrorf(`a source for the stack must be specified`)
+var errOtherThanOneSourceSpecified = newStallErrorf(`exactly one source (.spec.fluxSource or .spec.projectRepo) for the stack must be given`)
 
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
@@ -261,16 +261,18 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
-	// these are used in status, and are set from some property of the source, whether it's the
-	// actual commit, or some analogue.
+	// This value is reported in .status, and is set from some property of the source -- whether
+	// it's the actual commit, or some analogue.
 	var currentCommit string
 
 	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
 
 	// Check which kind of source we have.
-	if stack.GitSource != nil {
+	gitSource, fluxSource := stack.GitSource, stack.FluxSource
+	switch {
+	case gitSource != nil && fluxSource == nil:
 		// Validate that there is enough specified to be able to clone the git repo.
-		if stack.GitSource.ProjectRepo == "" || (stack.GitSource.Commit == "" && stack.GitSource.Branch == "") {
+		if gitSource.ProjectRepo == "" || (gitSource.Commit == "" && gitSource.Branch == "") {
 
 			msg := "Stack git source needs to specify 'projectRepo' and either 'branch' or 'commit'"
 			r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), msg)
@@ -282,7 +284,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			return reconcile.Result{}, nil
 		}
 
-		gitAuth, err := sess.SetupGitAuth(ctx)
+		gitAuth, err := sess.SetupGitAuth(ctx) // TODO be more explicit about what's being fed in here
 		if err != nil {
 			r.emitEvent(instance, pulumiv1.StackGitAuthFailureEvent(), "Failed to setup git authentication: %v", err.Error())
 			reqLogger.Error(err, "Failed to setup git authentication", "Stack.Name", stack.Stack)
@@ -297,7 +299,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			sess.addSSHKeysToKnownHosts(sess.stack.ProjectRepo)
 		}
 
-		if currentCommit, err = sess.SetupWorkdirFromGitSource(ctx, gitAuth, stack.GitSource); err != nil {
+		if currentCommit, err = sess.SetupWorkdirFromGitSource(ctx, gitAuth, gitSource); err != nil {
 			r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
 			reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
 			r.markStackFailed(sess, instance, err, "", "")
@@ -309,12 +311,12 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			// this can fail for reasons which might go away without intervention; so, retry explicitly
 			return reconcile.Result{Requeue: true}, nil
 		}
-	} else if source := stack.FluxSource; source != nil {
+	case gitSource == nil && fluxSource != nil:
 		var sourceObject unstructured.Unstructured
-		sourceObject.SetAPIVersion(source.SourceRef.APIVersion)
-		sourceObject.SetKind(source.SourceRef.Kind)
+		sourceObject.SetAPIVersion(fluxSource.SourceRef.APIVersion)
+		sourceObject.SetKind(fluxSource.SourceRef.Kind)
 		if err := r.client.Get(ctx, client.ObjectKey{
-			Name:      source.SourceRef.Name,
+			Name:      fluxSource.SourceRef.Name,
 			Namespace: request.Namespace,
 		}, &sourceObject); err != nil {
 			r.markStackFailed(sess, instance, err, "", "")
@@ -331,7 +333,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			return reconcile.Result{Requeue: true}, nil
 		}
 
-		currentCommit, err = sess.SetupWorkdirFromFluxSource(ctx, sourceObject, stack.FluxSource)
+		currentCommit, err = sess.SetupWorkdirFromFluxSource(ctx, sourceObject, fluxSource)
 		if err != nil {
 			r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
 			reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
@@ -344,8 +346,8 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			// this can fail for reasons which might go away without intervention; so, retry explicitly
 			return reconcile.Result{Requeue: true}, nil
 		}
-	} else { // no source specified
-		err := errNoSourceSpecified
+	default:
+		err := errOtherThanOneSourceSpecified
 		r.markStackFailed(sess, instance, err, "", "")
 		instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
 		return reconcile.Result{}, nil
