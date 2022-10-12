@@ -549,7 +549,8 @@ spec:
                   credentials. Deprecated. Use GitAuth instead.'
                 type: string
               programRef:
-                description: 'Inline YAML program:'
+                description: ProgramRef refers to a Program object, to be used as
+                  the source for the stack.
                 properties:
                   name:
                     type: string
@@ -1323,7 +1324,8 @@ spec:
                   credentials. Deprecated. Use GitAuth instead.'
                 type: string
               programRef:
-                description: 'Inline YAML program:'
+                description: ProgramRef refers to a Program object, to be used as
+                  the source for the stack.
                 properties:
                   name:
                     type: string

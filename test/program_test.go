@@ -1,11 +1,10 @@
-// Copyright 2021, Pulumi Corporation.  All rights reserved.
+// Copyright 2022, Pulumi Corporation.  All rights reserved.
 
 package tests
 
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,7 +73,7 @@ var _ = Describe("Creating a YAML program", func() {
 
 		BeforeEach(func() {
 			var err error
-			tmpDir, err = ioutil.TempDir("", "pulumi-test")
+			tmpDir, err = os.MkdirTemp("", "pulumi-test")
 			Expect(err).ToNot(HaveOccurred())
 
 			kubeconfig = writeKubeconfig(tmpDir)
@@ -126,15 +125,12 @@ var _ = Describe("Creating a YAML program", func() {
 			}, "20s", "1s").Should(BeTrue())
 
 			var c corev1.ConfigMap
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: "test-configmap"}, &c)
-				return err == nil
-			}, "20s", "1s").Should(BeTrue())
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: "test-configmap"}, &c)).To(Succeed())
 
 			Expect(s.Status.LastUpdate.State).To(Equal(shared.SucceededStackStateMessage))
 			Expect(apimeta.IsStatusConditionTrue(s.Status.Conditions, pulumiv1.ReadyCondition)).To(BeTrue())
 
-			By("Deleting the Stack Pulumi API Secret")
+			// Clean up the ConfigMap for future runs.
 			Expect(k8sClient.Delete(context.TODO(), &c)).Should(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: c.Name, Namespace: namespace}, &c)
@@ -152,6 +148,7 @@ var _ = Describe("Creating a YAML program", func() {
 					},
 					EnvRefs: map[string]shared.ResourceRef{
 						"PULUMI_CONFIG_PASSPHRASE": shared.NewLiteralResourceRef("password"),
+						"KUBECONFIG":               shared.NewLiteralResourceRef(kubeconfig),
 					},
 				},
 			}
@@ -190,6 +187,7 @@ var _ = Describe("Creating a YAML program", func() {
 					},
 					EnvRefs: map[string]shared.ResourceRef{
 						"PULUMI_CONFIG_PASSPHRASE": shared.NewLiteralResourceRef("password"),
+						"KUBECONFIG":               shared.NewLiteralResourceRef(kubeconfig),
 					},
 				},
 			}
@@ -228,14 +226,8 @@ func programFromFile(path string) pulumiv1.Program {
 		fmt.Printf("%+v", err)
 		Fail(fmt.Sprintf("Couldn't read program file: %v", err))
 	}
-	spec := pulumiv1.ProgramSpec{}
-	err = yaml.Unmarshal(programFile, &spec)
-	if err != nil {
-		fmt.Printf("%+v", err)
-		Fail(fmt.Sprintf("Couldn't unmarshal program YAML: %v", err))
-	}
-
-	prog.Program = spec
+	err = yaml.Unmarshal(programFile, &prog.Program)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	return prog
 }

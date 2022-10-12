@@ -899,6 +899,7 @@ func (sess *reconcileStackSession) SetupWorkdirFromGitSource(ctx context.Context
 	return revision, sess.setupWorkspace(ctx, w)
 }
 
+// ProjectFile adds required Pulumi 'project' fields to the Program spec, making it valid to be given to Pulumi.
 type ProjectFile struct {
 	Name    string `json:"name"`
 	Runtime string `json:"runtime"`

@@ -193,7 +193,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b><a href="#stackspecprogramref">programRef</a></b></td>
         <td>object</td>
         <td>
-          Inline YAML program:<br/>
+          ProgramRef refers to a Program object, to be used as the source for the stack.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1516,7 +1516,7 @@ SecretRef refers to a Kubernetes secret
 
 
 
-Inline YAML program:
+ProgramRef refers to a Program object, to be used as the source for the stack.
 
 <table>
     <thead>
@@ -2079,7 +2079,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b><a href="#stackspecprogramref-1">programRef</a></b></td>
         <td>object</td>
         <td>
-          Inline YAML program:<br/>
+          ProgramRef refers to a Program object, to be used as the source for the stack.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -3402,7 +3402,7 @@ SecretRef refers to a Kubernetes secret
 
 
 
-Inline YAML program:
+ProgramRef refers to a Program object, to be used as the source for the stack.
 
 <table>
     <thead>

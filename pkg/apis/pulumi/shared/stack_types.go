@@ -70,7 +70,7 @@ type StackSpec struct {
 	// +optional
 	FluxSource *FluxSource `json:"fluxSource,omitempty"`
 
-	// Inline YAML program:
+	// ProgramRef refers to a Program object, to be used as the source for the stack.
 	ProgramRef *ProgramReference `json:"programRef,omitempty"`
 
 	// Lifecycle:
