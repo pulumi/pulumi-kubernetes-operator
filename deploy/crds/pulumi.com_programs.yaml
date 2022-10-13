@@ -44,6 +44,11 @@ spec:
                     default:
                       x-kubernetes-preserve-unknown-fields: true
                     type:
+                      enum:
+                      - String
+                      - Number
+                      - List<Number>
+                      - List<String>
                       type: string
                   type: object
                 type: object

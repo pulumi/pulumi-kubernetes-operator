@@ -133,9 +133,11 @@ Program is the schema for the inline YAML program API.
         <td>false</td>
       </tr><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           <br/>
+          <br/>
+            <i>Enum</i>: String, Number, List<Number>, List<String><br/>
         </td>
         <td>false</td>
       </tr></tbody>

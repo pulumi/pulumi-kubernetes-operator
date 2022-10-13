@@ -35,9 +35,12 @@ type ProgramSpec struct {
 	Outputs map[string]Expression `json:"outputs,omitempty"`
 }
 
+// +kubebuilder:validation:Enum={"String", "Number", "List<Number>", "List<String>"}
+type ConfigTypes string
+
 type Configuration struct {
 	// +optional
-	Type string `json:"type,omitempty"`
+	Type ConfigTypes `json:"type,omitempty"`
 	// +optional
 	Default Any `json:"default,omitempty"`
 }
