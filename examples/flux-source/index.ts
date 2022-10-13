@@ -6,7 +6,6 @@ import * as flux from "@worawat/flux";
 const config = new pulumi.Config();
 const deployNamespace = config.get("namespace") || 'default';
 const deployNamespaceList = config.getObject<string[]>("namespaces") || [deployNamespace];
-const excludeCrds = config.getBoolean("exclude-crds");
 const operatorVersion = config.get("operator-version") || "v1.9.0";
 
 // -- Flux installation
@@ -22,12 +21,8 @@ const fluxGroup = fluxManifests.content.apply(c => new ConfigGroup("flux-install
 
 // --- Pulumi operator
 
-let deploymentOptions = {};
-
-if (!excludeCrds) {
-    const crds = new kubernetes.yaml.ConfigFile("crds", {file: `https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/${operatorVersion}/deploy/crds/pulumi.com_stacks.yaml`});
-    deploymentOptions = { dependsOn: crds };
-}
+const crd = kubernetes.apiextensions.v1.CustomResourceDefinition.get('stacks-crd', 'stacks.pulumi.com');
+const deploymentOptions = { dependsOn: crd };
 
 for (let ns of deployNamespaceList) {
     const operatorServiceAccount = new kubernetes.core.v1.ServiceAccount(`operator-service-account-${ns}`, {
