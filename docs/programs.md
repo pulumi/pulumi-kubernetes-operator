@@ -80,28 +80,28 @@ Program is the schema for the inline YAML program API.
         <td><b><a href="#programprogramconfigurationkey">configuration</a></b></td>
         <td>map[string]object</td>
         <td>
-          <br/>
+          configuration specifies the Pulumi config inputs to the deployment. Either type or default is required.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>outputs</b></td>
         <td>map[string]JSON</td>
         <td>
-          <br/>
+          outputs specifies the Pulumi stack outputs of the program and how they are computed from the resources.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#programprogramresourceskey">resources</a></b></td>
         <td>map[string]object</td>
         <td>
-          <br/>
+          resources declares the Pulumi resources that will be deployed and managed by the program.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>variables</b></td>
         <td>map[string]JSON</td>
         <td>
-          <br/>
+          variables specifies intermediate values of the program; the values of variables are expressions that can be re-used.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -128,14 +128,14 @@ Program is the schema for the inline YAML program API.
         <td><b>default</b></td>
         <td>JSON</td>
         <td>
-          <br/>
+          default is a value of the appropriate type for the template to use if no value is specified.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>type</b></td>
         <td>enum</td>
         <td>
-          <br/>
+          type is the (required) data type for the parameter.<br/>
           <br/>
             <i>Enum</i>: String, Number, List<Number>, List<String><br/>
         </td>
@@ -164,28 +164,28 @@ Program is the schema for the inline YAML program API.
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          <br/>
+          type is the Pulumi type token for this resource.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#programprogramresourceskeyget">get</a></b></td>
         <td>object</td>
         <td>
-          <br/>
+          A getter function for the resource. Supplying get is mutually exclusive to properties.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#programprogramresourceskeyoptions">options</a></b></td>
         <td>object</td>
         <td>
-          <br/>
+          options contains all resource options supported by Pulumi.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>properties</b></td>
         <td>map[string]JSON</td>
         <td>
-          <br/>
+          properties contains the primary resource-specific keys and values to initialize the resource state.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -197,7 +197,7 @@ Program is the schema for the inline YAML program API.
 
 
 
-
+A getter function for the resource. Supplying get is mutually exclusive to properties.
 
 <table>
     <thead>
@@ -212,14 +212,14 @@ Program is the schema for the inline YAML program API.
         <td><b>id</b></td>
         <td>string</td>
         <td>
-          <br/>
+          The ID of the resource to import.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>state</b></td>
         <td>map[string]JSON</td>
         <td>
-          <br/>
+          state contains the known properties (input & output) of the resource. This assists the provider in figuring out the correct resource.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -231,7 +231,7 @@ Program is the schema for the inline YAML program API.
 
 
 
-
+options contains all resource options supported by Pulumi.
 
 <table>
     <thead>
@@ -246,84 +246,84 @@ Program is the schema for the inline YAML program API.
         <td><b>additionalSecretOutputs</b></td>
         <td>[]string</td>
         <td>
-          <br/>
+          additionalSecretOutputs specifies properties that must be encrypted as secrets.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>aliases</b></td>
         <td>[]string</td>
         <td>
-          <br/>
+          aliases specifies names that this resource used to have, so that renaming or refactoring doesn’t replace it.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#programprogramresourceskeyoptionscustomtimeouts">customTimeouts</a></b></td>
         <td>object</td>
         <td>
-          <br/>
+          customTimeouts overrides the default retry/timeout behavior for resource provisioning.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>deleteBeforeReplace</b></td>
         <td>boolean</td>
         <td>
-          <br/>
+          deleteBeforeReplace overrides the default create-before-delete behavior when replacing.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>dependsOn</b></td>
         <td>[]JSON</td>
         <td>
-          <br/>
+          dependsOn adds explicit dependencies in addition to the ones in the dependency graph.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>ignoreChanges</b></td>
         <td>[]string</td>
         <td>
-          <br/>
+          ignoreChanges declares that changes to certain properties should be ignored when diffing.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>import</b></td>
         <td>string</td>
         <td>
-          <br/>
+          import adopts an existing resource from your cloud account under the control of Pulumi.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>parent</b></td>
         <td>JSON</td>
         <td>
-          <br/>
+          parent resource option specifies a parent for a resource. It is used to associate children with the parents that encapsulate or are responsible for them.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>protect</b></td>
         <td>boolean</td>
         <td>
-          <br/>
+          protect prevents accidental deletion of a resource.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>provider</b></td>
         <td>JSON</td>
         <td>
-          <br/>
+          provider resource option sets a provider for the resource.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>providers</b></td>
         <td>map[string]JSON</td>
         <td>
-          <br/>
+          providers resource option sets a map of providers for the resource and its children.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>version</b></td>
         <td>string</td>
         <td>
-          <br/>
+          version specifies a provider plugin version that should be used when operating on a resource.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -335,7 +335,7 @@ Program is the schema for the inline YAML program API.
 
 
 
-
+customTimeouts overrides the default retry/timeout behavior for resource provisioning.
 
 <table>
     <thead>
@@ -350,21 +350,21 @@ Program is the schema for the inline YAML program API.
         <td><b>create</b></td>
         <td>string</td>
         <td>
-          <br/>
+          create is the custom timeout for create operations.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>delete</b></td>
         <td>string</td>
         <td>
-          <br/>
+          delete is the custom timeout for delete operations.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>update</b></td>
         <td>string</td>
         <td>
-          <br/>
+          update is the custom timeout for update operations.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
