@@ -12,6 +12,8 @@ CHANGELOG
 - Add support for referring to a [Flux source object](https://fluxcd.io/flux/components/source/api/)
   as the source of the Pulumi program to run for a Stack.
   [#324](https://github.com/pulumi/pulumi-kubernetes-operator/pull/324)
+- Add functionality for using [Pulumi YAML](https://www.pulumi.com/docs/intro/languages/yaml/) in-line to create Pulumi programs.
+  [#336](https://github.com/pulumi/pulumi-kubernetes-operator/pull/336)
 
 ## 1.9.0 (2022-10-05)
 

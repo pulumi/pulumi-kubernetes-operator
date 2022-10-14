@@ -70,6 +70,9 @@ type StackSpec struct {
 	// +optional
 	FluxSource *FluxSource `json:"fluxSource,omitempty"`
 
+	// ProgramRef refers to a Program object, to be used as the source for the stack.
+	ProgramRef *ProgramReference `json:"programRef,omitempty"`
+
 	// Lifecycle:
 
 	// (optional) Refresh can be set to true to refresh the stack before it is updated.
@@ -198,6 +201,11 @@ type ResourceRef struct {
 	// Env, FS, Secret, Literal
 	SelectorType     ResourceSelectorType `json:"type"`
 	ResourceSelector `json:",inline"`
+}
+
+type ProgramReference struct {
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
 }
 
 // NewEnvResourceRef creates a new environment variable resource ref.

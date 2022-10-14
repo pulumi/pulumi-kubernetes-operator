@@ -49,6 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	yaml "sigs.k8s.io/yaml"
 )
 
 var (
@@ -180,7 +181,9 @@ func isStalledError(e error) bool {
 }
 
 var errNamespaceIsolation = newStallErrorf(`refs are constrained to the object's namespace unless %s is set`, EnvInsecureNoNamespaceIsolation)
-var errOtherThanOneSourceSpecified = newStallErrorf(`exactly one source (.spec.fluxSource or .spec.projectRepo) for the stack must be given`)
+var errOtherThanOneSourceSpecified = newStallErrorf(`exactly one source (.spec.fluxSource, .spec.projectRepo, or .spec.programRef) for the stack must be given`)
+
+var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
 
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
@@ -268,9 +271,9 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
 
 	// Check which kind of source we have.
-	gitSource, fluxSource := stack.GitSource, stack.FluxSource
+	gitSource, fluxSource, programRef := stack.GitSource, stack.FluxSource, stack.ProgramRef
 	switch {
-	case gitSource != nil && fluxSource == nil:
+	case gitSource != nil && fluxSource == nil && programRef == nil:
 		// Validate that there is enough specified to be able to clone the git repo.
 		if gitSource.ProjectRepo == "" || (gitSource.Commit == "" && gitSource.Branch == "") {
 
@@ -311,7 +314,8 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			// this can fail for reasons which might go away without intervention; so, retry explicitly
 			return reconcile.Result{Requeue: true}, nil
 		}
-	case gitSource == nil && fluxSource != nil:
+
+	case gitSource == nil && fluxSource != nil && programRef == nil:
 		var sourceObject unstructured.Unstructured
 		sourceObject.SetAPIVersion(fluxSource.SourceRef.APIVersion)
 		sourceObject.SetKind(fluxSource.SourceRef.Kind)
@@ -327,6 +331,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
 			return reconcile.Result{Requeue: true}, nil
 		}
+
 		if err := checkFluxSourceReady(sourceObject); err != nil {
 			r.markStackFailed(sess, instance, err, "", "")
 			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
@@ -340,6 +345,23 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			r.markStackFailed(sess, instance, err, "", "")
 			if isStalledError(err) {
 				instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
+				return reconcile.Result{}, nil
+			}
+			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
+			// this can fail for reasons which might go away without intervention; so, retry explicitly
+			return reconcile.Result{Requeue: true}, nil
+		}
+	case gitSource == nil && fluxSource == nil && programRef != nil:
+		if currentCommit, err = sess.SetupWorkdirFromYAML(ctx, *programRef); err != nil {
+			r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
+			reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
+			r.markStackFailed(sess, instance, err, "", "")
+			if errors.Is(err, errProgramNotFound) {
+				instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
+				return reconcile.Result{}, nil
+			}
+			if isStalledError(err) {
+				instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
 				return reconcile.Result{}, nil
 			}
 			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
@@ -436,6 +458,21 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		}
 
 	} else if stack.FluxSource != nil {
+		if instance.Status.LastUpdate != nil {
+			if instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit && !stack.ContinueResyncOnCommitMatch {
+				reqLogger.Info("Commit hash unchanged. Will poll again.", "pollFrequencySeconds", resyncFreqSeconds)
+				// Reconcile every resyncFreqSeconds to check for new commits to the branch.
+				instance.Status.MarkReadyCondition() // FIXME: should this reflect the previous update state?
+				return reconcile.Result{RequeueAfter: time.Duration(resyncFreqSeconds) * time.Second}, nil
+			}
+
+			if instance.Status.LastUpdate.LastSuccessfulCommit != currentCommit {
+				r.emitEvent(instance, pulumiv1.StackUpdateDetectedEvent(), "New commit detected: %q.", currentCommit)
+				reqLogger.Info("New commit hash found", "Current commit", currentCommit,
+					"Last commit", instance.Status.LastUpdate.LastSuccessfulCommit)
+			}
+		}
+	} else if stack.ProgramRef != nil {
 		if instance.Status.LastUpdate != nil {
 			if instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit && !stack.ContinueResyncOnCommitMatch {
 				reqLogger.Info("Commit hash unchanged. Will poll again.", "pollFrequencySeconds", resyncFreqSeconds)
@@ -864,6 +901,70 @@ func (sess *reconcileStackSession) SetupWorkdirFromGitSource(ctx context.Context
 	if err != nil {
 		return "", err
 	}
+
+	return revision, sess.setupWorkspace(ctx, w)
+}
+
+// ProjectFile adds required Pulumi 'project' fields to the Program spec, making it valid to be given to Pulumi.
+type ProjectFile struct {
+	Name    string `json:"name"`
+	Runtime string `json:"runtime"`
+	pulumiv1.ProgramSpec
+}
+
+func (sess *reconcileStackSession) SetupWorkdirFromYAML(ctx context.Context, programRef shared.ProgramReference) (_commit string, retErr error) {
+	sess.logger.Debug("Setting up pulumi workdir for stack", "stack", sess.stack)
+
+	// Create a new workspace.
+	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
+
+	// Create the temporary workdir
+	dir, err := os.MkdirTemp("", "pulumi_auto")
+	if err != nil {
+		return "", fmt.Errorf("unable to create tmp directory for workspace: %w", err)
+	}
+	sess.rootDir = dir
+
+	// Cleanup the rootdir on failure setting up the workspace.
+	defer func() {
+		if retErr != nil {
+			_ = os.RemoveAll(sess.rootDir)
+		}
+	}()
+
+	program := pulumiv1.Program{}
+	programKey := client.ObjectKey{
+		Name:      programRef.Name,
+		Namespace: sess.namespace,
+	}
+
+	err = sess.kubeClient.Get(ctx, programKey, &program)
+	if err != nil {
+		return "", errProgramNotFound
+	}
+
+	var project ProjectFile
+	project.Name = program.Name
+	project.Runtime = "yaml"
+	project.ProgramSpec = program.Program
+
+	out, err := yaml.Marshal(&project)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal program object to YAML: %w", err)
+	}
+
+	err = os.WriteFile(filepath.Join(dir, "Pulumi.yaml"), out, 0600)
+	if err != nil {
+		return "", fmt.Errorf("failed to write YAML to file: %w", err)
+	}
+
+	var w auto.Workspace
+	w, err = auto.NewLocalWorkspace(ctx, auto.WorkDir(dir), secretsProvider)
+	if err != nil {
+		return "", fmt.Errorf("failed to create local workspace: %w", err)
+	}
+
+	revision := fmt.Sprintf("%s/%d", program.Name, program.ObjectMeta.Generation)
 
 	return revision, sess.setupWorkspace(ctx, w)
 }

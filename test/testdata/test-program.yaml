@@ -1,0 +1,15 @@
+resources:
+    provider:
+        type: pulumi:providers:kubernetes
+    example:
+        type: kubernetes:core/v1:ConfigMap
+        properties:
+            metadata:
+                annotations:
+                    pulumi.com/patchForce: "true"
+                name:
+                    test-configmap
+            data:
+                foo: bar
+        options:
+            provider: ${provider}

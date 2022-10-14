@@ -13,7 +13,7 @@ download-test-deps:
 	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 install-crds:
-	kubectl apply -f deploy/crds/pulumi.com_stacks.yaml
+	kubectl apply -f deploy/crds/
 
 codegen: install-controller-gen install-crdoc generate-k8s generate-crds generate-crdocs
 
@@ -31,6 +31,7 @@ generate-k8s:
 
 generate-crdocs:
 	crdoc --resources deploy/crds/pulumi.com_stacks.yaml --output docs/stacks.md
+	crdoc --resources deploy/crds/pulumi.com_programs.yaml --output docs/programs.md
 
 build-image: build-static
 	docker build --rm -t $(IMAGE_NAME):$(VERSION) -f Dockerfile .
