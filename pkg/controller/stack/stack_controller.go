@@ -183,6 +183,8 @@ func isStalledError(e error) bool {
 var errNamespaceIsolation = newStallErrorf(`refs are constrained to the object's namespace unless %s is set`, EnvInsecureNoNamespaceIsolation)
 var errOtherThanOneSourceSpecified = newStallErrorf(`exactly one source (.spec.fluxSource, .spec.projectRepo, or .spec.programRef) for the stack must be given`)
 
+var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
+
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
 func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Request) (retres reconcile.Result, reterr error) {
@@ -354,6 +356,10 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
 			reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
 			r.markStackFailed(sess, instance, err, "", "")
+			if errors.Is(err, errProgramNotFound) {
+				instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
+				return reconcile.Result{}, nil
+			}
 			if isStalledError(err) {
 				instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
 				return reconcile.Result{}, nil
@@ -934,7 +940,7 @@ func (sess *reconcileStackSession) SetupWorkdirFromYAML(ctx context.Context, pro
 
 	err = sess.kubeClient.Get(ctx, programKey, &program)
 	if err != nil {
-		return "", fmt.Errorf("unable to retrieve program for stack: %w", err)
+		return "", errProgramNotFound
 	}
 
 	var project ProjectFile

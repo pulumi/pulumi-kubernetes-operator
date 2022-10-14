@@ -116,7 +116,9 @@ var _ = Describe("Creating a YAML program", func() {
 			waitForStackFailure(&stack)
 
 			Expect(stack.Status.LastUpdate.State).To(Equal(shared.FailedStackStateMessage))
-			// TODO: Condition for non-existent program?
+			stalledCondition := apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.StalledCondition)
+			Expect(stalledCondition).ToNot(BeNil(), "stalled condition is present")
+			Expect(stalledCondition.Reason).To(Equal(pulumiv1.StalledSourceUnavailableReason))
 			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
 		})
 
