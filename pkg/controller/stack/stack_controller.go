@@ -355,7 +355,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
 			r.markStackFailed(sess, instance, err, "", "")
 			if isStalledError(err) {
-				instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
+				instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
 				return reconcile.Result{}, nil
 			}
 			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
