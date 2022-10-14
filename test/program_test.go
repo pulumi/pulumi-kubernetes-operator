@@ -99,10 +99,7 @@ var _ = Describe("Creating a YAML program", func() {
 			if strings.HasPrefix(tmpDir, os.TempDir()) {
 				os.RemoveAll(tmpDir)
 			}
-			err := k8sClient.Delete(context.TODO(), &stack)
-			if err != nil {
-				Fail(fmt.Sprintf("couldn't delete stack: %v", err))
-			}
+			Expect(k8sClient.Delete(context.TODO(), &stack)).To(Succeed())
 		})
 
 		It("should fail if given a non-existent program.", func() {
@@ -135,7 +132,6 @@ var _ = Describe("Creating a YAML program", func() {
 			waitForStackFailure(&stack)
 
 			Expect(stack.Status.LastUpdate.State).To(Equal(shared.FailedStackStateMessage))
-			// TODO: Condition for invalid program?
 			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
 		})
 

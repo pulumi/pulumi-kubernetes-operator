@@ -45,12 +45,12 @@ type ProgramSpec struct {
 }
 
 // +kubebuilder:validation:Enum={"String", "Number", "List<Number>", "List<String>"}
-type ConfigTypes string
+type ConfigType string
 
 type Configuration struct {
 	// type is the (required) data type for the parameter.
 	// +optional
-	Type ConfigTypes `json:"type,omitempty"`
+	Type ConfigType `json:"type,omitempty"`
 
 	// default is a value of the appropriate type for the template to use if no value is specified.
 	// +optional
