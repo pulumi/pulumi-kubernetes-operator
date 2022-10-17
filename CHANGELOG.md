@@ -14,6 +14,7 @@ CHANGELOG
   [#324](https://github.com/pulumi/pulumi-kubernetes-operator/pull/324)
 - Add functionality for using [Pulumi YAML](https://www.pulumi.com/docs/intro/languages/yaml/) in-line to create Pulumi programs.
   [#336](https://github.com/pulumi/pulumi-kubernetes-operator/pull/336)
+- [#337] [internal] Port testing to Ginkgo v2 and address test flakes
 
 ## 1.9.0 (2022-10-05)
 
