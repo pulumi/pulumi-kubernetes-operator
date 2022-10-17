@@ -270,19 +270,27 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
 
+	exactlyOneOf := func(these ...bool) bool {
+		var found bool
+		for _, b := range these {
+			if found && b {
+				return false
+			}
+			found = found || b
+		}
+		return found
+	}
+
 	// Check which kind of source we have.
-	gitPresent, fluxPresent, programPresent := stack.GitSource != nil, stack.FluxSource != nil, stack.ProgramRef != nil
+
 	switch {
-	case (gitPresent == fluxPresent && fluxPresent == programPresent) ||
-		(gitPresent && fluxPresent) ||
-		(fluxPresent && programPresent) ||
-		(gitPresent && programPresent):
+	case !exactlyOneOf(stack.GitSource != nil, stack.FluxSource != nil, stack.ProgramRef != nil):
 		err := errOtherThanOneSourceSpecified
 		r.markStackFailed(sess, instance, err, "", "")
 		instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
 		return reconcile.Result{}, nil
 
-	case gitPresent:
+	case stack.GitSource != nil:
 		gitSource := stack.GitSource
 		// Validate that there is enough specified to be able to clone the git repo.
 		if gitSource.ProjectRepo == "" || (gitSource.Commit == "" && gitSource.Branch == "") {
@@ -325,7 +333,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			return reconcile.Result{Requeue: true}, nil
 		}
 
-	case fluxPresent:
+	case stack.FluxSource != nil:
 		fluxSource := stack.FluxSource
 		var sourceObject unstructured.Unstructured
 		sourceObject.SetAPIVersion(fluxSource.SourceRef.APIVersion)
@@ -363,7 +371,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			return reconcile.Result{Requeue: true}, nil
 		}
 
-	case programPresent:
+	case stack.ProgramRef != nil:
 		programRef := stack.ProgramRef
 		if currentCommit, err = sess.SetupWorkdirFromYAML(ctx, *programRef); err != nil {
 			r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
