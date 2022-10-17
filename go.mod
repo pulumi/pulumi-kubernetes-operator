@@ -9,7 +9,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
-	github.com/onsi/gomega v1.20.1
+	github.com/onsi/gomega v1.22.0
 	github.com/operator-framework/operator-lib v0.7.0
 	github.com/operator-framework/operator-sdk v0.19.4
 	github.com/pkg/errors v0.9.1 // indirect
@@ -41,7 +41,7 @@ require (
 
 require (
 	github.com/go-git/go-git/v5 v5.4.2
-	github.com/onsi/ginkgo/v2 v2.2.0
+	github.com/onsi/ginkgo/v2 v2.3.1
 	sigs.k8s.io/yaml v1.2.0
 )
 
