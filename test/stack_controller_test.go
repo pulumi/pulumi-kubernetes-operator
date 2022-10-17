@@ -20,7 +20,6 @@ import (
 
 	"gopkg.in/src-d/go-git.v4"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -143,22 +142,6 @@ var _ = Describe("Stack Controller", func() {
 	})
 
 	AfterEach(func() {
-		By("Deleting left over stacks")
-		Expect(k8sClient.DeleteAllOf(
-			ctx,
-			&pulumiv1alpha1.Stack{},
-			client.InNamespace(namespace),
-			&client.DeleteAllOfOptions{},
-		)).Should(Succeed())
-
-		Eventually(func() bool {
-			var stacksList pulumiv1alpha1.StackList
-			if err = k8sClient.List(ctx, &stacksList, client.InNamespace(namespace)); err != nil {
-				return false
-			}
-			return len(stacksList.Items) == 0
-		}, stackExecTimeout, interval).Should(BeTrue()) // stacks will be finalized, so allow time for that to happen
-
 		if pulumiAPISecret != nil {
 			By("Deleting the Stack Pulumi API Secret")
 			Expect(k8sClient.Delete(ctx, pulumiAPISecret)).Should(Succeed())
