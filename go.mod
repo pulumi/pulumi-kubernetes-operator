@@ -42,6 +42,7 @@ require (
 require (
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/onsi/ginkgo/v2 v2.2.0
+	sigs.k8s.io/yaml v1.2.0
 )
 
 require (
@@ -125,7 +126,6 @@ require (
 	k8s.io/kube-state-metrics v1.7.2 // indirect
 	lukechampine.com/frand v1.4.2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.1.0 // indirect
-	sigs.k8s.io/yaml v1.2.0 // indirect
 	sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0 // indirect
 )
 
