@@ -5,6 +5,7 @@ PUBLISH_IMAGE_NAME := pulumi/pulumi-kubernetes-operator
 IMAGE_NAME := docker.io/$(shell whoami)/pulumi-kubernetes-operator
 CURRENT_RELEASE := $(shell git describe --abbrev=0 --tags)
 RELEASE ?= $(shell git describe --abbrev=0 --tags)
+TEST_NODES ?= 4
 
 default: build
 
@@ -47,7 +48,7 @@ push-image:
 
 test: codegen download-test-deps
 	KUBEBUILDER_ASSETS="$(shell setup-envtest --use-env use -p path)" \
-		ginkgo -nodes=4 --randomizeAllSpecs ./test/...
+		ginkgo -nodes=${TEST_NODES} --randomize-all ./test/...
 
 deploy:
 	kubectl apply -f deploy/yaml/service_account.yaml

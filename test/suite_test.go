@@ -10,15 +10,12 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/reporters"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	// Used to auth against GKE clusters that use gcloud creds.
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	st "github.com/onsi/ginkgo/reporters/stenographer"
 	apis "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis"
 	controller "github.com/pulumi/pulumi-kubernetes-operator/pkg/controller/stack"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -26,7 +23,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -50,22 +46,7 @@ var shutdownController func()
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-
-	stenographer := st.NewFakeStenographer()
-	reporterConfig := config.DefaultReporterConfigType{
-		NoColor:           false,
-		SlowSpecThreshold: 0.1,
-		NoisyPendings:     false,
-		NoisySkippings:    false,
-		Verbose:           true,
-		FullTrace:         true,
-	}
-
-	reporter := reporters.NewDefaultReporter(reporterConfig, stenographer)
-
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Controller Suite",
-		[]Reporter{printer.NewlineReporter{}, reporter})
+	RunSpecs(t, "Controller Suite")
 }
 
 var secretsDir string
@@ -113,7 +94,7 @@ var _ = BeforeSuite(func() {
 	if err != nil {
 		Fail("Failed to create secret temp directory")
 	}
-}, 60)
+})
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")

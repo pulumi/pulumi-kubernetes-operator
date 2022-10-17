@@ -11,7 +11,7 @@ import (
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
@@ -55,10 +55,11 @@ var _ = Describe("Cross-namespace refs", func() {
 	})
 
 	AfterEach(func() {
+		Expect(k8sClient.Delete(context.TODO(), &stack)).To(Succeed())
+		Expect(k8sClient.Delete(context.TODO(), &otherns)).To(Succeed())
 		if strings.HasPrefix(tmpDir, os.TempDir()) {
 			os.RemoveAll(tmpDir)
 		}
-		Expect(k8sClient.Delete(context.TODO(), &otherns)).To(Succeed())
 	})
 
 	It("should stall when a cross-namespace reference is used", func() {

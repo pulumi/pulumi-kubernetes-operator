@@ -47,7 +47,7 @@ jobs:
       - name: Install Ginkgo testing framework
         run: |
           # Do the install from outside the code tree to avoid messing with go.sum
-          cd /tmp; go install github.com/onsi/ginkgo/ginkgo@v1.16.4
+          cd /tmp; go install github.com/onsi/ginkgo/v2/ginkgo@v2.3.1
       - name: Configure AWS credentials to use in AWS Stack tests
         uses: aws-actions/configure-aws-credentials@v1
         with:

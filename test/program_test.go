@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	yaml "sigs.k8s.io/yaml"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
