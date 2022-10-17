@@ -55,10 +55,11 @@ var _ = Describe("Cross-namespace refs", func() {
 	})
 
 	AfterEach(func() {
+		Expect(k8sClient.Delete(context.TODO(), &stack)).To(Succeed())
+		Expect(k8sClient.Delete(context.TODO(), &otherns)).To(Succeed())
 		if strings.HasPrefix(tmpDir, os.TempDir()) {
 			os.RemoveAll(tmpDir)
 		}
-		Expect(k8sClient.Delete(context.TODO(), &otherns)).To(Succeed())
 	})
 
 	It("should stall when a cross-namespace reference is used", func() {
