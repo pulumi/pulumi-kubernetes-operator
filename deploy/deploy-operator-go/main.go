@@ -4,8 +4,8 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"net/url"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -20,7 +20,7 @@ import (
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		// Download file
-		filePath, cleanup, err := downloadFile("https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.8.0/deploy/crds/pulumi.com_stacks.yaml")
+		filePath, cleanup, err := downloadFile("https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.10.0-rc.1/deploy/crds/pulumi.com_stacks.yaml")
 		if err != nil {
 			return err
 		}
@@ -203,7 +203,7 @@ func main() {
 						Containers: corev1.ContainerArray{
 							&corev1.ContainerArgs{
 								Name:  pulumi.String("pulumi-kubernetes-operator"),
-								Image: pulumi.String("pulumi/pulumi-kubernetes-operator:v1.8.0"),
+								Image: pulumi.String("pulumi/pulumi-kubernetes-operator:v1.10.0-rc.1"),
 								Command: pulumi.StringArray{
 									pulumi.String("pulumi-kubernetes-operator"),
 								},
@@ -266,7 +266,7 @@ func downloadFile(downloadUrl string) (string, func(), error) {
 		return "", noop, err
 	}
 	fileName := filepath.Base(u.Path)
-	
+
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
 		return "", noop, err
