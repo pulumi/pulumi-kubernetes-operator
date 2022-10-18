@@ -156,20 +156,21 @@ var _ = Describe("Flux source integration", func() {
 					},
 				},
 			}
-			stack.Name = randString()
+			stack.Name = "missing-source-" + randString()
 			stack.Namespace = "default"
 			Expect(k8sClient.Create(context.TODO(), stack)).To(Succeed())
 		})
 
 		AfterEach(func() {
-			Expect(k8sClient.Delete(context.TODO(), stack)).To(Succeed())
+			deleteAndWaitForFinalization(stack)
 		})
 
 		It("is marked as failed and to be retried", func() {
 			waitForStackFailure(stack)
-			reconcilingCondition := apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.ReconcilingCondition)
-			Expect(reconcilingCondition).ToNot(BeNil())
-			Expect(reconcilingCondition.Reason).To(Equal(pulumiv1.ReconcilingRetryReason))
+			// When this is present it could say that it's retrying, or that it's in progress; since
+			// it's run through at least once for us to see a failed state above, either indicates a
+			// retry.
+			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeTrue())
 			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
 			Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.StalledCondition)).To(BeNil())
 		})
@@ -234,21 +235,21 @@ var _ = Describe("Flux source integration", func() {
 					},
 				},
 			}
-			stack.Name = randString()
+			stack.Name = "flux-source"
 			stack.Namespace = "default"
 		})
 
 		// This is done just before testing the outcome, so that any adjustments to the source, or
 		// the stack, can be made before the stack is processed.
 		JustBeforeEach(func() {
+			stack.Name += ("-" + randString())
 			Expect(k8sClient.Create(context.TODO(), stack)).To(Succeed())
 		})
 
 		AfterEach(func() {
-			Expect(k8sClient.Delete(context.TODO(), stack)).To(Succeed())
-			Expect(k8sClient.Delete(context.TODO(), source)).To(Succeed())
+			deleteAndWaitForFinalization(stack)
+			deleteAndWaitForFinalization(source)
 			artifactServer.Close()
-
 		})
 
 		When("the stack runs to success", func() {
@@ -274,6 +275,7 @@ var _ = Describe("Flux source integration", func() {
 				conditions := []interface{}{notready}
 				unstructured.SetNestedSlice(source.Object, conditions, "status", "conditions")
 				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
+				stack.Name = "source-not-ready"
 			})
 
 			It("marks the stack as failed and to be retried", func() {
@@ -303,6 +305,7 @@ var _ = Describe("Flux source integration", func() {
 				unstructured.SetNestedField(source.Object, "not-the-right-checksum",
 					"status", "artifact", "checksum")
 				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
+				stack.Name = "source-bad-checksum"
 			})
 
 			It("rejects the tarball and fails with a retry", func() {
@@ -318,6 +321,7 @@ var _ = Describe("Flux source integration", func() {
 				unstructured.SetNestedField(source.Object, artifactServer.URL+"/bogus/path/to/artifact.tar.gz",
 					"status", "artifact", "url")
 				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
+				stack.Name = "source-unavailable"
 			})
 
 			It("marks the Stack as failed and to be retried", func() {

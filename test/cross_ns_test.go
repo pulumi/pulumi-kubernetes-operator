@@ -55,7 +55,7 @@ var _ = Describe("Cross-namespace refs", func() {
 	})
 
 	AfterEach(func() {
-		Expect(k8sClient.Delete(context.TODO(), &stack)).To(Succeed())
+		deleteAndWaitForFinalization(&stack)
 		Expect(k8sClient.Delete(context.TODO(), &otherns)).To(Succeed())
 		if strings.HasPrefix(tmpDir, os.TempDir()) {
 			os.RemoveAll(tmpDir)

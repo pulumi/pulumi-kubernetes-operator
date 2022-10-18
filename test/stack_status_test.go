@@ -106,11 +106,11 @@ var _ = Describe("Stack controller status", func() {
 	})
 
 	AfterEach(func() {
+		if stack.Name != "" { // assume that if it's been named, it was created in the cluster
+			deleteAndWaitForFinalization(&stack)
+		}
 		if strings.HasPrefix(tmpDir, os.TempDir()) {
 			os.RemoveAll(tmpDir)
-		}
-		if stack.Name != "" { // assume that if it's been named, it was created in the cluster
-			Expect(k8sClient.Delete(context.TODO(), &stack)).To(Succeed())
 		}
 	})
 

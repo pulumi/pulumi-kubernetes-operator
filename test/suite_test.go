@@ -42,11 +42,14 @@ var cfg *rest.Config
 var k8sClient client.Client
 var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
+
 var shutdownController func()
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Controller Suite")
+	suiteConfig, reporterConfig := GinkgoConfiguration()
+	reporterConfig.SlowSpecThreshold = 20 * time.Second
+	RunSpecs(t, "Controller Suite", suiteConfig, reporterConfig)
 }
 
 var secretsDir string
@@ -97,6 +100,14 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	var stacks pulumiv1.StackList
+	Expect(k8sClient.List(context.TODO(), &stacks, client.InNamespace(namespace))).To(Succeed())
+	fmt.Fprintln(GinkgoWriter, "=== stacks remaining undeleted ===")
+	for i := range stacks.Items {
+		fmt.Fprintln(GinkgoWriter, stacks.Items[i].Name)
+	}
+	fmt.Fprintln(GinkgoWriter, "===           e n d            ===")
+
 	By("tearing down the test environment")
 	if shutdownController != nil {
 		shutdownController()
@@ -106,6 +117,10 @@ var _ = AfterSuite(func() {
 
 	if secretsDir != "" {
 		os.RemoveAll(secretsDir)
+	}
+
+	if len(stacks.Items) > 0 {
+		Fail("stacks remain undeleted")
 	}
 })
 
@@ -158,4 +173,19 @@ func waitForStackFailure(stack *pulumiv1.Stack) {
 // Get the object's latest definition from the Kubernetes API
 func refetch(s *pulumiv1.Stack) {
 	ExpectWithOffset(1, k8sClient.Get(context.TODO(), client.ObjectKeyFromObject(s), s)).To(Succeed())
+}
+
+// deleteAndWaitForFinalization removes the stack object, and waits until requesting it gives a "not
+// found" result, indicating that finalizers have been run. The object at *stack is invalidated.
+func deleteAndWaitForFinalization(obj client.Object) {
+	ExpectWithOffset(1, k8sClient.Delete(context.TODO(), obj)).To(Succeed())
+	key := client.ObjectKeyFromObject(obj)
+	EventuallyWithOffset(1, func() bool {
+		err := k8sClient.Get(context.TODO(), key, obj)
+		if err == nil {
+			return false
+		}
+		ExpectWithOffset(2, client.IgnoreNotFound(err)).To(BeNil())
+		return true
+	}, "2m", "5s").Should(BeTrue())
 }

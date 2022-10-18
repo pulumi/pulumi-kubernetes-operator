@@ -25,7 +25,6 @@ import (
 
 	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -129,6 +128,7 @@ var _ = Describe("Stack Controller", func() {
 			}
 			stack = generateStackV1Alpha1("diff-api-versions", namespace, spec)
 			Expect(k8sClient.Create(context.TODO(), stack)).To(Succeed())
+			DeferCleanup(deleteAndWaitForFinalization, stack)
 		})
 
 		It("can be processed as Pulumi API V1", func() {
@@ -159,17 +159,10 @@ var _ = Describe("Stack Controller", func() {
 		})
 
 		AfterEach(func() {
-			toDelete := &pulumiv1.Stack{}
-			By(fmt.Sprintf("Deleting the Stack: %s", stack.Name))
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, toDelete)).Should(Succeed())
-			Expect(k8sClient.Delete(ctx, toDelete)).Should(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, toDelete)
-				return k8serrors.IsNotFound(err)
-			}, stackExecTimeout, interval).Should(BeTrue()) // allow time for finalizer to run
+			deleteAndWaitForFinalization(stack)
 		})
 
-		It("can deploy a simple stack", func() {
+		It("can deploy a stack with a file config", func() {
 			// Use a local backend for this test.
 			// Local backend doesn't allow setting slashes in stack name.
 			const stackName = "dev"
@@ -244,15 +237,7 @@ var _ = Describe("Stack Controller", func() {
 		})
 
 		AfterEach(func() {
-			// Delete the Stack
-			toDelete := &pulumiv1.Stack{}
-			By(fmt.Sprintf("Deleting the Stack: %s", stack.Name))
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, toDelete)).Should(Succeed())
-			Expect(k8sClient.Delete(ctx, toDelete)).Should(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, toDelete)
-				return k8serrors.IsNotFound(err)
-			}, stackExecTimeout, interval).Should(BeTrue())
+			deleteAndWaitForFinalization(stack)
 		})
 
 		It("Should recover from a bad configuration value", func() {
