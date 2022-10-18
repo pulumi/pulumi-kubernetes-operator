@@ -11,7 +11,6 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 
 	// Used to auth against GKE clusters that use gcloud creds.
@@ -43,11 +42,14 @@ var cfg *rest.Config
 var k8sClient client.Client
 var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
+
 var shutdownController func()
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Controller Suite")
+	suiteConfig, reporterConfig := GinkgoConfiguration()
+	reporterConfig.SlowSpecThreshold = 20 * time.Second
+	RunSpecs(t, "Controller Suite", suiteConfig, reporterConfig)
 }
 
 var secretsDir string
