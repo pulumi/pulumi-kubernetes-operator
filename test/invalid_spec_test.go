@@ -21,9 +21,9 @@ func checkInvalidSpecStalls(when string, setup func(stack *pulumiv1.Stack)) {
 
 		BeforeEach(func() {
 			stack = pulumiv1.Stack{}
-			stack.Name = randString()
 			stack.Namespace = "default"
 			setup(&stack)
+			stack.Name += ("-" + randString())
 			Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
 		})
 
@@ -60,15 +60,19 @@ func checkInvalidSpecStalls(when string, setup func(stack *pulumiv1.Stack)) {
 
 var _ = Describe("Stacks that should stall because of an invalid spec", func() {
 
-	checkInvalidSpecStalls("there is no source specified", func(*pulumiv1.Stack) {})
+	checkInvalidSpecStalls("there is no source specified", func(s *pulumiv1.Stack) {
+		s.Name = "no-source"
+	})
 
 	checkInvalidSpecStalls("a git source with no branch and no commit hash is given", func(s *pulumiv1.Stack) {
+		s.Name = "invalid-git-source"
 		s.Spec.GitSource = &shared.GitSource{
 			ProjectRepo: "https://github.com/pulumi/pulumi-kubernetes-operator",
 		}
 	})
 
 	checkInvalidSpecStalls("more than one source is given", func(s *pulumiv1.Stack) {
+		s.Name = "more-than-one-source"
 		s.Spec.GitSource = &shared.GitSource{
 			ProjectRepo: "https://github.com/pulumi/pulumi-kubernetes-operator",
 			Branch:      "default",

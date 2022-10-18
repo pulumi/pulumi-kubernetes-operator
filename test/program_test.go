@@ -59,10 +59,11 @@ var _ = Describe("Creating a YAML program", func() {
 				},
 			},
 		}
-		stack.Name = randString()
+		stack.Name = "stack-with-program-" + randString()
 		stack.Namespace = "default"
 
 		Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
+		deleteAndWaitForFinalization(&stack)
 	})
 
 	When("Using a stack", func() {
@@ -91,15 +92,15 @@ var _ = Describe("Creating a YAML program", func() {
 					},
 				},
 			}
-			stack.Name = randString()
+			// stack name left to test cases
 			stack.Namespace = "default"
 		})
 
 		AfterEach(func() {
+			deleteAndWaitForFinalization(&stack)
 			if strings.HasPrefix(tmpDir, os.TempDir()) {
 				os.RemoveAll(tmpDir)
 			}
-			Expect(k8sClient.Delete(context.TODO(), &stack)).To(Succeed())
 		})
 
 		It("should fail if given a non-existent program.", func() {
@@ -107,7 +108,7 @@ var _ = Describe("Creating a YAML program", func() {
 			stack.Spec.ProgramRef = &shared.ProgramReference{
 				Name: randString(),
 			}
-
+			stack.Name = "missing-program-" + randString()
 			Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
 
 			waitForStackFailure(&stack)
@@ -126,7 +127,7 @@ var _ = Describe("Creating a YAML program", func() {
 			stack.Spec.ProgramRef = &shared.ProgramReference{
 				Name: prog.Name,
 			}
-
+			stack.Name = "invalid-program-" + randString()
 			Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
 
 			waitForStackFailure(&stack)
@@ -145,7 +146,7 @@ var _ = Describe("Creating a YAML program", func() {
 
 			// Set DestroyOnFinalize to clean up the configmap for repeat runs.
 			stack.Spec.DestroyOnFinalize = true
-
+			stack.Name = "ok-program-" + randString()
 			Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
 
 			waitForStackSuccess(&stack)

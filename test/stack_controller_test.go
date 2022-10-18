@@ -129,6 +129,7 @@ var _ = Describe("Stack Controller", func() {
 			}
 			stack = generateStackV1Alpha1("diff-api-versions", namespace, spec)
 			Expect(k8sClient.Create(context.TODO(), stack)).To(Succeed())
+			DeferCleanup(k8sClient.Delete, context.TODO(), stack)
 		})
 
 		It("can be processed as Pulumi API V1", func() {
