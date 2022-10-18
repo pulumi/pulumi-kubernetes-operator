@@ -167,9 +167,10 @@ var _ = Describe("Flux source integration", func() {
 
 		It("is marked as failed and to be retried", func() {
 			waitForStackFailure(stack)
-			reconcilingCondition := apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.ReconcilingCondition)
-			Expect(reconcilingCondition).ToNot(BeNil())
-			Expect(reconcilingCondition.Reason).To(Equal(pulumiv1.ReconcilingRetryReason))
+			// When this is present it could say that it's retrying, or that it's in progress; since
+			// it's run through at least once for us to see a failed state above, either indicates a
+			// retry.
+			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeTrue())
 			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
 			Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.StalledCondition)).To(BeNil())
 		})
