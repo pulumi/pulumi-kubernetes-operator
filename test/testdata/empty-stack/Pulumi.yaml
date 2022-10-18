@@ -1,3 +1,14 @@
 name: empty-stack
-runtime: nodejs
-description: A minimal AWS TypeScript Pulumi program
+runtime: yaml
+description: A YAML program that does very little.
+configuration:
+  "aws:region": { type: 'String' }
+outputs:
+  region: ${aws:region}
+  notSoSecret: "safe"
+  secretVal:
+    Fn::Secret: { "val": "very secret" }
+  nestedSecret:
+    plain: "foo"
+    secret:
+      Fn::Secret: "bar"

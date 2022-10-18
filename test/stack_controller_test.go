@@ -162,7 +162,7 @@ var _ = Describe("Stack Controller", func() {
 			deleteAndWaitForFinalization(stack)
 		})
 
-		It("can deploy a simple stack", func() {
+		It("can deploy a stack with a file config", func() {
 			// Use a local backend for this test.
 			// Local backend doesn't allow setting slashes in stack name.
 			const stackName = "dev"
