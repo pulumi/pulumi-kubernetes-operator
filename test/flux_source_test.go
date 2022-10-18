@@ -162,7 +162,7 @@ var _ = Describe("Flux source integration", func() {
 		})
 
 		AfterEach(func() {
-			Expect(k8sClient.Delete(context.TODO(), stack)).To(Succeed())
+			deleteAndWaitForFinalization(stack)
 		})
 
 		It("is marked as failed and to be retried", func() {
@@ -246,10 +246,9 @@ var _ = Describe("Flux source integration", func() {
 		})
 
 		AfterEach(func() {
-			Expect(k8sClient.Delete(context.TODO(), stack)).To(Succeed())
-			Expect(k8sClient.Delete(context.TODO(), source)).To(Succeed())
+			deleteAndWaitForFinalization(stack)
+			deleteAndWaitForFinalization(source)
 			artifactServer.Close()
-
 		})
 
 		When("the stack runs to success", func() {

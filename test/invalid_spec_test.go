@@ -52,7 +52,7 @@ func checkInvalidSpecStalls(when string, setup func(stack *pulumiv1.Stack)) {
 
 		AfterEach(func() {
 			if stack.Name != "" { // assume that if it's been named, it was created in the cluster
-				Expect(k8sClient.Delete(context.TODO(), &stack)).To(Succeed())
+				deleteAndWaitForFinalization(&stack)
 			}
 		})
 	})

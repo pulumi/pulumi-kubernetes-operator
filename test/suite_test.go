@@ -11,6 +11,7 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 
 	// Used to auth against GKE clusters that use gcloud creds.
@@ -174,11 +175,11 @@ func refetch(s *pulumiv1.Stack) {
 
 // deleteAndWaitForFinalization removes the stack object, and waits until requesting it gives a "not
 // found" result, indicating that finalizers have been run. The object at *stack is invalidated.
-func deleteAndWaitForFinalization(stack *pulumiv1.Stack) {
-	ExpectWithOffset(1, k8sClient.Delete(context.TODO(), stack)).To(Succeed())
-	key := client.ObjectKeyFromObject(stack)
+func deleteAndWaitForFinalization(obj client.Object) {
+	ExpectWithOffset(1, k8sClient.Delete(context.TODO(), obj)).To(Succeed())
+	key := client.ObjectKeyFromObject(obj)
 	EventuallyWithOffset(1, func() bool {
-		err := k8sClient.Get(context.TODO(), key, stack)
+		err := k8sClient.Get(context.TODO(), key, obj)
 		if err == nil {
 			return false
 		}
