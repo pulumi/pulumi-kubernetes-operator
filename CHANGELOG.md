@@ -3,6 +3,8 @@ CHANGELOG
 
 ## HEAD (Unreleased)
 
+## 1.10.0-rc.1 (release candidate)
+
 - Make `.spec.projectRepo` optional in the Stack CRD. This is technically a breaking change
   according to the advice in [Kubernetes API
   guidelines](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api_changes.md#on-compatibility),
@@ -15,7 +17,8 @@ CHANGELOG
 - Add functionality for using [Pulumi YAML](https://www.pulumi.com/docs/intro/languages/yaml/) in-line to create Pulumi programs.
   [#336](https://github.com/pulumi/pulumi-kubernetes-operator/pull/336)
 - [internal] Port testing to Ginkgo v2 and address test flakes
-  [#337](https://github.com/pulumi/pulumi-kubernetes-operator/pull/337)
+  [#337](https://github.com/pulumi/pulumi-kubernetes-operator/pull/337),
+  [#342](https://github.com/pulumi/pulumi-kubernetes-operator/pull/342)
 
 ## 1.9.0 (2022-10-05)
 
