@@ -130,7 +130,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>continueResyncOnCommitMatch</b></td>
         <td>boolean</td>
         <td>
-          (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying to update stacks even if the commit matches. This might be useful in environments where Pulumi programs have dynamic elements for example, calls to internal APIs where GitOps style commit tracking is not sufficient. Defaults to false, i.e. when a particular commit is successfully run, the operator will not attempt to rerun the program at that commit again.<br/>
+          (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying to update stacks even if the revision of the source matches. This might be useful in environments where Pulumi programs have dynamic elements for example, calls to internal APIs where GitOps style commit tracking is not sufficient.  Defaults to false, i.e. when a particular revision is successfully run, the operator will not attempt to rerun the program at that revision again.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2016,7 +2016,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>continueResyncOnCommitMatch</b></td>
         <td>boolean</td>
         <td>
-          (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying to update stacks even if the commit matches. This might be useful in environments where Pulumi programs have dynamic elements for example, calls to internal APIs where GitOps style commit tracking is not sufficient. Defaults to false, i.e. when a particular commit is successfully run, the operator will not attempt to rerun the program at that commit again.<br/>
+          (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying to update stacks even if the revision of the source matches. This might be useful in environments where Pulumi programs have dynamic elements for example, calls to internal APIs where GitOps style commit tracking is not sufficient.  Defaults to false, i.e. when a particular revision is successfully run, the operator will not attempt to rerun the program at that revision again.<br/>
         </td>
         <td>false</td>
       </tr><tr>
