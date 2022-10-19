@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	ctrlhandler "sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -60,6 +61,7 @@ var (
 const (
 	pulumiFinalizer                = "finalizer.stack.pulumi.com"
 	defaultMaxConcurrentReconciles = 10
+	programRefIndexFieldName       = ".spec.programRef.name" // this is an arbitrary string, named for the field it indexes
 )
 
 const (
@@ -148,7 +150,38 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	return nil
+	// Watch Programs, and look up which (if any) Stack refers to them when they change
+	indexer := mgr.GetFieldIndexer()
+	if err = indexer.IndexField(context.Background(), &pulumiv1.Stack{}, programRefIndexFieldName, func(o client.Object) []string {
+		stack := o.(*pulumiv1.Stack)
+		if stack.Spec.ProgramRef != nil {
+			return []string{stack.Spec.ProgramRef.Name}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	enqueueStacksForProgram := func(program client.Object) []reconcile.Request {
+		var stacks pulumiv1.StackList
+		err := mgr.GetClient().List(context.TODO(), &stacks,
+			client.InNamespace(program.GetNamespace()),
+			client.MatchingFields{programRefIndexFieldName: program.GetName()})
+		if err == nil {
+			reqs := make([]reconcile.Request, len(stacks.Items), len(stacks.Items))
+			for i := range stacks.Items {
+				reqs[i].NamespacedName = client.ObjectKeyFromObject(&stacks.Items[i])
+			}
+			return reqs
+		}
+		// we don't get to return an error; only to fail quietly
+		mgr.GetLogger().Error(err, "failed to fetch stacks referring to program", "name", program.GetName(), "namespace", program.GetNamespace())
+		return nil
+	}
+
+	err = c.Watch(&source.Kind{Type: &pulumiv1.Program{}}, ctrlhandler.EnqueueRequestsFromMapFunc(enqueueStacksForProgram))
+
+	return err
 }
 
 // blank assignment to verify that ReconcileStack implements reconcile.Reconciler
