@@ -75,6 +75,14 @@ type StackSpec struct {
 
 	// Lifecycle:
 
+	// (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying
+	// to update stacks even if the revision of the source matches. This might be useful in
+	// environments where Pulumi programs have dynamic elements for example, calls to internal APIs
+	// where GitOps style commit tracking is not sufficient.  Defaults to false, i.e. when a
+	// particular revision is successfully run, the operator will not attempt to rerun the program
+	// at that revision again.
+	ContinueResyncOnCommitMatch bool `json:"continueResyncOnCommitMatch,omitempty"`
+
 	// (optional) Refresh can be set to true to refresh the stack before it is updated.
 	Refresh bool `json:"refresh,omitempty"`
 	// (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have
@@ -143,12 +151,6 @@ type GitSource struct {
 	// When specified, the operator will periodically poll to check if the branch has any new commits.
 	// The frequency of the polling is configurable through ResyncFrequencySeconds, defaulting to every 60 seconds.
 	Branch string `json:"branch,omitempty"`
-	// (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying to update stacks
-	// even if the commit matches. This might be useful in environments where Pulumi programs have dynamic elements
-	// for example, calls to internal APIs where GitOps style commit tracking is not sufficient.
-	// Defaults to false, i.e. when a particular commit is successfully run, the operator will not attempt to rerun the
-	// program at that commit again.
-	ContinueResyncOnCommitMatch bool `json:"continueResyncOnCommitMatch,omitempty"`
 }
 
 // GitAuthConfig specifies git authentication configuration options.

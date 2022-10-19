@@ -83,11 +83,12 @@ spec:
               continueResyncOnCommitMatch:
                 description: (optional) ContinueResyncOnCommitMatch - when true -
                   informs the operator to continue trying to update stacks even if
-                  the commit matches. This might be useful in environments where Pulumi
-                  programs have dynamic elements for example, calls to internal APIs
-                  where GitOps style commit tracking is not sufficient. Defaults to
-                  false, i.e. when a particular commit is successfully run, the operator
-                  will not attempt to rerun the program at that commit again.
+                  the revision of the source matches. This might be useful in environments
+                  where Pulumi programs have dynamic elements for example, calls to
+                  internal APIs where GitOps style commit tracking is not sufficient.  Defaults
+                  to false, i.e. when a particular revision is successfully run, the
+                  operator will not attempt to rerun the program at that revision
+                  again.
                 type: boolean
               destroyOnFinalize:
                 description: (optional) DestroyOnFinalize can be set to true to destroy
@@ -858,11 +859,12 @@ spec:
               continueResyncOnCommitMatch:
                 description: (optional) ContinueResyncOnCommitMatch - when true -
                   informs the operator to continue trying to update stacks even if
-                  the commit matches. This might be useful in environments where Pulumi
-                  programs have dynamic elements for example, calls to internal APIs
-                  where GitOps style commit tracking is not sufficient. Defaults to
-                  false, i.e. when a particular commit is successfully run, the operator
-                  will not attempt to rerun the program at that commit again.
+                  the revision of the source matches. This might be useful in environments
+                  where Pulumi programs have dynamic elements for example, calls to
+                  internal APIs where GitOps style commit tracking is not sufficient.  Defaults
+                  to false, i.e. when a particular revision is successfully run, the
+                  operator will not attempt to rerun the program at that revision
+                  again.
                 type: boolean
               destroyOnFinalize:
                 description: (optional) DestroyOnFinalize can be set to true to destroy
