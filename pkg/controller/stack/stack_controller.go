@@ -475,13 +475,15 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			Name:      fluxSource.SourceRef.Name,
 			Namespace: request.Namespace,
 		}, &sourceObject); err != nil {
-			r.markStackFailed(sess, instance, err, "", "")
+			reterr := fmt.Errorf("could not resolve sourceRef: %w", err)
+			r.markStackFailed(sess, instance, reterr, "", "")
 			if client.IgnoreNotFound(err) != nil {
-				return reconcile.Result{}, fmt.Errorf("could not resolve sourceRef: %w", err)
+				return reconcile.Result{}, err
 			}
-			// TODO: revisit this, if sources are watched; perhaps it should be stalled?
-			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
-			return reconcile.Result{Requeue: true}, nil
+			// this is marked as stalled and not requeued; the watch mechanism will requeue it if
+			// the source it points to appears.
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, reterr.Error())
+			return reconcile.Result{}, nil
 		}
 
 		// Watch this kind of source, if we haven't already.
@@ -494,8 +496,10 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 		if err := checkFluxSourceReady(sourceObject); err != nil {
 			r.markStackFailed(sess, instance, err, "", "")
+			// This is marked as retrying, but we're really waiting until the source is ready, at
+			// which time the watch mechanism will requeue it.
 			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{}, nil
 		}
 
 		currentCommit, err = sess.SetupWorkdirFromFluxSource(ctx, sourceObject, fluxSource)

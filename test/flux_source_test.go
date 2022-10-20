@@ -169,14 +169,11 @@ var _ = Describe("Flux source integration", func() {
 			deleteAndWaitForFinalization(stack)
 		})
 
-		It("is marked as failed and to be retried", func() {
+		It("is marked as failed and stalled", func() {
 			waitForStackFailure(stack)
-			// When this is present it could say that it's retrying, or that it's in progress; since
-			// it's run through at least once for us to see a failed state above, either indicates a
-			// retry.
-			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeTrue())
+			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.StalledCondition)).To(BeTrue())
 			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
-			Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.StalledCondition)).To(BeNil())
+			Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeNil())
 		})
 
 		When("the source is an unknown group/kind", func() {
