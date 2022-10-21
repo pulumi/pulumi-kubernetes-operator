@@ -71,8 +71,8 @@ var _ = Describe("Stacks that should stall because of an invalid spec", func() {
 		}
 	})
 
-	checkInvalidSpecStalls("more than one source is given", func(s *pulumiv1.Stack) {
-		s.Name = "more-than-one-source"
+	checkInvalidSpecStalls("git and flux sources are both given", func(s *pulumiv1.Stack) {
+		s.Name = "git-and-flux-source"
 		s.Spec.GitSource = &shared.GitSource{
 			ProjectRepo: "https://github.com/pulumi/pulumi-kubernetes-operator",
 			Branch:      "default",
@@ -83,4 +83,28 @@ var _ = Describe("Stacks that should stall because of an invalid spec", func() {
 			},
 		}
 	})
+
+	checkInvalidSpecStalls("git and program sources are both given", func(s *pulumiv1.Stack) {
+		s.Name = "git-and-program-source"
+		s.Spec.GitSource = &shared.GitSource{
+			ProjectRepo: "https://github.com/pulumi/pulumi-kubernetes-operator",
+			Branch:      "default",
+		}
+		s.Spec.ProgramRef = &shared.ProgramReference{
+			Name: "foo",
+		}
+	})
+
+	checkInvalidSpecStalls("flux and program sources are both given", func(s *pulumiv1.Stack) {
+		s.Name = "flux-and-program-source"
+		s.Spec.FluxSource = &shared.FluxSource{
+			SourceRef: shared.FluxSourceReference{
+				Name: "foo",
+			},
+		}
+		s.Spec.ProgramRef = &shared.ProgramReference{
+			Name: "foo",
+		}
+	})
+
 })

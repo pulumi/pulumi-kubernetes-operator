@@ -270,10 +270,28 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Step 1. Set up the workdir, select the right stack and populate config if supplied.
 
+	exactlyOneOf := func(these ...bool) bool {
+		var found bool
+		for _, b := range these {
+			if found && b {
+				return false
+			}
+			found = found || b
+		}
+		return found
+	}
+
 	// Check which kind of source we have.
-	gitSource, fluxSource, programRef := stack.GitSource, stack.FluxSource, stack.ProgramRef
+
 	switch {
-	case gitSource != nil && fluxSource == nil && programRef == nil:
+	case !exactlyOneOf(stack.GitSource != nil, stack.FluxSource != nil, stack.ProgramRef != nil):
+		err := errOtherThanOneSourceSpecified
+		r.markStackFailed(sess, instance, err, "", "")
+		instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
+		return reconcile.Result{}, nil
+
+	case stack.GitSource != nil:
+		gitSource := stack.GitSource
 		// Validate that there is enough specified to be able to clone the git repo.
 		if gitSource.ProjectRepo == "" || (gitSource.Commit == "" && gitSource.Branch == "") {
 
@@ -315,7 +333,8 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			return reconcile.Result{Requeue: true}, nil
 		}
 
-	case gitSource == nil && fluxSource != nil && programRef == nil:
+	case stack.FluxSource != nil:
+		fluxSource := stack.FluxSource
 		var sourceObject unstructured.Unstructured
 		sourceObject.SetAPIVersion(fluxSource.SourceRef.APIVersion)
 		sourceObject.SetKind(fluxSource.SourceRef.Kind)
@@ -351,7 +370,9 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			// this can fail for reasons which might go away without intervention; so, retry explicitly
 			return reconcile.Result{Requeue: true}, nil
 		}
-	case gitSource == nil && fluxSource == nil && programRef != nil:
+
+	case stack.ProgramRef != nil:
+		programRef := stack.ProgramRef
 		if currentCommit, err = sess.SetupWorkdirFromYAML(ctx, *programRef); err != nil {
 			r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
 			reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
@@ -368,11 +389,6 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			// this can fail for reasons which might go away without intervention; so, retry explicitly
 			return reconcile.Result{Requeue: true}, nil
 		}
-	default:
-		err := errOtherThanOneSourceSpecified
-		r.markStackFailed(sess, instance, err, "", "")
-		instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
-		return reconcile.Result{}, nil
 	}
 
 	// Delete the temporary directory after the reconciliation is completed (regardless of success or failure).
