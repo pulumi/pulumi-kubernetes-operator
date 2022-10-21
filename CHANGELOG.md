@@ -3,10 +3,12 @@ CHANGELOG
 
 ## HEAD (Unreleased)
 
+## 1.10.0 (2022-10-21)
+
 - Make .ContinueResyncOnCommitMatch apply to all sources (git, Flux sources, or Program objects)
   [#346](https://github.com/pulumi/pulumi-kubernetes-operator/pull/346)
 
-## 1.10.0-rc.1 (release candidate)
+## 1.10.0-rc.1 (2022-10-18) (release candidate)
 
 - Make `.spec.projectRepo` optional in the Stack CRD. This is technically a breaking change
   according to the advice in [Kubernetes API
