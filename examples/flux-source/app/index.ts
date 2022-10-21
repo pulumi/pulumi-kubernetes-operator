@@ -18,10 +18,15 @@ const gitRepo = new k8s.apiextensions.CustomResource("pko-dev", {
     },
 });
 
+const pulumiToken = process.env['PULUMI_ACCESS_TOKEN'];
+if (!pulumiToken) {
+    throw new Error('This stack needs a Pulumi access token in the environment variable PULUMI_ACCESS_TOKEN')
+}
+
 // A secret with the Pulumi access token, taken from the environment.
 const tokenSecret = new k8s.core.v1.Secret("pulumi-token", {
     stringData: {
-        'PULUMI_ACCESS_TOKEN': process.env['PULUMI_ACCESS_TOKEN'] || 'token',
+        'PULUMI_ACCESS_TOKEN': pulumiToken,
     },
 });
 
