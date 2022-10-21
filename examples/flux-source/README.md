@@ -45,6 +45,7 @@ To run the program:
 
 ```console
 app$ pulumi config set git-url https://github.com/squaremo/pko-dev
+app$ pulumi config set stack-name $(pulumi whoami)/app/dev
 app$ pulumi up
 ```
 

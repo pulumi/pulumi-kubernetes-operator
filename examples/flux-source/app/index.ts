@@ -2,7 +2,9 @@ import * as pulumi from "@pulumi/pulumi";
 import * as k8s from "@pulumi/kubernetes";
 import * as random from "@pulumi/random";
 
-export const gitURL = new pulumi.Config().require('git-url');
+const config = new pulumi.Config();
+export const gitURL = config.require('git-url');
+export const stackName = config.require('stack-name');
 
 // A git repository source for our Pulumi program
 const gitRepo = new k8s.apiextensions.CustomResource("pko-dev", {
@@ -37,7 +39,7 @@ const stack = new k8s.apiextensions.CustomResource("basic", {
         'namespace': 'default',
     },
     spec: {
-        stack: 'squaremo/basic/docker-desktop',
+        stack: stackName,
         envRefs: {
             'PULUMI_ACCESS_TOKEN': {
                 'type': 'Secret',
