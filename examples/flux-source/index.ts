@@ -13,7 +13,7 @@ const crdVersion = config.get("crd-version") || "v1.9.0";
 
 const fluxManifests = flux.getFluxInstallOutput({
     targetPath: "local",
-    components: ['source-controller'],
+    components: ['source-controller', 'notification-controller'],
     networkPolicy: true,
 });
 
@@ -22,10 +22,14 @@ const fluxGroup = fluxManifests.content.apply(c => new ConfigGroup("flux-install
 
 // --- Pulumi operator
 
-const crd = new kubernetes.yaml.ConfigFile('stack-crd', {
+const stackcrd = new kubernetes.yaml.ConfigFile('stack-crd', {
     file: `https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/${crdVersion}/deploy/crds/pulumi.com_stacks.yaml`,
 });
-const deploymentOptions = { dependsOn: crd };
+const programcrd = new kubernetes.yaml.ConfigFile('program-crd', {
+    file: `https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/${crdVersion}/deploy/crds/pulumi.com_programs.yaml`,
+});
+
+const deploymentOptions = { dependsOn: [stackcrd, programcrd, fluxGroup] };
 
 for (let ns of deployNamespaceList) {
     const operatorServiceAccount = new kubernetes.core.v1.ServiceAccount(`operator-service-account-${ns}`, {
@@ -245,4 +249,3 @@ for (let ns of deployNamespaceList) {
         },
     }, deploymentOptions);
 }
-

@@ -1,5 +1,8 @@
+import * as pulumi from "@pulumi/pulumi";
 import * as k8s from "@pulumi/kubernetes";
+import * as random from "@pulumi/random";
 
+export const gitURL = new pulumi.Config().require('git-url');
 
 // A git repository source for our Pulumi program
 const gitRepo = new k8s.apiextensions.CustomResource("pko-dev", {
@@ -10,7 +13,7 @@ const gitRepo = new k8s.apiextensions.CustomResource("pko-dev", {
     },
     spec: {
         interval: '5m0s',
-        url: 'https://github.com/squaremo/pko-dev',
+        url: gitURL,
         ref: { branch: 'main' },
     },
 });
@@ -47,5 +50,59 @@ const stack = new k8s.apiextensions.CustomResource("basic", {
             },
             dir: 'basic',
         },
+        refresh: true,
     },
 });
+
+// Using webhooks: this follows the guide at https://fluxcd.io/flux/guides/webhook-receivers/.
+
+// This program will go as far as creating the receiver in the cluster. You will need to
+
+// - expose that to the internet, either by creating an Ingress or LoadBalancer (explained in the
+// Flux documentation linked above), or using something like ngrok
+// (https://hub.docker.com/r/ngrok/ngrok).
+//
+// - install the webhook in the GitHub repository you're syncing from.
+
+// GitHub webhooks need a shared secret.
+
+export const token = pulumi.secret(new random.RandomString("webhook-token", {
+    length: 40,
+    special: false,
+}).result);
+
+const webhookSecret = new k8s.core.v1.Secret("webhook-token", {
+    metadata: {
+        namespace: 'default',
+    },
+    stringData: { token },
+});
+
+const receiver = new k8s.apiextensions.CustomResource("app-hook", {
+    apiVersion: 'notification.toolkit.fluxcd.io/v1beta1',
+    kind: 'Receiver',
+    metadata: {
+        namespace: 'default',
+    },
+    spec: {
+        type: 'github',
+        events: ["ping", "push"],
+        secretRef: {
+            name: webhookSecret.metadata.name,
+        },
+        resources: [{
+            kind: 'GitRepository',
+            name: gitRepo.metadata.name,
+        }],
+    },
+});
+
+export const readme = pulumi.unsecret(pulumi.interpolate `
+The GitRepository, Stack and webhook receiver are set up. Get the webhook path with
+
+    kubectl get receiver/${receiver.metadata.name}
+
+The token output has the secret for using as a webhook secret. Install the webhook at
+${gitURL}/settings/hooks, using the public host you've set up, the path from the receiver status,
+and the token.
+`);
