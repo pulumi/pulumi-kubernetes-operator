@@ -7,6 +7,9 @@ CHANGELOG
 
 - Make .ContinueResyncOnCommitMatch apply to all sources (git, Flux sources, or Program objects)
   [#346](https://github.com/pulumi/pulumi-kubernetes-operator/pull/346)
+- Give an example of using this operator with a Flux GitRepository and webhooks, in
+  `examples/flux-source`.
+  [#339](https://github.com/pulumi/pulumi-kubernetes-operator/pull/339)
 
 ## 1.10.0-rc.1 (2022-10-18) (release candidate)
 
