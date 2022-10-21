@@ -10,7 +10,7 @@ def delete_status():
     return f
 
 crds = kubernetes.yaml.ConfigFile("crds",
-    file="https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.10.0-rc.1/deploy/crds/pulumi.com_stacks.yaml",
+    file="https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/v1.10.0/deploy/crds/pulumi.com_stacks.yaml",
     transformations=[delete_status()])
 
 operator_service_account = kubernetes.core.v1.ServiceAccount("operator-service-account")
@@ -135,7 +135,7 @@ operator_deployment = kubernetes.apps.v1.Deployment("pulumi-kubernetes-operator"
                 "service_account_name": operator_service_account.metadata.name,
                 "containers": [{
                     "name": "pulumi-kubernetes-operator",
-                    "image": "pulumi/pulumi-kubernetes-operator:v1.10.0-rc.1",
+                    "image": "pulumi/pulumi-kubernetes-operator:v1.10.0",
                     "command": ["pulumi-kubernetes-operator"],
                     "args": ["--zap-level=error", "--zap-time-encoding=iso8601"],
                     "image_pull_policy": "Always",
