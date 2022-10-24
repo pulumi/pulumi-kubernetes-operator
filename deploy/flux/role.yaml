@@ -1,0 +1,14 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: flux-source-access
+rules:
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
+  - "*"
+  verbs:
+  - get
+  - list
+  - watch

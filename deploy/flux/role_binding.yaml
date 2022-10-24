@@ -1,0 +1,12 @@
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: pulumi-flux-source-access
+subjects:
+- kind: ServiceAccount
+  name: pulumi-kubernetes-operator
+roleRef:
+  kind: Role
+  name: flux-source-access
+  apiGroup: rbac.authorization.k8s.io
