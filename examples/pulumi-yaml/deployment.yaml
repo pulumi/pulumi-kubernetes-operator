@@ -1,0 +1,45 @@
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: deployment-example
+spec:
+  stack: deployment-example
+  programRef:
+    name: deployment-example
+  destroyOnFinalize: true
+  envRefs:
+    PULUMI_ACCESS_TOKEN:
+      type: Secret
+      secret:
+        name: pulumi-api-secret
+        key: accessToken
+---
+apiVersion: pulumi.com/v1
+kind: Program
+metadata:
+  name: deployment-example
+program:
+  resources:
+    random:
+      type: random:RandomInteger
+      properties:
+        min: 1
+        max: 10
+    nginx:
+      type: kubernetes:apps/v1:Deployment
+      properties:
+        metadata:
+          name: nginx2
+        spec:
+          selector:
+            matchLabels:
+              app: nginx
+          replicas: ${random.result}
+          template: 
+            metadata:
+              labels: 
+                app: nginx
+            spec:
+              containers:
+                - name: nginx
+                  image: nginx
