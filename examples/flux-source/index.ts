@@ -6,8 +6,8 @@ import * as flux from "@worawat/flux";
 const config = new pulumi.Config();
 const deployNamespace = config.get("namespace") || 'default';
 const deployNamespaceList = config.getObject<string[]>("namespaces") || [deployNamespace];
-const operatorVersion = config.get("operator-version") || "v1.9.0";
-const crdVersion = config.get("crd-version") || "v1.9.0";
+const operatorVersion = config.get("operator-version") || "v1.10.0";
+const crdVersion = config.get("crd-version") || "v1.10.0";
 
 // -- Flux installation
 

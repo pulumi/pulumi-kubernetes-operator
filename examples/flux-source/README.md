@@ -52,7 +52,7 @@ app$ pulumi up
 This creates a `GitRepository` object in the cluster, which you can examine:
 
 ```console
-kubectl get gitrepository
+app$ kubectl get gitrepository
 ```
 
 and a `Stack` object, pointing at the `GitRepository` object, which will run the program and create
