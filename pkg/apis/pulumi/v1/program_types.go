@@ -54,7 +54,7 @@ type Configuration struct {
 
 	// default is a value of the appropriate type for the template to use if no value is specified.
 	// +optional
-	Default Any `json:"default,omitempty"`
+	Default *Any `json:"default,omitempty"`
 }
 
 type Resource struct {

@@ -90,6 +90,7 @@ var _ = Describe("Creating a YAML program", func() {
 						"PULUMI_CONFIG_PASSPHRASE": shared.NewLiteralResourceRef("password"),
 						"KUBECONFIG":               shared.NewLiteralResourceRef(kubeconfig),
 					},
+					ResyncFrequencySeconds: 3600, // make sure it doesn't run again unless there's another reason to
 				},
 			}
 			// stack name left to test cases
@@ -157,8 +158,41 @@ var _ = Describe("Creating a YAML program", func() {
 			Expect(stack.Status.LastUpdate.State).To(Equal(shared.SucceededStackStateMessage))
 			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeTrue())
 		})
-	})
 
+		When("the program is changed", func() {
+			var revisionOnFirstSuccess string
+
+			BeforeEach(func() {
+				prog := programFromFile("./testdata/test-program.yaml")
+				Expect(k8sClient.Create(context.TODO(), &prog)).To(Succeed())
+
+				stack.Spec.ProgramRef = &shared.ProgramReference{
+					Name: prog.Name,
+				}
+
+				// Set DestroyOnFinalize to clean up the configmap for repeat runs.
+				stack.Spec.DestroyOnFinalize = true
+				stack.Name = "changing-program-" + randString()
+				Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
+				waitForStackSuccess(&stack)
+
+				Expect(stack.Status.LastUpdate).ToNot(BeNil())
+				revisionOnFirstSuccess = stack.Status.LastUpdate.LastSuccessfulCommit
+				fmt.Fprintf(GinkgoWriter, ".status.lastUpdate.LastSuccessfulCommit before changing program: %s", revisionOnFirstSuccess)
+				prog2 := programFromFile("./testdata/test-program-changed.yaml")
+				prog.Program = prog2.Program
+				resetWaitForStack()
+				Expect(k8sClient.Update(context.TODO(), &prog)).To(Succeed())
+			})
+
+			It("reruns the stack", func() {
+				waitForStackSuccess(&stack)
+				Expect(stack.Status.LastUpdate).ToNot(BeNil())
+				fmt.Fprintf(GinkgoWriter, ".status.lastUpdate.LastSuccessfulCommit after changing program: %s", stack.Status.LastUpdate.LastSuccessfulCommit)
+				Expect(stack.Status.LastUpdate.LastSuccessfulCommit).NotTo(Equal(revisionOnFirstSuccess))
+			})
+		})
+	})
 })
 
 func programFromFile(path string) pulumiv1.Program {

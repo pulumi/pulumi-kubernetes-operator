@@ -8,6 +8,8 @@ CHANGELOG
   [#339](https://github.com/pulumi/pulumi-kubernetes-operator/pull/339)
 - De-escalate a log message about a harmless error from ERROR to DEBUG
   [#352](https://github.com/pulumi/pulumi-kubernetes-operator/pull/352)
+- Watch source kinds and Programs to react to changes
+  [#348](https://github.com/pulumi/pulumi-kubernetes-operator/pull/348)
 
 ## 1.10.0 (2022-10-21)
 

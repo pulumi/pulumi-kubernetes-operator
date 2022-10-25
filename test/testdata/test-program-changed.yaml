@@ -1,7 +1,7 @@
 configuration:
     foo:
-        type: "String"
-        default: "bar"
+        type: String
+        default: "different"
 resources:
     provider:
         type: pulumi:providers:kubernetes

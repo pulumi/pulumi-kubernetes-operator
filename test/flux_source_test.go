@@ -156,8 +156,12 @@ var _ = Describe("Flux source integration", func() {
 					},
 				},
 			}
-			stack.Name = "missing-source-" + randString()
+			stack.Name = "missing-source"
 			stack.Namespace = "default"
+		})
+
+		JustBeforeEach(func() {
+			stack.Name += ("-" + randString())
 			Expect(k8sClient.Create(context.TODO(), stack)).To(Succeed())
 		})
 
@@ -165,16 +169,29 @@ var _ = Describe("Flux source integration", func() {
 			deleteAndWaitForFinalization(stack)
 		})
 
-		It("is marked as failed and to be retried", func() {
+		It("is marked as failed and stalled", func() {
 			waitForStackFailure(stack)
-			// When this is present it could say that it's retrying, or that it's in progress; since
-			// it's run through at least once for us to see a failed state above, either indicates a
-			// retry.
-			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeTrue())
+			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.StalledCondition)).To(BeTrue())
 			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
-			Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.StalledCondition)).To(BeNil())
+			Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeNil())
 		})
 
+		When("the source is an unknown group/kind", func() {
+			BeforeEach(func() {
+				stack.Name = "unknown-source-kind"
+				stack.Spec.FluxSource.SourceRef.APIVersion = "doesnotexist/v1"
+			})
+
+			It("is marked as failed and to be retried", func() {
+				waitForStackFailure(stack)
+				// When this is present it could say that it's retrying, or that it's in progress; since
+				// it's run through at least once for us to see a failed state above, either indicates a
+				// retry.
+				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeTrue())
+				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
+				Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.StalledCondition)).To(BeNil())
+			})
+		})
 	})
 
 	When("a Stack refers to a Flux source with a latest artifact", func() {
@@ -260,6 +277,33 @@ var _ = Describe("Flux source integration", func() {
 			It("records the revision from the source", func() {
 				Expect(stack.Status.LastUpdate).NotTo(BeNil())
 				Expect(stack.Status.LastUpdate.LastSuccessfulCommit).To(Equal(artifactRevision))
+			})
+		})
+
+		When("the source is updated after a run", func() {
+			var newArtifactRevision string
+
+			JustBeforeEach(func() {
+				// wait for one go around
+				waitForStackSuccess(stack)
+
+				newArtifactRevision = randString()
+				sourceStatus := map[string]interface{}{
+					"artifact": map[string]interface{}{
+						"path":     "irrelevant",
+						"url":      artifactURL,
+						"revision": newArtifactRevision,
+						"checksum": artifactChecksum,
+					},
+				}
+				unstructured.SetNestedMap(source.Object, sourceStatus, "status")
+				resetWaitForStack()
+				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
+			})
+
+			It("runs the stack again at the new revision", func() {
+				waitForStackSuccess(stack)
+				Expect(stack.Status.LastUpdate.LastSuccessfulCommit).To(Equal(newArtifactRevision))
 			})
 		})
 

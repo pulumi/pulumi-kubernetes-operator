@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/operator-framework/operator-lib/handler"
@@ -37,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -44,6 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	ctrlhandler "sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -60,6 +63,8 @@ var (
 const (
 	pulumiFinalizer                = "finalizer.stack.pulumi.com"
 	defaultMaxConcurrentReconciles = 10
+	programRefIndexFieldName       = ".spec.programRef.name"      // this is an arbitrary string, named for the field it indexes
+	fluxSourceIndexFieldName       = ".spec.fluxSource.sourceRef" // an arbitrary name, named for the field it indexes
 )
 
 const (
@@ -78,6 +83,15 @@ func IsNamespaceIsolationWaived() bool {
 	}
 }
 
+func getSourceGVK(src shared.FluxSourceReference) (schema.GroupVersionKind, error) {
+	gv, err := schema.ParseGroupVersion(src.APIVersion)
+	return gv.WithKind(src.Kind), err
+}
+
+func fluxSourceKey(gvk schema.GroupVersionKind, name string) string {
+	return fmt.Sprintf("%s:%s", gvk, name)
+}
+
 // Add creates a new Stack Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -91,7 +105,7 @@ func Add(mgr manager.Manager) error {
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager) *ReconcileStack {
 	return &ReconcileStack{
 		client:   mgr.GetClient(),
 		scheme:   mgr.GetScheme(),
@@ -100,7 +114,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, r *ReconcileStack) error {
 	var err error
 	maxConcurrentReconciles := defaultMaxConcurrentReconciles
 	maxConcurrentReconcilesStr, set := os.LookupEnv("MAX_CONCURRENT_RECONCILES")
@@ -148,6 +162,122 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	indexer := mgr.GetFieldIndexer()
+
+	// Watch Programs, and look up which (if any) Stack refers to them when they change
+
+	// Index stacks against the names of programs they reference
+	if err = indexer.IndexField(context.Background(), &pulumiv1.Stack{}, programRefIndexFieldName, func(o client.Object) []string {
+		stack := o.(*pulumiv1.Stack)
+		if stack.Spec.ProgramRef != nil {
+			return []string{stack.Spec.ProgramRef.Name}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	// this encodes the "use an index to look up the stacks used by a source" pattern which both
+	// ProgramRef and FluxSource need.
+	enqueueStacksForSourceFunc := func(indexName string, getFieldKey func(client.Object) string) func(client.Object) []reconcile.Request {
+		return func(src client.Object) []reconcile.Request {
+			var stacks pulumiv1.StackList
+			err := mgr.GetClient().List(context.TODO(), &stacks,
+				client.InNamespace(src.GetNamespace()),
+				client.MatchingFields{indexName: getFieldKey(src)})
+			if err == nil {
+				reqs := make([]reconcile.Request, len(stacks.Items), len(stacks.Items))
+				for i := range stacks.Items {
+					reqs[i].NamespacedName = client.ObjectKeyFromObject(&stacks.Items[i])
+				}
+				return reqs
+			}
+			// we don't get to return an error; only to fail quietly
+			mgr.GetLogger().Error(err, "failed to fetch stack referring to source",
+				"gvk", src.GetObjectKind().GroupVersionKind(),
+				"name", src.GetName(),
+				"namespace", src.GetNamespace())
+			return nil
+		}
+	}
+
+	err = c.Watch(&source.Kind{Type: &pulumiv1.Program{}}, ctrlhandler.EnqueueRequestsFromMapFunc(
+		enqueueStacksForSourceFunc(programRefIndexFieldName,
+			func(obj client.Object) string {
+				return obj.GetName()
+			})))
+	if err != nil {
+		return err
+	}
+
+	// Watch Flux sources we get told about, and look up the Stack(s) using them when they change
+
+	// Index the stacks against the type and name of sources they reference.
+	if err = indexer.IndexField(context.Background(), &pulumiv1.Stack{}, fluxSourceIndexFieldName, func(o client.Object) []string {
+		stack := o.(*pulumiv1.Stack)
+		if source := stack.Spec.FluxSource; source != nil {
+			gvk, err := getSourceGVK(source.SourceRef)
+			if err != nil {
+				mgr.GetLogger().Error(err, "unable to parse .sourceRef.apiVersion in Flux source")
+				return nil
+			}
+			// the keys include the type, because the references are not of a fixed type of object
+			return []string{fluxSourceKey(gvk, source.SourceRef.Name)}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	// We can't watch a specific type (i.e., using source.Kind) here; what we have to do is wait
+	// until we see stacks that refer to particular kinds, then watch those. Technically this can
+	// "leak" watches -- we may end up watching kinds that are no longer mentioned in stacks. My
+	// assumption is that the number of distinct types that might be mentioned (including typos) is
+	// low enough that this remains acceptably cheap.
+
+	// Keep track of types we've already watched, so we don't install more than one handler for a
+	// type.
+	watched := make(map[schema.GroupVersionKind]struct{})
+	watchedMu := sync.Mutex{}
+
+	// Calling this will attempt to install a watch for the kind given in the source reference. It
+	// will return an error if there's something wrong with the source reference or if the watch
+	// could not be attempted otherwise. If the kind cannot be found then this will keep trying in
+	// the background until the context given to controller.Start is cancelled, rather than return
+	// an error.
+	r.maybeWatchFluxSourceKind = func(src shared.FluxSourceReference) error {
+		gvk, err := getSourceGVK(src)
+		if err != nil {
+			return err
+		}
+		watchedMu.Lock()
+		_, ok := watched[gvk]
+		if !ok {
+			watched[gvk] = struct{}{}
+		}
+		watchedMu.Unlock()
+		if !ok {
+			// Using PartialObjectMetadata means we don't need the actual types registered in the
+			// schema.
+			var sourceKind metav1.PartialObjectMetadata
+			sourceKind.SetGroupVersionKind(gvk)
+			mgr.GetLogger().Info("installing watcher for newly seen source kind", "GroupVersionKind", gvk)
+			if err := c.Watch(&source.Kind{Type: &sourceKind},
+				ctrlhandler.EnqueueRequestsFromMapFunc(
+					enqueueStacksForSourceFunc(fluxSourceIndexFieldName, func(obj client.Object) string {
+						gvk := obj.GetObjectKind().GroupVersionKind()
+						return fluxSourceKey(gvk, obj.GetName())
+					}))); err != nil {
+				watchedMu.Lock()
+				delete(watched, gvk)
+				watchedMu.Unlock()
+				mgr.GetLogger().Error(err, "failed to watch source kind", "GroupVersionKind", gvk)
+				return err
+			}
+		}
+		return nil
+	}
+
 	return nil
 }
 
@@ -161,6 +291,9 @@ type ReconcileStack struct {
 	client   client.Client
 	scheme   *runtime.Scheme
 	recorder record.EventRecorder
+
+	// this is initialised by add(), to be available to Reconcile
+	maybeWatchFluxSourceKind func(shared.FluxSourceReference) error
 }
 
 // StallError represents a problem that makes a Stack spec unprocessable, while otherwise being
@@ -342,19 +475,31 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			Name:      fluxSource.SourceRef.Name,
 			Namespace: request.Namespace,
 		}, &sourceObject); err != nil {
-			r.markStackFailed(sess, instance, err, "", "")
+			reterr := fmt.Errorf("could not resolve sourceRef: %w", err)
+			r.markStackFailed(sess, instance, reterr, "", "")
 			if client.IgnoreNotFound(err) != nil {
-				return reconcile.Result{}, fmt.Errorf("could not resolve sourceRef: %w", err)
+				return reconcile.Result{}, err
 			}
-			// TODO: revisit this, if sources are watched; perhaps it should be stalled?
-			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
-			return reconcile.Result{Requeue: true}, nil
+			// this is marked as stalled and not requeued; the watch mechanism will requeue it if
+			// the source it points to appears.
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, reterr.Error())
+			return reconcile.Result{}, nil
+		}
+
+		// Watch this kind of source, if we haven't already.
+		if err := r.maybeWatchFluxSourceKind(fluxSource.SourceRef); err != nil {
+			reterr := fmt.Errorf("cannot process source reference: %w", err)
+			r.markStackFailed(sess, instance, reterr, "", "")
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, reterr.Error())
+			return reconcile.Result{}, nil
 		}
 
 		if err := checkFluxSourceReady(sourceObject); err != nil {
 			r.markStackFailed(sess, instance, err, "", "")
+			// This is marked as retrying, but we're really waiting until the source is ready, at
+			// which time the watch mechanism will requeue it.
 			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{}, nil
 		}
 
 		currentCommit, err = sess.SetupWorkdirFromFluxSource(ctx, sourceObject, fluxSource)
