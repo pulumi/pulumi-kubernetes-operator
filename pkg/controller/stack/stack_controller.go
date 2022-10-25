@@ -1203,7 +1203,7 @@ func (sess *reconcileStackSession) RefreshStack(ctx context.Context, expectNoCha
 	p, err := auto.GetPermalink(result.StdOut)
 	if err != nil {
 		// Successful update but no permalink suggests a backend which doesn't support permalinks. Ignore.
-		sess.logger.Error(err, "No permalink found.", "Namespace", sess.namespace)
+		sess.logger.Debug("No permalink found - ignoring.", "Stack.Name", sess.stack.Stack, "Namespace", sess.namespace)
 	}
 	permalink := shared.Permalink(p)
 	return permalink, nil
