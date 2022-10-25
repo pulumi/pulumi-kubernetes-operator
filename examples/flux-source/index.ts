@@ -3,11 +3,13 @@ import * as kubernetes from "@pulumi/kubernetes";
 import { ConfigGroup } from "@pulumi/kubernetes/yaml";
 import * as flux from "@worawat/flux";
 
+const defaultVersion = 'v1.10.1';
+
 const config = new pulumi.Config();
 const deployNamespace = config.get("namespace") || 'default';
 const deployNamespaceList = config.getObject<string[]>("namespaces") || [deployNamespace];
-const operatorVersion = config.get("operator-version") || "v1.10.0";
-const crdVersion = config.get("crd-version") || "v1.10.0";
+const operatorVersion = config.get("operator-version") || defaultVersion;
+const crdVersion = config.get("crd-version") || defaultVersion;
 
 // -- Flux installation
 

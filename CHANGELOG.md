@@ -3,6 +3,8 @@ CHANGELOG
 
 ## HEAD (Unreleased)
 
+## 1.10.1 (2022-10-25)
+
 - Give an example of using this operator with a Flux GitRepository and webhooks, in
   `examples/flux-source`.
   [#339](https://github.com/pulumi/pulumi-kubernetes-operator/pull/339)
