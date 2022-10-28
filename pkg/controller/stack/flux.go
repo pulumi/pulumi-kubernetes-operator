@@ -107,25 +107,30 @@ func (sess *reconcileStackSession) SetupWorkdirFromFluxSource(ctx context.Contex
 // ready, and nil if it cannot determine so.
 func checkFluxSourceReady(obj unstructured.Unstructured) error {
 	conditions, ok, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
-	if err != nil || !ok {
-		// didn't find a []Condition, so there's nothing to indicate that it's not ready
-		return nil
-	}
-	for _, c0 := range conditions {
-		var c map[string]interface{}
-		if c, ok = c0.(map[string]interface{}); !ok {
-			// condition isn't the right shape, move on
-			continue
-		}
-		if t, ok, err := unstructured.NestedString(c, "type"); ok && err == nil && t == "Ready" {
-			if v, ok, err := unstructured.NestedString(c, "status"); ok && err == nil && v == "True" {
-				// found the Ready condition and it is actually ready
-				return nil
+	if ok && err == nil {
+		// didn't find a []Condition, so there's nothing to indicate that it's not ready there
+		for _, c0 := range conditions {
+			var c map[string]interface{}
+			if c, ok = c0.(map[string]interface{}); !ok {
+				// condition isn't the right shape, try the next one
+				continue
 			}
-			// found the Ready condition and it's something other than ready
-			return fmt.Errorf("source Ready condition does not have status True %#v", c)
+			if t, ok, err := unstructured.NestedString(c, "type"); ok && err == nil && t == "Ready" {
+				if v, ok, err := unstructured.NestedString(c, "status"); ok && err == nil && v == "True" {
+					// found the Ready condition and it is actually ready; proceed to next check
+					break
+				}
+				// found the Ready condition and it's something other than ready
+				return fmt.Errorf("source Ready condition does not have status True %#v", c)
+			}
 		}
+		// Ready=true, or no ready condition to tell us either way
 	}
-	// didn't find the Ready condition
+
+	_, ok, err = unstructured.NestedMap(obj.Object, "status", "artifact")
+	if !ok || err != nil {
+		return fmt.Errorf(".status.artifact does not have an Artifact object")
+	}
+
 	return nil
 }
