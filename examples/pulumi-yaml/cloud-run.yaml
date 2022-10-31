@@ -1,0 +1,53 @@
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: cloudrun-example
+spec:
+  stack: cloudrun-example
+  programRef:
+    name: cloudrun-example
+  destroyOnFinalize: true
+  envRefs:
+    PULUMI_ACCESS_TOKEN:
+      type: Secret
+      secret:
+        name: pulumi-api-secret
+        key: accessToken
+    GOOGLE_CREDENTIALS:
+      type: Secret
+        secret:
+          name: google-credentials
+          key: googleCredentials
+---
+apiVersion: pulumi.com/v1
+kind: Program
+metadata:
+  name: cloudrun-example
+program:
+  resources:
+    cloudrun:
+      type: gcp:cloudrun:Service
+      properties:
+        location: us-central1
+        template:
+          spec:
+            containers:
+              - image: gcr.io/cloudrun/hello
+    IamPolicy:
+      type: gcp:cloudrun:IamPolicy
+      properties:
+        location: ${cloudrun.location}
+        project: ${cloudrun.project}
+        service: ${cloudrun.name}
+        policyData: ${IAMPolicy.policyData}
+  variables:
+    IAMPolicy:
+      Fn::Invoke:
+        Function: gcp:organizations:getIAMPolicy
+        Arguments:
+          bindings:
+            - role: roles/run.invoker
+              members:
+                - allUsers
+  outputs:
+    url: ${cloudrun.statuses[0].url}

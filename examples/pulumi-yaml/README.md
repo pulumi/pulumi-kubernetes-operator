@@ -30,13 +30,18 @@ You can create this example yourself simply by running:
 pulumi-yaml$ kubectl apply -f deployment.yaml
 ```
 
-## Example 2: Deploying a 'Hello World' Google Cloud Function
+## Example 2: Deploying a 'Hello World' Google Cloud Run Container
 
-This example creates a bucket in Google Cloud Storage, adds a basic 'Hello World' Go program to the bucket, and then creates a Cloud Function to run the Go program.
-Because this example creates new resources in Google Cloud, there is some configuration required.
+This example creates a Google Cloud Run service that deploys a basic "Hello World" container that can be publically accessed.
+Because this example creates new resources in Google Cloud, authorization must be configured.
+This requires a Service Account on Google Cloud. The environment variable `GOOGLE_CREDENTIALS` should be set to the location of the service account credentials file.
+```console
+pulumi-yaml$ kubectl create secret generic google-credentials --from-file=googleCredentials="$GOOGLE_CREDENTIALS"
+```
+
 Once you have configured the program, you can create this example yourself by running:
 ```console
-pulumi-yaml$ kubectl apply -f cloud-function.yaml
+pulumi-yaml$ kubectl apply -f cloud-run.yaml
 ```
 
 ## Example 3: Creating a static website using AWS S3 and Cloudfront
