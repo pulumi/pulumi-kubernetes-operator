@@ -138,21 +138,10 @@ var _ = Describe("Stack controller status", func() {
 		Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
 
 		// wait until the controller has seen the stack object and completed processing it
-		var s pulumiv1.Stack
-		Eventually(func() bool {
-			err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: stack.Name}, &s)
-			if err != nil {
-				return false
-			}
-			if s.Generation == 0 {
-				return false
-			}
-			return s.Status.ObservedGeneration == s.Generation
-		}, "20s", "1s").Should(BeTrue())
-
-		Expect(apimeta.IsStatusConditionTrue(s.Status.Conditions, pulumiv1.ReadyCondition)).To(BeTrue())
-		Expect(apimeta.FindStatusCondition(s.Status.Conditions, pulumiv1.StalledCondition)).To(BeNil())
-		Expect(apimeta.FindStatusCondition(s.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeNil())
+		waitForStackSuccess(&stack)
+		Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeTrue())
+		Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.StalledCondition)).To(BeNil())
+		Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeNil())
 	})
 
 	It("should mark a stack as stalled if it will not complete without intervention", func() {
