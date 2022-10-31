@@ -20,19 +20,19 @@ def delete_status():
 
 stack_crd = kubernetes.yaml.ConfigFile(
     "stackcrd",
-    file="https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/%s/deploy/crds/pulumi.com_stacks.yaml" % crdVersion,
+    file=f"https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/{crdVersion}/deploy/crds/pulumi.com_stacks.yaml",
     transformations=[delete_status()])
 program_crd = kubernetes.yaml.ConfigFile(
     "programcrd",
-    file="https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/%s/deploy/crds/pulumi.com_programs.yaml" % crdVersion,
+    file=f"https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/{crdVersion}/deploy/crds/pulumi.com_programs.yaml",
     transformations=[delete_status()])
 deployment_opts = ResourceOptions(depends_on=[stack_crd, program_crd])
 
 for ns in namespaces:
     
-    operator_service_account = kubernetes.core.v1.ServiceAccount("operator-service-account-%s" % (ns),
+    operator_service_account = kubernetes.core.v1.ServiceAccount(f"operator-service-account-{ns}",
                                                                  metadata={"namespace": ns})
-    operator_role = kubernetes.rbac.v1.Role("operator-role-%s" % (ns),
+    operator_role = kubernetes.rbac.v1.Role(f"operator-role-{ns}",
                                             metadata={
                                                 "namespace": ns,
                                             },
@@ -129,7 +129,7 @@ for ns in namespaces:
                                                 }, 
                                             ])
 
-    operator_role_binding = kubernetes.rbac.v1.RoleBinding("operator-role-binding-%s" % (ns),
+    operator_role_binding = kubernetes.rbac.v1.RoleBinding(f"operator-role-binding-{ns}",
                                                        metadata={
                                                            "namespace": ns,
                                                        },
@@ -143,7 +143,7 @@ for ns in namespaces:
                                                            "api_group": "rbac.authorization.k8s.io",
                                                        })
 
-    operator_deployment = kubernetes.apps.v1.Deployment("pulumi-kubernetes-operator-%s" % (ns),
+    operator_deployment = kubernetes.apps.v1.Deployment(f"pulumi-kubernetes-operator-{ns}",
                                                     metadata={
                                                         "namespace": ns,
                                                     },
@@ -164,7 +164,7 @@ for ns in namespaces:
                                                                 "service_account_name": operator_service_account.metadata.name,
                                                                 "containers": [{
                                                                     "name": "pulumi-kubernetes-operator",
-                                                                    "image": "pulumi/pulumi-kubernetes-operator:%s" % operatorVersion,
+                                                                    "image": f"pulumi/pulumi-kubernetes-operator:{operatorVersion}",
                                                                     "command": ["pulumi-kubernetes-operator"],
                                                                     "args": ["--zap-level=error", "--zap-time-encoding=iso8601"],
                                                                     "image_pull_policy": "Always",
