@@ -56,6 +56,11 @@ Because this example creates new resources in AWS, there is some configuration r
 pulumi-yaml$ kubectl create secret generic aws-secret --from-literal=accessKeyID="$AWS_ACCESS_KEY_ID" --from-literal=secretAccessKey="$AWS_SECRET_ACCESS_KEY" --from-literal=region="$AWS_REGION"
 ```
 
+If you are using temporary credentials, you will also need to supply `AWS_SESSION_TOKEN` in the same way.
+```
+--from-literal=sessionToken="$AWS_SESSION_TOKEN"
+```
+
 Once you have configured the credentials, you can create this example yourself by running:
 ```console
 pulumi-yaml$ kubectl apply -f graphql.yaml
