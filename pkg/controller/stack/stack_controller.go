@@ -388,7 +388,10 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			log.Error(err, "unable to save object status")
 		}
 	}
-	defer saveStatus()
+	// there's no reason to save the status if it's being deleted, and it'll fail anyway.
+	if !isStackMarkedToBeDeleted {
+		defer saveStatus()
+	}
 
 	// We're ready to do some actual work. Until we have a definitive outcome, mark the stack as
 	// reconciling.
