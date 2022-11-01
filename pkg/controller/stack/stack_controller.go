@@ -1195,7 +1195,9 @@ func (sess *reconcileStackSession) ensureStackSettings(ctx context.Context, w au
 	// If not found, stackConfig will be a pointer to a zeroed-out workspace.ProjectStack.
 	stackConfig, err := w.StackSettings(ctx, sess.stack.Stack)
 	if err != nil {
-		sess.logger.Info("Missing stack config file. Will assume no stack config checked-in.", "Cause", err)
+		// .Info, when given a key "Error" and value of type `error`, will output a verbose error
+		// message, which adds noise to the stack. To avoid that, use the stringified error message.
+		sess.logger.Info("Missing stack config file. Will assume no stack config checked-in.", "Error", err.Error())
 		stackConfig = &workspace.ProjectStack{}
 	}
 
