@@ -6,6 +6,8 @@ CHANGELOG
 - Expand the installation programs in deploy/ so they can deploy the operator to several namespaces
   in one go, as well as upgrade the operator version.
   [#328](https://github.com/pulumi/pulumi-kubernetes-operator/pull/328)
+- Add examples of using inline programs with Pulumi YAML in `examples/pulumi-yaml`.
+- [#362](https://github.com/pulumi/pulumi-kubernetes-operator/pull/362)
 
 ## 1.10.1 (2022-10-25)
 
