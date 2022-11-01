@@ -1293,7 +1293,7 @@ func (sess *reconcileStackSession) InstallProjectDependencies(ctx context.Contex
 			return err
 		}
 		return nil
-	case "go", "dotnet":
+	case "go", "dotnet", "yaml":
 		// nothing needed
 		return nil
 	default:
