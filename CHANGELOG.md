@@ -8,6 +8,8 @@ CHANGELOG
   [#328](https://github.com/pulumi/pulumi-kubernetes-operator/pull/328)
 - Avoid some needless and misleading log messages
   [#363](https://github.com/pulumi/pulumi-kubernetes-operator/pull/363)
+- Bump Pulumi SDK to v3.46.0
+  [#365](https://github.com/pulumi/pulumi-kubernetes-operator/pull/365)
 
 ## 1.10.1 (2022-10-25)
 
