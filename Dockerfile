@@ -1,5 +1,7 @@
 FROM pulumi/pulumi:3.46.0
 
+RUN apt-get install tini
+
 ENV OPERATOR=/usr/local/bin/pulumi-kubernetes-operator
 
 # install operator binary

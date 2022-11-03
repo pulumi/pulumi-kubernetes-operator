@@ -1,4 +1,3 @@
 #!/bin/sh -e
 
-eval "$(ssh-agent -s)"
-exec env SSH_AUTH_SOCK="$SSH_AUTH_SOCK" SSH_AGENT_PID="$SSH_AGENT_PID" "${OPERATOR}" "$@"
+exec tini -- "${OPERATOR}" "$@"
