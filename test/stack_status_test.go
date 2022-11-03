@@ -139,9 +139,7 @@ var _ = Describe("Stack controller status", func() {
 
 		// wait until the controller has seen the stack object and completed processing it
 		waitForStackSuccess(&stack)
-		Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeTrue())
-		Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.StalledCondition)).To(BeNil())
-		Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeNil())
+		expectReady(stack.Status.Conditions)
 	})
 
 	It("should mark a stack as stalled if it will not complete without intervention", func() {
@@ -165,22 +163,8 @@ var _ = Describe("Stack controller status", func() {
 
 		Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
 
-		// wait until the controller has seen the stack object (observedGeneration is updated)
-		var s pulumiv1.Stack
-		Eventually(func() bool {
-			err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: stack.Name}, &s)
-			if err != nil {
-				return false
-			}
-			if s.Generation == 0 {
-				return false
-			}
-			return s.Status.ObservedGeneration == s.Generation
-		}, "20s", "1s").Should(BeTrue())
-
-		Expect(apimeta.IsStatusConditionTrue(s.Status.Conditions, pulumiv1.StalledCondition)).To(BeTrue())
-		Expect(apimeta.IsStatusConditionTrue(s.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
-		Expect(apimeta.FindStatusCondition(s.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeNil())
+		waitForStackFailure(&stack)
+		expectStalled(stack.Status.Conditions)
 	})
 
 	It("should mark a stack as reconciling while it's being processed", func() {
@@ -215,9 +199,7 @@ var _ = Describe("Stack controller status", func() {
 			}
 			return apimeta.IsStatusConditionTrue(s.Status.Conditions, pulumiv1.ReconcilingCondition)
 		}, "5s", "0.2s").Should(BeTrue())
-
-		Expect(apimeta.IsStatusConditionTrue(s.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
-		Expect(apimeta.FindStatusCondition(s.Status.Conditions, pulumiv1.StalledCondition)).To(BeNil())
+		expectInProgress(s.Status.Conditions)
 	})
 
 	It("should mark a stack as reconciling if it failed but will retry", func() {
@@ -255,9 +237,6 @@ var _ = Describe("Stack controller status", func() {
 			}
 			return s.Status.ObservedGeneration == s.Generation
 		}, "20s", "1s").Should(BeTrue())
-
-		Expect(apimeta.IsStatusConditionTrue(s.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeTrue())
-		Expect(apimeta.IsStatusConditionTrue(s.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
-		Expect(apimeta.FindStatusCondition(s.Status.Conditions, pulumiv1.StalledCondition)).To(BeNil())
+		expectInProgress(s.Status.Conditions)
 	})
 })

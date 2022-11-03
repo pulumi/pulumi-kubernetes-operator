@@ -12,7 +12,6 @@ import (
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
 	corev1 "k8s.io/api/core/v1"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	yaml "sigs.k8s.io/yaml"
 
@@ -113,12 +112,7 @@ var _ = Describe("Creating a YAML program", func() {
 			Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
 
 			waitForStackFailure(&stack)
-
-			Expect(stack.Status.LastUpdate.State).To(Equal(shared.FailedStackStateMessage))
-			stalledCondition := apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.StalledCondition)
-			Expect(stalledCondition).ToNot(BeNil(), "stalled condition is present")
-			Expect(stalledCondition.Reason).To(Equal(pulumiv1.StalledSourceUnavailableReason))
-			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
+			expectStalledWithReason(stack.Status.Conditions, pulumiv1.StalledSourceUnavailableReason)
 		})
 
 		It("should fail if given a syntactically correct but invalid program.", func() {
@@ -132,9 +126,7 @@ var _ = Describe("Creating a YAML program", func() {
 			Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
 
 			waitForStackFailure(&stack)
-
-			Expect(stack.Status.LastUpdate.State).To(Equal(shared.FailedStackStateMessage))
-			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
+			expectInProgress(stack.Status.Conditions)
 		})
 
 		It("should run a Program that has been added to a Stack", func() {
@@ -151,12 +143,10 @@ var _ = Describe("Creating a YAML program", func() {
 			Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
 
 			waitForStackSuccess(&stack)
+			expectReady(stack.Status.Conditions)
 
 			var c corev1.ConfigMap
 			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: "test-configmap"}, &c)).To(Succeed())
-
-			Expect(stack.Status.LastUpdate.State).To(Equal(shared.SucceededStackStateMessage))
-			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeTrue())
 		})
 
 		When("the program is changed", func() {

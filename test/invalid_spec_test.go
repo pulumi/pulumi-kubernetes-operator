@@ -10,8 +10,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 )
 
 func checkInvalidSpecStalls(when string, setup func(stack *pulumiv1.Stack)) {
@@ -29,12 +27,7 @@ func checkInvalidSpecStalls(when string, setup func(stack *pulumiv1.Stack)) {
 		It("should mark the stack as stalled", func() {
 			// wait until the controller has seen the stack object and completed processing it
 			waitForStackFailure(&stack)
-			stalledCondition := apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.StalledCondition)
-			Expect(stalledCondition).ToNot(BeNil(), "stalled condition is present")
-			Expect(stalledCondition.Reason).To(Equal(pulumiv1.StalledSpecInvalidReason))
-			// not ready, and not in progress
-			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse(), "ready condition is false")
-			Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeNil(), "reconciling condition is absent")
+			expectStalledWithReason(stack.Status.Conditions, pulumiv1.StalledSpecInvalidReason)
 		})
 
 		AfterEach(func() {

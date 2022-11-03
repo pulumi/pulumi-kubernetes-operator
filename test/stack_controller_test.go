@@ -4,9 +4,7 @@ package tests
 
 import (
 	"context"
-	"encoding/base32"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
