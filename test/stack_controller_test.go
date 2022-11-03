@@ -497,12 +497,3 @@ func generateSecret(name, namespace string, data map[string][]byte) *corev1.Secr
 		Type: "Opaque",
 	}
 }
-
-func randString() string {
-	rand.Seed(time.Now().UnixNano())
-	c := 10
-	b := make([]byte, c)
-	rand.Read(b)
-	length := 6
-	return strings.ToLower(base32.StdEncoding.EncodeToString(b)[:length])
-}

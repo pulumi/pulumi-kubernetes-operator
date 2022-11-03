@@ -124,6 +124,16 @@ var _ = AfterSuite(func() {
 	}
 })
 
+// randString returns a short random string that can be used in names.
+func randString() string {
+	rand.Seed(time.Now().UnixNano())
+	c := 10
+	b := make([]byte, c)
+	rand.Read(b)
+	length := 6
+	return strings.ToLower(base32.StdEncoding.EncodeToString(b)[:length])
+}
+
 // writeKubeconfig is a convenience for anything which needs to use a kubeconfig file pointing at
 // the envtest API server -- e.g., a Stack that uses the Kubernetes provider, or an exec.Command
 // that needs to run against the envtest API server.
