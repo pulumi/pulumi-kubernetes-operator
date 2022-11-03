@@ -10,9 +10,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func checkInvalidSpecStalls(when string, setup func(stack *pulumiv1.Stack)) {
@@ -29,25 +26,8 @@ func checkInvalidSpecStalls(when string, setup func(stack *pulumiv1.Stack)) {
 
 		It("should mark the stack as stalled", func() {
 			// wait until the controller has seen the stack object and completed processing it
-			var s pulumiv1.Stack
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), client.ObjectKeyFromObject(&stack), &s)
-				if err != nil {
-					return false
-				}
-				if s.Generation == 0 {
-					return false
-				}
-				return s.Status.ObservedGeneration == s.Generation
-			}, "20s", "1s").Should(BeTrue())
-			Expect(s.Status.LastUpdate).ToNot(BeNil(), ".status.lastUpdate is recorded")
-			Expect(s.Status.LastUpdate.State).To(Equal(shared.FailedStackStateMessage))
-			stalledCondition := apimeta.FindStatusCondition(s.Status.Conditions, pulumiv1.StalledCondition)
-			Expect(stalledCondition).ToNot(BeNil(), "stalled condition is present")
-			Expect(stalledCondition.Reason).To(Equal(pulumiv1.StalledSpecInvalidReason))
-			// not ready, and not in progress
-			Expect(apimeta.IsStatusConditionTrue(s.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse(), "ready condition is false")
-			Expect(apimeta.FindStatusCondition(s.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeNil(), "reconciling condition is absent")
+			waitForStackFailure(&stack)
+			expectStalledWithReason(stack.Status.Conditions, pulumiv1.StalledSpecInvalidReason)
 		})
 
 		AfterEach(func() {

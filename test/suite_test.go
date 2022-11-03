@@ -4,9 +4,12 @@ package tests
 
 import (
 	"context"
+	"encoding/base32"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +21,8 @@ import (
 
 	apis "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis"
 	controller "github.com/pulumi/pulumi-kubernetes-operator/pkg/controller/stack"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -27,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
-
 	// Needed for kubebuilder to insert imports for api versions.
 	// https://book.kubebuilder.io/cronjob-tutorial/empty-main.html
 	// https://github.com/kubernetes-sigs/kubebuilder/issues/1487
@@ -124,6 +128,16 @@ var _ = AfterSuite(func() {
 	}
 })
 
+// randString returns a short random string that can be used in names.
+func randString() string {
+	rand.Seed(time.Now().UnixNano())
+	c := 10
+	b := make([]byte, c)
+	rand.Read(b)
+	length := 6
+	return strings.ToLower(base32.StdEncoding.EncodeToString(b)[:length])
+}
+
 // writeKubeconfig is a convenience for anything which needs to use a kubeconfig file pointing at
 // the envtest API server -- e.g., a Stack that uses the Kubernetes provider, or an exec.Command
 // that needs to run against the envtest API server.
@@ -188,4 +202,31 @@ func deleteAndWaitForFinalization(obj client.Object) {
 		ExpectWithOffset(2, client.IgnoreNotFound(err)).To(BeNil())
 		return true
 	}, "2m", "5s").Should(BeTrue())
+}
+
+func expectReady(conditions []metav1.Condition) {
+	ExpectWithOffset(1, apimeta.IsStatusConditionTrue(conditions, pulumiv1.ReadyCondition)).To(BeTrue(), "Ready condition is true")
+	ExpectWithOffset(1, apimeta.FindStatusCondition(conditions, pulumiv1.StalledCondition)).To(BeNil(), "Stalled condition absent")
+	ExpectWithOffset(1, apimeta.FindStatusCondition(conditions, pulumiv1.ReconcilingCondition)).To(BeNil(), "Reconciling condition absent")
+}
+
+func expectStalled(conditions []metav1.Condition) {
+	ExpectWithOffset(1, apimeta.IsStatusConditionTrue(conditions, pulumiv1.StalledCondition)).To(BeTrue(), "Stalled condition true")
+	ExpectWithOffset(1, apimeta.IsStatusConditionTrue(conditions, pulumiv1.ReadyCondition)).To(BeFalse(), "Ready condition false")
+	ExpectWithOffset(1, apimeta.FindStatusCondition(conditions, pulumiv1.ReconcilingCondition)).To(BeNil(), "Reconciling condition absent")
+}
+
+func expectStalledWithReason(conditions []metav1.Condition, reason string) {
+	stalledCondition := apimeta.FindStatusCondition(conditions, pulumiv1.StalledCondition)
+	ExpectWithOffset(1, stalledCondition).ToNot(BeNil(), "Stalled condition is present")
+	ExpectWithOffset(1, stalledCondition.Reason).To(Equal(reason), "Stalled reason is as given")
+	// not ready, and not in progress
+	ExpectWithOffset(1, apimeta.IsStatusConditionTrue(conditions, pulumiv1.ReadyCondition)).To(BeFalse(), "Ready condition is false")
+	ExpectWithOffset(1, apimeta.FindStatusCondition(conditions, pulumiv1.ReconcilingCondition)).To(BeNil(), "Reconciling condition is absent")
+}
+
+func expectInProgress(conditions []metav1.Condition) {
+	ExpectWithOffset(1, apimeta.IsStatusConditionTrue(conditions, pulumiv1.ReconcilingCondition)).To(BeTrue(), "Reconciling condition is true")
+	ExpectWithOffset(1, apimeta.IsStatusConditionTrue(conditions, pulumiv1.ReadyCondition)).To(BeFalse(), "Ready condition is false")
+	ExpectWithOffset(1, apimeta.FindStatusCondition(conditions, pulumiv1.StalledCondition)).To(BeNil(), "Stalled condition is absent")
 }

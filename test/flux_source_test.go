@@ -25,7 +25,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/yaml"
@@ -171,9 +170,7 @@ var _ = Describe("Flux source integration", func() {
 
 		It("is marked as failed and stalled", func() {
 			waitForStackFailure(stack)
-			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.StalledCondition)).To(BeTrue())
-			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
-			Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeNil())
+			expectStalled(stack.Status.Conditions)
 		})
 
 		When("the source is an unknown group/kind", func() {
@@ -187,9 +184,7 @@ var _ = Describe("Flux source integration", func() {
 				// When this is present it could say that it's retrying, or that it's in progress; since
 				// it's run through at least once for us to see a failed state above, either indicates a
 				// retry.
-				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeTrue())
-				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
-				Expect(apimeta.FindStatusCondition(stack.Status.Conditions, pulumiv1.StalledCondition)).To(BeNil())
+				expectInProgress(stack.Status.Conditions)
 			})
 		})
 	})
@@ -324,8 +319,7 @@ var _ = Describe("Flux source integration", func() {
 
 			It("marks the stack as failed and to be retried", func() {
 				waitForStackFailure(stack)
-				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeTrue())
-				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
+				expectInProgress(stack.Status.Conditions)
 
 				By("marking the source as ready, the stack can run")
 				ready := map[string]interface{}{
@@ -340,7 +334,7 @@ var _ = Describe("Flux source integration", func() {
 				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
 
 				waitForStackSuccess(stack)
-				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeTrue())
+				expectReady(stack.Status.Conditions)
 			})
 		})
 
@@ -355,8 +349,7 @@ var _ = Describe("Flux source integration", func() {
 			It("rejects the tarball and fails with a retry", func() {
 				resetWaitForStack()
 				waitForStackFailure(stack)
-				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeTrue())
-				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
+				expectInProgress(stack.Status.Conditions)
 			})
 		})
 
@@ -370,8 +363,7 @@ var _ = Describe("Flux source integration", func() {
 
 			It("marks the Stack as failed and to be retried", func() {
 				waitForStackFailure(stack)
-				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReconcilingCondition)).To(BeTrue())
-				Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
+				expectInProgress(stack.Status.Conditions)
 			})
 		})
 	})

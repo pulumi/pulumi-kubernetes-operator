@@ -16,7 +16,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("Cross-namespace refs", func() {
@@ -86,21 +85,9 @@ var _ = Describe("Cross-namespace refs", func() {
 		Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
 
 		// wait until the controller has seen the stack object and completed processing it
-		var s pulumiv1.Stack
-		Eventually(func() bool {
-			err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: stack.Name}, &s)
-			if err != nil {
-				return false
-			}
-			if s.Generation == 0 {
-				return false
-			}
-			return s.Status.ObservedGeneration == s.Generation
-		}, "20s", "1s").Should(BeTrue())
-
-		Expect(s.Status.LastUpdate.State).To(Equal(shared.FailedStackStateMessage))
-		Expect(apimeta.IsStatusConditionTrue(s.Status.Conditions, pulumiv1.StalledCondition)).To(BeTrue())
-		Expect(apimeta.IsStatusConditionTrue(s.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
+		waitForStackFailure(&stack)
+		Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.StalledCondition)).To(BeTrue())
+		Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeFalse())
 	})
 
 	When("namespace isolation is waived", func() {
@@ -135,20 +122,8 @@ var _ = Describe("Cross-namespace refs", func() {
 			Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
 
 			// wait until the controller has seen the stack object and completed processing it
-			var s pulumiv1.Stack
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: stack.Name}, &s)
-				if err != nil {
-					return false
-				}
-				if s.Generation == 0 {
-					return false
-				}
-				return s.Status.ObservedGeneration == s.Generation
-			}, "20s", "1s").Should(BeTrue())
-
-			Expect(s.Status.LastUpdate.State).To(Equal(shared.SucceededStackStateMessage))
-			Expect(apimeta.IsStatusConditionTrue(s.Status.Conditions, pulumiv1.ReadyCondition)).To(BeTrue())
+			waitForStackSuccess(&stack)
+			Expect(apimeta.IsStatusConditionTrue(stack.Status.Conditions, pulumiv1.ReadyCondition)).To(BeTrue())
 		})
 	})
 })

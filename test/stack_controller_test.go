@@ -4,9 +4,7 @@ package tests
 
 import (
 	"context"
-	"encoding/base32"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -496,13 +494,4 @@ func generateSecret(name, namespace string, data map[string][]byte) *corev1.Secr
 		Data: data,
 		Type: "Opaque",
 	}
-}
-
-func randString() string {
-	rand.Seed(time.Now().UnixNano())
-	c := 10
-	b := make([]byte, c)
-	rand.Read(b)
-	length := 6
-	return strings.ToLower(base32.StdEncoding.EncodeToString(b)[:length])
 }
