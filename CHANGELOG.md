@@ -6,6 +6,8 @@ CHANGELOG
 - Expand the installation programs in deploy/ so they can deploy the operator to several namespaces
   in one go, as well as upgrade the operator version.
   [#328](https://github.com/pulumi/pulumi-kubernetes-operator/pull/328)
+- Avoid some needless and misleading log messages
+  [#363](https://github.com/pulumi/pulumi-kubernetes-operator/pull/363)
 
 ## 1.10.1 (2022-10-25)
 

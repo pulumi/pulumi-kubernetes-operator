@@ -388,7 +388,10 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			log.Error(err, "unable to save object status")
 		}
 	}
-	defer saveStatus()
+	// there's no reason to save the status if it's being deleted, and it'll fail anyway.
+	if !isStackMarkedToBeDeleted {
+		defer saveStatus()
+	}
 
 	// We're ready to do some actual work. Until we have a definitive outcome, mark the stack as
 	// reconciling.
@@ -1195,7 +1198,9 @@ func (sess *reconcileStackSession) ensureStackSettings(ctx context.Context, w au
 	// If not found, stackConfig will be a pointer to a zeroed-out workspace.ProjectStack.
 	stackConfig, err := w.StackSettings(ctx, sess.stack.Stack)
 	if err != nil {
-		sess.logger.Info("Missing stack config file. Will assume no stack config checked-in.", "Cause", err)
+		// .Info, when given a key "Error" and value of type `error`, will output a verbose error
+		// message, which adds noise to the stack. To avoid that, use the stringified error message.
+		sess.logger.Info("Missing stack config file. Will assume no stack config checked-in.", "Error", err.Error())
 		stackConfig = &workspace.ProjectStack{}
 	}
 
@@ -1291,7 +1296,7 @@ func (sess *reconcileStackSession) InstallProjectDependencies(ctx context.Contex
 			return err
 		}
 		return nil
-	case "go", "dotnet":
+	case "go", "dotnet", "yaml":
 		// nothing needed
 		return nil
 	default:
