@@ -63,6 +63,3 @@ dockers:
       - "--label=org.label-schema.name={{ .ProjectName }}"
       - "--label=org.label-schema.vcs-ref={{ .ShortCommit }}"
       - "--label=org.label-schema.vcs-url='{{ .GitURL }}'"
-
-    extra_files:
-      - "build/bin"

@@ -1,14 +1,10 @@
 FROM pulumi/pulumi:3.46.0
 
 RUN apt-get install tini
-
-ENV OPERATOR=/usr/local/bin/pulumi-kubernetes-operator
+ENTRYPOINT ["tini", "--", "/usr/local/bin/pulumi-kubernetes-operator"]
 
 # install operator binary
-COPY pulumi-kubernetes-operator ${OPERATOR}
-
-COPY build/bin/* /usr/local/bin/
-RUN  /usr/local/bin/user_setup
+COPY pulumi-kubernetes-operator /usr/local/bin/pulumi-kubernetes-operator
 
 RUN useradd -m pulumi-kubernetes-operator
 RUN mkdir -p /home/pulumi-kubernetes-operator/.ssh \
@@ -24,4 +20,3 @@ ENV XDG_CONFIG_CACHE=/tmp/.cache
 ENV GOCACHE=/tmp/.cache/go-build
 ENV GOPATH=/tmp/.cache/go
 
-ENTRYPOINT ["/usr/local/bin/entrypoint"]
