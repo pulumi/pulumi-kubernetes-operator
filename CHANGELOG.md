@@ -10,6 +10,8 @@ CHANGELOG
   [#363](https://github.com/pulumi/pulumi-kubernetes-operator/pull/363)
 - Bump Pulumi SDK to v3.46.0
   [#365](https://github.com/pulumi/pulumi-kubernetes-operator/pull/365)
+- Rewrite test case to confirm to Pulumi YAML 1.0 (breaking) changes
+  [#369](https://github.com/pulumi/pulumi-kubernetes-operator/pull/369)
 
 ## 1.10.1 (2022-10-25)
 
