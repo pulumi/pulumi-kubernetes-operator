@@ -2,13 +2,13 @@ name: empty-stack
 runtime: yaml
 description: A YAML program that does very little.
 configuration:
-  "aws:region": { type: 'String' }
+  "region": { type: 'String' }
 outputs:
-  region: ${aws:region}
+  region: ${region}
   notSoSecret: "safe"
   secretVal:
-    Fn::Secret: { "val": "very secret" }
+    fn::secret: { "val": "very secret" }
   nestedSecret:
     plain: "foo"
     secret:
-      Fn::Secret: "bar"
+      fn::secret: "bar"
