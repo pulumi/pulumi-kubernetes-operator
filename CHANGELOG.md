@@ -12,6 +12,8 @@ CHANGELOG
   [#365](https://github.com/pulumi/pulumi-kubernetes-operator/pull/365)
 - Rewrite test case to confirm to Pulumi YAML 1.0 (breaking) changes
   [#369](https://github.com/pulumi/pulumi-kubernetes-operator/pull/369)
+- Use an init process so processes spawned by `pulumi` are reaped
+  [#367](https://github.com/pulumi/pulumi-kubernetes-operator/pull/367)
 
 ## 1.10.1 (2022-10-25)
 
