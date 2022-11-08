@@ -1433,6 +1433,12 @@ func (sess *reconcileStackSession) DestroyStack(ctx context.Context) error {
 func (sess *reconcileStackSession) SetupGitAuth(ctx context.Context) (*auto.GitAuth, error) {
 	gitAuth := &auto.GitAuth{}
 
+	// check that the URL is valid (and we'll use it later to check we got appropriate auth)
+	u, err := giturls.Parse(sess.stack.ProjectRepo)
+	if err != nil {
+		return gitAuth, err
+	}
+
 	if sess.stack.GitAuth != nil {
 		if sess.stack.GitAuth.SSHAuth != nil {
 			privateKey, err := sess.resolveResourceRef(ctx, &sess.stack.GitAuth.SSHAuth.SSHPrivateKey)
@@ -1514,6 +1520,10 @@ func (sess *reconcileStackSession) SetupGitAuth(ctx context.Context) (*auto.GitA
 				return nil, errors.New("creating gitAuth: missing 'password' secret entry")
 			}
 		}
+	}
+
+	if u.Scheme == "ssh" && gitAuth.SSHPrivateKey == "" {
+		return gitAuth, fmt.Errorf("a private key must be provided for SSH")
 	}
 
 	return gitAuth, nil
