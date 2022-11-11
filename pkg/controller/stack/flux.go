@@ -3,21 +3,20 @@
 package stack
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha1"
-	"crypto/sha256"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/fluxcd/pkg/http/fetch"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
 )
+
+const maxArtifactDownloadSize = 50 * 1024 * 1024
 
 func (sess *reconcileStackSession) SetupWorkdirFromFluxSource(ctx context.Context, source unstructured.Unstructured, fluxSource *shared.FluxSource) (_commit string, retErr error) {
 	rootdir, err := os.MkdirTemp("", "pulumi_source")
@@ -57,38 +56,9 @@ func (sess *reconcileStackSession) SetupWorkdirFromFluxSource(ctx context.Contex
 		return "", err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, artifactURL, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create a request: %w", err)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("request for artifact failed: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to download artifact from %s, status %q (expected 200 OK)", artifactURL, resp.Status)
-	}
-	// TODO validate size, if given
-
-	defer resp.Body.Close()
-
-	var buf bytes.Buffer
-	hasher := sha256.New()
-	if len(checksum) == 40 { // Flux source-controller <= 0.17.2 used SHA1
-		hasher = sha1.New()
-	}
-	out := io.MultiWriter(hasher, &buf)
-	if _, err := io.Copy(out, resp.Body); err != nil {
-		return "", fmt.Errorf("failed to compute checksum from artifact response: %w", err)
-	}
-	if checksum1 := fmt.Sprintf("%x", hasher.Sum(nil)); checksum1 != checksum {
-		return "", fmt.Errorf("computed checksum of artifact %q does not match checksum recorded %q", checksum1, checksum)
-	}
-
-	// we downloaded the artifact gzip-tarball into a buffer and it matches the checksum; untar it
-	// into our working dir.
-	if err = untar(&buf, rootdir); err != nil {
-		return "", fmt.Errorf("failed to extract archive tarball: %w", err)
+	fetcher := fetch.NewArchiveFetcher(1, maxArtifactDownloadSize, maxArtifactDownloadSize*10, "")
+	if err = fetcher.Fetch(artifactURL, checksum, rootdir); err != nil {
+		return "", fmt.Errorf("failed to get artifact from source: %w", err)
 	}
 
 	// woo! now there's a directory with source in `rootdir`. Construct a workspace.
@@ -107,25 +77,30 @@ func (sess *reconcileStackSession) SetupWorkdirFromFluxSource(ctx context.Contex
 // ready, and nil if it cannot determine so.
 func checkFluxSourceReady(obj unstructured.Unstructured) error {
 	conditions, ok, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
-	if err != nil || !ok {
-		// didn't find a []Condition, so there's nothing to indicate that it's not ready
-		return nil
-	}
-	for _, c0 := range conditions {
-		var c map[string]interface{}
-		if c, ok = c0.(map[string]interface{}); !ok {
-			// condition isn't the right shape, move on
-			continue
-		}
-		if t, ok, err := unstructured.NestedString(c, "type"); ok && err == nil && t == "Ready" {
-			if v, ok, err := unstructured.NestedString(c, "status"); ok && err == nil && v == "True" {
-				// found the Ready condition and it is actually ready
-				return nil
+	if ok && err == nil {
+		// didn't find a []Condition, so there's nothing to indicate that it's not ready there
+		for _, c0 := range conditions {
+			var c map[string]interface{}
+			if c, ok = c0.(map[string]interface{}); !ok {
+				// condition isn't the right shape, try the next one
+				continue
 			}
-			// found the Ready condition and it's something other than ready
-			return fmt.Errorf("source Ready condition does not have status True %#v", c)
+			if t, ok, err := unstructured.NestedString(c, "type"); ok && err == nil && t == "Ready" {
+				if v, ok, err := unstructured.NestedString(c, "status"); ok && err == nil && v == "True" {
+					// found the Ready condition and it is actually ready; proceed to next check
+					break
+				}
+				// found the Ready condition and it's something other than ready
+				return fmt.Errorf("source Ready condition does not have status True %#v", c)
+			}
 		}
+		// Ready=true, or no ready condition to tell us either way
 	}
-	// didn't find the Ready condition
+
+	_, ok, err = unstructured.NestedMap(obj.Object, "status", "artifact")
+	if !ok || err != nil {
+		return fmt.Errorf(".status.artifact does not have an Artifact object")
+	}
+
 	return nil
 }

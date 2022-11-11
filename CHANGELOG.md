@@ -14,6 +14,9 @@ CHANGELOG
   [#369](https://github.com/pulumi/pulumi-kubernetes-operator/pull/369)
 - Use an init process so processes spawned by `pulumi` are reaped
   [#367](https://github.com/pulumi/pulumi-kubernetes-operator/pull/367)
+- When a Stack uses a Flux source, but the source has no artifact to download, park the Stack until
+  the source has been updated, rather than retrying
+  [#359](https://github.com/pulumi/pulumi-kubernetes-operator/pull/359)
 
 ## 1.10.1 (2022-10-25)
 

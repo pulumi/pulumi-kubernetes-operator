@@ -338,6 +338,34 @@ var _ = Describe("Flux source integration", func() {
 			})
 		})
 
+		When("the source object has no artifact", func() {
+			BeforeEach(func() {
+				unstructured.RemoveNestedField(source.Object, "status", "artifact")
+				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
+				stack.Name = "source-no-artifact"
+			})
+
+			It("marks the stack as failed and to be retried", func() {
+				waitForStackFailure(stack)
+				expectInProgress(stack.Status.Conditions)
+
+				newArtifactRevision := randString()
+				By("putting the artifact in the status, the stack can run")
+				artifact := map[string]interface{}{
+					"path":     "irrelevant",
+					"url":      artifactURL,
+					"revision": newArtifactRevision,
+					"checksum": artifactChecksum,
+				}
+				unstructured.SetNestedMap(source.Object, artifact, "status", "artifact")
+				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
+
+				waitForStackSuccess(stack)
+				expectReady(stack.Status.Conditions)
+				Expect(stack.Status.LastUpdate.LastSuccessfulCommit).To(Equal(newArtifactRevision))
+			})
+		})
+
 		When("the checksum is wrong", func() {
 			BeforeEach(func() {
 				unstructured.SetNestedField(source.Object, "not-the-right-checksum",
