@@ -75,6 +75,14 @@ type StackSpec struct {
 
 	// Lifecycle:
 
+	// (optional) SkipInstallDependencies, when true, tells the operator _not_ to install
+	// dependencies of the Pulumi project. For example, if the project specifies `runtime: nodejs`,
+	// usually the operator would invoke `npm` to install the packages specified in `package.json`;
+	// when `SkipInstallDependencies` is set, it will not do so. You can use this, for instance, if
+	// you have vendored your dependencies in the source.
+	// +optional
+	SkipInstallDependencies bool `json:"skipInstallDependencies,omitempty"`
+
 	// (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying
 	// to update stacks even if the revision of the source matches. This might be useful in
 	// environments where Pulumi programs have dynamic elements for example, calls to internal APIs

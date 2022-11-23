@@ -670,6 +670,15 @@ spec:
                   omitted, secrets configuration is assumed to be checked in and taken
                   from the source repository.
                 type: object
+              skipInstallDependencies:
+                description: '(optional) SkipInstallDependencies, when true, tells
+                  the operator _not_ to install dependencies of the Pulumi project.
+                  For example, if the project specifies `runtime: nodejs`, usually
+                  the operator would invoke `npm` to install the packages specified
+                  in `package.json`; when `SkipInstallDependencies` is set, it will
+                  not do so. You can use this, for instance, if you have vendored
+                  your dependencies in the source.'
+                type: boolean
               stack:
                 description: Stack is the fully qualified name of the stack to deploy
                   (<org>/<stack>).
@@ -1446,6 +1455,15 @@ spec:
                   omitted, secrets configuration is assumed to be checked in and taken
                   from the source repository.
                 type: object
+              skipInstallDependencies:
+                description: '(optional) SkipInstallDependencies, when true, tells
+                  the operator _not_ to install dependencies of the Pulumi project.
+                  For example, if the project specifies `runtime: nodejs`, usually
+                  the operator would invoke `npm` to install the packages specified
+                  in `package.json`; when `SkipInstallDependencies` is set, it will
+                  not do so. You can use this, for instance, if you have vendored
+                  your dependencies in the source.'
+                type: boolean
               stack:
                 description: Stack is the fully qualified name of the stack to deploy
                   (<org>/<stack>).

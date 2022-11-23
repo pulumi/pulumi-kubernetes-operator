@@ -255,6 +255,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>skipInstallDependencies</b></td>
+        <td>boolean</td>
+        <td>
+          (optional) SkipInstallDependencies, when true, tells the operator _not_ to install dependencies of the Pulumi project. For example, if the project specifies `runtime: nodejs`, usually the operator would invoke `npm` to install the packages specified in `package.json`; when `SkipInstallDependencies` is set, it will not do so. You can use this, for instance, if you have vendored your dependencies in the source.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>useLocalStackOnly</b></td>
         <td>boolean</td>
         <td>
@@ -2138,6 +2145,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td>map[string]object</td>
         <td>
           (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>skipInstallDependencies</b></td>
+        <td>boolean</td>
+        <td>
+          (optional) SkipInstallDependencies, when true, tells the operator _not_ to install dependencies of the Pulumi project. For example, if the project specifies `runtime: nodejs`, usually the operator would invoke `npm` to install the packages specified in `package.json`; when `SkipInstallDependencies` is set, it will not do so. You can use this, for instance, if you have vendored your dependencies in the source.<br/>
         </td>
         <td>false</td>
       </tr><tr>
