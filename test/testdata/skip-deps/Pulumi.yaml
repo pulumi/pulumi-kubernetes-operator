@@ -1,0 +1,6 @@
+name: skip-deps
+description: Test case for skipInstallDependencies
+runtime:
+    name: nodejs
+    options:
+        typescript: false
