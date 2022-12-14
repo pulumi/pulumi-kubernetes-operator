@@ -7,6 +7,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"strings"
@@ -69,7 +71,15 @@ func main() {
 	// controller-runtime)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
+	pprofBindAddress := pflag.CommandLine.String("debug-pprof-addr", "", "address to which to bind a pprof endpoint")
+
 	pflag.Parse()
+
+	if *pprofBindAddress != "" {
+		go func() {
+			log.Info(http.ListenAndServe(*pprofBindAddress, nil).Error())
+		}()
+	}
 
 	// Use a zap logr.Logger implementation. If none of the zap
 	// flags are configured (or if the zap flag set is not being
