@@ -1,0 +1,128 @@
+# -- Specifies the strategy used to replace old Pods by new ones, default: `RollingUpdate`
+deploymentStrategy: ""
+
+# -- Specifies the replica count for the deployment
+replicaCount: 1
+
+image:
+  # -- The image registry to pull from
+  registry: docker.io
+  # -- The image repository to pull from
+  repository: pulumi/pulumi-kubernetes-operator
+  # -- The image pull policy
+  pullPolicy: IfNotPresent
+  # -- The image tag to pull, default: `Chart.appVersion`
+  tag: ""
+
+controller:
+  # -- Graceful shutdown timeout duration, default: `5m`
+  gracefulShutdownTimeoutDuration: 5m
+  # -- Max concurrent reconciles, default: `10`
+  maxConcurrentReconciles: "10"
+  # -- Pulumi infer namespace, default: `1`
+  pulumiInferNamespace: "1"
+  # -- Kubernetes Cluster Domain, default: `cluster.local`
+  kubernetesClusterDomain: cluster.local
+
+  # -- List of arguments to pass to the operator
+  args:
+    - --zap-level=error
+    - --zap-time-encoding=iso8601
+
+# -- Extra Environments to be passed to the operator
+extraEnv: []
+
+# -- The image pull secrets
+imagePullSecrets: ""
+
+# -- Provide a name in place of pulumi-kubernetes-operator
+nameOverride: ""
+# -- String to fully override "pulumi-kubernetes-operator.fullname"
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  # -- Create service account
+  create: true
+  # Annotations to add to the service account
+  # -- Additional ServiceAccount annotations
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  # -- Service account name to use, when empty will be set to created account if
+  name: ""
+
+# -- Pod annotations
+podAnnotations: {}
+
+# -- Deployment annotations
+deploymentAnnotations: {}
+
+# -- Pod Security Context see [values.yaml](values.yaml)
+podSecurityContext:
+  # -- pulumi-kubernetes-operator group is 1000
+  fsGroup: 1000
+  # -- pulumi-kubernetes-operator user is 1000
+  runAsUser: 1000
+
+# -- Security Context see [values.yaml](values.yaml)
+securityContext:
+  privileged: false
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  # readOnlyRootFilesystem: true
+  runAsGroup: 10003
+  # runAsUser: 10003
+  seccompProfile:
+    type: RuntimeDefault
+  capabilities:
+    drop:
+      - ALL
+
+# -- containers which are run before the app containers are started
+initContainers: []
+
+# -- CPU/Memory resource requests/limits
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  limits:
+    cpu: 500m
+    memory: 5123Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# -- Node selector
+nodeSelector: {}
+
+# -- Toleration labels for pod assignment
+tolerations: []
+
+# -- The affinity constraint
+affinity: {}
+
+# -- Extra Volumes for the pod
+extraVolumes:
+# - name: pv-claim
+#   persistentVolumeClaim:
+#     claimName: task-pv-volume
+# - name: example
+#   configMap:
+#     name: example
+
+# -- Extra Volume Mounts for the pulumi-kubernetes-operator pod
+extraVolumeMounts:
+# - name: test
+#   mountPath: /test
+
+# -- Labels to add to the pulumi-kubernetes-operator pod. default: {}
+podLabels: {}
+
+# -- You can configure extra sidecars containers to run alongside the pulumi-kubernetes-operator pod. default: []
+extraSidecars: []
+#  - name: sidecar-example
+#    image: busybox
+#    command: ["/bin/sh", "-c", "echo hello from sidecar"]

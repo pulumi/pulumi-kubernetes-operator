@@ -1,0 +1,186 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: programs.pulumi.com
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.9.2
+spec:
+  group: pulumi.com
+  names:
+    kind: Program
+    listKind: ProgramList
+    plural: programs
+    singular: program
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: Program is the schema for the inline YAML program API.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          program:
+            properties:
+              configuration:
+                additionalProperties:
+                  properties:
+                    default:
+                      description: default is a value of the appropriate type for the
+                        template to use if no value is specified.
+                      x-kubernetes-preserve-unknown-fields: true
+                    type:
+                      description: type is the (required) data type for the parameter.
+                      enum:
+                      - String
+                      - Number
+                      - List<Number>
+                      - List<String>
+                      type: string
+                  type: object
+                description: configuration specifies the Pulumi config inputs to the
+                  deployment. Either type or default is required.
+                type: object
+              outputs:
+                additionalProperties:
+                  x-kubernetes-preserve-unknown-fields: true
+                description: outputs specifies the Pulumi stack outputs of the program
+                  and how they are computed from the resources.
+                type: object
+              resources:
+                additionalProperties:
+                  properties:
+                    get:
+                      description: A getter function for the resource. Supplying get
+                        is mutually exclusive to properties.
+                      properties:
+                        id:
+                          description: The ID of the resource to import.
+                          minLength: 1
+                          type: string
+                        state:
+                          additionalProperties:
+                            x-kubernetes-preserve-unknown-fields: true
+                          description: state contains the known properties (input &
+                            output) of the resource. This assists the provider in figuring
+                            out the correct resource.
+                          type: object
+                      required:
+                      - id
+                      type: object
+                    options:
+                      description: options contains all resource options supported by
+                        Pulumi.
+                      properties:
+                        additionalSecretOutputs:
+                          description: additionalSecretOutputs specifies properties
+                            that must be encrypted as secrets.
+                          items:
+                            type: string
+                          type: array
+                        aliases:
+                          description: aliases specifies names that this resource used
+                            to have, so that renaming or refactoring doesn’t replace
+                            it.
+                          items:
+                            type: string
+                          type: array
+                        customTimeouts:
+                          description: customTimeouts overrides the default retry/timeout
+                            behavior for resource provisioning.
+                          properties:
+                            create:
+                              description: create is the custom timeout for create operations.
+                              type: string
+                            delete:
+                              description: delete is the custom timeout for delete operations.
+                              type: string
+                            update:
+                              description: update is the custom timeout for update operations.
+                              type: string
+                          type: object
+                        deleteBeforeReplace:
+                          description: deleteBeforeReplace overrides the default create-before-delete
+                            behavior when replacing.
+                          type: boolean
+                        dependsOn:
+                          description: dependsOn adds explicit dependencies in addition
+                            to the ones in the dependency graph.
+                          items:
+                            x-kubernetes-preserve-unknown-fields: true
+                          type: array
+                        ignoreChanges:
+                          description: ignoreChanges declares that changes to certain
+                            properties should be ignored when diffing.
+                          items:
+                            type: string
+                          type: array
+                        import:
+                          description: import adopts an existing resource from your
+                            cloud account under the control of Pulumi.
+                          type: string
+                        parent:
+                          description: parent resource option specifies a parent for
+                            a resource. It is used to associate children with the parents
+                            that encapsulate or are responsible for them.
+                          x-kubernetes-preserve-unknown-fields: true
+                        protect:
+                          description: protect prevents accidental deletion of a resource.
+                          type: boolean
+                        provider:
+                          description: provider resource option sets a provider for
+                            the resource.
+                          x-kubernetes-preserve-unknown-fields: true
+                        providers:
+                          additionalProperties:
+                            x-kubernetes-preserve-unknown-fields: true
+                          description: providers resource option sets a map of providers
+                            for the resource and its children.
+                          type: object
+                        version:
+                          description: version specifies a provider plugin version that
+                            should be used when operating on a resource.
+                          type: string
+                      type: object
+                    properties:
+                      additionalProperties:
+                        x-kubernetes-preserve-unknown-fields: true
+                      description: properties contains the primary resource-specific
+                        keys and values to initialize the resource state.
+                      type: object
+                    type:
+                      description: type is the Pulumi type token for this resource.
+                      minLength: 1
+                      type: string
+                  required:
+                  - type
+                  type: object
+                description: resources declares the Pulumi resources that will be deployed
+                  and managed by the program.
+                type: object
+              variables:
+                additionalProperties:
+                  x-kubernetes-preserve-unknown-fields: true
+                description: variables specifies intermediate values of the program;
+                  the values of variables are expressions that can be re-used.
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

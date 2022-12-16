@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "pulumi-kubernetes-operator.fullname" . }}
+  labels:
+  {{- include "pulumi-kubernetes-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "pulumi-kubernetes-operator.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "pulumi-kubernetes-operator.serviceAccountName" . }}
+    namespace: '{{ .Release.Namespace }}'
