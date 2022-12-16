@@ -1,0 +1,79 @@
+---
+name: chart-publish
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "deploy/helm/**"
+env:
+  HELM_DOCS_VERSION: "1.11.0"
+
+permissions: read-all
+
+jobs:
+  publish:
+    permissions:
+      contents: write # for helm/chart-releaser-action to push chart release and create a release
+      packages: write # for helm/chart-releaser-action to push chart release and create a release
+      id-token: write # for helm/chart-releaser-action to push chart release and create a release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # tag=v3.1.0
+        with:
+          fetch-depth: 0
+
+      - name: Install Helm
+        uses: azure/setup-helm@f382f75448129b3be48f8121b9857be18d815a82 # tag=v3.4
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: install helm-docs
+        run: |
+          cd /tmp
+          wget https://github.com/norwoodj/helm-docs/releases/download/v${{env.HELM_DOCS_VERSION}}/helm-docs_${{env.HELM_DOCS_VERSION}}_Linux_x86_64.tar.gz
+          tar -xvf helm-docs_${{env.HELM_DOCS_VERSION}}_Linux_x86_64.tar.gz
+          sudo mv helm-docs /usr/local/sbin
+
+      - name: run helm-docs
+        run: |
+          helm-docs -t README.md.gotmpl -o README.md -b for-the-badge
+
+      - name: Login to GHCR
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # tag=v2.1.0
+        with:
+          registry: ghcr.io
+          username: ${ GITHUB_REPOSITORY_OWNER }
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Artifact Hub lint
+        run: |
+          curl -s https://api.github.com/repos/artifacthub/hub/releases/latest | grep -E 'browser_download_url' | grep linux_amd64.tar.gz\" | grep -Eo 'https://[^\"]*' | xargs wget -O - | tar -xz
+          ./ah lint -p deploy/helm/pulumi-operator || exit 1
+          rm -f ./ah
+
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@98bccfd32b0f76149d188912ac8e45ddd3f8695f # tag=v1.4.1
+        with:
+          config: "./.github/configs/cr.yaml"
+          charts_dir: "deploy/helm"
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
+      - uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # tag=v2.8.1
+      - name: Push chart to GHCR
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          shopt -s nullglob
+          for pkg in .cr-release-packages/*; do
+            if [ -z "${pkg:-}" ]; then
+              break
+            fi
+            helm push "${pkg}" oci://ghcr.io/pulumi/charts |& tee .digest
+            cosign sign $(cat .digest | awk -F "[, ]+" '/Pushed/{print $NF}')
+          done          
