@@ -18,6 +18,6 @@ spec:
         name: pulumi-api-secret
         key: accessToken
   stack: <ACCOUNT_NAME>/nginx/dev
-  projectRepo: https://github.com/metral/pulumi-nginx
+  projectRepo: https://github.com/stevesloka/pulumi-nginx
   branch: "refs/heads/master"
   destroyOnFinalize: true
