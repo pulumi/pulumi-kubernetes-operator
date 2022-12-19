@@ -136,7 +136,7 @@ Pick one of those, then create a new project in a fresh directory:
 TEMPLATE=deploy/deploy-operator-ts # for example
 mkdir deploy-operator
 cd deploy-operator
-pulumi new https://github.com/pulumi-kubernetes-operator/$TEMPLATE
+pulumi new https://github.com/pulumi/pulumi-kubernetes-operator/$TEMPLATE
 # If using the S3 state backend, you may wish to set the secrets provider here
 pulumi stack change-secrets-provider "awskms:///arn:aws:kms:...?region=<region>"
 ```
