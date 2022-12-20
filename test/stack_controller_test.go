@@ -1,5 +1,8 @@
 // Copyright 2021, Pulumi Corporation.  All rights reserved.
 
+//go:build integration
+// +build integration
+
 package tests
 
 import (
