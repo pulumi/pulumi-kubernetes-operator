@@ -17,7 +17,8 @@ spec:
       secret:
         name: pulumi-api-secret
         key: accessToken
-  stack: <ACCOUNT_NAME>/nginx/dev
-  projectRepo: https://github.com/stevesloka/pulumi-nginx
+  stack: <ACCOUNT_NAME>/k8s-nginx/dev
+  projectRepo: https://github.com/pulumi/examples
+  repoDir: /kubernetes-ts-nginx
   branch: "refs/heads/master"
   destroyOnFinalize: true
