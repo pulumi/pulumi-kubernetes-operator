@@ -472,6 +472,13 @@ FluxSource specifies how to fetch source code from a Flux source object.
           Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of interest, within the fetched source.<br/>
         </td>
         <td>false</td>
+      </tr><tr>
+        <td><b>skipInstallDependencies</b></td>
+        <td>boolean</td>
+        <td>
+          SkipInstallDependencies can be set to true to skip automatically installing dependencies.<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -2356,6 +2363,13 @@ FluxSource specifies how to fetch source code from a Flux source object.
         <td>string</td>
         <td>
           Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of interest, within the fetched source.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>skipInstallDependencies</b></td>
+        <td>boolean</td>
+        <td>
+          SkipInstallDependencies can be set to true to skip automatically installing dependencies.<br/>
         </td>
         <td>false</td>
       </tr></tbody>

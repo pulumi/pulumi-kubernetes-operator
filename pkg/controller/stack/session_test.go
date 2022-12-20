@@ -6,11 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
-	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/stretchr/testify/assert"
@@ -179,8 +180,24 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithSecrets() {
 			err:           errors.New("missing 'password' secret entry"),
 		},
 	} {
+
 		t.Run(test.name, func(t *testing.T) {
-			session := newReconcileStackSession(logger, shared.StackSpec{GitAuthSecret: test.gitAuthSecret}, client, namespace)
+			session := newReconcileStackSession(logger,
+				shared.StackSpec{
+					GitSource: &shared.GitSource{
+						GitAuth: &shared.GitAuthConfig{
+							PersonalAccessToken: &shared.ResourceRef{
+								SelectorType: "Secret",
+								ResourceSelector: shared.ResourceSelector{
+									SecretRef: &shared.SecretSelector{
+										Name:      test.gitAuthSecret,
+										Namespace: namespace,
+									},
+								},
+							},
+						},
+					},
+				}, client, namespace)
 			gitAuth, err := session.SetupGitAuth(context.TODO())
 			if test.err != nil {
 				require.Error(t, err)
@@ -436,7 +453,11 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			session := newReconcileStackSession(logger, shared.StackSpec{GitAuth: test.gitAuth}, client, namespace)
+			session := newReconcileStackSession(logger, shared.StackSpec{
+				GitSource: &shared.GitSource{
+					GitAuth: test.gitAuth,
+				},
+			}, client, namespace)
 			gitAuth, err := session.SetupGitAuth(context.TODO())
 			if test.err != nil {
 				require.Error(t, err)

@@ -189,6 +189,10 @@ spec:
                       project (i.e., containing Pulumi.yaml) of interest, within the
                       fetched source.
                     type: string
+                  skipInstallDependencies:
+                    description: SkipInstallDependencies can be set to true to skip
+                      automatically installing dependencies.
+                    type: boolean
                   sourceRef:
                     properties:
                       apiVersion:
@@ -965,6 +969,10 @@ spec:
                       project (i.e., containing Pulumi.yaml) of interest, within the
                       fetched source.
                     type: string
+                  skipInstallDependencies:
+                    description: SkipInstallDependencies can be set to true to skip
+                      automatically installing dependencies.
+                    type: boolean
                   sourceRef:
                     properties:
                       apiVersion:

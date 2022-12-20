@@ -187,6 +187,9 @@ type FluxSource struct {
 	// interest, within the fetched source.
 	// +optional
 	Dir string `json:"dir,omitempty"`
+
+	// SkipInstallDependencies can be set to true to skip automatically installing dependencies.
+	SkipInstallDependencies bool `json:"skipInstallDependencies,omitempty"`
 }
 
 type FluxSourceReference struct {

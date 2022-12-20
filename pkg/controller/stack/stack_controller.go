@@ -505,6 +505,12 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			return reconcile.Result{}, nil
 		}
 
+		// Set the SkipDependenciesFlag if set in the flux configuration.
+		if fluxSource.SkipInstallDependencies {
+			sess.skipDependenciesInstall = fluxSource.SkipInstallDependencies
+			reqLogger.Info("Skipping dependencies install")
+		}
+
 		currentCommit, err = sess.SetupWorkdirFromFluxSource(ctx, sourceObject, fluxSource)
 		if err != nil {
 			r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
@@ -816,13 +822,14 @@ func (sess *reconcileStackSession) addFinalizerAndUpdate(ctx context.Context, st
 }
 
 type reconcileStackSession struct {
-	logger     logging.Logger
-	kubeClient client.Client
-	stack      shared.StackSpec
-	autoStack  *auto.Stack
-	namespace  string
-	workdir    string
-	rootDir    string
+	logger                  logging.Logger
+	kubeClient              client.Client
+	stack                   shared.StackSpec
+	autoStack               *auto.Stack
+	namespace               string
+	workdir                 string
+	rootDir                 string
+	skipDependenciesInstall bool
 }
 
 func newReconcileStackSession(
@@ -1604,7 +1611,7 @@ func (sess *reconcileStackSession) addSSHKeysToKnownHosts(projectRepoURL string)
 	}
 	defer f.Close()
 	if _, err = f.WriteString(stdout); err != nil {
-		return fmt.Errorf("error running ssh-keyscan: %w")
+		return fmt.Errorf("error running ssh-keyscan: %w", err)
 	}
 	return nil
 }

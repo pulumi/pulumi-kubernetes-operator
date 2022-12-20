@@ -244,6 +244,7 @@ var _ = Describe("Flux source integration", func() {
 							Kind:       "Fake",
 							Name:       source.GetName(),
 						},
+						SkipInstallDependencies: true,
 					},
 				},
 			}
