@@ -3,7 +3,6 @@ package tests
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,7 +27,7 @@ var _ = Describe("Cross-namespace refs", func() {
 
 	BeforeEach(func() {
 		var err error
-		tmpDir, err = ioutil.TempDir("", "pulumi-test")
+		tmpDir, err = os.MkdirTemp("", "pulumi-test")
 		Expect(err).ToNot(HaveOccurred())
 
 		kubeconfig = writeKubeconfig(tmpDir)

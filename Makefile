@@ -50,6 +50,9 @@ test: codegen download-test-deps
 	KUBEBUILDER_ASSETS="$(shell setup-envtest --use-env use -p path)" \
 		ginkgo -nodes=${TEST_NODES} --randomize-all ./test/...
 
+lint:
+	golangci-lint run --timeout 10m --build-tags integration
+
 deploy:
 	kubectl apply -f deploy/yaml/service_account.yaml
 	kubectl apply -f deploy/yaml/role.yaml

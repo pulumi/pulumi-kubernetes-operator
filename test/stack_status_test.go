@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -66,13 +65,17 @@ func makeFixtureIntoRepo(repoDir, fixture string) error {
 	if err != nil {
 		return err
 	}
-	wt.Add(".")
-	wt.Commit("Initial revision from fixture "+fixture, &git.CommitOptions{
+	if _, err := wt.Add("."); err != nil {
+		return err
+	}
+	if _, err := wt.Commit("Initial revision from fixture "+fixture, &git.CommitOptions{
 		Author: &object.Signature{
 			Name:  "Pulumi Test",
 			Email: "pulumi.test@example.com",
 		},
-	})
+	}); err != nil {
+		return err
+	}
 	// this makes sure there's a default branch
 	if err = wt.Checkout(&git.CheckoutOptions{
 		Branch: plumbing.NewBranchReferenceName("default"),
@@ -94,7 +97,7 @@ var _ = Describe("Stack controller status", func() {
 
 	BeforeEach(func() {
 		var err error
-		tmpDir, err = ioutil.TempDir("", "pulumi-test")
+		tmpDir, err = os.MkdirTemp("", "pulumi-test")
 		Expect(err).ToNot(HaveOccurred())
 
 		// This makes a git repo to clone from, so to avoid relying on something at GitHub that could

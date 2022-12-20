@@ -85,7 +85,8 @@ var _ = Describe("Flux source integration", func() {
 		kubectl.Env = append(kubectl.Environ(), fmt.Sprintf("KUBECONFIG=%s", kubeconfig))
 		kubectl.Stdout = os.Stdout
 		kubectl.Stderr = os.Stderr
-		kubectl.Run()
+		err := kubectl.Run()
+		Expect(err).NotTo(HaveOccurred())
 	}
 
 	BeforeEach(func() {
@@ -99,7 +100,8 @@ var _ = Describe("Flux source integration", func() {
 		// BeforeSuite so it's near where it's used.
 		createCRD.Do(func() {
 			// tell the client about CRDs
-			apiextensionsv1.AddToScheme(k8sClient.Scheme())
+			err := apiextensionsv1.AddToScheme(k8sClient.Scheme())
+			Expect(err).NotTo(HaveOccurred())
 
 			// install our minimal CRD
 			bs, err := os.ReadFile("testdata/fluxsource_crd.yaml")
@@ -206,7 +208,8 @@ var _ = Describe("Flux source integration", func() {
 			mux.Handle(path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				r.Body.Close()
 				w.WriteHeader(200)
-				w.Write(tarballBytes)
+				_, err := w.Write(tarballBytes)
+				Expect(err).NotTo(HaveOccurred())
 			}))
 			artifactServer = httptest.NewServer(mux)
 			artifactURL = artifactServer.URL + path
@@ -227,7 +230,8 @@ var _ = Describe("Flux source integration", func() {
 			source.SetName(randString())
 			source.SetNamespace("default")
 			Expect(k8sClient.Create(context.TODO(), source)).To(Succeed())
-			unstructured.SetNestedMap(source.Object, sourceStatus, "status")
+			err := unstructured.SetNestedMap(source.Object, sourceStatus, "status")
+			Expect(err).NotTo(HaveOccurred())
 			Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
 
 			stack = &pulumiv1.Stack{
@@ -291,7 +295,8 @@ var _ = Describe("Flux source integration", func() {
 						"checksum": artifactChecksum,
 					},
 				}
-				unstructured.SetNestedMap(source.Object, sourceStatus, "status")
+				err := unstructured.SetNestedMap(source.Object, sourceStatus, "status")
+				Expect(err).NotTo(HaveOccurred())
 				resetWaitForStack()
 				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
 			})
@@ -312,7 +317,8 @@ var _ = Describe("Flux source integration", func() {
 					"lastTransitionTime": "2022-10-10T14:18:22Z",
 				}
 				conditions := []interface{}{notready}
-				unstructured.SetNestedSlice(source.Object, conditions, "status", "conditions")
+				err := unstructured.SetNestedSlice(source.Object, conditions, "status", "conditions")
+				Expect(err).NotTo(HaveOccurred())
 				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
 				stack.Name = "source-not-ready"
 			})
@@ -330,7 +336,8 @@ var _ = Describe("Flux source integration", func() {
 					"lastTransitionTime": "2022-10-10T14:58:22Z",
 				}
 				conditions := []interface{}{ready}
-				unstructured.SetNestedSlice(source.Object, conditions, "status", "conditions")
+				err := unstructured.SetNestedSlice(source.Object, conditions, "status", "conditions")
+				Expect(err).NotTo(HaveOccurred())
 				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
 
 				waitForStackSuccess(stack)
@@ -357,7 +364,8 @@ var _ = Describe("Flux source integration", func() {
 					"revision": newArtifactRevision,
 					"checksum": artifactChecksum,
 				}
-				unstructured.SetNestedMap(source.Object, artifact, "status", "artifact")
+				err := unstructured.SetNestedMap(source.Object, artifact, "status", "artifact")
+				Expect(err).NotTo(HaveOccurred())
 				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
 
 				waitForStackSuccess(stack)
@@ -368,8 +376,9 @@ var _ = Describe("Flux source integration", func() {
 
 		When("the checksum is wrong", func() {
 			BeforeEach(func() {
-				unstructured.SetNestedField(source.Object, "not-the-right-checksum",
+				err := unstructured.SetNestedField(source.Object, "not-the-right-checksum",
 					"status", "artifact", "checksum")
+				Expect(err).NotTo(HaveOccurred())
 				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
 				stack.Name = "source-bad-checksum"
 			})
@@ -383,8 +392,9 @@ var _ = Describe("Flux source integration", func() {
 
 		When("the artifact cannot be fetched", func() {
 			BeforeEach(func() {
-				unstructured.SetNestedField(source.Object, artifactServer.URL+"/bogus/path/to/artifact.tar.gz",
+				err := unstructured.SetNestedField(source.Object, artifactServer.URL+"/bogus/path/to/artifact.tar.gz",
 					"status", "artifact", "url")
+				Expect(err).NotTo(HaveOccurred())
 				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
 				stack.Name = "source-unavailable"
 			})

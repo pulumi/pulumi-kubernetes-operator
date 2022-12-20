@@ -39,7 +39,6 @@ var (
 const namespace = "default"
 const pulumiAPISecretName = "pulumi-api-secret"
 const pulumiAWSSecretName = "pulumi-aws-secrets"
-const k8sOpTimeout = 10 * time.Second
 const stackExecTimeout = 3 * time.Minute
 const interval = time.Second * 5
 
