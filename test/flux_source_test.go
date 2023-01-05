@@ -331,6 +331,7 @@ var _ = Describe("Flux source integration", func() {
 				}
 				conditions := []interface{}{ready}
 				unstructured.SetNestedSlice(source.Object, conditions, "status", "conditions")
+				resetWaitForStack()
 				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
 
 				waitForStackSuccess(stack)
@@ -358,6 +359,8 @@ var _ = Describe("Flux source integration", func() {
 					"checksum": artifactChecksum,
 				}
 				unstructured.SetNestedMap(source.Object, artifact, "status", "artifact")
+
+				resetWaitForStack()
 				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
 
 				waitForStackSuccess(stack)

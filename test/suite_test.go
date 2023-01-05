@@ -168,8 +168,10 @@ func resetWaitForStack() {
 	waitForStackSince = time.Now()
 }
 
-// internalWaitForStackState refetches the given stack, until its .lastUpdated.state field matches
-// the one given. NB it fetches into the pointer given, so mutates the struct it's pointing at.
+// internalWaitForStackState refetches the given stack until its status has been updated more
+// recently than waitForStackSince; then asserts that state reached is `state`. Usually, you will
+// want to resetWaitForStack(), then update a stack, then use this func. NB it fetches into the
+// pointer given, so mutates the struct it's pointing at.
 func internalWaitForStackState(stack *pulumiv1.Stack, state shared.StackUpdateStateMessage, optionalTimeout ...string) {
 	timeout := "30s"
 	if len(optionalTimeout) > 0 {
@@ -182,9 +184,9 @@ func internalWaitForStackState(stack *pulumiv1.Stack, state shared.StackUpdateSt
 			return false
 		}
 		return stack.Status.LastUpdate != nil &&
-			stack.Status.LastUpdate.State == state &&
 			stack.Status.LastUpdate.LastResyncTime.Time.After(waitForStackSince)
-	}, timeout, "1s").Should(BeTrue(), fmt.Sprintf("stack %q reaches state %q", stack.Name, state))
+	}, timeout, "1s").Should(BeTrue(), fmt.Sprintf("stack %q has run", stack.Name))
+	ExpectWithOffset(2, stack.Status.LastUpdate.State).To(Equal(state))
 }
 
 func waitForStackSuccess(stack *pulumiv1.Stack, optionalTimeout ...string) {
