@@ -159,6 +159,12 @@ func writeKubeconfig(targetDir string) string {
 	return kubeconfig
 }
 
+func removeTempDir(tmp string) {
+	if strings.HasPrefix(tmp, os.TempDir()) {
+		os.RemoveAll(tmp)
+	}
+}
+
 // These waitForStack* are convenience funcs for what most tests will want to do, that is wait until
 // a stack succeeds or fails after setting up the circumstances under test.
 

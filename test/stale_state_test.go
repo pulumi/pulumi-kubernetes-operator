@@ -71,7 +71,6 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 				},
 				EnvRefs:                     envRefs,
 				Backend:                     backend,
-				DestroyOnFinalize:           true,
 				ContinueResyncOnCommitMatch: true, // ) necessary so it will run the stack again when the config changes,
 				ResyncFrequencySeconds:      3600, // ) but not otherwise.
 			},
@@ -97,6 +96,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 		env["KUBECONFIG"] = kubeconfig
 
 		setupStack = createStack("run-rabbitmq", "setup")
+		setupStack.Spec.DestroyOnFinalize = true // tear down the container afterwards
 		setupStack.Spec.Config = map[string]string{
 			"password":   randString(),
 			"port":       rabbitPort,
@@ -118,6 +118,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 	})
 
 	AfterEach(func() {
+		deleteAndWaitForFinalization(useRabbitStack)
 		deleteAndWaitForFinalization(setupStack)
 		if strings.HasPrefix(tmp, os.TempDir()) {
 			Expect(os.RemoveAll(tmp)).To(Succeed())
@@ -179,6 +180,9 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 				"secretName": credsSecretName,
 			}
 			Expect(k8sClient.Create(ctx, targetedStack)).To(Succeed())
+			DeferCleanup(func() {
+				deleteAndWaitForFinalization(targetedStack)
+			})
 			waitForStackSuccess(targetedStack)
 
 			// This is a cheat: set the succeeded time for the helper to longer ago than the prereq

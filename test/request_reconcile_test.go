@@ -30,6 +30,10 @@ var _ = When("a Stack has reached a successful state, then been annotated", func
 		var err error
 		tmp, err = os.MkdirTemp("", "pulumi-test")
 		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			removeTempDir(tmp)
+		})
+
 		// Set this so the default Kubernetes provider uses the test env API server.
 		kubeconfig := writeKubeconfig(tmp)
 		env["KUBECONFIG"] = kubeconfig
@@ -67,6 +71,9 @@ var _ = When("a Stack has reached a successful state, then been annotated", func
 
 		Expect(k8sClient.Create(context.TODO(), stackObj)).To(Succeed())
 		waitForStackSuccess(stackObj)
+		DeferCleanup(func() {
+			deleteAndWaitForFinalization(stackObj)
+		})
 
 		refetch(stackObj)
 		stackObj.SetAnnotations(map[string]string{
