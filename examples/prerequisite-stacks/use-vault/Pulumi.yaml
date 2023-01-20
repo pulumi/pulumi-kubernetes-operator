@@ -1,0 +1,3 @@
+name: prerequisite-stacks
+description: A minimal Kubernetes Go Pulumi program
+runtime: go

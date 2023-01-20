@@ -1,0 +1,29 @@
+---
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: use-vault
+  namespace: default
+spec:
+  envRefs:
+    PULUMI_CONFIG_PASSPHRASE:
+      type: Literal
+      literal:
+        value: foobar
+    VAULT_TOKEN:
+      type: Secret
+      secret:
+        name: vault-access
+        key: VAULT_TOKEN
+    VAULT_ADDR:
+      type: Literal
+      literal:
+        value: http://vault.default.svc.cluster.local:8200/
+  stack: local
+  backend: file:///tmp/
+  projectRepo: https://github.com/pulumi/pulumi-kubernetes-operator
+  branch: target-before-refresh
+  repoDir: ./examples/prerequisite-stacks/use-vault
+  continueResyncOnCommitMatch: true
+  resyncFrequencySeconds: 60
+  refresh: true
