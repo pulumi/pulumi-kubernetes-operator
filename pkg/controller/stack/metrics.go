@@ -66,4 +66,12 @@ func updateStackCallback(oldObj, newObj interface{}) {
 
 func deleteStackCallback(oldObj interface{}) {
 	numStacks.Dec()
+	oldStack, ok := oldObj.(*pulumiv1.Stack)
+	if !ok {
+		return
+	}
+	// assume that if there was a status recorded, this gauge exists
+	if oldStack.Status.LastUpdate != nil {
+		numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(0)
+	}
 }
