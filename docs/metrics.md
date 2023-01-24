@@ -20,8 +20,8 @@ Once the above are created, Prometheus will update its target scraping rules to 
 
 The current implementation explicitly emits the following metrics:
 
-1. `stacks_active` - `gauge` that tracks the number of currently registered stacks managed by the system
-2. `stacks_failing` - `gaugevec` that provides information about stacks currently failing (`stack.status.lastUpdate.state` is `failed`)
+1. `stacks_active` - a `gauge` time series that reports the number of currently registered stacks managed by the system
+2. `stacks_failing` - a set of `gauge` time series, labelled by namespace, that gives the number of stacks currently failing (`stack.status.lastUpdate.state` is `failed`)
 
 In addition, we find tracking the following metrics emitted by the controller-runtime would be useful to track:
 

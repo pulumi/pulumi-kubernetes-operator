@@ -17,6 +17,8 @@ CHANGELOG
 - When a Stack uses a Flux source, but the source has no artifact to download, park the Stack until
   the source has been updated, rather than retrying
   [#359](https://github.com/pulumi/pulumi-kubernetes-operator/pull/359)
+- Correct the stacks_failing metric in the case of a stack being deleted after failing
+  [#402](https://github.com/pulumi/pulumi-kubernetes-operator/pull/402)
 
 ## 1.10.1 (2022-10-25)
 
