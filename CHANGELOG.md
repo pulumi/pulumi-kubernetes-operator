@@ -1,7 +1,7 @@
 CHANGELOG
 =========
 
-## HEAD (Unreleased)
+## 1.11.0 (2022-01-25)
 
 - Expand the installation programs in deploy/ so they can deploy the operator to several namespaces
   in one go, as well as upgrade the operator version.
