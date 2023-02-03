@@ -53,9 +53,10 @@ jobs:
       # go-git doesn't like detached state.
       - run: git switch -C "pull-request"
       - name: Install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.19.x
+          cache: true
       - name: Install Ginkgo testing framework
         run: |
           # Do the install from outside the code tree to avoid messing with go.sum
