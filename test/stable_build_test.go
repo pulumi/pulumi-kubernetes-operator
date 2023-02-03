@@ -86,7 +86,7 @@ var _ = Describe("go build caching", func() {
 		}
 
 		BeforeEach(func() {
-			waitForStackSuccess(stack)
+			waitForStackSuccess(stack, "90s") // it just takes a while to build a Go project
 			beforeSize = checkCacheSize()
 			GinkgoWriter.Println("Before:", beforeSize)
 			// make sure the cache is actually used!
@@ -98,7 +98,7 @@ var _ = Describe("go build caching", func() {
 			stack.Spec.ResyncFrequencySeconds = 30 // just to provoke reprocessing
 			resetWaitForStack()
 			Expect(k8sClient.Update(context.TODO(), stack)).To(Succeed())
-			waitForStackSuccess(stack)
+			waitForStackSuccess(stack, "90s")
 			s := checkCacheSize()
 			GinkgoWriter.Println("After:", s)
 			Expect(s).To(Equal(beforeSize))
