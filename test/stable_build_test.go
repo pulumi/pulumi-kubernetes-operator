@@ -68,29 +68,39 @@ var _ = Describe("go build caching", func() {
 	When("a go stack is run multiple times", func() {
 		var (
 			beforeSize string
+			cachedir   string
 		)
 
-		checkCacheSize := func() string {
+		getCachedir := func() string {
 			out, err := exec.Command("go", "env", "GOCACHE").Output()
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
-			cachedir := string(out)
-			cachedir = strings.TrimSpace(cachedir)
-			GinkgoWriter.Println("Cache:", cachedir)
+			return strings.TrimSpace(string(out))
+		}
+
+		checkCacheSize := func() string {
+			d := getCachedir()
+			GinkgoWriter.Println("Cache:", d)
 			// there's just one source file in the project, so the difference between the cache
 			// working and it not working will be pretty small. `-k` measures in 1KiB blocks, which
 			// should be fine enough.
-			out, err = exec.Command("du", "-s", "-k", cachedir).Output()
+			out, err := exec.Command("du", "-s", "-k", d).Output()
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			s := string(out)
 			return s
 		}
 
 		BeforeEach(func() {
+			cachedir = getCachedir()
 			waitForStackSuccess(stack, "90s") // it just takes a while to build a Go project
 			beforeSize = checkCacheSize()
 			GinkgoWriter.Println("Before:", beforeSize)
 			// make sure the cache is actually used!
 			Expect(beforeSize).NotTo(HavePrefix("0\t"))
+		})
+
+		AfterEach(func() {
+			// A low-fi check to guard against something messing with the env
+			Expect(getCachedir()).To(Equal(cachedir))
 		})
 
 		It("doesn't grow the Go build cache", func() {
