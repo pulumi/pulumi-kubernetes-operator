@@ -19,6 +19,8 @@ CHANGELOG
   [#359](https://github.com/pulumi/pulumi-kubernetes-operator/pull/359)
 - Correct the stacks_failing metric in the case of a stack being deleted after failing
   [#402](https://github.com/pulumi/pulumi-kubernetes-operator/pull/402)
+- Work in sympathy with the Go build cache, by using stable build paths
+  [#407](https://github.com/pulumi/pulumi-kubernetes-operator/pull/407)
 
 ## 1.10.1 (2022-10-25)
 

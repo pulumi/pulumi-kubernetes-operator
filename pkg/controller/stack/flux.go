@@ -5,7 +5,6 @@ package stack
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/fluxcd/pkg/http/fetch"
@@ -18,20 +17,7 @@ import (
 
 const maxArtifactDownloadSize = 50 * 1024 * 1024
 
-func (sess *reconcileStackSession) SetupWorkdirFromFluxSource(ctx context.Context, source unstructured.Unstructured, fluxSource *shared.FluxSource) (_commit string, retErr error) {
-	rootdir, err := os.MkdirTemp("", "pulumi_source")
-	if err != nil {
-		return "", fmt.Errorf("unable to create tmp directory for workspace: %w", err)
-	}
-	sess.rootDir = rootdir
-
-	defer func() {
-		if retErr != nil {
-			_ = os.RemoveAll(rootdir)
-			sess.rootDir = ""
-		}
-	}()
-
+func (sess *reconcileStackSession) SetupWorkdirFromFluxSource(ctx context.Context, source unstructured.Unstructured, fluxSource *shared.FluxSource) (string, error) {
 	// this source artifact fetching code is based closely on
 	// https://github.com/fluxcd/kustomize-controller/blob/db3c321163522259595894ca6c19ed44a876976d/controllers/kustomization_controller.go#L529
 
@@ -57,14 +43,14 @@ func (sess *reconcileStackSession) SetupWorkdirFromFluxSource(ctx context.Contex
 	}
 
 	fetcher := fetch.NewArchiveFetcher(1, maxArtifactDownloadSize, maxArtifactDownloadSize*10, "")
-	if err = fetcher.Fetch(artifactURL, checksum, rootdir); err != nil {
+	if err = fetcher.Fetch(artifactURL, checksum, sess.rootDir); err != nil {
 		return "", fmt.Errorf("failed to get artifact from source: %w", err)
 	}
 
 	// woo! now there's a directory with source in `rootdir`. Construct a workspace.
 
 	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
-	w, err := auto.NewLocalWorkspace(ctx, auto.WorkDir(filepath.Join(rootdir, fluxSource.Dir)), secretsProvider)
+	w, err := auto.NewLocalWorkspace(ctx, auto.WorkDir(filepath.Join(sess.rootDir, fluxSource.Dir)), secretsProvider)
 	if err != nil {
 		return "", fmt.Errorf("failed to create local workspace: %w", err)
 	}

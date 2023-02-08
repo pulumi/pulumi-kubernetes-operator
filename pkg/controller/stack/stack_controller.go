@@ -74,6 +74,10 @@ const (
 	EnvInsecureNoNamespaceIsolation = "INSECURE_NO_NAMESPACE_ISOLATION"
 )
 
+// A directory (under /tmp) under which to put all working directories, for convenience in cleaning
+// up.
+const buildDirectoryPrefix = "pulumi-working"
+
 func IsNamespaceIsolationWaived() bool {
 	switch os.Getenv(EnvInsecureNoNamespaceIsolation) {
 	case "1", "true":
@@ -416,6 +420,19 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		}
 		return found
 	}
+
+	// Create the build working directory. Any problem here is unexpected, and treated as a
+	// controller error.
+	workingDir, err := makeWorkingDir(instance)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("unable to create tmp directory for workspace: %w", err)
+	}
+	sess.rootDir = workingDir
+	defer func() {
+		if workingDir != "" {
+			os.RemoveAll(workingDir)
+		}
+	}()
 
 	// Check which kind of source we have.
 
@@ -1027,7 +1044,30 @@ func (sess *reconcileStackSession) lookupPulumiAccessToken(ctx context.Context) 
 	return "", false
 }
 
-func (sess *reconcileStackSession) SetupWorkdirFromGitSource(ctx context.Context, gitAuth *auto.GitAuth, source *shared.GitSource) (_revision string, retErr error) {
+// Make a working directory for building the given stack. These are stable paths, so that (for one
+// thing) the go build cache does not treat new clones of the same repo as distinct files. Since a
+// stack is processed by at most one thread at a time, and stacks have unique qualified names, and
+// the directory is expected to be removed after processing, this won't cause collisions; but, we
+// check anyway, treating the existence of the build directory as a crude lock.
+func makeWorkingDir(s *pulumiv1.Stack) (_path string, _err error) {
+	path := filepath.Join(os.TempDir(), buildDirectoryPrefix, s.GetNamespace(), s.GetName())
+	_, err := os.Stat(path)
+	switch {
+	case os.IsNotExist(err):
+		break
+	case err == nil:
+		return "", fmt.Errorf("expected build directory %q for stack not to exist already, but it does", path)
+	case err != nil:
+		return "", fmt.Errorf("error while checking for build directory: %w", err)
+	}
+
+	if err = os.MkdirAll(path, 0700); err != nil {
+		return "", fmt.Errorf("error creating working dir: %w", err)
+	}
+	return path, nil
+}
+
+func (sess *reconcileStackSession) SetupWorkdirFromGitSource(ctx context.Context, gitAuth *auto.GitAuth, source *shared.GitSource) (string, error) {
 	repo := auto.GitRepo{
 		URL:         source.ProjectRepo,
 		ProjectPath: source.RepoDir,
@@ -1040,23 +1080,7 @@ func (sess *reconcileStackSession) SetupWorkdirFromGitSource(ctx context.Context
 	// Create a new workspace.
 	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
 
-	// Create the temporary workdir
-	dir, err := os.MkdirTemp("", "pulumi_auto")
-	if err != nil {
-		return "", fmt.Errorf("unable to create tmp directory for workspace: %w", err)
-	}
-	sess.rootDir = dir
-
-	// Cleanup the rootdir on failure setting up the workspace.
-	defer func() {
-		if retErr != nil {
-			_ = os.RemoveAll(dir)
-			sess.rootDir = ""
-		}
-	}()
-
-	var w auto.Workspace
-	w, err = auto.NewLocalWorkspace(ctx, auto.WorkDir(dir), auto.Repo(repo), secretsProvider)
+	w, err := auto.NewLocalWorkspace(ctx, auto.WorkDir(sess.rootDir), auto.Repo(repo), secretsProvider)
 	if err != nil {
 		return "", fmt.Errorf("failed to create local workspace: %w", err)
 	}
@@ -1076,25 +1100,12 @@ type ProjectFile struct {
 	pulumiv1.ProgramSpec
 }
 
-func (sess *reconcileStackSession) SetupWorkdirFromYAML(ctx context.Context, programRef shared.ProgramReference) (_commit string, retErr error) {
+func (sess *reconcileStackSession) SetupWorkdirFromYAML(ctx context.Context, programRef shared.ProgramReference) (string, error) {
 	sess.logger.Debug("Setting up pulumi workdir for stack", "stack", sess.stack)
 
 	// Create a new workspace.
+
 	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
-
-	// Create the temporary workdir
-	dir, err := os.MkdirTemp("", "pulumi_auto")
-	if err != nil {
-		return "", fmt.Errorf("unable to create tmp directory for workspace: %w", err)
-	}
-	sess.rootDir = dir
-
-	// Cleanup the rootdir on failure setting up the workspace.
-	defer func() {
-		if retErr != nil {
-			_ = os.RemoveAll(sess.rootDir)
-		}
-	}()
 
 	program := pulumiv1.Program{}
 	programKey := client.ObjectKey{
@@ -1102,7 +1113,7 @@ func (sess *reconcileStackSession) SetupWorkdirFromYAML(ctx context.Context, pro
 		Namespace: sess.namespace,
 	}
 
-	err = sess.kubeClient.Get(ctx, programKey, &program)
+	err := sess.kubeClient.Get(ctx, programKey, &program)
 	if err != nil {
 		return "", errProgramNotFound
 	}
@@ -1117,13 +1128,13 @@ func (sess *reconcileStackSession) SetupWorkdirFromYAML(ctx context.Context, pro
 		return "", fmt.Errorf("failed to marshal program object to YAML: %w", err)
 	}
 
-	err = os.WriteFile(filepath.Join(dir, "Pulumi.yaml"), out, 0600)
+	err = os.WriteFile(filepath.Join(sess.rootDir, "Pulumi.yaml"), out, 0600)
 	if err != nil {
 		return "", fmt.Errorf("failed to write YAML to file: %w", err)
 	}
 
 	var w auto.Workspace
-	w, err = auto.NewLocalWorkspace(ctx, auto.WorkDir(dir), secretsProvider)
+	w, err = auto.NewLocalWorkspace(ctx, auto.WorkDir(sess.rootDir), secretsProvider)
 	if err != nil {
 		return "", fmt.Errorf("failed to create local workspace: %w", err)
 	}

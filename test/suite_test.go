@@ -163,7 +163,11 @@ func resetWaitForStack() {
 
 // internalWaitForStackState refetches the given stack, until its .lastUpdated.state field matches
 // the one given. NB it fetches into the pointer given, so mutates the struct it's pointing at.
-func internalWaitForStackState(stack *pulumiv1.Stack, state shared.StackUpdateStateMessage) {
+func internalWaitForStackState(stack *pulumiv1.Stack, state shared.StackUpdateStateMessage, optionalTimeout ...string) {
+	timeout := "30s"
+	if len(optionalTimeout) > 0 {
+		timeout = optionalTimeout[0]
+	}
 	EventuallyWithOffset(2 /* called by other helpers */, func() bool {
 		k := client.ObjectKeyFromObject(stack)
 		err := k8sClient.Get(context.TODO(), k, stack)
@@ -173,15 +177,15 @@ func internalWaitForStackState(stack *pulumiv1.Stack, state shared.StackUpdateSt
 		return stack.Status.LastUpdate != nil &&
 			stack.Status.LastUpdate.State == state &&
 			stack.Status.LastUpdate.LastResyncTime.Time.After(waitForStackSince)
-	}, "30s", "1s").Should(BeTrue(), fmt.Sprintf("stack %q reaches state %q", stack.Name, state))
+	}, timeout, "1s").Should(BeTrue(), fmt.Sprintf("stack %q reaches state %q", stack.Name, state))
 }
 
-func waitForStackSuccess(stack *pulumiv1.Stack) {
-	internalWaitForStackState(stack, shared.SucceededStackStateMessage)
+func waitForStackSuccess(stack *pulumiv1.Stack, optionalTimeout ...string) {
+	internalWaitForStackState(stack, shared.SucceededStackStateMessage, optionalTimeout...)
 }
 
-func waitForStackFailure(stack *pulumiv1.Stack) {
-	internalWaitForStackState(stack, shared.FailedStackStateMessage)
+func waitForStackFailure(stack *pulumiv1.Stack, optionalTimeout ...string) {
+	internalWaitForStackState(stack, shared.FailedStackStateMessage, optionalTimeout...)
 }
 
 // Get the object's latest definition from the Kubernetes API
