@@ -1,6 +1,11 @@
 CHANGELOG
 =========
 
+## HEAD (unreleased)
+
+- Update to [Pulumi SDK v3.53.1](https://github.com/pulumi/pulumi/releases/tag/v3.53.1)
+  [#408](https://github.com/pulumi/pulumi-kubernetes-operator/pull/408)
+
 ## 1.11.0 (2022-01-25)
 
 - Expand the installation programs in deploy/ so they can deploy the operator to several namespaces
