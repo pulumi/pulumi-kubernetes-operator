@@ -5,6 +5,9 @@ CHANGELOG
 
 - Update to [Pulumi SDK v3.53.1](https://github.com/pulumi/pulumi/releases/tag/v3.53.1)
   [#408](https://github.com/pulumi/pulumi-kubernetes-operator/pull/408)
+- Update to [Pulumi SDK v3.54.0](https://github.com/pulumi/pulumi/releases/tag/v3.53.1) and the base
+  image of the same version
+  [#412](https://github.com/pulumi/pulumi-kubernetes-operator/pull/412)
 
 ## 1.11.0 (2022-01-25)
 
