@@ -49,9 +49,9 @@ push-image:
 unit-test:
 	go test -v -count=1 -cover -timeout 2h ./...
 
-test: codegen download-test-deps
+test: codegen download-test-deps unit-test
 	KUBEBUILDER_ASSETS="$(shell setup-envtest --use-env use -p path)" \
-		ginkgo -tags=integration -nodes=${TEST_NODES} --randomize-all ./test/...
+		ginkgo -nodes=${TEST_NODES} --randomize-all ./test/...
 
 # Run both unit tests and integration tests.
 test-all: unit-test test
