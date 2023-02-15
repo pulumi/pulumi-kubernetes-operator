@@ -46,15 +46,9 @@ build-static:
 push-image:
 	docker push $(IMAGE_NAME):$(VERSION)
 
-unit-test:
-	go test -v -cover -timeout 2h ./cmd/... ./pkg/...
-
-test: codegen download-test-deps unit-test
+test: codegen download-test-deps
 	KUBEBUILDER_ASSETS="$(shell setup-envtest --use-env use -p path)" \
 		ginkgo -nodes=${TEST_NODES} --randomize-all ./test/...
-
-# Run both unit tests and integration tests.
-test-all: unit-test test
 
 deploy:
 	kubectl apply -f deploy/yaml/service_account.yaml

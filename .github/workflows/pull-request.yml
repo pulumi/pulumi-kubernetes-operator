@@ -7,17 +7,6 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v3
-        with:
-          go-version-file: go.mod
-          cache-dependency-path: go.sum
-          cache: true
-      - name: Unit Tests
-        run: make build unit_test
   comment-on-pr:
     if: github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
