@@ -47,7 +47,7 @@ push-image:
 	docker push $(IMAGE_NAME):$(VERSION)
 
 unit-test:
-	go test -v -count=1 -cover -timeout 2h ./...
+	go test -v -cover -timeout 2h ./cmd/... ./pkg/...
 
 test: codegen download-test-deps unit-test
 	KUBEBUILDER_ASSETS="$(shell setup-envtest --use-env use -p path)" \
