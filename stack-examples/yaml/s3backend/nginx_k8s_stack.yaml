@@ -36,6 +36,7 @@ spec:
         name: aws-creds-secret
         key: AWS_SESSION_TOKEN
   stack: "s3backend.nginx.dev"
-  projectRepo: https://github.com/metral/pulumi-nginx
+  projectRepo: https://github.com/pulumi/examples
+  repoDir: /kubernetes-ts-nginx
   branch: "refs/heads/master"
   destroyOnFinalize: true
