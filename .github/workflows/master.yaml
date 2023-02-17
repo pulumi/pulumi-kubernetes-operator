@@ -8,6 +8,7 @@ on:
       - CHANGELOG.md
 env:
   PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 jobs:
   operator-build:
     runs-on: ubuntu-latest
