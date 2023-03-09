@@ -1,15 +1,15 @@
 CHANGELOG
 =========
 
-## HEAD (unreleased)
+## 1.11.1 (2023-02-08)
 
-- Update to [Pulumi SDK v3.53.1](https://github.com/pulumi/pulumi/releases/tag/v3.53.1)
-  [#408](https://github.com/pulumi/pulumi-kubernetes-operator/pull/408)
-- Update to [Pulumi SDK v3.54.0](https://github.com/pulumi/pulumi/releases/tag/v3.53.1) and the base
+- Work in sympathy with the Go build cache, by using stable build paths
+  [#407](https://github.com/pulumi/pulumi-kubernetes-operator/pull/407)
+- Update to [Pulumi SDK v3.55.0](https://github.com/pulumi/pulumi/releases/tag/v3.55.0) and the base
   image of the same version
   [#412](https://github.com/pulumi/pulumi-kubernetes-operator/pull/412)
 
-## 1.11.0 (2022-01-25)
+## 1.11.0 (2023-01-25)
 
 - Expand the installation programs in deploy/ so they can deploy the operator to several namespaces
   in one go, as well as upgrade the operator version.
@@ -27,8 +27,6 @@ CHANGELOG
   [#359](https://github.com/pulumi/pulumi-kubernetes-operator/pull/359)
 - Correct the stacks_failing metric in the case of a stack being deleted after failing
   [#402](https://github.com/pulumi/pulumi-kubernetes-operator/pull/402)
-- Work in sympathy with the Go build cache, by using stable build paths
-  [#407](https://github.com/pulumi/pulumi-kubernetes-operator/pull/407)
 
 ## 1.10.1 (2022-10-25)
 
