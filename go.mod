@@ -11,7 +11,8 @@ require (
 	github.com/onsi/gomega v1.22.0
 	github.com/operator-framework/operator-lib v0.7.0
 	github.com/operator-framework/operator-sdk v0.19.4
-	github.com/prometheus/client_golang v1.11.0
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/prometheus/client_golang v1.11.1
 	github.com/prometheus/common v0.30.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/pulumi/pulumi/sdk/v3 v3.65.1
@@ -95,7 +96,6 @@ require (
 	github.com/opentracing/basictracer-go v1.1.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/term v1.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
