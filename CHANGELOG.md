@@ -1,6 +1,13 @@
 CHANGELOG
 =========
 
+## HEAD (unreleased)
+
+- Update to [Pulumi SDK v3.57.1](https://github.com/pulumi/pulumi/releases/tag/v3.57.1) and the base
+  image of the same version, fixing [issue
+  #411](https://github.com/pulumi/pulumi-kubernetes-operator/issues/411)
+  [#422](https://github.com/pulumi/pulumi-kubernetes-operator/pull/422)
+
 ## 1.11.1 (2023-02-08)
 
 - Work in sympathy with the Go build cache, by using stable build paths
