@@ -67,8 +67,8 @@ var _ = Describe("go build caching", func() {
 
 	When("a go stack is run multiple times", func() {
 		var (
-			beforeSize string
-			cachedir   string
+			beforeFiles string
+			cachedir    string
 		)
 
 		getCachedir := func() string {
@@ -77,13 +77,14 @@ var _ = Describe("go build caching", func() {
 			return strings.TrimSpace(string(out))
 		}
 
-		checkCacheSize := func() string {
+		checkCacheFiles := func() string {
 			d := getCachedir()
 			GinkgoWriter.Println("Cache:", d)
-			// there's just one source file in the project, so the difference between the cache
-			// working and it not working will be pretty small. `-k` measures in 1KiB blocks, which
-			// should be fine enough.
-			out, err := exec.Command("du", "-s", "-k", d).Output()
+			// there's just one source file in the project, so the size difference between the cache
+			// working and it not working will be pretty small. However, there certainly should not
+			// be _new_ files after building again; so, listing all the files, should catch cache
+			// growth.
+			out, err := exec.Command("ls", "-aR", d).Output()
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			s := string(out)
 			return s
@@ -92,10 +93,10 @@ var _ = Describe("go build caching", func() {
 		BeforeEach(func() {
 			cachedir = getCachedir()
 			waitForStackSuccess(stack, "90s") // it just takes a while to build a Go project
-			beforeSize = checkCacheSize()
-			GinkgoWriter.Println("Before:", beforeSize)
+			beforeFiles = checkCacheFiles()
+			GinkgoWriter.Println("Before:", beforeFiles)
 			// make sure the cache is actually used!
-			Expect(beforeSize).NotTo(HavePrefix("0\t"))
+			Expect(beforeFiles).NotTo(Equal("total 0"))
 		})
 
 		AfterEach(func() {
@@ -109,9 +110,9 @@ var _ = Describe("go build caching", func() {
 			resetWaitForStack()
 			Expect(k8sClient.Update(context.TODO(), stack)).To(Succeed())
 			waitForStackSuccess(stack, "90s")
-			s := checkCacheSize()
+			s := checkCacheFiles()
 			GinkgoWriter.Println("After:", s)
-			Expect(s).To(Equal(beforeSize))
+			Expect(s).To(Equal(beforeFiles))
 		})
 	})
 })
