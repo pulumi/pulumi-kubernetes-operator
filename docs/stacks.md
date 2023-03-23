@@ -95,7 +95,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>accessTokenSecret</b></td>
         <td>string</td>
         <td>
-          (optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN instead.<br/>
+          (optional) AccessTokenSecret is the name of a Secret containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -137,21 +137,21 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>destroyOnFinalize</b></td>
         <td>boolean</td>
         <td>
-          (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.<br/>
+          (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the Stack custom resource.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecenvrefskey">envRefs</a></b></td>
         <td>map[string]object</td>
         <td>
-          (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where the variables' values should be loaded from (one of literal, environment variable, file on the filesystem, or Kubernetes secret) as values.<br/>
+          (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where the variables' values should be loaded from (one of literal, environment variable, file on the filesystem, or Kubernetes Secret) as values.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>envSecrets</b></td>
         <td>[]string</td>
         <td>
-          (optional) SecretEnvs is an optional array of secret names containing environment variables to set. Deprecated: use EnvRefs instead.<br/>
+          (optional) SecretEnvs is an optional array of Secret names containing environment variables to set. Deprecated: use EnvRefs instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -186,7 +186,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>gitAuthSecret</b></td>
         <td>string</td>
         <td>
-          (optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options: * Personal access token * SSH private key (and it's optional password) * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.<br/>
+          (optional) GitAuthSecret is the the name of a Secret containing an authentication option for the git repository. There are 3 different authentication options: * Personal access token * SSH private key (and it's optional password) * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -221,7 +221,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>resyncFrequencySeconds</b></td>
         <td>integer</td>
         <td>
-          (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at the specified frequency even if no changes to the custom-resource are detected. If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency. The minimal resync frequency supported is 60 seconds.<br/>
+          (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at the specified frequency even if no changes to the custom resource are detected. If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency. The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -270,7 +270,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -313,7 +313,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b><a href="#stackspecenvrefskeysecret">secret</a></b></td>
         <td>object</td>
         <td>
-          SecretRef refers to a Kubernetes secret<br/>
+          SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -406,7 +406,7 @@ LiteralRef refers to a literal value
 
 
 
-SecretRef refers to a Kubernetes secret
+SecretRef refers to a Kubernetes Secret
 
 <table>
     <thead>
@@ -421,21 +421,21 @@ SecretRef refers to a Kubernetes secret
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key within the secret to use.<br/>
+          Key within the Secret to use.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the secret<br/>
+          Name of the Secret<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -537,7 +537,7 @@ FluxSource specifies how to fetch source code from a Flux source object.
         <td><b><a href="#stackspecgitauthaccesstoken">accessToken</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -563,7 +563,7 @@ FluxSource specifies how to fetch source code from a Flux source object.
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -606,7 +606,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b><a href="#stackspecgitauthaccesstokensecret">secret</a></b></td>
         <td>object</td>
         <td>
-          SecretRef refers to a Kubernetes secret<br/>
+          SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -699,7 +699,7 @@ LiteralRef refers to a literal value
 
 
 
-SecretRef refers to a Kubernetes secret
+SecretRef refers to a Kubernetes Secret
 
 <table>
     <thead>
@@ -714,21 +714,21 @@ SecretRef refers to a Kubernetes secret
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key within the secret to use.<br/>
+          Key within the Secret to use.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the secret<br/>
+          Name of the Secret<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -755,14 +755,14 @@ BasicAuth configures git authentication through basic auth — i.e. username and
         <td><b><a href="#stackspecgitauthbasicauthpassword">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthusername">userName</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
         </td>
         <td>true</td>
       </tr></tbody>
@@ -774,7 +774,7 @@ BasicAuth configures git authentication through basic auth — i.e. username and
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -817,7 +817,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b><a href="#stackspecgitauthbasicauthpasswordsecret">secret</a></b></td>
         <td>object</td>
         <td>
-          SecretRef refers to a Kubernetes secret<br/>
+          SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -910,7 +910,7 @@ LiteralRef refers to a literal value
 
 
 
-SecretRef refers to a Kubernetes secret
+SecretRef refers to a Kubernetes Secret
 
 <table>
     <thead>
@@ -925,21 +925,21 @@ SecretRef refers to a Kubernetes secret
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key within the secret to use.<br/>
+          Key within the Secret to use.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the secret<br/>
+          Name of the Secret<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -951,7 +951,7 @@ SecretRef refers to a Kubernetes secret
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -994,7 +994,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b><a href="#stackspecgitauthbasicauthusernamesecret">secret</a></b></td>
         <td>object</td>
         <td>
-          SecretRef refers to a Kubernetes secret<br/>
+          SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1087,7 +1087,7 @@ LiteralRef refers to a literal value
 
 
 
-SecretRef refers to a Kubernetes secret
+SecretRef refers to a Kubernetes Secret
 
 <table>
     <thead>
@@ -1102,21 +1102,21 @@ SecretRef refers to a Kubernetes secret
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key within the secret to use.<br/>
+          Key within the Secret to use.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the secret<br/>
+          Name of the Secret<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1143,14 +1143,14 @@ SSHAuth configures ssh-based auth for git authentication. SSHPrivateKey is requi
         <td><b><a href="#stackspecgitauthsshauthsshprivatekey">sshPrivateKey</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthpassword">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1162,7 +1162,7 @@ SSHAuth configures ssh-based auth for git authentication. SSHPrivateKey is requi
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -1205,7 +1205,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b><a href="#stackspecgitauthsshauthsshprivatekeysecret">secret</a></b></td>
         <td>object</td>
         <td>
-          SecretRef refers to a Kubernetes secret<br/>
+          SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1298,7 +1298,7 @@ LiteralRef refers to a literal value
 
 
 
-SecretRef refers to a Kubernetes secret
+SecretRef refers to a Kubernetes Secret
 
 <table>
     <thead>
@@ -1313,21 +1313,21 @@ SecretRef refers to a Kubernetes secret
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key within the secret to use.<br/>
+          Key within the Secret to use.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the secret<br/>
+          Name of the Secret<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1339,7 +1339,7 @@ SecretRef refers to a Kubernetes secret
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -1382,7 +1382,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b><a href="#stackspecgitauthsshauthpasswordsecret">secret</a></b></td>
         <td>object</td>
         <td>
-          SecretRef refers to a Kubernetes secret<br/>
+          SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1475,7 +1475,7 @@ LiteralRef refers to a literal value
 
 
 
-SecretRef refers to a Kubernetes secret
+SecretRef refers to a Kubernetes Secret
 
 <table>
     <thead>
@@ -1490,21 +1490,21 @@ SecretRef refers to a Kubernetes secret
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key within the secret to use.<br/>
+          Key within the Secret to use.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the secret<br/>
+          Name of the Secret<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1543,7 +1543,7 @@ ProgramRef refers to a Program object, to be used as the source for the stack.
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -1586,7 +1586,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b><a href="#stackspecsecretsrefkeysecret">secret</a></b></td>
         <td>object</td>
         <td>
-          SecretRef refers to a Kubernetes secret<br/>
+          SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1679,7 +1679,7 @@ LiteralRef refers to a literal value
 
 
 
-SecretRef refers to a Kubernetes secret
+SecretRef refers to a Kubernetes Secret
 
 <table>
     <thead>
@@ -1694,21 +1694,21 @@ SecretRef refers to a Kubernetes secret
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key within the secret to use.<br/>
+          Key within the Secret to use.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the secret<br/>
+          Name of the Secret<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1981,7 +1981,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>accessTokenSecret</b></td>
         <td>string</td>
         <td>
-          (optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN instead.<br/>
+          (optional) AccessTokenSecret is the name of a Secret containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2023,21 +2023,21 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>destroyOnFinalize</b></td>
         <td>boolean</td>
         <td>
-          (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.<br/>
+          (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the Stack custom resource.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecenvrefskey-1">envRefs</a></b></td>
         <td>map[string]object</td>
         <td>
-          (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where the variables' values should be loaded from (one of literal, environment variable, file on the filesystem, or Kubernetes secret) as values.<br/>
+          (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where the variables' values should be loaded from (one of literal, environment variable, file on the filesystem, or Kubernetes Secret) as values.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>envSecrets</b></td>
         <td>[]string</td>
         <td>
-          (optional) SecretEnvs is an optional array of secret names containing environment variables to set. Deprecated: use EnvRefs instead.<br/>
+          (optional) SecretEnvs is an optional array of Secret names containing environment variables to set. Deprecated: use EnvRefs instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2072,7 +2072,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>gitAuthSecret</b></td>
         <td>string</td>
         <td>
-          (optional) GitAuthSecret is the the name of a secret containing an authentication option for the git repository. There are 3 different authentication options: * Personal access token * SSH private key (and it's optional password) * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.<br/>
+          (optional) GitAuthSecret is the the name of a Secret containing an authentication option for the git repository. There are 3 different authentication options: * Personal access token * SSH private key (and it's optional password) * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2107,7 +2107,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>resyncFrequencySeconds</b></td>
         <td>integer</td>
         <td>
-          (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at the specified frequency even if no changes to the custom-resource are detected. If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency. The minimal resync frequency supported is 60 seconds.<br/>
+          (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at the specified frequency even if no changes to the custom resource are detected. If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency. The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -2156,7 +2156,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -2199,7 +2199,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b><a href="#stackspecenvrefskeysecret-1">secret</a></b></td>
         <td>object</td>
         <td>
-          SecretRef refers to a Kubernetes secret<br/>
+          SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2292,7 +2292,7 @@ LiteralRef refers to a literal value
 
 
 
-SecretRef refers to a Kubernetes secret
+SecretRef refers to a Kubernetes Secret
 
 <table>
     <thead>
@@ -2307,21 +2307,21 @@ SecretRef refers to a Kubernetes secret
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key within the secret to use.<br/>
+          Key within the Secret to use.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the secret<br/>
+          Name of the Secret<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2423,7 +2423,7 @@ FluxSource specifies how to fetch source code from a Flux source object.
         <td><b><a href="#stackspecgitauthaccesstoken-1">accessToken</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2449,7 +2449,7 @@ FluxSource specifies how to fetch source code from a Flux source object.
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -2492,7 +2492,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b><a href="#stackspecgitauthaccesstokensecret-1">secret</a></b></td>
         <td>object</td>
         <td>
-          SecretRef refers to a Kubernetes secret<br/>
+          SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2585,7 +2585,7 @@ LiteralRef refers to a literal value
 
 
 
-SecretRef refers to a Kubernetes secret
+SecretRef refers to a Kubernetes Secret
 
 <table>
     <thead>
@@ -2600,21 +2600,21 @@ SecretRef refers to a Kubernetes secret
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key within the secret to use.<br/>
+          Key within the Secret to use.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the secret<br/>
+          Name of the Secret<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2641,14 +2641,14 @@ BasicAuth configures git authentication through basic auth — i.e. username and
         <td><b><a href="#stackspecgitauthbasicauthpassword-1">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthusername-1">userName</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
         </td>
         <td>true</td>
       </tr></tbody>
@@ -2660,7 +2660,7 @@ BasicAuth configures git authentication through basic auth — i.e. username and
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -2703,7 +2703,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b><a href="#stackspecgitauthbasicauthpasswordsecret-1">secret</a></b></td>
         <td>object</td>
         <td>
-          SecretRef refers to a Kubernetes secret<br/>
+          SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2796,7 +2796,7 @@ LiteralRef refers to a literal value
 
 
 
-SecretRef refers to a Kubernetes secret
+SecretRef refers to a Kubernetes Secret
 
 <table>
     <thead>
@@ -2811,21 +2811,21 @@ SecretRef refers to a Kubernetes secret
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key within the secret to use.<br/>
+          Key within the Secret to use.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the secret<br/>
+          Name of the Secret<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2837,7 +2837,7 @@ SecretRef refers to a Kubernetes secret
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -2880,7 +2880,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b><a href="#stackspecgitauthbasicauthusernamesecret-1">secret</a></b></td>
         <td>object</td>
         <td>
-          SecretRef refers to a Kubernetes secret<br/>
+          SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2973,7 +2973,7 @@ LiteralRef refers to a literal value
 
 
 
-SecretRef refers to a Kubernetes secret
+SecretRef refers to a Kubernetes Secret
 
 <table>
     <thead>
@@ -2988,21 +2988,21 @@ SecretRef refers to a Kubernetes secret
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key within the secret to use.<br/>
+          Key within the Secret to use.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the secret<br/>
+          Name of the Secret<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3029,14 +3029,14 @@ SSHAuth configures ssh-based auth for git authentication. SSHPrivateKey is requi
         <td><b><a href="#stackspecgitauthsshauthsshprivatekey-1">sshPrivateKey</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthpassword-1">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3048,7 +3048,7 @@ SSHAuth configures ssh-based auth for git authentication. SSHPrivateKey is requi
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -3091,7 +3091,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b><a href="#stackspecgitauthsshauthsshprivatekeysecret-1">secret</a></b></td>
         <td>object</td>
         <td>
-          SecretRef refers to a Kubernetes secret<br/>
+          SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3184,7 +3184,7 @@ LiteralRef refers to a literal value
 
 
 
-SecretRef refers to a Kubernetes secret
+SecretRef refers to a Kubernetes Secret
 
 <table>
     <thead>
@@ -3199,21 +3199,21 @@ SecretRef refers to a Kubernetes secret
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key within the secret to use.<br/>
+          Key within the Secret to use.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the secret<br/>
+          Name of the Secret<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3225,7 +3225,7 @@ SecretRef refers to a Kubernetes secret
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -3268,7 +3268,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b><a href="#stackspecgitauthsshauthpasswordsecret-1">secret</a></b></td>
         <td>object</td>
         <td>
-          SecretRef refers to a Kubernetes secret<br/>
+          SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3361,7 +3361,7 @@ LiteralRef refers to a literal value
 
 
 
-SecretRef refers to a Kubernetes secret
+SecretRef refers to a Kubernetes Secret
 
 <table>
     <thead>
@@ -3376,21 +3376,21 @@ SecretRef refers to a Kubernetes secret
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key within the secret to use.<br/>
+          Key within the Secret to use.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the secret<br/>
+          Name of the Secret<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3429,7 +3429,7 @@ ProgramRef refers to a Program object, to be used as the source for the stack.
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -3472,7 +3472,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b><a href="#stackspecsecretsrefkeysecret-1">secret</a></b></td>
         <td>object</td>
         <td>
-          SecretRef refers to a Kubernetes secret<br/>
+          SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3565,7 +3565,7 @@ LiteralRef refers to a literal value
 
 
 
-SecretRef refers to a Kubernetes secret
+SecretRef refers to a Kubernetes Secret
 
 <table>
     <thead>
@@ -3580,21 +3580,21 @@ SecretRef refers to a Kubernetes secret
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key within the secret to use.<br/>
+          Key within the Secret to use.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the secret<br/>
+          Name of the Secret<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
