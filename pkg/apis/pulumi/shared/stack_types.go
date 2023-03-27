@@ -9,7 +9,7 @@ import (
 type StackSpec struct {
 	// Auth info:
 
-	// (optional) AccessTokenSecret is the name of a secret containing the PULUMI_ACCESS_TOKEN for Pulumi access.
+	// (optional) AccessTokenSecret is the name of a Secret containing the PULUMI_ACCESS_TOKEN for Pulumi access.
 	// Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN instead.
 	AccessTokenSecret string `json:"accessTokenSecret,omitempty"`
 
@@ -19,10 +19,10 @@ type StackSpec struct {
 
 	// (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where
 	// the variables' values should be loaded from (one of literal, environment variable, file on the
-	// filesystem, or Kubernetes secret) as values.
+	// filesystem, or Kubernetes Secret) as values.
 	EnvRefs map[string]ResourceRef `json:"envRefs,omitempty"`
 
-	// (optional) SecretEnvs is an optional array of secret names containing environment variables to set.
+	// (optional) SecretEnvs is an optional array of Secret names containing environment variables to set.
 	// Deprecated: use EnvRefs instead.
 	SecretEnvs []string `json:"envSecrets,omitempty"`
 
@@ -90,7 +90,7 @@ type StackSpec struct {
 	// This could occur, for example, is a resource's state is changing outside of Pulumi
 	// (e.g., metadata, timestamps).
 	ExpectNoRefreshChanges bool `json:"expectNoRefreshChanges,omitempty"`
-	// (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the CRD.
+	// (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the Stack custom resource.
 	DestroyOnFinalize bool `json:"destroyOnFinalize,omitempty"`
 	// (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop
 	// in the event that the update hits a HTTP 409 conflict due to
@@ -107,9 +107,9 @@ type StackSpec struct {
 	UseLocalStackOnly bool `json:"useLocalStackOnly,omitempty"`
 
 	// (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at
-	// the specified frequency even if no changes to the custom-resource are detected.
+	// the specified frequency even if no changes to the custom resource are detected.
 	// If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency.
-	// The minimal resync frequency supported is 60 seconds.
+	// The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.
 	ResyncFrequencySeconds int64 `json:"resyncFrequencySeconds,omitempty"`
 }
 
@@ -118,7 +118,7 @@ type GitSource struct {
 	// ProjectRepo is the git source control repository from which we fetch the project code and configuration.
 	// +optional
 	ProjectRepo string `json:"projectRepo,omitempty"`
-	// (optional) GitAuthSecret is the the name of a secret containing an
+	// (optional) GitAuthSecret is the the name of a Secret containing an
 	// authentication option for the git repository.
 	// There are 3 different authentication options:
 	//   * Personal access token
@@ -196,7 +196,7 @@ type FluxSourceReference struct {
 }
 
 // ResourceRef identifies a resource from which information can be loaded.
-// Environment variables, files on the filesystem, Kubernetes secrets and literal
+// Environment variables, files on the filesystem, Kubernetes Secrets and literal
 // strings are currently supported.
 type ResourceRef struct {
 	// SelectorType is required and signifies the type of selector. Must be one of:
@@ -234,7 +234,7 @@ func NewFileSystemResourceRef(path string) ResourceRef {
 	}
 }
 
-// NewSecretResourceRef creates a new secret resource ref.
+// NewSecretResourceRef creates a new Secret resource ref.
 func NewSecretResourceRef(namespace, name, key string) ResourceRef {
 	return ResourceRef{
 		SelectorType: ResourceSelectorSecret,
@@ -268,7 +268,7 @@ const (
 	ResourceSelectorEnv = ResourceSelectorType("Env")
 	// ResourceSelectorFS indicates the resource is on the filesystem
 	ResourceSelectorFS = ResourceSelectorType("FS")
-	// ResourceSelectorSecret indicates the resource is a Kubernetes secret
+	// ResourceSelectorSecret indicates the resource is a Kubernetes Secret
 	ResourceSelectorSecret = ResourceSelectorType("Secret")
 	// ResourceSelectorLiteral indicates the resource is a literal
 	ResourceSelectorLiteral = ResourceSelectorType("Literal")
@@ -281,7 +281,7 @@ type ResourceSelector struct {
 	FileSystem *FSSelector `json:"filesystem,omitempty"`
 	// Env selects an environment variable set on the operator process
 	Env *EnvSelector `json:"env,omitempty"`
-	// SecretRef refers to a Kubernetes secret
+	// SecretRef refers to a Kubernetes Secret
 	SecretRef *SecretSelector `json:"secret,omitempty"`
 	// LiteralRef refers to a literal value
 	LiteralRef *LiteralRef `json:"literal,omitempty"`
@@ -299,14 +299,14 @@ type EnvSelector struct {
 	Name string `json:"name"`
 }
 
-// SecretSelector identifies the information to load from a Kubernetes secret.
+// SecretSelector identifies the information to load from a Kubernetes Secret.
 type SecretSelector struct {
-	// Namespace where the secret is stored. Deprecated; non-empty values will be considered invalid
+	// Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
 	// unless namespace isolation is disabled in the controller.
 	Namespace string `json:"namespace,omitempty"`
-	// Name of the secret
+	// Name of the Secret
 	Name string `json:"name"`
-	// Key within the secret to use.
+	// Key within the Secret to use.
 	Key string `json:"key"`
 }
 

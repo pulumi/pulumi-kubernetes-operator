@@ -44,7 +44,7 @@ spec:
               managed by this operator.
             properties:
               accessTokenSecret:
-                description: '(optional) AccessTokenSecret is the name of a secret
+                description: '(optional) AccessTokenSecret is the name of a Secret
                   containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated:
                   use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN
                   instead.'
@@ -92,13 +92,13 @@ spec:
                 type: boolean
               destroyOnFinalize:
                 description: (optional) DestroyOnFinalize can be set to true to destroy
-                  the stack completely upon deletion of the CRD.
+                  the stack completely upon deletion of the Stack custom resource.
                 type: boolean
               envRefs:
                 additionalProperties:
                   description: ResourceRef identifies a resource from which information
                     can be loaded. Environment variables, files on the filesystem,
-                    Kubernetes secrets and literal strings are currently supported.
+                    Kubernetes Secrets and literal strings are currently supported.
                   properties:
                     env:
                       description: Env selects an environment variable set on the
@@ -131,16 +131,16 @@ spec:
                       - value
                       type: object
                     secret:
-                      description: SecretRef refers to a Kubernetes secret
+                      description: SecretRef refers to a Kubernetes Secret
                       properties:
                         key:
-                          description: Key within the secret to use.
+                          description: Key within the Secret to use.
                           type: string
                         name:
-                          description: Name of the secret
+                          description: Name of the Secret
                           type: string
                         namespace:
-                          description: Namespace where the secret is stored. Deprecated;
+                          description: Namespace where the Secret is stored. Deprecated;
                             non-empty values will be considered invalid unless namespace
                             isolation is disabled in the controller.
                           type: string
@@ -158,10 +158,10 @@ spec:
                 description: (optional) EnvRefs is an optional map containing environment
                   variables as keys and stores descriptors to where the variables'
                   values should be loaded from (one of literal, environment variable,
-                  file on the filesystem, or Kubernetes secret) as values.
+                  file on the filesystem, or Kubernetes Secret) as values.
                 type: object
               envSecrets:
-                description: '(optional) SecretEnvs is an optional array of secret
+                description: '(optional) SecretEnvs is an optional array of Secret
                   names containing environment variables to set. Deprecated: use EnvRefs
                   instead.'
                 items:
@@ -217,7 +217,7 @@ spec:
                   accessToken:
                     description: ResourceRef identifies a resource from which information
                       can be loaded. Environment variables, files on the filesystem,
-                      Kubernetes secrets and literal strings are currently supported.
+                      Kubernetes Secrets and literal strings are currently supported.
                     properties:
                       env:
                         description: Env selects an environment variable set on the
@@ -250,16 +250,16 @@ spec:
                         - value
                         type: object
                       secret:
-                        description: SecretRef refers to a Kubernetes secret
+                        description: SecretRef refers to a Kubernetes Secret
                         properties:
                           key:
-                            description: Key within the secret to use.
+                            description: Key within the Secret to use.
                             type: string
                           name:
-                            description: Name of the secret
+                            description: Name of the Secret
                             type: string
                           namespace:
-                            description: Namespace where the secret is stored. Deprecated;
+                            description: Namespace where the Secret is stored. Deprecated;
                               non-empty values will be considered invalid unless namespace
                               isolation is disabled in the controller.
                             type: string
@@ -282,7 +282,7 @@ spec:
                       password:
                         description: ResourceRef identifies a resource from which
                           information can be loaded. Environment variables, files
-                          on the filesystem, Kubernetes secrets and literal strings
+                          on the filesystem, Kubernetes Secrets and literal strings
                           are currently supported.
                         properties:
                           env:
@@ -316,16 +316,16 @@ spec:
                             - value
                             type: object
                           secret:
-                            description: SecretRef refers to a Kubernetes secret
+                            description: SecretRef refers to a Kubernetes Secret
                             properties:
                               key:
-                                description: Key within the secret to use.
+                                description: Key within the Secret to use.
                                 type: string
                               name:
-                                description: Name of the secret
+                                description: Name of the Secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored.
+                                description: Namespace where the Secret is stored.
                                   Deprecated; non-empty values will be considered
                                   invalid unless namespace isolation is disabled in
                                   the controller.
@@ -344,7 +344,7 @@ spec:
                       userName:
                         description: ResourceRef identifies a resource from which
                           information can be loaded. Environment variables, files
-                          on the filesystem, Kubernetes secrets and literal strings
+                          on the filesystem, Kubernetes Secrets and literal strings
                           are currently supported.
                         properties:
                           env:
@@ -378,16 +378,16 @@ spec:
                             - value
                             type: object
                           secret:
-                            description: SecretRef refers to a Kubernetes secret
+                            description: SecretRef refers to a Kubernetes Secret
                             properties:
                               key:
-                                description: Key within the secret to use.
+                                description: Key within the Secret to use.
                                 type: string
                               name:
-                                description: Name of the secret
+                                description: Name of the Secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored.
+                                description: Namespace where the Secret is stored.
                                   Deprecated; non-empty values will be considered
                                   invalid unless namespace isolation is disabled in
                                   the controller.
@@ -414,7 +414,7 @@ spec:
                       password:
                         description: ResourceRef identifies a resource from which
                           information can be loaded. Environment variables, files
-                          on the filesystem, Kubernetes secrets and literal strings
+                          on the filesystem, Kubernetes Secrets and literal strings
                           are currently supported.
                         properties:
                           env:
@@ -448,16 +448,16 @@ spec:
                             - value
                             type: object
                           secret:
-                            description: SecretRef refers to a Kubernetes secret
+                            description: SecretRef refers to a Kubernetes Secret
                             properties:
                               key:
-                                description: Key within the secret to use.
+                                description: Key within the Secret to use.
                                 type: string
                               name:
-                                description: Name of the secret
+                                description: Name of the Secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored.
+                                description: Namespace where the Secret is stored.
                                   Deprecated; non-empty values will be considered
                                   invalid unless namespace isolation is disabled in
                                   the controller.
@@ -476,7 +476,7 @@ spec:
                       sshPrivateKey:
                         description: ResourceRef identifies a resource from which
                           information can be loaded. Environment variables, files
-                          on the filesystem, Kubernetes secrets and literal strings
+                          on the filesystem, Kubernetes Secrets and literal strings
                           are currently supported.
                         properties:
                           env:
@@ -510,16 +510,16 @@ spec:
                             - value
                             type: object
                           secret:
-                            description: SecretRef refers to a Kubernetes secret
+                            description: SecretRef refers to a Kubernetes Secret
                             properties:
                               key:
-                                description: Key within the secret to use.
+                                description: Key within the Secret to use.
                                 type: string
                               name:
-                                description: Name of the secret
+                                description: Name of the Secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored.
+                                description: Namespace where the Secret is stored.
                                   Deprecated; non-empty values will be considered
                                   invalid unless namespace isolation is disabled in
                                   the controller.
@@ -540,7 +540,7 @@ spec:
                     type: object
                 type: object
               gitAuthSecret:
-                description: '(optional) GitAuthSecret is the the name of a secret
+                description: '(optional) GitAuthSecret is the the name of a Secret
                   containing an authentication option for the git repository. There
                   are 3 different authentication options: * Personal access token
                   * SSH private key (and it''s optional password) * Basic auth username
@@ -574,10 +574,10 @@ spec:
               resyncFrequencySeconds:
                 description: (optional) ResyncFrequencySeconds when set to a non-zero
                   value, triggers a resync of the stack at the specified frequency
-                  even if no changes to the custom-resource are detected. If branch
+                  even if no changes to the custom resource are detected. If branch
                   tracking is enabled (branch is non-empty), commit polling will occur
                   at this frequency. The minimal resync frequency supported is 60
-                  seconds.
+                  seconds. The default value for this field is 60 seconds.
                 format: int64
                 type: integer
               retryOnUpdateConflict:
@@ -608,7 +608,7 @@ spec:
                 additionalProperties:
                   description: ResourceRef identifies a resource from which information
                     can be loaded. Environment variables, files on the filesystem,
-                    Kubernetes secrets and literal strings are currently supported.
+                    Kubernetes Secrets and literal strings are currently supported.
                   properties:
                     env:
                       description: Env selects an environment variable set on the
@@ -641,16 +641,16 @@ spec:
                       - value
                       type: object
                     secret:
-                      description: SecretRef refers to a Kubernetes secret
+                      description: SecretRef refers to a Kubernetes Secret
                       properties:
                         key:
-                          description: Key within the secret to use.
+                          description: Key within the Secret to use.
                           type: string
                         name:
-                          description: Name of the secret
+                          description: Name of the Secret
                           type: string
                         namespace:
-                          description: Namespace where the secret is stored. Deprecated;
+                          description: Namespace where the Secret is stored. Deprecated;
                             non-empty values will be considered invalid unless namespace
                             isolation is disabled in the controller.
                           type: string
@@ -820,7 +820,7 @@ spec:
               managed by this operator.
             properties:
               accessTokenSecret:
-                description: '(optional) AccessTokenSecret is the name of a secret
+                description: '(optional) AccessTokenSecret is the name of a Secret
                   containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated:
                   use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN
                   instead.'
@@ -868,13 +868,13 @@ spec:
                 type: boolean
               destroyOnFinalize:
                 description: (optional) DestroyOnFinalize can be set to true to destroy
-                  the stack completely upon deletion of the CRD.
+                  the stack completely upon deletion of the Stack custom resource.
                 type: boolean
               envRefs:
                 additionalProperties:
                   description: ResourceRef identifies a resource from which information
                     can be loaded. Environment variables, files on the filesystem,
-                    Kubernetes secrets and literal strings are currently supported.
+                    Kubernetes Secrets and literal strings are currently supported.
                   properties:
                     env:
                       description: Env selects an environment variable set on the
@@ -907,16 +907,16 @@ spec:
                       - value
                       type: object
                     secret:
-                      description: SecretRef refers to a Kubernetes secret
+                      description: SecretRef refers to a Kubernetes Secret
                       properties:
                         key:
-                          description: Key within the secret to use.
+                          description: Key within the Secret to use.
                           type: string
                         name:
-                          description: Name of the secret
+                          description: Name of the Secret
                           type: string
                         namespace:
-                          description: Namespace where the secret is stored. Deprecated;
+                          description: Namespace where the Secret is stored. Deprecated;
                             non-empty values will be considered invalid unless namespace
                             isolation is disabled in the controller.
                           type: string
@@ -934,10 +934,10 @@ spec:
                 description: (optional) EnvRefs is an optional map containing environment
                   variables as keys and stores descriptors to where the variables'
                   values should be loaded from (one of literal, environment variable,
-                  file on the filesystem, or Kubernetes secret) as values.
+                  file on the filesystem, or Kubernetes Secret) as values.
                 type: object
               envSecrets:
-                description: '(optional) SecretEnvs is an optional array of secret
+                description: '(optional) SecretEnvs is an optional array of Secret
                   names containing environment variables to set. Deprecated: use EnvRefs
                   instead.'
                 items:
@@ -993,7 +993,7 @@ spec:
                   accessToken:
                     description: ResourceRef identifies a resource from which information
                       can be loaded. Environment variables, files on the filesystem,
-                      Kubernetes secrets and literal strings are currently supported.
+                      Kubernetes Secrets and literal strings are currently supported.
                     properties:
                       env:
                         description: Env selects an environment variable set on the
@@ -1026,16 +1026,16 @@ spec:
                         - value
                         type: object
                       secret:
-                        description: SecretRef refers to a Kubernetes secret
+                        description: SecretRef refers to a Kubernetes Secret
                         properties:
                           key:
-                            description: Key within the secret to use.
+                            description: Key within the Secret to use.
                             type: string
                           name:
-                            description: Name of the secret
+                            description: Name of the Secret
                             type: string
                           namespace:
-                            description: Namespace where the secret is stored. Deprecated;
+                            description: Namespace where the Secret is stored. Deprecated;
                               non-empty values will be considered invalid unless namespace
                               isolation is disabled in the controller.
                             type: string
@@ -1058,7 +1058,7 @@ spec:
                       password:
                         description: ResourceRef identifies a resource from which
                           information can be loaded. Environment variables, files
-                          on the filesystem, Kubernetes secrets and literal strings
+                          on the filesystem, Kubernetes Secrets and literal strings
                           are currently supported.
                         properties:
                           env:
@@ -1092,16 +1092,16 @@ spec:
                             - value
                             type: object
                           secret:
-                            description: SecretRef refers to a Kubernetes secret
+                            description: SecretRef refers to a Kubernetes Secret
                             properties:
                               key:
-                                description: Key within the secret to use.
+                                description: Key within the Secret to use.
                                 type: string
                               name:
-                                description: Name of the secret
+                                description: Name of the Secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored.
+                                description: Namespace where the Secret is stored.
                                   Deprecated; non-empty values will be considered
                                   invalid unless namespace isolation is disabled in
                                   the controller.
@@ -1120,7 +1120,7 @@ spec:
                       userName:
                         description: ResourceRef identifies a resource from which
                           information can be loaded. Environment variables, files
-                          on the filesystem, Kubernetes secrets and literal strings
+                          on the filesystem, Kubernetes Secrets and literal strings
                           are currently supported.
                         properties:
                           env:
@@ -1154,16 +1154,16 @@ spec:
                             - value
                             type: object
                           secret:
-                            description: SecretRef refers to a Kubernetes secret
+                            description: SecretRef refers to a Kubernetes Secret
                             properties:
                               key:
-                                description: Key within the secret to use.
+                                description: Key within the Secret to use.
                                 type: string
                               name:
-                                description: Name of the secret
+                                description: Name of the Secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored.
+                                description: Namespace where the Secret is stored.
                                   Deprecated; non-empty values will be considered
                                   invalid unless namespace isolation is disabled in
                                   the controller.
@@ -1190,7 +1190,7 @@ spec:
                       password:
                         description: ResourceRef identifies a resource from which
                           information can be loaded. Environment variables, files
-                          on the filesystem, Kubernetes secrets and literal strings
+                          on the filesystem, Kubernetes Secrets and literal strings
                           are currently supported.
                         properties:
                           env:
@@ -1224,16 +1224,16 @@ spec:
                             - value
                             type: object
                           secret:
-                            description: SecretRef refers to a Kubernetes secret
+                            description: SecretRef refers to a Kubernetes Secret
                             properties:
                               key:
-                                description: Key within the secret to use.
+                                description: Key within the Secret to use.
                                 type: string
                               name:
-                                description: Name of the secret
+                                description: Name of the Secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored.
+                                description: Namespace where the Secret is stored.
                                   Deprecated; non-empty values will be considered
                                   invalid unless namespace isolation is disabled in
                                   the controller.
@@ -1252,7 +1252,7 @@ spec:
                       sshPrivateKey:
                         description: ResourceRef identifies a resource from which
                           information can be loaded. Environment variables, files
-                          on the filesystem, Kubernetes secrets and literal strings
+                          on the filesystem, Kubernetes Secrets and literal strings
                           are currently supported.
                         properties:
                           env:
@@ -1286,16 +1286,16 @@ spec:
                             - value
                             type: object
                           secret:
-                            description: SecretRef refers to a Kubernetes secret
+                            description: SecretRef refers to a Kubernetes Secret
                             properties:
                               key:
-                                description: Key within the secret to use.
+                                description: Key within the Secret to use.
                                 type: string
                               name:
-                                description: Name of the secret
+                                description: Name of the Secret
                                 type: string
                               namespace:
-                                description: Namespace where the secret is stored.
+                                description: Namespace where the Secret is stored.
                                   Deprecated; non-empty values will be considered
                                   invalid unless namespace isolation is disabled in
                                   the controller.
@@ -1316,7 +1316,7 @@ spec:
                     type: object
                 type: object
               gitAuthSecret:
-                description: '(optional) GitAuthSecret is the the name of a secret
+                description: '(optional) GitAuthSecret is the the name of a Secret
                   containing an authentication option for the git repository. There
                   are 3 different authentication options: * Personal access token
                   * SSH private key (and it''s optional password) * Basic auth username
@@ -1350,10 +1350,10 @@ spec:
               resyncFrequencySeconds:
                 description: (optional) ResyncFrequencySeconds when set to a non-zero
                   value, triggers a resync of the stack at the specified frequency
-                  even if no changes to the custom-resource are detected. If branch
+                  even if no changes to the custom resource are detected. If branch
                   tracking is enabled (branch is non-empty), commit polling will occur
                   at this frequency. The minimal resync frequency supported is 60
-                  seconds.
+                  seconds. The default value for this field is 60 seconds.
                 format: int64
                 type: integer
               retryOnUpdateConflict:
@@ -1384,7 +1384,7 @@ spec:
                 additionalProperties:
                   description: ResourceRef identifies a resource from which information
                     can be loaded. Environment variables, files on the filesystem,
-                    Kubernetes secrets and literal strings are currently supported.
+                    Kubernetes Secrets and literal strings are currently supported.
                   properties:
                     env:
                       description: Env selects an environment variable set on the
@@ -1417,16 +1417,16 @@ spec:
                       - value
                       type: object
                     secret:
-                      description: SecretRef refers to a Kubernetes secret
+                      description: SecretRef refers to a Kubernetes Secret
                       properties:
                         key:
-                          description: Key within the secret to use.
+                          description: Key within the Secret to use.
                           type: string
                         name:
-                          description: Name of the secret
+                          description: Name of the Secret
                           type: string
                         namespace:
-                          description: Namespace where the secret is stored. Deprecated;
+                          description: Namespace where the Secret is stored. Deprecated;
                             non-empty values will be considered invalid unless namespace
                             isolation is disabled in the controller.
                           type: string
