@@ -157,7 +157,7 @@ func main() {
 		_, err = apiextensions.NewCustomResource(ctx, "my-stack",
 			&apiextensions.CustomResourceArgs{
 				Metadata: metav1.ObjectMetaPtr(&metav1.ObjectMetaArgs{
-					Name: pulumi.String("s3-bucke-stack"),
+					Name: pulumi.String("s3-bucket-stack"),
 				}).ToObjectMetaPtrOutput(),
 				ApiVersion: pulumi.String("pulumi.com/v1"),
 				Kind:       pulumi.String("Stack"),
