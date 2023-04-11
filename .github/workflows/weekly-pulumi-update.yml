@@ -28,7 +28,7 @@ jobs:
         with:
           repo: pulumi/pulumictl
       - name: Install Pulumi CLI
-        uses: pulumi/setup-pulumi@v2
+        uses: pulumi/actions@v4
       - name: Preparing Git Branch
         run: |
           git config --local user.email "bot@pulumi.com"
