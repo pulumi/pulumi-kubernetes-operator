@@ -10,7 +10,6 @@ const names = [];
 for (let i = 0; i < 2; i++) {
     // Create an AWS resource (S3 Bucket)
     const bucket = new aws.s3.Bucket(`my-bucket-${i}`, {
-        acl: "public-read",
         tags: {"region": region},
     }, {
         provider: prov,
