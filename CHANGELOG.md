@@ -5,6 +5,11 @@ CHANGELOG
 
 (None)
 
+## 1.11.5 (2023-04-27)
+Update to [Pulumi SDK v3.65.1](https://github.com/pulumi/pulumi/releases/tag/v3.65.1) and the base
+  image of the same version, fixing [issue
+  #437](https://github.com/pulumi/pulumi-kubernetes-operator/issues/437)
+
 ## 1.11.4 (2023-04-26)
 Update to [Pulumi SDK v3.65.0](https://github.com/pulumi/pulumi/releases/tag/v3.65.0) and the base
   image of the same version, fixing [issue
