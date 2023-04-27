@@ -1,4 +1,4 @@
-FROM pulumi/pulumi:3.65.0
+FROM pulumi/pulumi:3.65.1
 
 RUN apt-get install tini
 ENTRYPOINT ["tini", "--", "/usr/local/bin/pulumi-kubernetes-operator"]
