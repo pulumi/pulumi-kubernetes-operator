@@ -7,8 +7,8 @@ using Pulumi.Kubernetes.Types.Inputs.Rbac.V1;
 
 class MyStack : Stack
 {
-    public const string DefaultCRDVersion = "v1.11.0";
-    public const string DefaultOperatorVersion = "v1.11.0";
+    public const string DefaultCRDVersion = "v1.11.5";
+    public const string DefaultOperatorVersion = "v1.11.5";
 
     public MyStack()
     {
