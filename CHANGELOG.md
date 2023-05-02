@@ -27,6 +27,8 @@ Update to [Pulumi SDK v3.65.0](https://github.com/pulumi/pulumi/releases/tag/v3.
   image of the same version, fixing [issue
   #411](https://github.com/pulumi/pulumi-kubernetes-operator/issues/411)
   [#422](https://github.com/pulumi/pulumi-kubernetes-operator/pull/422)
+- Added lastUpdate state update to ensure that synchronized commits display a succeeded status.
+  [#429](https://github.com/pulumi/pulumi-kubernetes-operator/pull/429)
 
 ## 1.11.1 (2023-02-08)
 

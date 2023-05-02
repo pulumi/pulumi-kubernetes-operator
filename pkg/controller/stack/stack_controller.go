@@ -628,6 +628,11 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 				reqLogger.Info("Commit hash unchanged. Will poll again.", "pollFrequencySeconds", resyncFreqSeconds)
 				// Reconcile every resyncFreqSeconds to check for new commits to the branch.
 				instance.Status.MarkReadyCondition() // FIXME: should this reflect the previous update state?
+				// Ensure lastUpdate state is updated if previous sync failure occurred
+				if instance.Status.LastUpdate.State != shared.SucceededStackStateMessage {
+					instance.Status.LastUpdate.State = shared.SucceededStackStateMessage
+					instance.Status.LastUpdate.LastResyncTime = metav1.Now()
+				}
 				return reconcile.Result{RequeueAfter: time.Duration(resyncFreqSeconds) * time.Second}, nil
 			}
 
@@ -644,6 +649,11 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 				reqLogger.Info("Commit hash unchanged. Will poll again.", "pollFrequencySeconds", resyncFreqSeconds)
 				// Reconcile every resyncFreqSeconds to check for new commits to the branch.
 				instance.Status.MarkReadyCondition() // FIXME: should this reflect the previous update state?
+				// Ensure lastUpdate state is updated if previous sync failure occurred
+				if instance.Status.LastUpdate.State != shared.SucceededStackStateMessage {
+					instance.Status.LastUpdate.State = shared.SucceededStackStateMessage
+					instance.Status.LastUpdate.LastResyncTime = metav1.Now()
+				}
 				return reconcile.Result{RequeueAfter: time.Duration(resyncFreqSeconds) * time.Second}, nil
 			}
 
@@ -659,6 +669,11 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 				reqLogger.Info("Commit hash unchanged. Will poll again.", "pollFrequencySeconds", resyncFreqSeconds)
 				// Reconcile every resyncFreqSeconds to check for new commits to the branch.
 				instance.Status.MarkReadyCondition() // FIXME: should this reflect the previous update state?
+				// Ensure lastUpdate state is updated if previous sync failure occurred
+				if instance.Status.LastUpdate.State != shared.SucceededStackStateMessage {
+					instance.Status.LastUpdate.State = shared.SucceededStackStateMessage
+					instance.Status.LastUpdate.LastResyncTime = metav1.Now()
+				}
 				return reconcile.Result{RequeueAfter: time.Duration(resyncFreqSeconds) * time.Second}, nil
 			}
 
