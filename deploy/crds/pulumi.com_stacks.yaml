@@ -549,6 +549,37 @@ spec:
                   preferred first, then personal access token, and finally basic auth
                   credentials. Deprecated. Use GitAuth instead.'
                 type: string
+              prerequisites:
+                description: (optional) Prerequisites is a list of references to other
+                  stacks, each with a constraint on how long ago it must have succeeded.
+                  This can be used to make sure e.g., state is re-evaluated before
+                  running a stack that depends on it.
+                items:
+                  description: PrerequisiteRef refers to another stack, and gives
+                    requirements for the prerequisite to be considered satisfied.
+                  properties:
+                    name:
+                      description: Name is the name of the Stack resource that is
+                        a prerequisite.
+                      type: string
+                    requirement:
+                      description: Requirement gives specific requirements for the
+                        prerequisite; the base requirement is that the referenced
+                        stack is in a successful state.
+                      properties:
+                        succeededWithinDuration:
+                          description: SucceededWithinDuration gives a duration within
+                            which the prerequisite must have reached a succeeded state;
+                            e.g., "1h" means "the prerequisite must be successful,
+                            and have become so in the last hour". Fields (should there
+                            ever be more than one) are not intended to be mutually
+                            exclusive.
+                          type: string
+                      type: object
+                  required:
+                  - name
+                  type: object
+                type: array
               programRef:
                 description: ProgramRef refers to a Program object, to be used as
                   the source for the stack.
@@ -674,6 +705,13 @@ spec:
                 description: Stack is the fully qualified name of the stack to deploy
                   (<org>/<stack>).
                 type: string
+              targets:
+                description: (optional) Targets is a list of URNs of resources to
+                  update exclusively. If supplied, only resources mentioned will be
+                  updated.
+                items:
+                  type: string
+                type: array
               useLocalStackOnly:
                 description: (optional) UseLocalStackOnly can be set to true to prevent
                   the operator from creating stacks that do not exist in the tracking
@@ -783,6 +821,10 @@ spec:
                   at the point the controller last processed this object
                 format: int64
                 type: integer
+              observedReconcileRequest:
+                description: ObservedReconcileRequest records the value of the annotation
+                  named for `ReconcileRequestAnnotation` when it was last seen.
+                type: string
               outputs:
                 additionalProperties:
                   x-kubernetes-preserve-unknown-fields: true
@@ -1325,6 +1367,37 @@ spec:
                   preferred first, then personal access token, and finally basic auth
                   credentials. Deprecated. Use GitAuth instead.'
                 type: string
+              prerequisites:
+                description: (optional) Prerequisites is a list of references to other
+                  stacks, each with a constraint on how long ago it must have succeeded.
+                  This can be used to make sure e.g., state is re-evaluated before
+                  running a stack that depends on it.
+                items:
+                  description: PrerequisiteRef refers to another stack, and gives
+                    requirements for the prerequisite to be considered satisfied.
+                  properties:
+                    name:
+                      description: Name is the name of the Stack resource that is
+                        a prerequisite.
+                      type: string
+                    requirement:
+                      description: Requirement gives specific requirements for the
+                        prerequisite; the base requirement is that the referenced
+                        stack is in a successful state.
+                      properties:
+                        succeededWithinDuration:
+                          description: SucceededWithinDuration gives a duration within
+                            which the prerequisite must have reached a succeeded state;
+                            e.g., "1h" means "the prerequisite must be successful,
+                            and have become so in the last hour". Fields (should there
+                            ever be more than one) are not intended to be mutually
+                            exclusive.
+                          type: string
+                      type: object
+                  required:
+                  - name
+                  type: object
+                type: array
               programRef:
                 description: ProgramRef refers to a Program object, to be used as
                   the source for the stack.
@@ -1450,6 +1523,13 @@ spec:
                 description: Stack is the fully qualified name of the stack to deploy
                   (<org>/<stack>).
                 type: string
+              targets:
+                description: (optional) Targets is a list of URNs of resources to
+                  update exclusively. If supplied, only resources mentioned will be
+                  updated.
+                items:
+                  type: string
+                type: array
               useLocalStackOnly:
                 description: (optional) UseLocalStackOnly can be set to true to prevent
                   the operator from creating stacks that do not exist in the tracking

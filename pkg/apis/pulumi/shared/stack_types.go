@@ -5,6 +5,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const ReconcileRequestAnnotation = "pulumi.com/reconciliation-request"
+
 // StackSpec defines the desired state of Pulumi Stack being managed by this operator.
 type StackSpec struct {
 	// Auth info:
@@ -74,6 +76,15 @@ type StackSpec struct {
 	ProgramRef *ProgramReference `json:"programRef,omitempty"`
 
 	// Lifecycle:
+
+	// (optional) Targets is a list of URNs of resources to update exclusively. If supplied, only
+	// resources mentioned will be updated.
+	Targets []string `json:"targets,omitempty"`
+
+	// (optional) Prerequisites is a list of references to other stacks, each with a constraint on
+	// how long ago it must have succeeded. This can be used to make sure e.g., state is
+	// re-evaluated before running a stack that depends on it.
+	Prerequisites []PrerequisiteRef `json:"prerequisites,omitempty"`
 
 	// (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying
 	// to update stacks even if the revision of the source matches. This might be useful in
@@ -151,6 +162,25 @@ type GitSource struct {
 	// When specified, the operator will periodically poll to check if the branch has any new commits.
 	// The frequency of the polling is configurable through ResyncFrequencySeconds, defaulting to every 60 seconds.
 	Branch string `json:"branch,omitempty"`
+}
+
+// PrerequisiteRef refers to another stack, and gives requirements for the prerequisite to be
+// considered satisfied.
+type PrerequisiteRef struct {
+	// Name is the name of the Stack resource that is a prerequisite.
+	Name string `json:"name"`
+	// Requirement gives specific requirements for the prerequisite; the base requirement is that
+	// the referenced stack is in a successful state.
+	Requirement *RequirementSpec `json:"requirement,omitempty"`
+}
+
+// RequirementSpec gives constraints for a prerequisite to be considered satisfied.
+type RequirementSpec struct {
+	// SucceededWithinDuration gives a duration within which the prerequisite must have reached a
+	// succeeded state; e.g., "1h" means "the prerequisite must be successful, and have become so in
+	// the last hour". Fields (should there ever be more than one) are not intended to be mutually
+	// exclusive.
+	SucceededWithinDuration *metav1.Duration `json:"succeededWithinDuration,omitempty"`
 }
 
 // GitAuthConfig specifies git authentication configuration options.
@@ -322,9 +352,6 @@ type StackStatus struct {
 	Outputs StackOutputs `json:"outputs,omitempty"`
 	// LastUpdate contains details of the status of the last update.
 	LastUpdate *StackUpdateState `json:"lastUpdate,omitempty"`
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 }
 
 type StackOutputs map[string]apiextensionsv1.JSON
