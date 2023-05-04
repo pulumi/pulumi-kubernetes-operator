@@ -1,0 +1,24 @@
+{{- if $.Values.serviceMonitor.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ print (include "pulumi-kubernetes-operator.fullname" .) "-metrics" }}
+  labels:
+    app: {{ template "pulumi-kubernetes-operator.name" . }}
+  annotations:
+{{ toYaml .Values.serviceMonitor.service.annotations | indent 4 }}
+spec:
+  type: {{ .Values.serviceMonitor.service.type }}
+  ports:
+    - port: 8383
+      targetPort: metrics
+      protocol: TCP
+      name: http-metrics
+    - port: 8686
+      targetPort: http
+      protocol: TCP
+      name: cr-metrics
+  selector:
+    app: {{ template "pulumi-kubernetes-operator.name" . }}
+    release: {{ .Release.Name }}
+  {{- end }}

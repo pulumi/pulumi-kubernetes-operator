@@ -20,12 +20,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # tag=v3.1.0
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           fetch-depth: 0
 
       - name: Install Helm
-        uses: azure/setup-helm@f382f75448129b3be48f8121b9857be18d815a82 # tag=v3.4
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
 
       - name: Configure Git
         run: |
@@ -57,14 +57,14 @@ jobs:
           rm -f ./ah
 
       - name: Run chart-releaser
-        uses: helm/chart-releaser-action@98bccfd32b0f76149d188912ac8e45ddd3f8695f # tag=v1.4.1
+        uses: helm/chart-releaser-action@be16258da8010256c6e82849661221415f031968 # v1.5.0
         with:
           config: "./.github/configs/cr.yaml"
           charts_dir: "deploy/helm"
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
-      - uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b # tag=v2.8.1
+      - uses: sigstore/cosign-installer@204a51a57a74d190b284a0ce69b44bc37201f343 # v3.0.3
       - name: Push chart to GHCR
         env:
           COSIGN_EXPERIMENTAL: 1
@@ -75,5 +75,5 @@ jobs:
               break
             fi
             helm push "${pkg}" oci://ghcr.io/pulumi/charts |& tee .digest
-            cosign sign $(cat .digest | awk -F "[, ]+" '/Pushed/{print $NF}')
+            cosign sign -y $(cat .digest | awk -F "[, ]+" '/Pushed/{print $NF}')
           done          
