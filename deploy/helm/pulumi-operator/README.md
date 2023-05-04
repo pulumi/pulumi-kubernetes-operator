@@ -87,6 +87,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | serviceAccount.annotations | object | `{}` | Additional ServiceAccount annotations |
 | serviceAccount.create | bool | `true` | Create service account |
 | serviceAccount.name | string | `""` | Service account name to use, when empty will be set to created account if |
+| serviceMonitor.enabled | bool | `false` | When set true then use a ServiceMonitor to configure scraping |
 | tolerations | list | `[]` | Toleration labels for pod assignment |
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
