@@ -319,7 +319,7 @@ func add(mgr manager.Manager, r *ReconcileStack) error {
 
 // isRequirementSatisfied checks the given readiness requirement against the given stack, and
 // returns nil if the requirement is satisfied, and an error otherwise. The requirement can be nil
-// itself, in which case the prerequisite is only that the stack succeeded onm its last run.
+// itself, in which case the prerequisite is only that the stack succeeded on its last run.
 func isRequirementSatisfied(req *shared.RequirementSpec, stack pulumiv1.Stack) error {
 	if stack.Status.LastUpdate == nil {
 		return errRequirementNotRun
