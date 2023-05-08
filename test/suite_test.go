@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base32"
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -18,6 +19,10 @@ import (
 
 	// Used to auth against GKE clusters that use gcloud creds.
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 
 	apis "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis"
 	controller "github.com/pulumi/pulumi-kubernetes-operator/pkg/controller/stack"
@@ -152,6 +157,12 @@ func writeKubeconfig(targetDir string) string {
 	return kubeconfig
 }
 
+func removeTempDir(tmp string) {
+	if strings.HasPrefix(tmp, os.TempDir()) {
+		os.RemoveAll(tmp)
+	}
+}
+
 // These waitForStack* are convenience funcs for what most tests will want to do, that is wait until
 // a stack succeeds or fails after setting up the circumstances under test.
 
@@ -233,4 +244,68 @@ func expectInProgress(conditions []metav1.Condition) {
 	ExpectWithOffset(1, apimeta.IsStatusConditionTrue(conditions, pulumiv1.ReconcilingCondition)).To(BeTrue(), "Reconciling condition is true")
 	ExpectWithOffset(1, apimeta.IsStatusConditionTrue(conditions, pulumiv1.ReadyCondition)).To(BeFalse(), "Ready condition is false")
 	ExpectWithOffset(1, apimeta.FindStatusCondition(conditions, pulumiv1.StalledCondition)).To(BeNil(), "Stalled condition is absent")
+}
+
+// makeFixtureIntoRepo creates a git repo in `repoDir` given a path `fixture` to a directory of
+// files to be committed to the repo.
+func makeFixtureIntoRepo(repoDir, fixture string) error {
+	repo, err := git.PlainInit(repoDir, false)
+	if err != nil {
+		return err
+	}
+
+	if err := filepath.Walk(fixture, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return os.MkdirAll(filepath.Join(repoDir, path), info.Mode())
+		}
+		// copy symlinks as-is, so I can test what happens with broken symlinks
+		if info.Mode()&os.ModeSymlink > 0 {
+			target, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			return os.Symlink(target, filepath.Join(repoDir, path))
+		}
+
+		source, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer source.Close()
+
+		target, err := os.Create(filepath.Join(repoDir, path))
+		if err != nil {
+			return err
+		}
+		defer target.Close()
+
+		_, err = io.Copy(target, source)
+		return err
+	}); err != nil {
+		return err
+	}
+
+	wt, err := repo.Worktree()
+	if err != nil {
+		return err
+	}
+	wt.Add(".")
+	wt.Commit("Initial revision from fixture "+fixture, &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "Pulumi Test",
+			Email: "pulumi.test@example.com",
+		},
+	})
+	// this makes sure there's a default branch
+	if err = wt.Checkout(&git.CheckoutOptions{
+		Branch: plumbing.NewBranchReferenceName("default"),
+		Create: true,
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -1,0 +1,6 @@
+name: run-rabbitmq
+runtime:
+  name: nodejs
+  options:
+    typescript: false
+description: Run RabbitMQ in a cluster
