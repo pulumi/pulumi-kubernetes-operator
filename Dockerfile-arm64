@@ -1,4 +1,5 @@
-FROM pulumi/pulumi:3.65.1
+# TODO: Update image tag to correct arm tag when the image is available
+FROM pulumi/pulumi:3.65.1-arm
 
 RUN apt-get update && apt-get install -y tini
 ENTRYPOINT ["tini", "--", "/usr/local/bin/pulumi-kubernetes-operator"]
