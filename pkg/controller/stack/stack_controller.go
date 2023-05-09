@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/operator-framework/operator-lib/handler"
-	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
@@ -46,6 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	ctrlhandler "sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -56,8 +56,11 @@ import (
 )
 
 var (
-	log       = logf.Log.WithName("controller_stack")
-	execAgent = fmt.Sprintf("pulumi-kubernetes-operator/%s", version.Version)
+	log                     = logf.Log.WithName("controller_stack")
+	execAgent               = fmt.Sprintf("pulumi-kubernetes-operator/%s", version.Version)
+	errRequirementNotRun    = fmt.Errorf("prerequisite has not run to completion")
+	errRequirementFailed    = fmt.Errorf("prerequisite failed")
+	errRequirementOutOfDate = fmt.Errorf("prerequisite succeeded but not recently enough")
 )
 
 const (
@@ -117,6 +120,9 @@ func newReconciler(mgr manager.Manager) *ReconcileStack {
 	}
 }
 
+// prerequisiteIndexFieldName is the name used for indexing the prerequisites field.
+const prerequisiteIndexFieldName = "spec.prerequisites.name"
+
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r *ReconcileStack) error {
 	var err error
@@ -138,16 +144,10 @@ func add(mgr manager.Manager, r *ReconcileStack) error {
 		return err
 	}
 
-	// Filter out update events if an object's metadata.generation is
-	// unchanged, or if the object never had a generation update.
-	//  - https://github.com/operator-framework/operator-lib/blob/main/predicate/nogeneration.go#L29-L34
-	//  - https://github.com/operator-framework/operator-sdk/issues/2795
-	//  - https://github.com/kubernetes-sigs/kubebuilder/issues/1103
-	//  - https://github.com/kubernetes-sigs/controller-runtime/pull/553
-	//  - https://book-v1.book.kubebuilder.io/basics/status_subresource.html
-	// Set up predicates.
+	// Filter for update events where an object's metadata.generation is changed (no spec change!),
+	// or the "force reconcile" annotation is used (and not marked as handled).
 	predicates := []predicate.Predicate{
-		predicate.Or(predicate.GenerationChangedPredicate{}, libpredicate.NoGenerationPredicate{}),
+		predicate.Or(predicate.GenerationChangedPredicate{}, ReconcileRequestedPredicate{}),
 	}
 
 	stackInformer, err := mgr.GetCache().GetInformer(context.Background(), &pulumiv1.Stack{})
@@ -160,13 +160,45 @@ func add(mgr manager.Manager, r *ReconcileStack) error {
 		DeleteFunc: deleteStackCallback,
 	})
 
-	// Watch for changes to primary resource Stack
-	err = c.Watch(&source.Kind{Type: &pulumiv1.Stack{}}, &handler.InstrumentedEnqueueRequestForObject{}, predicates...)
-	if err != nil {
+	// Maintain an index of stacks->dependents; so that when a stack succeeds, we can requeue any
+	// stacks that might be waiting for it.
+	indexer := mgr.GetFieldIndexer()
+	if err = indexer.IndexField(context.Background(), &pulumiv1.Stack{}, prerequisiteIndexFieldName, func(o client.Object) []string {
+		stack := o.(*pulumiv1.Stack)
+		names := make([]string, len(stack.Spec.Prerequisites), len(stack.Spec.Prerequisites))
+		for i := range stack.Spec.Prerequisites {
+			names[i] = stack.Spec.Prerequisites[i].Name
+		}
+		return names
+	}); err != nil {
 		return err
 	}
 
-	indexer := mgr.GetFieldIndexer()
+	enqueueDependents := func(stack client.Object) []reconcile.Request {
+		var dependentStacks pulumiv1.StackList
+		err := mgr.GetClient().List(context.TODO(), &dependentStacks,
+			client.InNamespace(stack.GetNamespace()),
+			client.MatchingFields{prerequisiteIndexFieldName: stack.GetName()})
+		if err == nil {
+			reqs := make([]reconcile.Request, len(dependentStacks.Items), len(dependentStacks.Items))
+			for i := range dependentStacks.Items {
+				reqs[i].NamespacedName = client.ObjectKeyFromObject(&dependentStacks.Items[i])
+			}
+			return reqs
+		}
+		// we don't get to return an error; only to fail quietly
+		mgr.GetLogger().Error(err, "failed to fetch dependents for object", "name", stack.GetName(), "namespace", stack.GetNamespace())
+		return nil
+	}
+
+	// Watch for changes to primary resource Stack
+	if err = c.Watch(&source.Kind{Type: &pulumiv1.Stack{}}, &handler.InstrumentedEnqueueRequestForObject{}, predicates...); err != nil {
+		return err
+	}
+	// Watch stacks so that dependent stacks can be requeued when they change
+	if err = c.Watch(&source.Kind{Type: &pulumiv1.Stack{}}, ctrlhandler.EnqueueRequestsFromMapFunc(enqueueDependents)); err != nil {
+		return err
+	}
 
 	// Watch Programs, and look up which (if any) Stack refers to them when they change
 
@@ -285,6 +317,71 @@ func add(mgr manager.Manager, r *ReconcileStack) error {
 	return nil
 }
 
+// isRequirementSatisfied checks the given readiness requirement against the given stack, and
+// returns nil if the requirement is satisfied, and an error otherwise. The requirement can be nil
+// itself, in which case the prerequisite is only that the stack succeeded on its last run.
+func isRequirementSatisfied(req *shared.RequirementSpec, stack pulumiv1.Stack) error {
+	if stack.Status.LastUpdate == nil {
+		return errRequirementNotRun
+	}
+	if stack.Status.LastUpdate.State != shared.SucceededStackStateMessage {
+		return errRequirementFailed
+	}
+	if req != nil && req.SucceededWithinDuration != nil {
+		lastRun := stack.Status.LastUpdate.LastResyncTime
+		if lastRun.IsZero() || time.Since(lastRun.Time) > req.SucceededWithinDuration.Duration {
+			return errRequirementOutOfDate
+		}
+	}
+	return nil
+}
+
+// ReconcileRequestedPredicate filters (returns true) for resources that are updated with a new or
+// amended annotation value at `ReconcileRequestAnnotation`.
+//
+// Reconciliation request protocol:
+//
+// This gives a means of prompting the controller to reconsider a resource that otherwise might not
+// be queued, e.g., because it has already reached a success state. This is useful for command-line
+// tooling (e.g., you can trigger updates with `kubectl annotate`), and is the mechanism used to
+// requeue prerequisites that are not up to date.
+//
+// The protocol works like this:
+
+//   - when you want the object to be considered for reconciliation, annotate it with the key
+//     `shared.ReconcileRequestAnnotation` and any likely-to-be-unique value. This causes the object
+//     to be queued for consideration by the controller;
+//   - the controller shall save the value of the annotation to `.status.observedReconcileRequest`
+//     whenever it processes a resource without returning an error. This is so you can check the
+//     status to see whether the annotation has been seen (similar to `.status.observedGeneration`).
+//
+// This protocol is the same mechanism used by many Flux controllers, as explained at
+// https://pkg.go.dev/github.com/fluxcd/pkg/runtime/predicates#ReconcileRequestedPredicate and
+// related documentation.
+type ReconcileRequestedPredicate struct {
+	predicate.Funcs
+}
+
+func getReconcileRequestAnnotation(obj client.Object) (string, bool) {
+	r, ok := obj.GetAnnotations()[shared.ReconcileRequestAnnotation]
+	return r, ok
+}
+
+// Update filters update events based on whether the request reconciliation annotation has been
+// added or amended.
+func (p ReconcileRequestedPredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+	if vNew, ok := getReconcileRequestAnnotation(e.ObjectNew); ok {
+		if vOld, ok := getReconcileRequestAnnotation(e.ObjectOld); ok {
+			return vNew != vOld
+		}
+		return true // new object has it, old one doesn't
+	}
+	return false // either removed, or present in neither object
+}
+
 // blank assignment to verify that ReconcileStack implements reconcile.Reconciler
 var _ reconcile.Reconciler = &ReconcileStack{}
 
@@ -383,6 +480,9 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	saveStatus := func() {
 		if reterr == nil {
 			instance.Status.ObservedGeneration = instance.GetGeneration()
+			if req, ok := getReconcileRequestAnnotation(instance); ok {
+				instance.Status.ObservedReconcileRequest = req
+			}
 		} else {
 			// controller-runtime will requeue the object, so reflect that in the conditions by
 			// saying it is still in progress.
@@ -395,6 +495,64 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	// there's no reason to save the status if it's being deleted, and it'll fail anyway.
 	if !isStackMarkedToBeDeleted {
 		defer saveStatus()
+	}
+
+	// Check prerequisites, to make sure they are adequately up to date. Any prerequisite failing to
+	// be met will cause this run to be abandoned and the stack under consideration to be requeued;
+	// however, we go through all of the prerequisites anyway, so we can annotate all failing stacks
+	// to be requeued themselves.
+	var failedPrereqNames []string // in the case there's more than one, we report the names
+	var failedPrereqErr error      // in caase there's just one, we report the specific error
+
+	for _, prereq := range instance.Spec.Prerequisites {
+		var prereqStack pulumiv1.Stack
+		key := types.NamespacedName{Name: prereq.Name, Namespace: instance.Namespace}
+		err := r.client.Get(ctx, key, &prereqStack)
+		if err != nil {
+			prereqErr := fmt.Errorf("unable to fetch prerequisite %q: %w", prereq.Name, err)
+			if k8serrors.IsNotFound(err) {
+				failedPrereqNames = append(failedPrereqNames, prereq.Name)
+				failedPrereqErr = prereqErr
+				continue
+			}
+			// otherwise, report as crash
+			r.markStackFailed(sess, instance, prereqErr, "", "")
+			return reconcile.Result{}, err
+		}
+
+		// does the prerequisite stack satisfy the requirements given?
+		requireErr := isRequirementSatisfied(prereq.Requirement, prereqStack)
+		if requireErr != nil {
+			failedPrereqNames = append(failedPrereqNames, prereq.Name)
+			failedPrereqErr = fmt.Errorf("prerequisite not satisfied for %q: %w", prereq.Name, requireErr)
+			// annotate the out of date stack so that it'll be queued. The value is arbitrary; this
+			// value gives a bit of context which might be helpful when troubleshooting.
+			v := fmt.Sprintf("update prerequisite of %s at %s", instance.Name, time.Now().Format(time.RFC3339))
+			prereqStack1 := prereqStack.DeepCopy()
+			a := prereqStack1.GetAnnotations()
+			if a == nil {
+				a = map[string]string{}
+			}
+			a[shared.ReconcileRequestAnnotation] = v
+			prereqStack1.SetAnnotations(a)
+			reqLogger.Info("requesting requeue of prerequisite", "name", prereqStack1.Name, "cause", requireErr.Error())
+			if err := r.client.Patch(ctx, prereqStack1, client.MergeFrom(&prereqStack)); err != nil {
+				// A conflict here may mean the prerequisite has been changed, or it's just been
+				// run. In any case, requeueing this object means we'll see the new state of the
+				// world next time around.
+				return reconcile.Result{}, fmt.Errorf("annotating prerequisite to force requeue: %w", err)
+			}
+		}
+	}
+
+	if len(failedPrereqNames) > 1 {
+		failedPrereqErr = fmt.Errorf("multiple prerequisites were not satisfied %s", strings.Join(failedPrereqNames, ", "))
+	}
+	if failedPrereqErr != nil {
+		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingPrerequisiteNotSatisfiedReason, failedPrereqErr.Error())
+		// Rely on the watcher watching prerequisites to requeue this, rather than requeuing
+		// explicitly.
+		return reconcile.Result{}, nil
 	}
 
 	// We're ready to do some actual work. Until we have a definitive outcome, mark the stack as
@@ -685,9 +843,12 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		}
 	}
 
+	// targets are used for both refresh and up, if present
+	targets := stack.Targets
+
 	// Step 3. If a stack refresh is requested, run it now.
 	if sess.stack.Refresh {
-		permalink, err := sess.RefreshStack(ctx, sess.stack.ExpectNoRefreshChanges)
+		permalink, err := sess.RefreshStack(ctx, sess.stack.ExpectNoRefreshChanges, targets)
 		if err != nil {
 			r.markStackFailed(sess, instance, fmt.Errorf("refreshing stack: %w", err), currentCommit, permalink)
 			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
@@ -708,7 +869,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Step 4. Run a `pulumi up --skip-preview`.
 	// TODO: is it possible to support a --dry-run with a preview?
-	status, permalink, result, err := sess.UpdateStack(ctx)
+	status, permalink, result, err := sess.UpdateStack(ctx, targets)
 	switch status {
 	case shared.StackUpdateConflict:
 		r.emitEvent(instance,
@@ -1365,13 +1526,19 @@ func (sess *reconcileStackSession) UpdateConfig(ctx context.Context) error {
 	return nil
 }
 
-func (sess *reconcileStackSession) RefreshStack(ctx context.Context, expectNoChanges bool) (shared.Permalink, error) {
+// RefreshStack runs a refresh on the stack and returns the Pulumi Service URL of the refresh
+// operation. It accepts a list of pre-requisite targets which contains a list of URNs to refresh.
+func (sess *reconcileStackSession) RefreshStack(ctx context.Context, expectNoChanges bool, targets []string) (shared.Permalink, error) {
 	writer := sess.logger.LogWriterDebug("Pulumi Refresh")
 	defer contract.IgnoreClose(writer)
 	opts := []optrefresh.Option{optrefresh.ProgressStreams(writer), optrefresh.UserAgent(execAgent)}
 	if expectNoChanges {
 		opts = append(opts, optrefresh.ExpectNoChanges())
 	}
+	if targets != nil {
+		opts = append(opts, optrefresh.Target(targets))
+	}
+
 	result, err := sess.autoStack.Refresh(ctx, opts...)
 	if err != nil {
 		return "", fmt.Errorf("refreshing stack %q: %w", sess.stack.Stack, err)
@@ -1388,11 +1555,16 @@ func (sess *reconcileStackSession) RefreshStack(ctx context.Context, expectNoCha
 // UpdateStack runs the update on the stack and returns an update status code
 // and error. In certain cases, an update may be unabled to proceed due to locking,
 // in which case the operator will requeue itself to retry later.
-func (sess *reconcileStackSession) UpdateStack(ctx context.Context) (shared.StackUpdateStatus, shared.Permalink, *auto.UpResult, error) {
+func (sess *reconcileStackSession) UpdateStack(ctx context.Context, targets []string) (shared.StackUpdateStatus, shared.Permalink, *auto.UpResult, error) {
 	writer := sess.logger.LogWriterDebug("Pulumi Update")
 	defer contract.IgnoreClose(writer)
 
-	result, err := sess.autoStack.Up(ctx, optup.ProgressStreams(writer), optup.UserAgent(execAgent))
+	opts := []optup.Option{optup.ProgressStreams(writer), optup.UserAgent(execAgent)}
+	if targets != nil {
+		opts = append(opts, optup.Target(targets))
+	}
+
+	result, err := sess.autoStack.Up(ctx, opts...)
 	if err != nil {
 		// If this is the "conflict" error message, we will want to gracefully quit and retry.
 		if auto.IsConcurrentUpdateError(err) {
