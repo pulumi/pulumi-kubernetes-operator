@@ -5,6 +5,8 @@ CHANGELOG
 
 - Enable refreshing dynamic credentials in provider state using targeted
   stack refresh [#443](https://github.com/pulumi/pulumi-kubernetes-operator/pull/443)
+- Update to [Pulumi SDK v3.66.0](https://github.com/pulumi/pulumi/releases/tag/v3.66.0) and the base
+  image of the same version.
 
 ## 1.11.5 (2023-04-27)
 Update to [Pulumi SDK v3.65.1](https://github.com/pulumi/pulumi/releases/tag/v3.65.1) and the base
