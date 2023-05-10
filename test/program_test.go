@@ -69,7 +69,7 @@ func generatePulumiYamlCMProgram(template string, values ...interface{}) pulumiv
 
 	templated := fmt.Sprintf(template, values...)
 	//
-	fmt.Fprintf(GinkgoWriter, "Templated: %s\n", templated)
+	fmt.Fprintf(GinkgoWriter, "====================\nTemplated: %s\n", templated)
 
 	err := yaml.Unmarshal([]byte(templated), &prog.Program)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())

@@ -19,6 +19,7 @@ import (
 
 	// Used to auth against GKE clusters that use gcloud creds.
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/rest"
 
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -26,6 +27,7 @@ import (
 
 	apis "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis"
 	controller "github.com/pulumi/pulumi-kubernetes-operator/pkg/controller/stack"
+	"github.com/pulumi/pulumi-kubernetes-operator/test/cluster"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -53,6 +55,7 @@ var testEnv *envtest.Environment
 const namespace = "default"
 
 var shutdownController func()
+var deleteKindCluster func()
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -66,13 +69,15 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping test environment")
+	var kindCfg *rest.Config
+	kindCfg, deleteKindCluster = cluster.NewKindCluster("kind-test-cluster")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "deploy", "crds")},
+		Config:            kindCfg,
 	}
 
 	cfg, err := testEnv.Start()
-	Expect(err).ToNot(HaveOccurred())
-	Expect(cfg).ToNot(BeNil())
+	// cfg := cluster.NewKindCluster("kind-test-cluster")
 
 	err = scheme.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -131,6 +136,8 @@ var _ = AfterSuite(func() {
 	if len(stacks.Items) > 0 {
 		Fail("stacks remain undeleted")
 	}
+
+	deleteKindCluster()
 })
 
 // randString returns a short random string that can be used in names.
@@ -175,7 +182,7 @@ func resetWaitForStack() {
 // internalWaitForStackState refetches the given stack, until its .lastUpdated.state field matches
 // the one given. NB it fetches into the pointer given, so mutates the struct it's pointing at.
 func internalWaitForStackState(stack *pulumiv1.Stack, state shared.StackUpdateStateMessage, optionalTimeout ...string) {
-	timeout := "240s"
+	timeout := "60s"
 	if len(optionalTimeout) > 0 {
 		timeout = optionalTimeout[0]
 	}
@@ -218,7 +225,7 @@ func deleteAndWaitForFinalization(obj client.Object) {
 		}
 		ExpectWithOffset(2, client.IgnoreNotFound(err)).To(BeNil())
 		return true
-	}, "5m", "5s").Should(BeTrue())
+	}, "2m", "5s").Should(BeTrue())
 }
 
 func expectReady(conditions []metav1.Condition) {
