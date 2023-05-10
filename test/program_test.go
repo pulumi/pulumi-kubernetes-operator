@@ -19,6 +19,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// pulumiYamlProgramCMFmt is a template for a YAML program that creates a ConfigMap. Templated
+// values are: the name of the ConfigMap, and the value of the `foo` key in the ConfigMap's `data`
 const pulumiYamlProgramCMFmt = `
 configuration:
     foo:
@@ -41,6 +43,7 @@ resources:
             provider: ${provider}
 `
 
+// invalidPulumiYamlProgramCM is a YAML program that creates a ConfigMap, but with an invalid Pulumi YAML format.
 const invalidPulumiYamlProgramCM = `
 resources:
     example:
@@ -57,6 +60,8 @@ resources:
             provider: ${provider}
 `
 
+// generatePulumiYamlCMProgram generates a Pulumi YAML program that creates a ConfigMap. It accepts a base
+// template and values to be templated into the base template.
 func generatePulumiYamlCMProgram(template string, values ...interface{}) pulumiv1.Program {
 	prog := pulumiv1.Program{}
 	prog.Name = randString()
@@ -116,6 +121,7 @@ var _ = Describe("Creating a YAML program", Ordered, func() {
 
 		Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
 		deleteAndWaitForFinalization(&stack)
+		deleteAndWaitForFinalization(&prog)
 	})
 
 	When("Using a stack", Ordered, func() {
@@ -191,7 +197,6 @@ var _ = Describe("Creating a YAML program", Ordered, func() {
 				Name: prog.Name,
 			}
 
-			// Set DestroyOnFinalize to clean up the configmap for repeat runs.
 			stack.Spec.DestroyOnFinalize = true
 			stack.Name = "ok-program-" + randString()
 			Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
@@ -199,6 +204,7 @@ var _ = Describe("Creating a YAML program", Ordered, func() {
 			waitForStackSuccess(&stack)
 			expectReady(stack.Status.Conditions)
 
+			// Check that the ConfigMap was created.
 			var c corev1.ConfigMap
 			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: cmName}, &c)).To(Succeed())
 		})
@@ -215,7 +221,6 @@ var _ = Describe("Creating a YAML program", Ordered, func() {
 					Name: prog.Name,
 				}
 
-				// Set DestroyOnFinalize to clean up the configmap for repeat runs.
 				stack.Spec.DestroyOnFinalize = true
 				stack.Name = "changing-program-" + randString()
 				Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())

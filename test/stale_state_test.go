@@ -105,7 +105,7 @@ var _ = When("a stack uses a provider with credentials kept in state", Ordered, 
 			"secretName": credsSecretName,
 		} // changing this will force it to restart RabbitMQ with the new creds
 		Expect(k8sClient.Create(ctx, setupStack)).To(Succeed())
-		waitForStackSuccess(setupStack, "120s")
+		waitForStackSuccess(setupStack, "240s") // Set timeout to 4 minutes to allow for container startup.
 
 		// running this the first time should succeed -- the program will run and get the
 		// credentials from the secret, which then go into the stack state.
@@ -116,7 +116,7 @@ var _ = When("a stack uses a provider with credentials kept in state", Ordered, 
 		}
 
 		Expect(k8sClient.Create(context.TODO(), useRabbitStack)).To(Succeed())
-		waitForStackSuccess(useRabbitStack, "120s")
+		waitForStackSuccess(useRabbitStack, "240s")
 	})
 
 	AfterEach(func() {
@@ -142,7 +142,7 @@ var _ = When("a stack uses a provider with credentials kept in state", Ordered, 
 			}
 			waitForStackSince = time.Now()
 			Expect(k8sClient.Update(ctx, setupStack)).To(Succeed())
-			waitForStackSuccess(setupStack, "120s")
+			waitForStackSuccess(setupStack, "240s")
 		})
 
 		It("fails to refresh without intervention", func() {
@@ -154,7 +154,7 @@ var _ = When("a stack uses a provider with credentials kept in state", Ordered, 
 			useRabbitStack.Spec.Refresh = true
 			Expect(k8sClient.Update(ctx, useRabbitStack)).To(Succeed())
 			time.Sleep(30 * time.Second)
-			waitForStackFailure(useRabbitStack, "120s")
+			waitForStackFailure(useRabbitStack, "240s")
 		})
 	})
 
@@ -186,7 +186,7 @@ var _ = When("a stack uses a provider with credentials kept in state", Ordered, 
 			DeferCleanup(func() {
 				deleteAndWaitForFinalization(targetedStack)
 			})
-			waitForStackSuccess(targetedStack, "120s")
+			waitForStackSuccess(targetedStack, "240s")
 
 			// This is a cheat: set the succeeded time for the helper to longer ago than the prereq
 			// wants (below), so it'll fail the requirement. Otherwise, it will see this as
@@ -211,7 +211,7 @@ var _ = When("a stack uses a provider with credentials kept in state", Ordered, 
 				}
 				waitForStackSince = time.Now()
 				Expect(k8sClient.Update(ctx, setupStack)).To(Succeed())
-				waitForStackSuccess(setupStack, "120s")
+				waitForStackSuccess(setupStack, "240s")
 			})
 
 			It("fails if the targeted stack isn't run again", func() {
@@ -221,7 +221,7 @@ var _ = When("a stack uses a provider with credentials kept in state", Ordered, 
 				Expect(k8sClient.Update(context.TODO(), useRabbitStack)).To(Succeed())
 				time.Sleep(30 * time.Second)
 
-				waitForStackFailure(useRabbitStack, "120s")
+				waitForStackFailure(useRabbitStack, "240s")
 			})
 
 			It("succeeds if the targeted stack is used as a prerequisite", func() {
@@ -250,7 +250,7 @@ var _ = When("a stack uses a provider with credentials kept in state", Ordered, 
 				// with a fresh password; _unless_ something prompts the targeted stack to be run again,
 				// updating the state.
 				time.Sleep(30 * time.Second)
-				waitForStackSuccess(useRabbitStack, "120s")
+				waitForStackSuccess(useRabbitStack, "240s")
 			})
 		})
 	})
