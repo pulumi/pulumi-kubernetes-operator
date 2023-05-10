@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Creating a YAML program", func() {
+var _ = Describe("Creating a YAML program", Ordered, func() {
 	It("is possible to create an empty YAML program", func() {
 		prog := pulumiv1.Program{}
 		prog.Name = randString()
