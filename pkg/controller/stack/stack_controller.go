@@ -1122,7 +1122,7 @@ func (sess *reconcileStackSession) resolveResourceRef(ctx context.Context, ref *
 			}
 			secretVal, ok := config.Data[ref.SecretRef.Key]
 			if !ok {
-				return "", fmt.Errorf("No key %s found in secret %s/%s", ref.SecretRef.Key, ref.SecretRef.Namespace, ref.SecretRef.Name)
+				return "", fmt.Errorf("No key %q found in secret %s/%s", ref.SecretRef.Key, ref.SecretRef.Namespace, ref.SecretRef.Name)
 			}
 			return string(secretVal), nil
 		}
@@ -1638,7 +1638,9 @@ func (sess *reconcileStackSession) SetupGitAuth(ctx context.Context) (*auto.GitA
 	}
 
 	if sess.stack.GitAuth != nil {
+
 		if sess.stack.GitAuth.SSHAuth != nil {
+			fmt.Println("sess.stack.GitAuth/SSHAuth: ", sess.stack.GitAuth.SSHAuth)
 			privateKey, err := sess.resolveResourceRef(ctx, &sess.stack.GitAuth.SSHAuth.SSHPrivateKey)
 			if err != nil {
 				return nil, fmt.Errorf("resolving gitAuth SSH private key: %w", err)
@@ -1802,7 +1804,7 @@ func (sess *reconcileStackSession) addSSHKeysToKnownHosts(projectRepoURL string)
 	}
 	defer f.Close()
 	if _, err = f.WriteString(stdout); err != nil {
-		return fmt.Errorf("error running ssh-keyscan: %w")
+		return fmt.Errorf("error running ssh-keyscan: %w", err)
 	}
 	return nil
 }

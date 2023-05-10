@@ -6,11 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
-	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
+	"github.com/pulumi/pulumi-kubernetes-operator/pkg/logging"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/stretchr/testify/assert"
@@ -133,54 +134,161 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithSecrets() {
 		sshPrivateKey, sshPrivateKeyWithPassword, accessToken, basicAuth, basicAuthWithoutPassword)
 
 	for _, test := range []struct {
-		name          string
-		gitAuthSecret string
-		expected      *auto.GitAuth
-		err           error
+		name     string
+		gitAuth  *shared.GitAuthConfig
+		expected *auto.GitAuth
+		err      error
 	}{
 		{
-			name:          "InvalidSecretName",
-			gitAuthSecret: "MISSING",
-			err:           fmt.Errorf("secrets \"MISSING\" not found"),
+			name: "InvalidSecretName",
+			gitAuth: &shared.GitAuthConfig{
+				SSHAuth: &shared.SSHAuth{
+					SSHPrivateKey: shared.ResourceRef{
+						SelectorType: "Secret",
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
+								Namespace: namespace,
+								Name:      "MISSING",
+							},
+						},
+					},
+				},
+			},
+			err: fmt.Errorf("secrets \"MISSING\" not found"),
 		},
 		{
-			name:          "ValidSSHPrivateKey",
-			gitAuthSecret: sshPrivateKey.Name,
+			name: "ValidSSHPrivateKey",
+			gitAuth: &shared.GitAuthConfig{
+				SSHAuth: &shared.SSHAuth{
+					SSHPrivateKey: shared.ResourceRef{
+						SelectorType: "Secret",
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
+								Namespace: namespace,
+								Name:      sshPrivateKey.Name,
+								Key:       "sshPrivateKey",
+							},
+						},
+					},
+				},
+			},
 			expected: &auto.GitAuth{
 				SSHPrivateKey: "very secret key",
 			},
 		},
 		{
-			name:          "ValidSSHPrivateKeyWithPassword",
-			gitAuthSecret: sshPrivateKeyWithPassword.Name,
+			name: "ValidSSHPrivateKeyWithPassword",
+			gitAuth: &shared.GitAuthConfig{
+				SSHAuth: &shared.SSHAuth{
+					SSHPrivateKey: shared.ResourceRef{
+						SelectorType: "Secret",
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
+								Namespace: namespace,
+								Name:      sshPrivateKeyWithPassword.Name,
+								Key:       "sshPrivateKey",
+							},
+						},
+					},
+					Password: &shared.ResourceRef{
+						SelectorType: "Secret",
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
+								Namespace: namespace,
+								Name:      sshPrivateKeyWithPassword.Name,
+								Key:       "password",
+							},
+						},
+					},
+				},
+			},
 			expected: &auto.GitAuth{
 				SSHPrivateKey: "very secret key",
 				Password:      "moar secret password",
 			},
 		},
 		{
-			name:          "ValidAccessToken",
-			gitAuthSecret: accessToken.Name,
+			name: "ValidAccessToken",
+			gitAuth: &shared.GitAuthConfig{
+				PersonalAccessToken: &shared.ResourceRef{
+					SelectorType: "Secret",
+					ResourceSelector: shared.ResourceSelector{
+						SecretRef: &shared.SecretSelector{
+							Namespace: namespace,
+							Name:      accessToken.Name,
+							Key:       "accessToken",
+						},
+					},
+				},
+			},
 			expected: &auto.GitAuth{
 				PersonalAccessToken: "super secret access token",
 			},
 		},
 		{
-			name:          "ValidBasicAuth",
-			gitAuthSecret: basicAuth.Name,
+			name: "ValidBasicAuth",
+			gitAuth: &shared.GitAuthConfig{
+				BasicAuth: &shared.BasicAuth{
+					UserName: shared.ResourceRef{
+						SelectorType: "Secret",
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
+								Namespace: namespace,
+								Name:      basicAuth.Name,
+								Key:       "username",
+							},
+						},
+					},
+					Password: shared.ResourceRef{
+						SelectorType: "Secret",
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
+								Namespace: namespace,
+								Name:      basicAuth.Name,
+								Key:       "password",
+							},
+						},
+					},
+				},
+			},
 			expected: &auto.GitAuth{
 				Username: "not so secret username",
 				Password: "very secret password",
 			},
 		},
 		{
-			name:          "BasicAuthWithoutPassword",
-			gitAuthSecret: basicAuthWithoutPassword.Name,
-			err:           errors.New("missing 'password' secret entry"),
+			name: "BasicAuthWithoutPassword",
+			gitAuth: &shared.GitAuthConfig{
+				BasicAuth: &shared.BasicAuth{
+					UserName: shared.ResourceRef{
+						SelectorType: "Secret",
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
+								Namespace: namespace,
+								Name:      basicAuthWithoutPassword.Name,
+								Key:       "username",
+							},
+						},
+					},
+					Password: shared.ResourceRef{
+						SelectorType: "Secret",
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
+								Namespace: namespace,
+								Name:      basicAuthWithoutPassword.Name,
+								Key:       "password",
+							},
+						},
+					},
+				},
+			},
+			err: errors.New("No key \"password\" found in secret test/basicAuthWithoutPassword"),
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			session := newReconcileStackSession(logger, shared.StackSpec{GitAuthSecret: test.gitAuthSecret}, client, namespace)
+			session := newReconcileStackSession(logger, shared.StackSpec{
+				GitSource: &shared.GitSource{GitAuth: test.gitAuth},
+			}, client, namespace)
 			gitAuth, err := session.SetupGitAuth(context.TODO())
 			if test.err != nil {
 				require.Error(t, err)
@@ -385,7 +493,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 					},
 				},
 			},
-			err: fmt.Errorf("resolving gitAuth SSH password: No key MISSING found in secret test/fake-secret"),
+			err: fmt.Errorf("resolving gitAuth SSH password: No key \"MISSING\" found in secret test/fake-secret"),
 		},
 		{
 			name: "GitAuthValidBasicAuth",
@@ -432,11 +540,15 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 					},
 				},
 			},
-			err: fmt.Errorf("resolving gitAuth personal access token: No key MISSING found in secret test/fake-secret"),
+			err: fmt.Errorf("resolving gitAuth personal access token: No key \"MISSING\" found in secret test/fake-secret"),
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			session := newReconcileStackSession(logger, shared.StackSpec{GitAuth: test.gitAuth}, client, namespace)
+			session := newReconcileStackSession(logger, shared.StackSpec{
+				GitSource: &shared.GitSource{
+					GitAuth: test.gitAuth,
+				},
+			}, client, namespace)
 			gitAuth, err := session.SetupGitAuth(context.TODO())
 			if test.err != nil {
 				require.Error(t, err)
