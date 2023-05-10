@@ -197,7 +197,6 @@ var _ = Describe("Creating a YAML program", Ordered, func() {
 				Name: prog.Name,
 			}
 
-			stack.Spec.DestroyOnFinalize = true
 			stack.Name = "ok-program-" + randString()
 			Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
 
@@ -221,7 +220,6 @@ var _ = Describe("Creating a YAML program", Ordered, func() {
 					Name: prog.Name,
 				}
 
-				stack.Spec.DestroyOnFinalize = true
 				stack.Name = "changing-program-" + randString()
 				Expect(k8sClient.Create(context.TODO(), &stack)).To(Succeed())
 				waitForStackSuccess(&stack)
