@@ -48,7 +48,7 @@ push-image:
 
 test: codegen download-test-deps
 	KUBEBUILDER_ASSETS="$(shell setup-envtest --use-env use -p path)" \
-		ginkgo -nodes=${TEST_NODES} --randomize-all ./test/...
+		ginkgo --randomize-all ./test/...
 
 deploy:
 	kubectl apply -f deploy/yaml/service_account.yaml
