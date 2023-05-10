@@ -3,10 +3,13 @@ CHANGELOG
 
 ## HEAD (unreleased)
 
+## 1.12.0 (2023-05-09)
 - Enable refreshing dynamic credentials in provider state using targeted
   stack refresh [#443](https://github.com/pulumi/pulumi-kubernetes-operator/pull/443)
 - Update to [Pulumi SDK v3.66.0](https://github.com/pulumi/pulumi/releases/tag/v3.66.0) and the base
   image of the same version.
+- Added lastUpdate state update to ensure that synchronized commits display a succeeded status.
+  [#429](https://github.com/pulumi/pulumi-kubernetes-operator/pull/429)
 
 ## 1.11.5 (2023-04-27)
 Update to [Pulumi SDK v3.65.1](https://github.com/pulumi/pulumi/releases/tag/v3.65.1) and the base
@@ -30,8 +33,6 @@ Update to [Pulumi SDK v3.65.0](https://github.com/pulumi/pulumi/releases/tag/v3.
   image of the same version, fixing [issue
   #411](https://github.com/pulumi/pulumi-kubernetes-operator/issues/411)
   [#422](https://github.com/pulumi/pulumi-kubernetes-operator/pull/422)
-- Added lastUpdate state update to ensure that synchronized commits display a succeeded status.
-  [#429](https://github.com/pulumi/pulumi-kubernetes-operator/pull/429)
 
 ## 1.11.1 (2023-02-08)
 

@@ -12,8 +12,8 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 )
 
-const DefaultCRDVersion = "v1.11.5"
-const DefaultOperatorVersion = "v1.11.5"
+const DefaultCRDVersion = "v1.12.0"
+const DefaultOperatorVersion = "v1.12.0"
 
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
