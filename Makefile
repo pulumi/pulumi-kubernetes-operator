@@ -5,7 +5,7 @@ PUBLISH_IMAGE_NAME := pulumi/pulumi-kubernetes-operator
 IMAGE_NAME := docker.io/$(shell whoami)/pulumi-kubernetes-operator
 CURRENT_RELEASE := $(shell git describe --abbrev=0 --tags)
 RELEASE ?= $(shell git describe --abbrev=0 --tags)
-TEST_NODES ?= 2
+TEST_NODES ?= 4
 
 default: build
 

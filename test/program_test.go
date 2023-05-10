@@ -13,11 +13,64 @@ import (
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	yaml "sigs.k8s.io/yaml"
+	"sigs.k8s.io/yaml"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+const pulumiYamlProgramCMFmt = `
+configuration:
+    foo:
+        type: "String"
+        default: "%s"
+resources:
+    provider:
+        type: pulumi:providers:kubernetes
+    example:
+        type: kubernetes:core/v1:ConfigMap
+        properties:
+            metadata:
+                annotations:
+                    pulumi.com/patchForce: "true"
+                name:
+                    %s
+            data:
+                foo: ${foo}
+        options:
+            provider: ${provider}
+`
+
+const invalidPulumiYamlProgramCM = `
+resources:
+    example:
+        type: kubernetes:core/v1:ConfigMap
+        properties:
+            metadata:
+                annotations:
+                    pulumi.com/patchForce: "true"
+                name:
+                    %s
+            data:
+                foo: bar
+        options:
+            provider: ${provider}
+`
+
+func generatePulumiYamlCMProgram(template string, values ...interface{}) pulumiv1.Program {
+	prog := pulumiv1.Program{}
+	prog.Name = randString()
+	prog.Namespace = "default"
+
+	templated := fmt.Sprintf(template, values...)
+	//
+	fmt.Fprintf(GinkgoWriter, "Templated: %s\n", templated)
+
+	err := yaml.Unmarshal([]byte(templated), &prog.Program)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	return prog
+}
 
 var _ = Describe("Creating a YAML program", Ordered, func() {
 	It("is possible to create an empty YAML program", func() {
@@ -116,7 +169,7 @@ var _ = Describe("Creating a YAML program", Ordered, func() {
 		})
 
 		It("should fail if given a syntactically correct but invalid program.", func() {
-			prog := programFromFile("./testdata/test-program-invalid.yaml")
+			prog := generatePulumiYamlCMProgram(invalidPulumiYamlProgramCM, "cm-"+randString())
 			Expect(k8sClient.Create(context.TODO(), &prog)).To(Succeed())
 
 			stack.Spec.ProgramRef = &shared.ProgramReference{
@@ -130,7 +183,8 @@ var _ = Describe("Creating a YAML program", Ordered, func() {
 		})
 
 		It("should run a Program that has been added to a Stack", func() {
-			prog := programFromFile("./testdata/test-program.yaml")
+			cmName := "cm-" + randString()
+			prog := generatePulumiYamlCMProgram(pulumiYamlProgramCMFmt, "bar", cmName)
 			Expect(k8sClient.Create(context.TODO(), &prog)).To(Succeed())
 
 			stack.Spec.ProgramRef = &shared.ProgramReference{
@@ -146,14 +200,15 @@ var _ = Describe("Creating a YAML program", Ordered, func() {
 			expectReady(stack.Status.Conditions)
 
 			var c corev1.ConfigMap
-			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: "test-configmap-valid-test"}, &c)).To(Succeed())
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: cmName}, &c)).To(Succeed())
 		})
 
 		When("the program is changed", Ordered, func() {
 			var revisionOnFirstSuccess string
 
 			BeforeEach(func() {
-				prog := programFromFile("./testdata/test-program.yaml")
+				cmName := "changing-cm-" + randString()
+				prog := generatePulumiYamlCMProgram(pulumiYamlProgramCMFmt, "bar", cmName)
 				Expect(k8sClient.Create(context.TODO(), &prog)).To(Succeed())
 
 				stack.Spec.ProgramRef = &shared.ProgramReference{
@@ -169,7 +224,7 @@ var _ = Describe("Creating a YAML program", Ordered, func() {
 				Expect(stack.Status.LastUpdate).ToNot(BeNil())
 				revisionOnFirstSuccess = stack.Status.LastUpdate.LastSuccessfulCommit
 				fmt.Fprintf(GinkgoWriter, ".status.lastUpdate.LastSuccessfulCommit before changing program: %s", revisionOnFirstSuccess)
-				prog2 := programFromFile("./testdata/test-program-changed.yaml")
+				prog2 := generatePulumiYamlCMProgram(pulumiYamlProgramCMFmt, "newValue", cmName)
 				prog.Program = prog2.Program
 				resetWaitForStack()
 				Expect(k8sClient.Update(context.TODO(), &prog)).To(Succeed())
@@ -184,19 +239,3 @@ var _ = Describe("Creating a YAML program", Ordered, func() {
 		})
 	})
 })
-
-func programFromFile(path string) pulumiv1.Program {
-	prog := pulumiv1.Program{}
-	prog.Name = randString()
-	prog.Namespace = "default"
-
-	programFile, err := os.ReadFile(path)
-	if err != nil {
-		fmt.Printf("%+v", err)
-		Fail(fmt.Sprintf("couldn't read program file: %v", err))
-	}
-	err = yaml.Unmarshal(programFile, &prog.Program)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	return prog
-}
