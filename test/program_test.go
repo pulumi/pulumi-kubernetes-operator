@@ -146,7 +146,7 @@ var _ = Describe("Creating a YAML program", Ordered, func() {
 			expectReady(stack.Status.Conditions)
 
 			var c corev1.ConfigMap
-			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: "test-configmap"}, &c)).To(Succeed())
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: "test-configmap-valid-test"}, &c)).To(Succeed())
 		})
 
 		When("the program is changed", func() {

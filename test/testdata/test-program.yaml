@@ -12,7 +12,7 @@ resources:
                 annotations:
                     pulumi.com/patchForce: "true"
                 name:
-                    test-configmap
+                    test-configmap-valid-test
             data:
                 foo: ${foo}
         options:
