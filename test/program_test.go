@@ -65,7 +65,7 @@ var _ = Describe("Creating a YAML program", Ordered, func() {
 		deleteAndWaitForFinalization(&stack)
 	})
 
-	When("Using a stack", func() {
+	When("Using a stack", Ordered, func() {
 
 		var tmpDir, backendDir string
 		var kubeconfig string
@@ -149,7 +149,7 @@ var _ = Describe("Creating a YAML program", Ordered, func() {
 			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: stack.Namespace, Name: "test-configmap-valid-test"}, &c)).To(Succeed())
 		})
 
-		When("the program is changed", func() {
+		When("the program is changed", Ordered, func() {
 			var revisionOnFirstSuccess string
 
 			BeforeEach(func() {
