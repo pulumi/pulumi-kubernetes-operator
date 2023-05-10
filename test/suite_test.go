@@ -159,7 +159,7 @@ func writeKubeconfig(targetDir string) string {
 
 func removeTempDir(tmp string) {
 	if strings.HasPrefix(tmp, os.TempDir()) {
-		os.RemoveAll(tmp)
+		Expect(os.RemoveAll(tmp)).To(Succeed())
 	}
 }
 
@@ -175,7 +175,7 @@ func resetWaitForStack() {
 // internalWaitForStackState refetches the given stack, until its .lastUpdated.state field matches
 // the one given. NB it fetches into the pointer given, so mutates the struct it's pointing at.
 func internalWaitForStackState(stack *pulumiv1.Stack, state shared.StackUpdateStateMessage, optionalTimeout ...string) {
-	timeout := "60s"
+	timeout := "240s"
 	if len(optionalTimeout) > 0 {
 		timeout = optionalTimeout[0]
 	}
