@@ -5,6 +5,7 @@ package tests
 import (
 	"context"
 	"encoding/base32"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -212,6 +213,9 @@ func deleteAndWaitForFinalization(obj client.Object) {
 	EventuallyWithOffset(1, func() bool {
 		err := k8sClient.Get(context.TODO(), key, obj)
 		if err == nil {
+			// Serialize object to json for pretty printing.
+			jsonBytes, _ := json.MarshalIndent(obj, "", " ")
+			fmt.Fprintf(GinkgoWriter, "Failed to finalize. Object spec: %s", string(jsonBytes))
 			return false
 		}
 		ExpectWithOffset(2, client.IgnoreNotFound(err)).To(BeNil())
