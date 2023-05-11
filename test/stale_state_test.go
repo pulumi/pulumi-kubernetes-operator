@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
@@ -122,9 +121,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 	AfterEach(func() {
 		deleteAndWaitForFinalization(useRabbitStack)
 		deleteAndWaitForFinalization(setupStack)
-		if strings.HasPrefix(tmp, os.TempDir()) {
-			Expect(os.RemoveAll(tmp)).To(Succeed())
-		}
+		os.RemoveAll(tmp)
 	})
 
 	When("the credentials are rotated", func() {
@@ -237,7 +234,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 					{
 						Name: targetedStack.Name,
 						Requirement: &shared.RequirementSpec{
-							SucceededWithinDuration: &metav1.Duration{10 * time.Minute},
+							SucceededWithinDuration: &metav1.Duration{Duration: 10 * time.Minute},
 						},
 					},
 				}
