@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
@@ -20,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = When("a stack uses a provider with credentials kept in state", func() {
+var _ = When("a stack uses a provider with credentials kept in state", Ordered, func() {
 	// This models a situation in which the program constructs a provider using credentials which
 	// are then rotated. Pulumi has difficulty with this if you want to refresh the state, since the
 	// provider will be constructed from the credentials in the state, which are out of date. The
@@ -122,9 +121,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 	AfterEach(func() {
 		deleteAndWaitForFinalization(useRabbitStack)
 		deleteAndWaitForFinalization(setupStack)
-		if strings.HasPrefix(tmp, os.TempDir()) {
-			Expect(os.RemoveAll(tmp)).To(Succeed())
-		}
+		os.RemoveAll(tmp)
 	})
 
 	When("the credentials are rotated", func() {
@@ -140,7 +137,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 				"port":       rabbitPort,
 				"secretName": credsSecretName,
 			}
-			waitForStackSince = time.Now()
+			resetWaitForStack()
 			Expect(k8sClient.Update(ctx, setupStack)).To(Succeed())
 			waitForStackSuccess(setupStack, "120s")
 		})
@@ -209,7 +206,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 					"port":       rabbitPort,
 					"secretName": credsSecretName,
 				}
-				waitForStackSince = time.Now()
+				resetWaitForStack()
 				Expect(k8sClient.Update(ctx, setupStack)).To(Succeed())
 				waitForStackSuccess(setupStack, "120s")
 			})
@@ -217,7 +214,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 			It("fails if the targeted stack isn't run again", func() {
 				refetch(useRabbitStack) // this is fetched above; but, avoid future coincidences ..
 				useRabbitStack.Spec.Refresh = true
-				waitForStackSince = time.Now()
+				resetWaitForStack()
 				Expect(k8sClient.Update(context.TODO(), useRabbitStack)).To(Succeed())
 				time.Sleep(30 * time.Second)
 
@@ -237,11 +234,11 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 					{
 						Name: targetedStack.Name,
 						Requirement: &shared.RequirementSpec{
-							SucceededWithinDuration: &metav1.Duration{10 * time.Minute},
+							SucceededWithinDuration: &metav1.Duration{Duration: 10 * time.Minute},
 						},
 					},
 				}
-				waitForStackSince = time.Now()
+				resetWaitForStack()
 				Expect(k8sClient.Update(ctx, useRabbitStack)).To(Succeed())
 
 				// TODO check that it's marked as reconciling pending a prerequisite

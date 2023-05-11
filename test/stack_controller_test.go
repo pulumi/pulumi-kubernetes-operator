@@ -36,7 +36,6 @@ var (
 	baseDir = ""
 )
 
-const namespace = "default"
 const pulumiAPISecretName = "pulumi-api-secret"
 const pulumiAWSSecretName = "pulumi-aws-secrets"
 const k8sOpTimeout = 10 * time.Second

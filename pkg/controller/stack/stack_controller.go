@@ -1640,7 +1640,6 @@ func (sess *reconcileStackSession) SetupGitAuth(ctx context.Context) (*auto.GitA
 	if sess.stack.GitAuth != nil {
 
 		if sess.stack.GitAuth.SSHAuth != nil {
-			fmt.Println("sess.stack.GitAuth/SSHAuth: ", sess.stack.GitAuth.SSHAuth)
 			privateKey, err := sess.resolveResourceRef(ctx, &sess.stack.GitAuth.SSHAuth.SSHPrivateKey)
 			if err != nil {
 				return nil, fmt.Errorf("resolving gitAuth SSH private key: %w", err)

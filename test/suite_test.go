@@ -29,7 +29,6 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -47,7 +46,9 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var cfg *rest.Config
+// namespace is the namespace in which the tests are run.
+const namespace = "default"
+
 var k8sClient client.Client
 var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
@@ -157,9 +158,10 @@ func writeKubeconfig(targetDir string) string {
 	return kubeconfig
 }
 
+// removeTempDir is a convenience for cleaning up after writeKubeconfig.
 func removeTempDir(tmp string) {
 	if strings.HasPrefix(tmp, os.TempDir()) {
-		os.RemoveAll(tmp)
+		Expect(os.RemoveAll(tmp)).To(Succeed())
 	}
 }
 
@@ -212,6 +214,7 @@ func deleteAndWaitForFinalization(obj client.Object) {
 	EventuallyWithOffset(1, func() bool {
 		err := k8sClient.Get(context.TODO(), key, obj)
 		if err == nil {
+			// If we can still get the object, it hasn't been finalized yet.
 			return false
 		}
 		ExpectWithOffset(2, client.IgnoreNotFound(err)).To(BeNil())
