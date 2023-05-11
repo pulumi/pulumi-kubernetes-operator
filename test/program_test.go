@@ -29,6 +29,8 @@ configuration:
 resources:
     provider:
         type: pulumi:providers:kubernetes
+        options:
+            version: 3.26.0
     example:
         type: kubernetes:core/v1:ConfigMap
         properties:
