@@ -137,7 +137,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 				"port":       rabbitPort,
 				"secretName": credsSecretName,
 			}
-			waitForStackSince = time.Now()
+			resetWaitForStack()
 			Expect(k8sClient.Update(ctx, setupStack)).To(Succeed())
 			waitForStackSuccess(setupStack, "120s")
 		})
@@ -206,7 +206,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 					"port":       rabbitPort,
 					"secretName": credsSecretName,
 				}
-				waitForStackSince = time.Now()
+				resetWaitForStack()
 				Expect(k8sClient.Update(ctx, setupStack)).To(Succeed())
 				waitForStackSuccess(setupStack, "120s")
 			})
@@ -214,7 +214,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 			It("fails if the targeted stack isn't run again", func() {
 				refetch(useRabbitStack) // this is fetched above; but, avoid future coincidences ..
 				useRabbitStack.Spec.Refresh = true
-				waitForStackSince = time.Now()
+				resetWaitForStack()
 				Expect(k8sClient.Update(context.TODO(), useRabbitStack)).To(Succeed())
 				time.Sleep(30 * time.Second)
 
@@ -238,7 +238,7 @@ var _ = When("a stack uses a provider with credentials kept in state", func() {
 						},
 					},
 				}
-				waitForStackSince = time.Now()
+				resetWaitForStack()
 				Expect(k8sClient.Update(ctx, useRabbitStack)).To(Succeed())
 
 				// TODO check that it's marked as reconciling pending a prerequisite
