@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = When("a stack uses a provider with credentials kept in state", func() {
+var _ = When("a stack uses a provider with credentials kept in state", Ordered, func() {
 	// This models a situation in which the program constructs a provider using credentials which
 	// are then rotated. Pulumi has difficulty with this if you want to refresh the state, since the
 	// provider will be constructed from the credentials in the state, which are out of date. The
