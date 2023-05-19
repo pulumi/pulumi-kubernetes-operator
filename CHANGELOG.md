@@ -2,6 +2,8 @@ CHANGELOG
 =========
 
 ## HEAD (unreleased)
+
+## 1.12.1 (2023-05-19)
 - Update to [Pulumi SDK v3.68.0](https://github.com/pulumi/pulumi/releases/tag/v3.68.0) and the base
   image of the same version.
 

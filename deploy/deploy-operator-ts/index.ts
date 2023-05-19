@@ -1,8 +1,8 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as kubernetes from "@pulumi/kubernetes";
 
-const defaultCRDVersion = "v1.12.0";
-const defaultOperatorVersion = "v1.12.0";
+const defaultCRDVersion = "v1.12.1";
+const defaultOperatorVersion = "v1.12.1";
 
 const config = new pulumi.Config();
 const deployNamespace = config.get("namespace") || 'default';
