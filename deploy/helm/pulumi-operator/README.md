@@ -11,7 +11,7 @@ A Helm chart for the Pulumi Kubernetes Operator
 To install the chart using the OCI artifact, run:
 
 ```bash
-helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/charts/pulumi-kubernetes-operator --version 0.1.0
+helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --version 0.1.0
 ```
 
 ## Usage

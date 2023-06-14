@@ -74,6 +74,6 @@ jobs:
             if [ -z "${pkg:-}" ]; then
               break
             fi
-            helm push "${pkg}" oci://ghcr.io/pulumi/charts |& tee .digest
+            helm push "${pkg}" oci://ghcr.io/pulumi/helm-charts |& tee .digest
             cosign sign -y $(cat .digest | awk -F "[, ]+" '/Pushed/{print $NF}')
           done          
