@@ -219,7 +219,7 @@ var _ = Describe("Flux source integration", func() {
 					"path":     "irrelevant",
 					"url":      artifactURL,
 					"revision": artifactRevision,
-					"checksum": artifactChecksum,
+					"digest":   "sha256:" + artifactChecksum,
 				},
 			}
 			source.SetKind("Fake")
@@ -288,7 +288,7 @@ var _ = Describe("Flux source integration", func() {
 						"path":     "irrelevant",
 						"url":      artifactURL,
 						"revision": newArtifactRevision,
-						"checksum": artifactChecksum,
+						"digest":   "sha256:" + artifactChecksum,
 					},
 				}
 				unstructured.SetNestedMap(source.Object, sourceStatus, "status")
@@ -355,7 +355,7 @@ var _ = Describe("Flux source integration", func() {
 					"path":     "irrelevant",
 					"url":      artifactURL,
 					"revision": newArtifactRevision,
-					"checksum": artifactChecksum,
+					"digest":   "sha256:" + artifactChecksum,
 				}
 				unstructured.SetNestedMap(source.Object, artifact, "status", "artifact")
 				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
@@ -366,12 +366,12 @@ var _ = Describe("Flux source integration", func() {
 			})
 		})
 
-		When("the checksum is wrong", func() {
+		When("the digest is wrong", func() {
 			BeforeEach(func() {
-				unstructured.SetNestedField(source.Object, "not-the-right-checksum",
-					"status", "artifact", "checksum")
+				unstructured.SetNestedField(source.Object, "sha256:not-the-right-digest",
+					"status", "artifact", "digest")
 				Expect(k8sClient.Status().Update(context.TODO(), source)).To(Succeed())
-				stack.Name = "source-bad-checksum"
+				stack.Name = "source-bad-digest"
 			})
 
 			It("rejects the tarball and fails with a retry", func() {
