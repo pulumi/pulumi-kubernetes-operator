@@ -109,7 +109,7 @@ status:
         url: http://example.com
         revision: "1234567890"
         digest: "sha256:123abcdef"`,
-			want:    "sha256:123abcdef",
+			want:    "123abcdef",
 			wantErr: false,
 		},
 		{
@@ -126,7 +126,7 @@ status:
         revision: "1234567890"
         digest: "sha256:123abcdef"
         checksum: "1234567890"`,
-			want:    "sha256:123abcdef",
+			want:    "123abcdef",
 			wantErr: false,
 		},
 		{

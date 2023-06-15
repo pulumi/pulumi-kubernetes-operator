@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/fluxcd/pkg/http/fetch"
 
@@ -32,8 +33,9 @@ func (sess *reconcileStackSession) SetupWorkdirFromFluxSource(ctx context.Contex
 
 	// Check for either the digest or checksum field. If both are present, prefer digest.
 	// Checksum was supported/deprecated by the Fluxv2 Artifact type in v1beta2, but was removed in v1.
-	// The format of digest is slightly different to checksum, but the function from Flux that needs it,
-	// `fetch.Fetch`, accepts both formats.
+	// The format of digest is slightly different to checksum.
+	// When github.com/fluxcd/pkg/http/fetch is updated to v0.5.1 or higher, the function from Flux that needs checksum/digest
+	// accepts both formats. Until then, we'll need to normalize the digest.
 	// https://github.com/fluxcd/source-controller/blob/a0ff0cfa885e1e5f506a593a9de39174cf1dfeb8/api/v1beta2/artifact_types.go#L49-L57
 	digest, err := checksumOrDigest(source)
 	if err != nil {
@@ -76,7 +78,15 @@ func checksumOrDigest(source unstructured.Unstructured) (string, error) {
 
 	// Prefer digest over checksum.
 	if digest != "" {
-		return digest, nil
+		// TODO: Remove normalization once we upgrade to github.com/fluxcd/pkg/http/fetch v0.5.1 or higher.
+
+		// Extract the hash from the digest (<algorithm>:<hash>). The current fetcher expects the hash only.
+		parts := strings.Split(digest, ":")
+		if len(parts) != 2 {
+			return "", fmt.Errorf("invalid digest format: %q, expected <algorithm>:<hash>", digest)
+		}
+
+		return parts[1], nil
 	}
 
 	return checksum, nil
