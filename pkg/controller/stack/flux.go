@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/fluxcd/pkg/http/fetch"
 
@@ -21,29 +22,28 @@ func (sess *reconcileStackSession) SetupWorkdirFromFluxSource(ctx context.Contex
 	// this source artifact fetching code is based closely on
 	// https://github.com/fluxcd/kustomize-controller/blob/db3c321163522259595894ca6c19ed44a876976d/controllers/kustomization_controller.go#L529
 
-	getField := func(field string) (string, error) {
-		value, ok, err := unstructured.NestedString(source.Object, "status", "artifact", field)
-		if !ok || err != nil || value == "" {
-			return "", fmt.Errorf("expected a non-empty string in .status.artifact.%s", field)
-		}
-		return value, nil
+	artifactURL, err := getArtifactField(source, "url")
+	if err != nil {
+		return "", err
+	}
+	revision, err := getArtifactField(source, "revision")
+	if err != nil {
+		return "", err
 	}
 
-	artifactURL, err := getField("url")
-	if err != nil {
-		return "", err
-	}
-	revision, err := getField("revision")
-	if err != nil {
-		return "", err
-	}
-	checksum, err := getField("checksum")
+	// Check for either the digest or checksum field. If both are present, prefer digest.
+	// Checksum was supported/deprecated by the Fluxv2 Artifact type in v1beta2, but was removed in v1.
+	// The format of digest is slightly different to checksum.
+	// When github.com/fluxcd/pkg/http/fetch is updated to v0.5.1 or higher, the function from Flux that needs checksum/digest
+	// accepts both formats. Until then, we'll need to normalize the digest.
+	// https://github.com/fluxcd/source-controller/blob/a0ff0cfa885e1e5f506a593a9de39174cf1dfeb8/api/v1beta2/artifact_types.go#L49-L57
+	digest, err := checksumOrDigest(source)
 	if err != nil {
 		return "", err
 	}
 
 	fetcher := fetch.NewArchiveFetcher(1, maxArtifactDownloadSize, maxArtifactDownloadSize*10, "")
-	if err = fetcher.Fetch(artifactURL, checksum, sess.rootDir); err != nil {
+	if err = fetcher.Fetch(artifactURL, digest, sess.rootDir); err != nil {
 		return "", fmt.Errorf("failed to get artifact from source: %w", err)
 	}
 
@@ -56,6 +56,40 @@ func (sess *reconcileStackSession) SetupWorkdirFromFluxSource(ctx context.Contex
 	}
 
 	return revision, sess.setupWorkspace(ctx, w)
+}
+
+// getArtifactField is a helper to get a specified nested field from .status.artifact.
+func getArtifactField(source unstructured.Unstructured, field string) (string, error) {
+	value, ok, err := unstructured.NestedString(source.Object, "status", "artifact", field)
+	if !ok || err != nil || value == "" {
+		return "", fmt.Errorf("expected a non-empty string in .status.artifact.%s", field)
+	}
+	return value, nil
+}
+
+// checksumOrDigest returns the digest or checksum field from the artifact status. It prefers digest over checksum.
+func checksumOrDigest(source unstructured.Unstructured) (string, error) {
+	digest, _ := getArtifactField(source, "digest")
+	checksum, _ := getArtifactField(source, "checksum")
+
+	if digest == "" && checksum == "" {
+		return "", fmt.Errorf("expected at least one of .status.artifact.{digest,checksum} to be a non-empty string")
+	}
+
+	// Prefer digest over checksum.
+	if digest != "" {
+		// TODO: Remove normalization once we upgrade to github.com/fluxcd/pkg/http/fetch v0.5.1 or higher.
+
+		// Extract the hash from the digest (<algorithm>:<hash>). The current fetcher expects the hash only.
+		parts := strings.Split(digest, ":")
+		if len(parts) != 2 {
+			return "", fmt.Errorf("invalid digest format: %q, expected <algorithm>:<hash>", digest)
+		}
+
+		return parts[1], nil
+	}
+
+	return checksum, nil
 }
 
 // checkFluxSourceReady looks for the conventional "Ready" condition to see if the supplied object
