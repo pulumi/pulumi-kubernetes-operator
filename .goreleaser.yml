@@ -12,6 +12,7 @@ builds:
       - linux
     goarch:
       - amd64
+      - arm64
     env:
       - CGO_ENABLED=0
       - GO111MODULE=on
@@ -23,6 +24,7 @@ archives:
     replacements:
       linux: Linux
       amd64: x86_64
+      arm64: aarch64
     files:
       - none*
 
@@ -42,21 +44,27 @@ release:
   name_template: "{{.ProjectName}}-v{{.Version}}"
 
 dockers:
-  -
-    # GOOS of the built binary that should be used.
+  - use: buildx
     goos: linux
-
-    # GOARCH of the built binary that should be used.
     goarch: amd64
-
-    # Path to the Dockerfile (from the project root).
     dockerfile: Dockerfile
-
-    # Templates of the Docker image names.
     image_templates:
     - "pulumi/{{ .ProjectName }}:latest"
     - "pulumi/{{ .ProjectName }}:{{ .Tag }}"
-
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.label-schema.build-date={{.Date}}"
+      - "--label=org.label-schema.name={{ .ProjectName }}"
+      - "--label=org.label-schema.vcs-ref={{ .ShortCommit }}"
+      - "--label=org.label-schema.vcs-url='{{ .GitURL }}'"
+  
+  - use: buildx
+    goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile-arm64
+    image_templates:
+    - "pulumi/{{ .ProjectName }}:latest"
+    - "pulumi/{{ .ProjectName }}:{{ .Tag }}"
     build_flag_templates:
       - "--pull"
       - "--label=org.label-schema.build-date={{.Date}}"
