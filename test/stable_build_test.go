@@ -92,7 +92,7 @@ var _ = Describe("go build caching", func() {
 
 		BeforeEach(func() {
 			cachedir = getCachedir()
-			waitForStackSuccess(stack, "90s") // it just takes a while to build a Go project
+			waitForStackSuccess(stack, "180s") // it just takes a while to build a Go project
 			beforeFiles = checkCacheFiles()
 			GinkgoWriter.Println("Before:", beforeFiles)
 			// make sure the cache is actually used!
