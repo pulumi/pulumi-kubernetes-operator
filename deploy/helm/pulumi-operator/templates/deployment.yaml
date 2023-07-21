@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  {{- with .Values.deploymentAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  name: {{ include "pulumi-kubernetes-operator.fullname" . }}
+  labels:
+  {{- include "pulumi-kubernetes-operator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: {{ .Values.deploymentStrategy }}
+  selector:
+    matchLabels:
+    {{- include "pulumi-kubernetes-operator.selectorLabels" . | nindent 6 }}
+      app: {{ template "pulumi-kubernetes-operator.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        app: {{ template "pulumi-kubernetes-operator.name" . }}
+        release: {{ .Release.Name }}
+      {{- include "pulumi-kubernetes-operator.selectorLabels" . | nindent 8 }}
+      {{- if .Values.podLabels }}
+        {{ toYaml .Values.podLabels | indent 8 }}
+      {{- end }}
+    spec:
+      containers:
+      {{- if .Values.extraSidecars }}
+      {{- toYaml .Values.extraSidecars  | nindent  8 }}
+      {{- end}}
+      - args:
+        {{- with .Values.controller.args }}
+        {{- toYaml . | nindent 10 }}
+        {{- end }}
+        env:
+        {{- if .Values.extraEnv }}
+        {{- toYaml .Values.extraEnv  | nindent 10 }}
+        {{- end }}
+        - name: WATCH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OPERATOR_NAME
+          value: {{ include "pulumi-kubernetes-operator.name" . }}
+        - name: GRACEFUL_SHUTDOWN_TIMEOUT_DURATION
+          value: {{ .Values.controller.gracefulShutdownTimeoutDuration }}
+        - name: MAX_CONCURRENT_RECONCILES
+          value: {{ .Values.controller.maxConcurrentReconciles | quote }}
+        - name: PULUMI_INFER_NAMESPACE
+          value: {{ .Values.controller.pulumiInferNamespace | quote }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ .Values.controller.kubernetesClusterDomain }}
+        image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:v{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: {{ .Chart.Name }}
+        {{- if .Values.securityContext }}
+        securityContext:
+        {{- toYaml .Values.securityContext | nindent 12 }}
+        {{- end }}
+        {{- if .Values.resources }}
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+        {{- end }}
+        volumeMounts:
+        {{- with .Values.extraVolumeMounts }}
+        {{- toYaml . | nindent 12 }}
+        {{- end }}
+        - mountPath: /tmp
+          name: tmp-dir
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "pulumi-kubernetes-operator.serviceAccountName" . }}
+      {{- if .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- end }}
+      {{- if .Values.initContainers  }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+      {{- with .Values.initContainers }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- end }}
+      volumes:
+      {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      - emptyDir: {}
+        name: tmp-dir
