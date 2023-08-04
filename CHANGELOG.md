@@ -2,6 +2,8 @@ CHANGELOG
 =========
 
 ## HEAD (unreleased)
+
+## 1.13.0 (2023-08-04)
 - Use digest field for Flux source artifact if present [#459](https://github.com/pulumi/pulumi-kubernetes-operator/pull/459)
 - Add Helm chart support for installing the Pulumi Operator. [#379](https://github.com/pulumi/pulumi-kubernetes-operator/pull/379)
 
