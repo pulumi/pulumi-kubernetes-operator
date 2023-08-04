@@ -2,8 +2,8 @@ import pulumi
 from pulumi.resource import ResourceOptions
 import pulumi_kubernetes as kubernetes
 
-DEFAULT_CRD_VERSION = "v1.12.1"
-DEFAULT_OPERATOR_VERSION = "v1.12.1"
+DEFAULT_CRD_VERSION = "v1.13.0"
+DEFAULT_OPERATOR_VERSION = "v1.13.0"
 
 conf = pulumi.Config()
 namespace = conf.get("namespace", "default")
