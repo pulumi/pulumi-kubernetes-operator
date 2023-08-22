@@ -1,6 +1,6 @@
 # node-red ⚙
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=for-the-badge) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=for-the-badge) ![AppVersion: 1.10.1](https://img.shields.io/badge/AppVersion-1.10.1-informational?style=for-the-badge)
+![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational?style=for-the-badge) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=for-the-badge) ![AppVersion: 1.13.0](https://img.shields.io/badge/AppVersion-1.13.0-informational?style=for-the-badge)
 
 ## Description 📜
 
@@ -11,7 +11,7 @@ A Helm chart for the Pulumi Kubernetes Operator
 To install the chart using the OCI artifact, run:
 
 ```bash
-helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --version 0.1.0
+helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --version 0.2.0
 ```
 
 ## Usage
@@ -27,7 +27,7 @@ helm repo update
 To install the chart with the release name `pulumi-kubernetes-operator` run:
 
 ```bash
-helm install pulumi-kubernetes-operator pulumi-kubernetes-operator/pulumi-kubernetes-operator --version 0.1.0
+helm install pulumi-kubernetes-operator pulumi-kubernetes-operator/pulumi-kubernetes-operator --version 0.2.0
 ```
 
 After a few seconds, the `pulumi-kubernetes-operator` should be running.
@@ -56,11 +56,14 @@ The command removes all the Kubernetes components associated with the chart and 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | The affinity constraint |
+| clusterRoleRules.enabled | bool | `false` | Enable custom rules for the application controller's ClusterRole resource default: false |
+| clusterRoleRules.rules | list | `[]` | List of custom rules for the application controller's ClusterRole resource default: [] |
 | controller.args | list | `["--zap-level=error","--zap-time-encoding=iso8601"]` | List of arguments to pass to the operator |
 | controller.gracefulShutdownTimeoutDuration | string | `"5m"` | Graceful shutdown timeout duration, default: `5m` |
 | controller.kubernetesClusterDomain | string | `"cluster.local"` | Kubernetes Cluster Domain, default: `cluster.local` |
 | controller.maxConcurrentReconciles | string | `"10"` | Max concurrent reconciles, default: `10` |
 | controller.pulumiInferNamespace | string | `"1"` | Pulumi infer namespace, default: `1` |
+| createClusterRole | bool | `true` | Create a ClusterRole resource for the node-red pod. default: false |
 | deploymentAnnotations | object | `{}` | Deployment annotations |
 | deploymentStrategy | string | `""` | Specifies the strategy used to replace old Pods by new ones, default: `RollingUpdate` |
 | extraEnv | list | `[]` | Extra Environments to be passed to the operator |
