@@ -14,7 +14,11 @@
                 "WATCH_NAMESPACE": "default",
                 // "INSECURE_NO_NAMESPACE_ISOLATION": "true",
                 "OPERATOR_NAME": "pulumi-kubernetes-operator",
-            }
+                "SKIP_LEADER_ELECTION": "true",
+            },
+            "args": [
+                "--zap-level=debug"
+            ]
         }
     ]
 }
