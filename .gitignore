@@ -73,9 +73,16 @@ Session.vim
 tags
 ### VisualStudioCode ###
 .vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
 .history
 # End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 pulumi-kubernetes-operator
 ### IntelliJ
 .idea
 config/
+### direnv (PULUMI_ACCESS_TOKEN)
+.envrc

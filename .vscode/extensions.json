@@ -1,0 +1,7 @@
+{
+    "recommendations": [
+        "golang.go",
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "mkhl.direnv"
+    ]
+}
