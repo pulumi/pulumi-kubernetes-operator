@@ -580,17 +580,15 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	}
 
 	// Create the build working directory. Any problem here is unexpected, and treated as a
-	// controller error.
+	// controller error. The working directory contains the PULUMI_HOME and the program content.
 	workingDir, err := makeWorkingDir(instance)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("unable to create tmp directory for workspace: %w", err)
 	}
 	sess.rootDir = workingDir
-	defer func() {
-		if workingDir != "" {
-			os.RemoveAll(workingDir)
-		}
-	}()
+
+	// Delete the temporary directory after the reconciliation is completed (regardless of success or failure).
+	defer sess.CleanupPulumiDir()
 
 	// Check which kind of source we have.
 
@@ -713,9 +711,6 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			return reconcile.Result{Requeue: true}, nil
 		}
 	}
-
-	// Delete the temporary directory after the reconciliation is completed (regardless of success or failure).
-	defer sess.CleanupPulumiDir()
 
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
 	if err = sess.SetEnvs(ctx, stack.Envs, request.Namespace); err != nil {
@@ -1240,7 +1235,26 @@ func makeWorkingDir(s *pulumiv1.Stack) (_path string, _err error) {
 	if err = os.MkdirAll(path, 0700); err != nil {
 		return "", fmt.Errorf("error creating working dir: %w", err)
 	}
+
+	homeDir := filepath.Join(path, ".pulumi")
+	if err := os.MkdirAll(homeDir, 0700); err != nil {
+		return "", fmt.Errorf("error creating .pulumi dir: %w", err)
+	}
+
+	contentDir := filepath.Join(path, "content")
+	if err := os.MkdirAll(contentDir, 0700); err != nil {
+		return "", fmt.Errorf("error creating content dir: %w", err)
+	}
+
 	return path, nil
+}
+
+func (sess *reconcileStackSession) getPulumiHome() string {
+	return filepath.Join(sess.rootDir, ".pulumi")
+}
+
+func (sess *reconcileStackSession) getContentDir() string {
+	return filepath.Join(sess.rootDir, "content")
 }
 
 func (sess *reconcileStackSession) SetupWorkdirFromGitSource(ctx context.Context, gitAuth *auto.GitAuth, source *shared.GitSource) (string, error) {
@@ -1254,9 +1268,18 @@ func (sess *reconcileStackSession) SetupWorkdirFromGitSource(ctx context.Context
 
 	sess.logger.Debug("Setting up pulumi workdir for stack", "stack", sess.stack)
 	// Create a new workspace.
+
+	homeDir := sess.getPulumiHome()
+	contentDir := sess.getContentDir()
+
 	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
 
-	w, err := auto.NewLocalWorkspace(ctx, auto.WorkDir(sess.rootDir), auto.Repo(repo), secretsProvider)
+	w, err := auto.NewLocalWorkspace(
+		ctx,
+		auto.PulumiHome(homeDir),
+		auto.WorkDir(contentDir),
+		auto.Repo(repo),
+		secretsProvider)
 	if err != nil {
 		return "", fmt.Errorf("failed to create local workspace: %w", err)
 	}
@@ -1281,6 +1304,9 @@ func (sess *reconcileStackSession) SetupWorkdirFromYAML(ctx context.Context, pro
 
 	// Create a new workspace.
 
+	homeDir := sess.getPulumiHome()
+	contentDir := sess.getContentDir()
+
 	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
 
 	program := pulumiv1.Program{}
@@ -1304,13 +1330,17 @@ func (sess *reconcileStackSession) SetupWorkdirFromYAML(ctx context.Context, pro
 		return "", fmt.Errorf("failed to marshal program object to YAML: %w", err)
 	}
 
-	err = os.WriteFile(filepath.Join(sess.rootDir, "Pulumi.yaml"), out, 0600)
+	err = os.WriteFile(filepath.Join(contentDir, "Pulumi.yaml"), out, 0600)
 	if err != nil {
 		return "", fmt.Errorf("failed to write YAML to file: %w", err)
 	}
 
 	var w auto.Workspace
-	w, err = auto.NewLocalWorkspace(ctx, auto.WorkDir(sess.rootDir), secretsProvider)
+	w, err = auto.NewLocalWorkspace(
+		ctx,
+		auto.PulumiHome(homeDir),
+		auto.WorkDir(contentDir),
+		secretsProvider)
 	if err != nil {
 		return "", fmt.Errorf("failed to create local workspace: %w", err)
 	}
