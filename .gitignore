@@ -1,6 +1,9 @@
+### makefile ###
+pulumi-kubernetes-operator
 # Temporary Build Files
 build/_output
 build/_test
+
 # Created by https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 ### Emacs ###
 # -*- mode: gitignore; -*-
@@ -78,9 +81,10 @@ tags
 !.vscode/launch.json
 !.vscode/extensions.json
 !.vscode/*.code-snippets
-.history
-# End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
-pulumi-kubernetes-operator
-### IntelliJ
+# Local History for Visual Studio Code
+.history/
+# Built Visual Studio Code Extensions
+*.vsix
+### IntelliJ ###
 .idea
 config/
