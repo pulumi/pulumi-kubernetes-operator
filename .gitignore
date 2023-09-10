@@ -84,5 +84,3 @@ pulumi-kubernetes-operator
 ### IntelliJ
 .idea
 config/
-### direnv (PULUMI_ACCESS_TOKEN)
-.envrc

@@ -120,14 +120,14 @@ func main() {
 
 	log.Info("Graceful shutdown", "timeout", gracefulShutdownTimeout)
 
-	skipElection := cmdutil.IsTruthy(os.Getenv("SKIP_LEADER_ELECTION"))
+	disableElection := cmdutil.IsTruthy(os.Getenv("DISABLE_LEADER_ELECTION"))
 
 	// Set default manager options
 	options := manager.Options{
 		Namespace:               namespace,
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		GracefulShutdownTimeout: &gracefulShutdownTimeout,
-		LeaderElection:          !skipElection,
+		LeaderElection:          !disableElection,
 		LeaderElectionNamespace: namespace,
 		LeaderElectionID:        "pulumi-kubernetes-operator-lock",
 	}
