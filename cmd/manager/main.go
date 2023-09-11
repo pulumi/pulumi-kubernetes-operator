@@ -20,7 +20,6 @@ import (
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/controller"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/controller/stack"
 	"github.com/pulumi/pulumi-kubernetes-operator/version"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/util/cmdutil"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
@@ -120,14 +119,12 @@ func main() {
 
 	log.Info("Graceful shutdown", "timeout", gracefulShutdownTimeout)
 
-	disableElection := cmdutil.IsTruthy(os.Getenv("DISABLE_LEADER_ELECTION"))
-
 	// Set default manager options
 	options := manager.Options{
 		Namespace:               namespace,
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		GracefulShutdownTimeout: &gracefulShutdownTimeout,
-		LeaderElection:          !disableElection,
+		LeaderElection:          true,
 		LeaderElectionNamespace: namespace,
 		LeaderElectionID:        "pulumi-kubernetes-operator-lock",
 	}
