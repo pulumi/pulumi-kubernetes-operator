@@ -6,9 +6,9 @@
 			"label": "make: build",
 			"command": "make build",
 			"group": {
-                "kind": "build",
-                "isDefault": true
-            },
+				"kind": "build",
+				"isDefault": true
+			},
 			"problemMatcher": [
 				"$go"
 			]
@@ -18,9 +18,9 @@
 			"label": "make: test",
 			"command": "make test",
 			"group": {
-                "kind": "test",
-                "isDefault": true
-            }
+				"kind": "test",
+				"isDefault": true
+			}
 		}
 	]
 }
