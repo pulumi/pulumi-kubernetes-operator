@@ -41,7 +41,7 @@ spec:
         {{- end }}
         env:
         {{- if .Values.extraEnv }}
-        {{- toYaml .Values.extraEnv  | nindent 10 }}
+        {{- toYaml .Values.extraEnv  | nindent 8 }}
         {{- end }}
         - name: WATCH_NAMESPACE
           valueFrom:
