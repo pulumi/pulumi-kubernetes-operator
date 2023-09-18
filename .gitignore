@@ -79,3 +79,4 @@ pulumi-kubernetes-operator
 ### IntelliJ
 .idea
 config/
+.envrc
