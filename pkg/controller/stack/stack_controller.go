@@ -461,6 +461,14 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	stack := instance.Spec
 	sess := newReconcileStackSession(reqLogger, stack, r.client, request.Namespace)
 
+	// Create a long-term working directory containing the home and workspace directories.
+	// The working directory is deleted during stack finalization.
+	// Any problem here is unexpected, and treated as a controller error.
+	_, err = sess.MakeRootDir(instance)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("unable to create root directory for stack: %w", err)
+	}
+
 	// We can exit early if there is no clean-up to do.
 	if isStackMarkedToBeDeleted && !stack.DestroyOnFinalize {
 		// We know `!(isStackMarkedToBeDeleted && !contains(finalizer))` from above, and now
@@ -576,15 +584,15 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return found
 	}
 
-	// Create the build working directory. Any problem here is unexpected, and treated as a
-	// controller error. The working directory contains the Pulumi home and workspace directories.
-	_, err = sess.MakeRootDir(instance)
+	// Create the workspace directory. Any problem here is unexpected, and treated as a
+	// controller error.
+	_, err = sess.MakeWorkspaceDir()
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("unable to create tmp directory for workspace: %w", err)
 	}
 
 	// Delete the workspace directory after the reconciliation is completed (regardless of success or failure).
-	defer sess.CleanupWorkspace()
+	defer sess.CleanupWorkspaceDir()
 
 	// Check which kind of source we have.
 
@@ -1219,38 +1227,19 @@ func (sess *reconcileStackSession) lookupPulumiAccessToken(ctx context.Context) 
 	return "", false
 }
 
-// Make a working directory for building the given stack. These are stable paths, so that (for one
-// thing) the go build cache does not treat new clones of the same repo as distinct files. Since a
-// stack is processed by at most one thread at a time, and stacks have unique qualified names, and
-// the workspace directory is expected to be removed after processing, this won't cause collisions; but, we
-// check anyway, treating the existence of the workspace directory as a crude lock.
+// Make a root directory for the given stack, containing the home and workspace directories.
 func (sess *reconcileStackSession) MakeRootDir(s *pulumiv1.Stack) (_path string, _err error) {
 	rootDir := filepath.Join(os.TempDir(), buildDirectoryPrefix, s.GetNamespace(), s.GetName())
 	sess.logger.Debug("Creating root dir for stack", "stack", sess.stack, "root", rootDir)
 	if err := os.MkdirAll(rootDir, 0700); err != nil {
 		return "", fmt.Errorf("error creating working dir: %w", err)
 	}
+	sess.rootDir = rootDir
 
-	homeDir := filepath.Join(rootDir, ".pulumi")
+	homeDir := sess.getPulumiHome()
 	if err := os.MkdirAll(homeDir, 0700); err != nil {
 		return "", fmt.Errorf("error creating .pulumi dir: %w", err)
 	}
-
-	workspaceDir := filepath.Join(rootDir, "workspace")
-	_, err := os.Stat(workspaceDir)
-	switch {
-	case os.IsNotExist(err):
-		break
-	case err == nil:
-		return "", fmt.Errorf("expected workspace directory %q for stack not to exist already, but it does", workspaceDir)
-	case err != nil:
-		return "", fmt.Errorf("error while checking for workspace directory: %w", err)
-	}
-	if err := os.MkdirAll(workspaceDir, 0700); err != nil {
-		return "", fmt.Errorf("error creating workspace dir: %w", err)
-	}
-
-	sess.rootDir = rootDir
 	return rootDir, nil
 }
 
@@ -1265,20 +1254,42 @@ func (sess *reconcileStackSession) cleanupRootDir() {
 	}
 }
 
+// getPulumiHome returns the home directory (containing CLI artifacts such as plugins and credentials).
+func (sess *reconcileStackSession) getPulumiHome() string {
+	return filepath.Join(sess.rootDir, ".pulumi")
+}
+
+// Make a workspace directory for building the given stack. These are stable paths, so that (for one
+// thing) the go build cache does not treat new clones of the same repo as distinct files. Since a
+// stack is processed by at most one thread at a time, and stacks have unique qualified names, and
+// the workspace directory is expected to be removed after processing, this won't cause collisions; but, we
+// check anyway, treating the existence of the workspace directory as a crude lock.
+func (sess *reconcileStackSession) MakeWorkspaceDir() (_path string, _err error) {
+	workspaceDir := filepath.Join(sess.rootDir, "workspace")
+	_, err := os.Stat(workspaceDir)
+	switch {
+	case os.IsNotExist(err):
+		break
+	case err == nil:
+		return "", fmt.Errorf("expected workspace directory %q for stack not to exist already, but it does", workspaceDir)
+	case err != nil:
+		return "", fmt.Errorf("error while checking for workspace directory: %w", err)
+	}
+	if err := os.MkdirAll(workspaceDir, 0700); err != nil {
+		return "", fmt.Errorf("error creating workspace dir: %w", err)
+	}
+	return workspaceDir, nil
+}
+
 // CleanupWorkspace cleans the Pulumi workspace directory, located within the root directory.
-func (sess *reconcileStackSession) CleanupWorkspace() {
+func (sess *reconcileStackSession) CleanupWorkspaceDir() {
 	if sess.rootDir != "" {
-		workspaceDir := filepath.Join(sess.rootDir, "workspace")
+		workspaceDir := sess.getWorkspaceDir()
 		sess.logger.Debug("Cleaning up pulumi workspace for stack", "stack", sess.stack, "workspace", workspaceDir)
 		if err := os.RemoveAll(workspaceDir); err != nil {
 			sess.logger.Error(err, "Failed to delete workspace dir: %s", workspaceDir)
 		}
 	}
-}
-
-// getPulumiHome returns the home directory (containing CLI artifacts such as plugins and credentials).
-func (sess *reconcileStackSession) getPulumiHome() string {
-	return filepath.Join(sess.rootDir, ".pulumi")
 }
 
 // getWorkspaceDir returns the workspace directory (containing the Pulumi project).
