@@ -464,7 +464,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	// Create a long-term working directory containing the home and workspace directories.
 	// The working directory is deleted during stack finalization.
 	// Any problem here is unexpected, and treated as a controller error.
-	_, err = sess.MakeRootDir(instance)
+	_, err = sess.MakeRootDir(instance.GetNamespace(), instance.GetName())
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("unable to create root directory for stack: %w", err)
 	}
@@ -1228,8 +1228,8 @@ func (sess *reconcileStackSession) lookupPulumiAccessToken(ctx context.Context) 
 }
 
 // Make a root directory for the given stack, containing the home and workspace directories.
-func (sess *reconcileStackSession) MakeRootDir(s *pulumiv1.Stack) (_path string, _err error) {
-	rootDir := filepath.Join(os.TempDir(), buildDirectoryPrefix, s.GetNamespace(), s.GetName())
+func (sess *reconcileStackSession) MakeRootDir(ns, name string) (_path string, _err error) {
+	rootDir := filepath.Join(os.TempDir(), buildDirectoryPrefix, ns, name)
 	sess.logger.Debug("Creating root dir for stack", "stack", sess.stack, "root", rootDir)
 	if err := os.MkdirAll(rootDir, 0700); err != nil {
 		return "", fmt.Errorf("error creating working dir: %w", err)
