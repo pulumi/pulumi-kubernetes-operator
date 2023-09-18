@@ -19,7 +19,7 @@ import (
 
 const buildDirectoryPrefix = "pulumi-working"
 
-var _ = Describe("Stack isolation", Focus, func() {
+var _ = Describe("Stack isolation", func() {
 	var (
 		tmpDir             string
 		gitDir, backendDir string
