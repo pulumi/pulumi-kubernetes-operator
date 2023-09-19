@@ -3,6 +3,42 @@ entries:
   pulumi-kubernetes-operator:
   - annotations:
       artifacthub.io/changes: |
+        - indentation fix for adding new volumes and volume mounts  (#104)
+      artifacthub.io/containsSecurityUpdates: "false"
+      artifacthub.io/images: |
+        - name: pulumi-kubernetes-operator
+          image: docker.io/pulumi-kubernetes-operator:v1.13.0
+      artifacthub.io/license: Apache-2.0
+      artifacthub.io/links: |
+        - name: website
+          url: https://pulumi.com
+      artifacthub.io/maintainers: |
+        - name: dirien
+          email: engin@pulumi.com
+    apiVersion: v2
+    appVersion: 1.13.0
+    created: "2023-09-19T18:56:35.422591006Z"
+    description: A Helm chart for the Pulumi Kubernetes Operator
+    digest: 7edf998a1b505b859e0602df7a77ea19cc67e8bf2e25f9898be0d9f31c132538
+    home: https://pulumi.com
+    icon: https://www.pulumi.com/logos/brand/twitter-card.png
+    keywords:
+    - pulumi
+    - kubernetes
+    - operator
+    maintainers:
+    - email: engin@pulumi.com
+      name: dirien
+      url: https://pulumi.com
+    name: pulumi-kubernetes-operator
+    sources:
+    - https://github.com/pulumi/pulumi-kubernetes-operator
+    type: application
+    urls:
+    - https://github.com/pulumi/pulumi-kubernetes-operator/releases/download/pulumi-kubernetes-operator-0.3.0/pulumi-kubernetes-operator-0.3.0.tgz
+    version: 0.3.0
+  - annotations:
+      artifacthub.io/changes: |
         - update to v1.13.0
       artifacthub.io/containsSecurityUpdates: "false"
       artifacthub.io/images: |
@@ -73,4 +109,4 @@ entries:
     urls:
     - https://github.com/pulumi/pulumi-kubernetes-operator/releases/download/pulumi-kubernetes-operator-0.1.0/pulumi-kubernetes-operator-0.1.0.tgz
     version: 0.1.0
-generated: "2023-09-13T08:37:00.661381195Z"
+generated: "2023-09-19T18:56:35.422611806Z"
