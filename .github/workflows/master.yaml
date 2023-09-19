@@ -24,7 +24,7 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.19.x
-      # Get the last semver tag and use it as the version for the release. This is required as we releaser both Helm charts and the operator
+      # Get the last semver tag and use it as the version for the release. This is required as we release both Helm charts and the operator
       # within this repository.
       - name: Get last semver tag
         id: semver
