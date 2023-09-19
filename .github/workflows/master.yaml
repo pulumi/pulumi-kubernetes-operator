@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "master"
+      - "rquitales/fix-action"
     paths-ignore:
       - CHANGELOG.md
 env:
