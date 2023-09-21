@@ -50,8 +50,6 @@ func (sess *reconcileStackSession) SetupWorkdirFromFluxSource(ctx context.Contex
 		return "", fmt.Errorf("failed to get artifact from source: %w", err)
 	}
 
-	// woo! now there's a directory with source in `workspaceDir`. Construct a workspace.
-
 	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
 	w, err := auto.NewLocalWorkspace(
 		ctx,

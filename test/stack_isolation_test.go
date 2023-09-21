@@ -100,10 +100,14 @@ var _ = Describe("Stack isolation", func() {
 	})
 
 	finalizationTest := func() {
-		It("should purge the root directory", func() {
+		JustBeforeEach(func() {
 			rootDir := getRootDir(stack)
 			Expect(k8sClient.Create(context.TODO(), stack)).To(Succeed())
 			waitForStackSuccess(stack)
+			Expect(exists(rootDir)).To(BeTrue())
+		})
+		It("should purge the root directory", func() {
+			rootDir := getRootDir(stack)
 			deleteAndWaitForFinalization(stack)
 			Expect(exists(rootDir)).To(BeFalse())
 		})

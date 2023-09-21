@@ -474,8 +474,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		// We know `!(isStackMarkedToBeDeleted && !contains(finalizer))` from above, and now
 		// `isStackMarkedToBeDeleted`, implying `contains(finalizer)`; but this would be correct
 		// even if it's a no-op.
-		err := sess.finalize(ctx, instance)
-		return reconcile.Result{}, err
+		return reconcile.Result{}, sess.finalize(ctx, instance)
 	}
 
 	// This makes sure the status reflects the outcome of reconcilation. Any non-error return means
@@ -959,9 +958,8 @@ func (sess *reconcileStackSession) finalize(ctx context.Context, stack *pulumiv1
 		return err
 	}
 	if err := sess.removeFinalizerAndUpdate(ctx, stack); err != nil {
-		if err != nil {
-			sess.logger.Error(err, "Failed to delete Pulumi finalizer", "Stack.Name", stack.Spec.Stack)
-		}
+		sess.logger.Error(err, "Failed to delete Pulumi finalizer", "Stack.Name", stack.Spec.Stack)
+		return err
 	}
 	return nil
 }
@@ -1228,7 +1226,7 @@ func (sess *reconcileStackSession) lookupPulumiAccessToken(ctx context.Context) 
 }
 
 // Make a root directory for the given stack, containing the home and workspace directories.
-func (sess *reconcileStackSession) MakeRootDir(ns, name string) (_path string, _err error) {
+func (sess *reconcileStackSession) MakeRootDir(ns, name string) (string, error) {
 	rootDir := filepath.Join(os.TempDir(), buildDirectoryPrefix, ns, name)
 	sess.logger.Debug("Creating root dir for stack", "stack", sess.stack, "root", rootDir)
 	if err := os.MkdirAll(rootDir, 0700); err != nil {
@@ -1245,13 +1243,14 @@ func (sess *reconcileStackSession) MakeRootDir(ns, name string) (_path string, _
 
 // cleanupRootDir cleans the root directory that contains the Pulumi home and workspace directories.
 func (sess *reconcileStackSession) cleanupRootDir() {
-	if sess.rootDir != "" {
-		sess.logger.Debug("Cleaning up root dir for stack", "stack", sess.stack, "root", sess.rootDir)
-		if err := os.RemoveAll(sess.rootDir); err != nil {
-			sess.logger.Error(err, "Failed to delete temporary root dir: %s", sess.rootDir)
-		}
-		sess.rootDir = ""
+	if sess.rootDir == "" {
+		return
 	}
+	sess.logger.Debug("Cleaning up root dir for stack", "stack", sess.stack, "root", sess.rootDir)
+	if err := os.RemoveAll(sess.rootDir); err != nil {
+		sess.logger.Error(err, "Failed to delete temporary root dir: %s", sess.rootDir)
+	}
+	sess.rootDir = ""
 }
 
 // getPulumiHome returns the home directory (containing CLI artifacts such as plugins and credentials).
@@ -1264,7 +1263,7 @@ func (sess *reconcileStackSession) getPulumiHome() string {
 // stack is processed by at most one thread at a time, and stacks have unique qualified names, and
 // the workspace directory is expected to be removed after processing, this won't cause collisions; but, we
 // check anyway, treating the existence of the workspace directory as a crude lock.
-func (sess *reconcileStackSession) MakeWorkspaceDir() (_path string, _err error) {
+func (sess *reconcileStackSession) MakeWorkspaceDir() (string, error) {
 	workspaceDir := filepath.Join(sess.rootDir, "workspace")
 	_, err := os.Stat(workspaceDir)
 	switch {
@@ -1283,12 +1282,13 @@ func (sess *reconcileStackSession) MakeWorkspaceDir() (_path string, _err error)
 
 // CleanupWorkspace cleans the Pulumi workspace directory, located within the root directory.
 func (sess *reconcileStackSession) CleanupWorkspaceDir() {
-	if sess.rootDir != "" {
-		workspaceDir := sess.getWorkspaceDir()
-		sess.logger.Debug("Cleaning up pulumi workspace for stack", "stack", sess.stack, "workspace", workspaceDir)
-		if err := os.RemoveAll(workspaceDir); err != nil {
-			sess.logger.Error(err, "Failed to delete workspace dir: %s", workspaceDir)
-		}
+	if sess.rootDir == "" {
+		return
+	}
+	workspaceDir := sess.getWorkspaceDir()
+	sess.logger.Debug("Cleaning up pulumi workspace for stack", "stack", sess.stack, "workspace", workspaceDir)
+	if err := os.RemoveAll(workspaceDir); err != nil {
+		sess.logger.Error(err, "Failed to delete workspace dir: %s", workspaceDir)
 	}
 }
 
