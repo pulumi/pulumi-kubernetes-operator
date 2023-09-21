@@ -41,7 +41,7 @@ spec:
         {{- end }}
         env:
         {{- if .Values.extraEnv }}
-        {{- toYaml .Values.extraEnv  | nindent 10 }}
+        {{- toYaml .Values.extraEnv  | nindent 8 }}
         {{- end }}
         - name: WATCH_NAMESPACE
           valueFrom:
@@ -74,7 +74,7 @@ spec:
         {{- end }}
         volumeMounts:
         {{- with .Values.extraVolumeMounts }}
-        {{- toYaml . | nindent 12 }}
+        {{- toYaml . | nindent 8 }}
         {{- end }}
         - mountPath: /tmp
           name: tmp-dir
@@ -107,7 +107,7 @@ spec:
       {{- end }}
       volumes:
       {{- with .Values.extraVolumes }}
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml . | nindent 6 }}
       {{- end }}
       - emptyDir: {}
         name: tmp-dir
