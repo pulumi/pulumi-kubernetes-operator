@@ -88,3 +88,4 @@ tags
 ### IntelliJ ###
 .idea
 config/
+.envrc

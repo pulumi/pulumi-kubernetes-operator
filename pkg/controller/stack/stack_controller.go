@@ -461,16 +461,20 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	stack := instance.Spec
 	sess := newReconcileStackSession(reqLogger, stack, r.client, request.Namespace)
 
+	// Create a long-term working directory containing the home and workspace directories.
+	// The working directory is deleted during stack finalization.
+	// Any problem here is unexpected, and treated as a controller error.
+	_, err = sess.MakeRootDir(instance.GetNamespace(), instance.GetName())
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("unable to create root directory for stack: %w", err)
+	}
+
 	// We can exit early if there is no clean-up to do.
 	if isStackMarkedToBeDeleted && !stack.DestroyOnFinalize {
 		// We know `!(isStackMarkedToBeDeleted && !contains(finalizer))` from above, and now
 		// `isStackMarkedToBeDeleted`, implying `contains(finalizer)`; but this would be correct
 		// even if it's a no-op.
-		err := sess.removeFinalizerAndUpdate(ctx, instance)
-		if err != nil {
-			sess.logger.Error(err, "Failed to delete Pulumi finalizer", "Stack.Name", instance.Spec.Stack)
-		}
-		return reconcile.Result{}, err
+		return reconcile.Result{}, sess.finalize(ctx, instance)
 	}
 
 	// This makes sure the status reflects the outcome of reconcilation. Any non-error return means
@@ -579,18 +583,15 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return found
 	}
 
-	// Create the build working directory. Any problem here is unexpected, and treated as a
+	// Create the workspace directory. Any problem here is unexpected, and treated as a
 	// controller error.
-	workingDir, err := makeWorkingDir(instance)
+	_, err = sess.MakeWorkspaceDir()
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("unable to create tmp directory for workspace: %w", err)
 	}
-	sess.rootDir = workingDir
-	defer func() {
-		if workingDir != "" {
-			os.RemoveAll(workingDir)
-		}
-	}()
+
+	// Delete the workspace directory after the reconciliation is completed (regardless of success or failure).
+	defer sess.CleanupWorkspaceDir()
 
 	// Check which kind of source we have.
 
@@ -633,7 +634,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 		if currentCommit, err = sess.SetupWorkdirFromGitSource(ctx, gitAuth, gitSource); err != nil {
 			r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
-			reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
+			reqLogger.Error(err, "Failed to setup Pulumi workspace", "Stack.Name", stack.Stack)
 			r.markStackFailed(sess, instance, err, "", "")
 			if isStalledError(err) {
 				instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
@@ -683,7 +684,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		currentCommit, err = sess.SetupWorkdirFromFluxSource(ctx, sourceObject, fluxSource)
 		if err != nil {
 			r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
-			reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
+			reqLogger.Error(err, "Failed to setup Pulumi workspace", "Stack.Name", stack.Stack)
 			r.markStackFailed(sess, instance, err, "", "")
 			if isStalledError(err) {
 				instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
@@ -698,7 +699,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		programRef := stack.ProgramRef
 		if currentCommit, err = sess.SetupWorkdirFromYAML(ctx, *programRef); err != nil {
 			r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
-			reqLogger.Error(err, "Failed to setup Pulumi workdir", "Stack.Name", stack.Stack)
+			reqLogger.Error(err, "Failed to setup Pulumi workspace", "Stack.Name", stack.Stack)
 			r.markStackFailed(sess, instance, err, "", "")
 			if errors.Is(err, errProgramNotFound) {
 				instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
@@ -713,9 +714,6 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 			return reconcile.Result{Requeue: true}, nil
 		}
 	}
-
-	// Delete the temporary directory after the reconciliation is completed (regardless of success or failure).
-	defer sess.CleanupPulumiDir()
 
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
 	if err = sess.SetEnvs(ctx, stack.Envs, request.Namespace); err != nil {
@@ -959,8 +957,11 @@ func (sess *reconcileStackSession) finalize(ctx context.Context, stack *pulumiv1
 		sess.logger.Error(err, "Failed to run Pulumi finalizer", "Stack.Name", stack.Spec.Stack)
 		return err
 	}
-
-	return sess.removeFinalizerAndUpdate(ctx, stack)
+	if err := sess.removeFinalizerAndUpdate(ctx, stack); err != nil {
+		sess.logger.Error(err, "Failed to delete Pulumi finalizer", "Stack.Name", stack.Spec.Stack)
+		return err
+	}
+	return nil
 }
 
 // removeFinalizerAndUpdate makes sure this controller's finalizer is not present in the instance
@@ -988,6 +989,10 @@ func (sess *reconcileStackSession) finalizeStack(ctx context.Context) error {
 			return err
 		}
 	}
+
+	// Delete the root directory for this stack.
+	sess.cleanupRootDir()
+
 	sess.logger.Info("Successfully finalized stack")
 	return nil
 }
@@ -1220,27 +1225,76 @@ func (sess *reconcileStackSession) lookupPulumiAccessToken(ctx context.Context) 
 	return "", false
 }
 
-// Make a working directory for building the given stack. These are stable paths, so that (for one
+// Make a root directory for the given stack, containing the home and workspace directories.
+func (sess *reconcileStackSession) MakeRootDir(ns, name string) (string, error) {
+	rootDir := filepath.Join(os.TempDir(), buildDirectoryPrefix, ns, name)
+	sess.logger.Debug("Creating root dir for stack", "stack", sess.stack, "root", rootDir)
+	if err := os.MkdirAll(rootDir, 0700); err != nil {
+		return "", fmt.Errorf("error creating working dir: %w", err)
+	}
+	sess.rootDir = rootDir
+
+	homeDir := sess.getPulumiHome()
+	if err := os.MkdirAll(homeDir, 0700); err != nil {
+		return "", fmt.Errorf("error creating .pulumi dir: %w", err)
+	}
+	return rootDir, nil
+}
+
+// cleanupRootDir cleans the root directory that contains the Pulumi home and workspace directories.
+func (sess *reconcileStackSession) cleanupRootDir() {
+	if sess.rootDir == "" {
+		return
+	}
+	sess.logger.Debug("Cleaning up root dir for stack", "stack", sess.stack, "root", sess.rootDir)
+	if err := os.RemoveAll(sess.rootDir); err != nil {
+		sess.logger.Error(err, "Failed to delete temporary root dir: %s", sess.rootDir)
+	}
+	sess.rootDir = ""
+}
+
+// getPulumiHome returns the home directory (containing CLI artifacts such as plugins and credentials).
+func (sess *reconcileStackSession) getPulumiHome() string {
+	return filepath.Join(sess.rootDir, ".pulumi")
+}
+
+// Make a workspace directory for building the given stack. These are stable paths, so that (for one
 // thing) the go build cache does not treat new clones of the same repo as distinct files. Since a
 // stack is processed by at most one thread at a time, and stacks have unique qualified names, and
-// the directory is expected to be removed after processing, this won't cause collisions; but, we
-// check anyway, treating the existence of the build directory as a crude lock.
-func makeWorkingDir(s *pulumiv1.Stack) (_path string, _err error) {
-	path := filepath.Join(os.TempDir(), buildDirectoryPrefix, s.GetNamespace(), s.GetName())
-	_, err := os.Stat(path)
+// the workspace directory is expected to be removed after processing, this won't cause collisions; but, we
+// check anyway, treating the existence of the workspace directory as a crude lock.
+func (sess *reconcileStackSession) MakeWorkspaceDir() (string, error) {
+	workspaceDir := filepath.Join(sess.rootDir, "workspace")
+	_, err := os.Stat(workspaceDir)
 	switch {
 	case os.IsNotExist(err):
 		break
 	case err == nil:
-		return "", fmt.Errorf("expected build directory %q for stack not to exist already, but it does", path)
+		return "", fmt.Errorf("expected workspace directory %q for stack not to exist already, but it does", workspaceDir)
 	case err != nil:
-		return "", fmt.Errorf("error while checking for build directory: %w", err)
+		return "", fmt.Errorf("error while checking for workspace directory: %w", err)
 	}
+	if err := os.MkdirAll(workspaceDir, 0700); err != nil {
+		return "", fmt.Errorf("error creating workspace dir: %w", err)
+	}
+	return workspaceDir, nil
+}
 
-	if err = os.MkdirAll(path, 0700); err != nil {
-		return "", fmt.Errorf("error creating working dir: %w", err)
+// CleanupWorkspace cleans the Pulumi workspace directory, located within the root directory.
+func (sess *reconcileStackSession) CleanupWorkspaceDir() {
+	if sess.rootDir == "" {
+		return
 	}
-	return path, nil
+	workspaceDir := sess.getWorkspaceDir()
+	sess.logger.Debug("Cleaning up pulumi workspace for stack", "stack", sess.stack, "workspace", workspaceDir)
+	if err := os.RemoveAll(workspaceDir); err != nil {
+		sess.logger.Error(err, "Failed to delete workspace dir: %s", workspaceDir)
+	}
+}
+
+// getWorkspaceDir returns the workspace directory (containing the Pulumi project).
+func (sess *reconcileStackSession) getWorkspaceDir() string {
+	return filepath.Join(sess.rootDir, "workspace")
 }
 
 func (sess *reconcileStackSession) SetupWorkdirFromGitSource(ctx context.Context, gitAuth *auto.GitAuth, source *shared.GitSource) (string, error) {
@@ -1251,12 +1305,20 @@ func (sess *reconcileStackSession) SetupWorkdirFromGitSource(ctx context.Context
 		Branch:      source.Branch,
 		Auth:        gitAuth,
 	}
+	homeDir := sess.getPulumiHome()
+	workspaceDir := sess.getWorkspaceDir()
 
-	sess.logger.Debug("Setting up pulumi workdir for stack", "stack", sess.stack)
+	sess.logger.Debug("Setting up pulumi workspace for stack", "stack", sess.stack, "workspace", workspaceDir)
 	// Create a new workspace.
+
 	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
 
-	w, err := auto.NewLocalWorkspace(ctx, auto.WorkDir(sess.rootDir), auto.Repo(repo), secretsProvider)
+	w, err := auto.NewLocalWorkspace(
+		ctx,
+		auto.PulumiHome(homeDir),
+		auto.WorkDir(workspaceDir),
+		auto.Repo(repo),
+		secretsProvider)
 	if err != nil {
 		return "", fmt.Errorf("failed to create local workspace: %w", err)
 	}
@@ -1277,10 +1339,11 @@ type ProjectFile struct {
 }
 
 func (sess *reconcileStackSession) SetupWorkdirFromYAML(ctx context.Context, programRef shared.ProgramReference) (string, error) {
-	sess.logger.Debug("Setting up pulumi workdir for stack", "stack", sess.stack)
+	homeDir := sess.getPulumiHome()
+	workspaceDir := sess.getWorkspaceDir()
+	sess.logger.Debug("Setting up pulumi workspace for stack", "stack", sess.stack, "workspace", workspaceDir)
 
 	// Create a new workspace.
-
 	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
 
 	program := pulumiv1.Program{}
@@ -1304,13 +1367,17 @@ func (sess *reconcileStackSession) SetupWorkdirFromYAML(ctx context.Context, pro
 		return "", fmt.Errorf("failed to marshal program object to YAML: %w", err)
 	}
 
-	err = os.WriteFile(filepath.Join(sess.rootDir, "Pulumi.yaml"), out, 0600)
+	err = os.WriteFile(filepath.Join(workspaceDir, "Pulumi.yaml"), out, 0600)
 	if err != nil {
 		return "", fmt.Errorf("failed to write YAML to file: %w", err)
 	}
 
 	var w auto.Workspace
-	w, err = auto.NewLocalWorkspace(ctx, auto.WorkDir(sess.rootDir), secretsProvider)
+	w, err = auto.NewLocalWorkspace(
+		ctx,
+		auto.PulumiHome(homeDir),
+		auto.WorkDir(workspaceDir),
+		secretsProvider)
 	if err != nil {
 		return "", fmt.Errorf("failed to create local workspace: %w", err)
 	}
@@ -1405,14 +1472,6 @@ func (sess *reconcileStackSession) ensureStackSettings(ctx context.Context, w au
 		return fmt.Errorf("failed to save stack settings: %w", err)
 	}
 	return nil
-}
-
-func (sess *reconcileStackSession) CleanupPulumiDir() {
-	if sess.rootDir != "" {
-		if err := os.RemoveAll(sess.rootDir); err != nil {
-			sess.logger.Error(err, "Failed to delete temporary root dir: %s", sess.rootDir)
-		}
-	}
 }
 
 // Determine the actual commit information from the working directory (Spec commit etc. is optional).

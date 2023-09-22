@@ -21,6 +21,9 @@ const maxArtifactDownloadSize = 50 * 1024 * 1024
 func (sess *reconcileStackSession) SetupWorkdirFromFluxSource(ctx context.Context, source unstructured.Unstructured, fluxSource *shared.FluxSource) (string, error) {
 	// this source artifact fetching code is based closely on
 	// https://github.com/fluxcd/kustomize-controller/blob/db3c321163522259595894ca6c19ed44a876976d/controllers/kustomization_controller.go#L529
+	homeDir := sess.getPulumiHome()
+	workspaceDir := sess.getWorkspaceDir()
+	sess.logger.Debug("Setting up pulumi workspace for stack", "stack", sess.stack, "workspace", workspaceDir)
 
 	artifactURL, err := getArtifactField(source, "url")
 	if err != nil {
@@ -43,14 +46,16 @@ func (sess *reconcileStackSession) SetupWorkdirFromFluxSource(ctx context.Contex
 	}
 
 	fetcher := fetch.NewArchiveFetcher(1, maxArtifactDownloadSize, maxArtifactDownloadSize*10, "")
-	if err = fetcher.Fetch(artifactURL, digest, sess.rootDir); err != nil {
+	if err = fetcher.Fetch(artifactURL, digest, workspaceDir); err != nil {
 		return "", fmt.Errorf("failed to get artifact from source: %w", err)
 	}
 
-	// woo! now there's a directory with source in `rootdir`. Construct a workspace.
-
 	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
-	w, err := auto.NewLocalWorkspace(ctx, auto.WorkDir(filepath.Join(sess.rootDir, fluxSource.Dir)), secretsProvider)
+	w, err := auto.NewLocalWorkspace(
+		ctx,
+		auto.PulumiHome(homeDir),
+		auto.WorkDir(filepath.Join(workspaceDir, fluxSource.Dir)),
+		secretsProvider)
 	if err != nil {
 		return "", fmt.Errorf("failed to create local workspace: %w", err)
 	}
