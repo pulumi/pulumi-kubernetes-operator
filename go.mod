@@ -1,6 +1,6 @@
 module github.com/pulumi/pulumi-kubernetes-operator
 
-go 1.19
+go 1.21
 
 require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
