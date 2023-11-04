@@ -45,7 +45,7 @@ type StackSpec struct {
 	Stack string `json:"stack"`
 	// (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, configuration is assumed to be checked in and taken from the source repository.
-	Config map[string]string `json:"config,omitempty"`
+	Config map[string]apiextensionsv1.JSON `json:"config,omitempty"`
 	// (optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
 	// Deprecated: use SecretRefs instead.

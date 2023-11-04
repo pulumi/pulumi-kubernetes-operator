@@ -249,8 +249,8 @@ var _ = Describe("Stack Controller", func() {
 					pulumiAWSSecret.Name,
 				},
 				EnvRefs: defaultEnvRefs(),
-				Config: map[string]string{
-					"aws:region": "us-east-2",
+				Config: map[string]v1.JSON{
+					"aws:region": {Raw: []byte("us-east-2")},
 				},
 				GitSource: &shared.GitSource{
 					ProjectRepo: baseDir,
@@ -276,7 +276,7 @@ var _ = Describe("Stack Controller", func() {
 			}, stackExecTimeout, interval).Should(BeTrue())
 
 			By("changing the region config item to an invalid value")
-			original.Spec.Config["aws:region"] = "us-nonexistent-1"
+			original.Spec.Config["aws:region"] = v1.JSON{Raw: []byte("us-nonexistent-1")}
 			Expect(k8sClient.Update(ctx, original)).Should(Succeed(), "%+v", original)
 
 			// Check that the stack tried to update but failed
@@ -295,7 +295,7 @@ var _ = Describe("Stack Controller", func() {
 			}, stackExecTimeout, interval).Should(BeTrue(), "the stack reaches a failed state")
 
 			By("restoring a valid value for the region config item")
-			updated.Spec.Config["aws:region"] = "us-east-2"
+			updated.Spec.Config["aws:region"] = v1.JSON{Raw: []byte("us-east-2")}
 			Expect(k8sClient.Update(ctx, updated)).To(Succeed())
 
 			// Check that the stack update attempted and succeeded after the region fix
@@ -326,8 +326,8 @@ var _ = Describe("Stack Controller", func() {
 					"AWS_SECRET_ACCESS_KEY": shared.NewSecretResourceRef(namespace, pulumiAWSSecret.Name, "AWS_SECRET_ACCESS_KEY"),
 					"AWS_SESSION_TOKEN":     shared.NewEnvResourceRef("AWS_SESSION_TOKEN"),
 				},
-				Config: map[string]string{
-					"aws:region": "us-east-2",
+				Config: map[string]v1.JSON{
+					"aws:region": {Raw: []byte("us-east-2")},
 				},
 				GitSource: &shared.GitSource{
 					ProjectRepo: baseDir,
@@ -402,8 +402,8 @@ var _ = Describe("Stack Controller", func() {
 				},
 				Backend:         fmt.Sprintf(`s3://%s`, s3Backend),
 				SecretsProvider: fmt.Sprintf(`awskms:///%s?region=us-east-2`, kmsKey),
-				Config: map[string]string{
-					"aws:region": "us-east-2",
+				Config: map[string]v1.JSON{
+					"aws:region": {Raw: []byte("us-east-2")},
 				},
 				Refresh: true,
 				Stack:   stackName,

@@ -1556,20 +1556,23 @@ func (sess *reconcileStackSession) InstallProjectDependencies(ctx context.Contex
 }
 
 func (sess *reconcileStackSession) UpdateConfig(ctx context.Context) error {
-	m := make(auto.ConfigMap)
-	for k, v := range sess.stack.Config {
-		m[k] = auto.ConfigValue{
-			Value:  v,
-			Secret: false,
-		}
+	configValues, err := JsonConfig(sess.stack.Config).Unmarshal()
+	if err != nil {
+		return err
 	}
+	for _, v := range configValues {
+		sess.autoStack.SetConfigWithOptions(ctx, v.Key, v.Value, &auto.ConfigOptions{
+			Path: true,
+		})
+	}
+
+	m := make(auto.ConfigMap)
 	for k, v := range sess.stack.Secrets {
 		m[k] = auto.ConfigValue{
 			Value:  v,
 			Secret: true,
 		}
 	}
-
 	for k, ref := range sess.stack.SecretRefs {
 		resolved, err := sess.resolveResourceRef(ctx, &ref)
 		if err != nil {
