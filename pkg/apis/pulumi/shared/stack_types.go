@@ -46,11 +46,13 @@ type StackSpec struct {
 	// (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, configuration is assumed to be checked in and taken from the source repository.
 	Config map[string]apiextensionsv1.JSON `json:"config,omitempty"`
+	// (optional) ConfigRefs is the configuration for this stack, which can be specified through ConfigRef.
+	// is omitted, configuration is assumed to be checked in and taken from the source repository.
+	ConfigRefs map[string]ConfigRef `json:"configsRef,omitempty"`
 	// (optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
 	// Deprecated: use SecretRefs instead.
 	Secrets map[string]string `json:"secrets,omitempty"`
-
 	// (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef.
 	// If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
 	SecretRefs map[string]ResourceRef `json:"secretsRef,omitempty"`
@@ -230,9 +232,30 @@ type FluxSourceReference struct {
 // strings are currently supported.
 type ResourceRef struct {
 	// SelectorType is required and signifies the type of selector. Must be one of:
-	// Env, FS, Secret, Literal
+	// Env, FS, Secret, ConfigMap, Literal
 	SelectorType     ResourceSelectorType `json:"type"`
 	ResourceSelector `json:",inline"`
+}
+
+// ConfigRef identifies a resource from which config information can be loaded.
+// Environment variables, files on the filesystem, Kubernetes Secrets, ConfigMap, structured and config literal values
+// strings are currently supported.
+type ConfigRef struct {
+	// SelectorType is required and signifies the type of selector. Must be one of:
+	// Env, FS, Secret, ConfigMap, Structured, Literal
+	SelectorType           ConfigResourceSelectorType `json:"type"`
+	ConfigResourceSelector `json:",inline"`
+}
+
+// ConfigResourceSelector is a union over resource config selectors supporting one of
+// filesystem, environment variable, Kubernetes Secret, Kubernetes ConfigMaps, a structured value and literal values.
+type ConfigResourceSelector struct {
+	ResourceSelector `json:",inline"`
+
+	// ConfigMapRef refers to a Kubernetes ConfigMap
+	ConfigMapRef *ConfigMapSelector `json:"configmap,omitempty"`
+	// StructuredRef refers to a structured value
+	StructuredRef *StructuredRef `json:"structured,omitempty"`
 }
 
 type ProgramReference struct {
@@ -304,6 +327,16 @@ const (
 	ResourceSelectorLiteral = ResourceSelectorType("Literal")
 )
 
+// ConfigResourceSelectorType identifies the type of the resource reference in
+type ConfigResourceSelectorType string
+
+const (
+	// ConfigSelectorStructured indicates the resource is a Kubernetes ConfigMap
+	ConfigResourceSelectorConfigMap = ConfigResourceSelectorType("ConfigMap")
+	// ConfigResourceSelectorStructured indicates the resource is a structured
+	ConfigResourceSelectorStructured = ConfigResourceSelectorType("Structured")
+)
+
 // ResourceSelector is a union over resource selectors supporting one of
 // filesystem, environment variable, Kubernetes Secret and literal values.
 type ResourceSelector struct {
@@ -338,6 +371,23 @@ type SecretSelector struct {
 	Name string `json:"name"`
 	// Key within the Secret to use.
 	Key string `json:"key"`
+}
+
+// ConfigMapSelector identifies the information to load from a Kubernetes ConfigMap.
+type ConfigMapSelector struct {
+	// Namespace where the ConfigMap is stored. Deprecated; non-empty values will be considered invalid
+	// unless namespace isolation is disabled in the controller.
+	Namespace string `json:"namespace,omitempty"`
+	// Name of the ConfigMap
+	Name string `json:"name"`
+	// Key within the ConfigMap to use.
+	Key string `json:"key"`
+}
+
+// StructuredRef identifies a structured value to load.
+type StructuredRef struct {
+	// Value to load
+	Value apiextensionsv1.JSON `json:"value"`
 }
 
 // LiteralRef identifies a literal value to load.

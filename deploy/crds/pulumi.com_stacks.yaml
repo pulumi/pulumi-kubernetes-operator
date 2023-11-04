@@ -80,6 +80,100 @@ spec:
                   which can be optionally specified inline. If this is omitted, configuration
                   is assumed to be checked in and taken from the source repository.
                 type: object
+              configsRef:
+                additionalProperties:
+                  description: ConfigRef identifies a resource from which config information
+                    can be loaded. Environment variables, files on the filesystem,
+                    Kubernetes Secrets, ConfigMap, structured and config literal values
+                    strings are currently supported.
+                  properties:
+                    configmap:
+                      description: ConfigMapRef refers to a Kubernetes ConfigMap
+                      properties:
+                        key:
+                          description: Key within the ConfigMap to use.
+                          type: string
+                        name:
+                          description: Name of the ConfigMap
+                          type: string
+                        namespace:
+                          description: Namespace where the ConfigMap is stored. Deprecated;
+                            non-empty values will be considered invalid unless namespace
+                            isolation is disabled in the controller.
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                    env:
+                      description: Env selects an environment variable set on the
+                        operator process
+                      properties:
+                        name:
+                          description: Name of the environment variable
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    filesystem:
+                      description: FileSystem selects a file on the operator's file
+                        system
+                      properties:
+                        path:
+                          description: Path on the filesystem to use to load information
+                            from.
+                          type: string
+                      required:
+                      - path
+                      type: object
+                    literal:
+                      description: LiteralRef refers to a literal value
+                      properties:
+                        value:
+                          description: Value to load
+                          type: string
+                      required:
+                      - value
+                      type: object
+                    secret:
+                      description: SecretRef refers to a Kubernetes Secret
+                      properties:
+                        key:
+                          description: Key within the Secret to use.
+                          type: string
+                        name:
+                          description: Name of the Secret
+                          type: string
+                        namespace:
+                          description: Namespace where the Secret is stored. Deprecated;
+                            non-empty values will be considered invalid unless namespace
+                            isolation is disabled in the controller.
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                    structured:
+                      description: StructuredRef refers to a structured value
+                      properties:
+                        value:
+                          description: Value to load
+                          x-kubernetes-preserve-unknown-fields: true
+                      required:
+                      - value
+                      type: object
+                    type:
+                      description: 'SelectorType is required and signifies the type
+                        of selector. Must be one of: Env, FS, Secret, ConfigMap, Structured,
+                        Literal'
+                      type: string
+                  required:
+                  - type
+                  type: object
+                description: (optional) ConfigRefs is the configuration for this stack,
+                  which can be specified through ConfigRef. is omitted, configuration
+                  is assumed to be checked in and taken from the source repository.
+                type: object
               continueResyncOnCommitMatch:
                 description: (optional) ContinueResyncOnCommitMatch - when true -
                   informs the operator to continue trying to update stacks even if
@@ -150,7 +244,7 @@ spec:
                       type: object
                     type:
                       description: 'SelectorType is required and signifies the type
-                        of selector. Must be one of: Env, FS, Secret, Literal'
+                        of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal'
                       type: string
                   required:
                   - type
@@ -269,7 +363,8 @@ spec:
                         type: object
                       type:
                         description: 'SelectorType is required and signifies the type
-                          of selector. Must be one of: Env, FS, Secret, Literal'
+                          of selector. Must be one of: Env, FS, Secret, ConfigMap,
+                          Literal'
                         type: string
                     required:
                     - type
@@ -336,7 +431,8 @@ spec:
                             type: object
                           type:
                             description: 'SelectorType is required and signifies the
-                              type of selector. Must be one of: Env, FS, Secret, Literal'
+                              type of selector. Must be one of: Env, FS, Secret, ConfigMap,
+                              Literal'
                             type: string
                         required:
                         - type
@@ -398,7 +494,8 @@ spec:
                             type: object
                           type:
                             description: 'SelectorType is required and signifies the
-                              type of selector. Must be one of: Env, FS, Secret, Literal'
+                              type of selector. Must be one of: Env, FS, Secret, ConfigMap,
+                              Literal'
                             type: string
                         required:
                         - type
@@ -468,7 +565,8 @@ spec:
                             type: object
                           type:
                             description: 'SelectorType is required and signifies the
-                              type of selector. Must be one of: Env, FS, Secret, Literal'
+                              type of selector. Must be one of: Env, FS, Secret, ConfigMap,
+                              Literal'
                             type: string
                         required:
                         - type
@@ -530,7 +628,8 @@ spec:
                             type: object
                           type:
                             description: 'SelectorType is required and signifies the
-                              type of selector. Must be one of: Env, FS, Secret, Literal'
+                              type of selector. Must be one of: Env, FS, Secret, ConfigMap,
+                              Literal'
                             type: string
                         required:
                         - type
@@ -691,7 +790,7 @@ spec:
                       type: object
                     type:
                       description: 'SelectorType is required and signifies the type
-                        of selector. Must be one of: Env, FS, Secret, Literal'
+                        of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal'
                       type: string
                   required:
                   - type
@@ -898,6 +997,100 @@ spec:
                   which can be optionally specified inline. If this is omitted, configuration
                   is assumed to be checked in and taken from the source repository.
                 type: object
+              configsRef:
+                additionalProperties:
+                  description: ConfigRef identifies a resource from which config information
+                    can be loaded. Environment variables, files on the filesystem,
+                    Kubernetes Secrets, ConfigMap, structured and config literal values
+                    strings are currently supported.
+                  properties:
+                    configmap:
+                      description: ConfigMapRef refers to a Kubernetes ConfigMap
+                      properties:
+                        key:
+                          description: Key within the ConfigMap to use.
+                          type: string
+                        name:
+                          description: Name of the ConfigMap
+                          type: string
+                        namespace:
+                          description: Namespace where the ConfigMap is stored. Deprecated;
+                            non-empty values will be considered invalid unless namespace
+                            isolation is disabled in the controller.
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                    env:
+                      description: Env selects an environment variable set on the
+                        operator process
+                      properties:
+                        name:
+                          description: Name of the environment variable
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    filesystem:
+                      description: FileSystem selects a file on the operator's file
+                        system
+                      properties:
+                        path:
+                          description: Path on the filesystem to use to load information
+                            from.
+                          type: string
+                      required:
+                      - path
+                      type: object
+                    literal:
+                      description: LiteralRef refers to a literal value
+                      properties:
+                        value:
+                          description: Value to load
+                          type: string
+                      required:
+                      - value
+                      type: object
+                    secret:
+                      description: SecretRef refers to a Kubernetes Secret
+                      properties:
+                        key:
+                          description: Key within the Secret to use.
+                          type: string
+                        name:
+                          description: Name of the Secret
+                          type: string
+                        namespace:
+                          description: Namespace where the Secret is stored. Deprecated;
+                            non-empty values will be considered invalid unless namespace
+                            isolation is disabled in the controller.
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                    structured:
+                      description: StructuredRef refers to a structured value
+                      properties:
+                        value:
+                          description: Value to load
+                          x-kubernetes-preserve-unknown-fields: true
+                      required:
+                      - value
+                      type: object
+                    type:
+                      description: 'SelectorType is required and signifies the type
+                        of selector. Must be one of: Env, FS, Secret, ConfigMap, Structured,
+                        Literal'
+                      type: string
+                  required:
+                  - type
+                  type: object
+                description: (optional) ConfigRefs is the configuration for this stack,
+                  which can be specified through ConfigRef. is omitted, configuration
+                  is assumed to be checked in and taken from the source repository.
+                type: object
               continueResyncOnCommitMatch:
                 description: (optional) ContinueResyncOnCommitMatch - when true -
                   informs the operator to continue trying to update stacks even if
@@ -968,7 +1161,7 @@ spec:
                       type: object
                     type:
                       description: 'SelectorType is required and signifies the type
-                        of selector. Must be one of: Env, FS, Secret, Literal'
+                        of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal'
                       type: string
                   required:
                   - type
@@ -1087,7 +1280,8 @@ spec:
                         type: object
                       type:
                         description: 'SelectorType is required and signifies the type
-                          of selector. Must be one of: Env, FS, Secret, Literal'
+                          of selector. Must be one of: Env, FS, Secret, ConfigMap,
+                          Literal'
                         type: string
                     required:
                     - type
@@ -1154,7 +1348,8 @@ spec:
                             type: object
                           type:
                             description: 'SelectorType is required and signifies the
-                              type of selector. Must be one of: Env, FS, Secret, Literal'
+                              type of selector. Must be one of: Env, FS, Secret, ConfigMap,
+                              Literal'
                             type: string
                         required:
                         - type
@@ -1216,7 +1411,8 @@ spec:
                             type: object
                           type:
                             description: 'SelectorType is required and signifies the
-                              type of selector. Must be one of: Env, FS, Secret, Literal'
+                              type of selector. Must be one of: Env, FS, Secret, ConfigMap,
+                              Literal'
                             type: string
                         required:
                         - type
@@ -1286,7 +1482,8 @@ spec:
                             type: object
                           type:
                             description: 'SelectorType is required and signifies the
-                              type of selector. Must be one of: Env, FS, Secret, Literal'
+                              type of selector. Must be one of: Env, FS, Secret, ConfigMap,
+                              Literal'
                             type: string
                         required:
                         - type
@@ -1348,7 +1545,8 @@ spec:
                             type: object
                           type:
                             description: 'SelectorType is required and signifies the
-                              type of selector. Must be one of: Env, FS, Secret, Literal'
+                              type of selector. Must be one of: Env, FS, Secret, ConfigMap,
+                              Literal'
                             type: string
                         required:
                         - type
@@ -1509,7 +1707,7 @@ spec:
                       type: object
                     type:
                       description: 'SelectorType is required and signifies the type
-                        of selector. Must be one of: Env, FS, Secret, Literal'
+                        of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal'
                       type: string
                   required:
                   - type
