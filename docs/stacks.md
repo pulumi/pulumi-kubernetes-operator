@@ -127,6 +127,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#stackspecconfigsrefkey">configsRef</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          (optional) ConfigRefs is the configuration for this stack, which can be specified through ConfigRef. is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>continueResyncOnCommitMatch</b></td>
         <td>boolean</td>
         <td>
@@ -279,6 +286,265 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
 </table>
 
 
+### Stack.spec.configsRef[key]
+<sup><sup>[↩ Parent](#stackspec)</sup></sup>
+
+
+
+ConfigRef identifies a resource from which config information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets, ConfigMap, structured and config literal values strings are currently supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Structured, Literal<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigsrefkeyconfigmap">configmap</a></b></td>
+        <td>object</td>
+        <td>
+          ConfigMapRef refers to a Kubernetes ConfigMap<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigsrefkeyenv">env</a></b></td>
+        <td>object</td>
+        <td>
+          Env selects an environment variable set on the operator process<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigsrefkeyfilesystem">filesystem</a></b></td>
+        <td>object</td>
+        <td>
+          FileSystem selects a file on the operator's file system<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigsrefkeyliteral">literal</a></b></td>
+        <td>object</td>
+        <td>
+          LiteralRef refers to a literal value<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigsrefkeysecret">secret</a></b></td>
+        <td>object</td>
+        <td>
+          SecretRef refers to a Kubernetes Secret<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigsrefkeystructured">structured</a></b></td>
+        <td>object</td>
+        <td>
+          StructuredRef refers to a structured value<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configsRef[key].configmap
+<sup><sup>[↩ Parent](#stackspecconfigsrefkey)</sup></sup>
+
+
+
+ConfigMapRef refers to a Kubernetes ConfigMap
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the ConfigMap to use.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the ConfigMap<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace where the ConfigMap is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configsRef[key].env
+<sup><sup>[↩ Parent](#stackspecconfigsrefkey)</sup></sup>
+
+
+
+Env selects an environment variable set on the operator process
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the environment variable<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configsRef[key].filesystem
+<sup><sup>[↩ Parent](#stackspecconfigsrefkey)</sup></sup>
+
+
+
+FileSystem selects a file on the operator's file system
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Path on the filesystem to use to load information from.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configsRef[key].literal
+<sup><sup>[↩ Parent](#stackspecconfigsrefkey)</sup></sup>
+
+
+
+LiteralRef refers to a literal value
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>value</b></td>
+        <td>string</td>
+        <td>
+          Value to load<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configsRef[key].secret
+<sup><sup>[↩ Parent](#stackspecconfigsrefkey)</sup></sup>
+
+
+
+SecretRef refers to a Kubernetes Secret
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the Secret to use.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the Secret<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configsRef[key].structured
+<sup><sup>[↩ Parent](#stackspecconfigsrefkey)</sup></sup>
+
+
+
+StructuredRef refers to a structured value
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>value</b></td>
+        <td>JSON</td>
+        <td>
+          Value to load<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.envRefs[key]
 <sup><sup>[↩ Parent](#stackspec)</sup></sup>
 
@@ -299,7 +565,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -592,7 +858,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -803,7 +1069,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -980,7 +1246,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1191,7 +1457,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1368,7 +1634,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1633,7 +1899,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -2095,6 +2361,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#stackspecconfigsrefkey-1">configsRef</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          (optional) ConfigRefs is the configuration for this stack, which can be specified through ConfigRef. is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>continueResyncOnCommitMatch</b></td>
         <td>boolean</td>
         <td>
@@ -2247,6 +2520,265 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
 </table>
 
 
+### Stack.spec.configsRef[key]
+<sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
+
+
+
+ConfigRef identifies a resource from which config information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets, ConfigMap, structured and config literal values strings are currently supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Structured, Literal<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigsrefkeyconfigmap-1">configmap</a></b></td>
+        <td>object</td>
+        <td>
+          ConfigMapRef refers to a Kubernetes ConfigMap<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigsrefkeyenv-1">env</a></b></td>
+        <td>object</td>
+        <td>
+          Env selects an environment variable set on the operator process<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigsrefkeyfilesystem-1">filesystem</a></b></td>
+        <td>object</td>
+        <td>
+          FileSystem selects a file on the operator's file system<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigsrefkeyliteral-1">literal</a></b></td>
+        <td>object</td>
+        <td>
+          LiteralRef refers to a literal value<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigsrefkeysecret-1">secret</a></b></td>
+        <td>object</td>
+        <td>
+          SecretRef refers to a Kubernetes Secret<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigsrefkeystructured-1">structured</a></b></td>
+        <td>object</td>
+        <td>
+          StructuredRef refers to a structured value<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configsRef[key].configmap
+<sup><sup>[↩ Parent](#stackspecconfigsrefkey-1)</sup></sup>
+
+
+
+ConfigMapRef refers to a Kubernetes ConfigMap
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the ConfigMap to use.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the ConfigMap<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace where the ConfigMap is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configsRef[key].env
+<sup><sup>[↩ Parent](#stackspecconfigsrefkey-1)</sup></sup>
+
+
+
+Env selects an environment variable set on the operator process
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the environment variable<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configsRef[key].filesystem
+<sup><sup>[↩ Parent](#stackspecconfigsrefkey-1)</sup></sup>
+
+
+
+FileSystem selects a file on the operator's file system
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Path on the filesystem to use to load information from.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configsRef[key].literal
+<sup><sup>[↩ Parent](#stackspecconfigsrefkey-1)</sup></sup>
+
+
+
+LiteralRef refers to a literal value
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>value</b></td>
+        <td>string</td>
+        <td>
+          Value to load<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configsRef[key].secret
+<sup><sup>[↩ Parent](#stackspecconfigsrefkey-1)</sup></sup>
+
+
+
+SecretRef refers to a Kubernetes Secret
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the Secret to use.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the Secret<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configsRef[key].structured
+<sup><sup>[↩ Parent](#stackspecconfigsrefkey-1)</sup></sup>
+
+
+
+StructuredRef refers to a structured value
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>value</b></td>
+        <td>JSON</td>
+        <td>
+          Value to load<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.envRefs[key]
 <sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
 
@@ -2267,7 +2799,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -2560,7 +3092,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -2771,7 +3303,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -2948,7 +3480,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -3159,7 +3691,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -3336,7 +3868,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -3601,7 +4133,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>

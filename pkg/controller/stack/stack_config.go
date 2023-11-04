@@ -3,7 +3,6 @@ package stack
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strconv"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -32,10 +31,6 @@ func (c JsonConfig) Unmarshal() ([]ConfigKeyValue, error) {
 			},
 		})
 	}
-
-	sort.Slice(configValues, func(i, j int) bool {
-		return configValues[i].Key < configValues[j].Key
-	})
 
 	return configValues, nil
 }
