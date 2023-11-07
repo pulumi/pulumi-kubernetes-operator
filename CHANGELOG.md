@@ -5,6 +5,7 @@ CHANGELOG
 - Changed indentation in deploy/helm/pulumi-operator/templates/deployment.yaml for volumes and volumeMounts.
 - Use a separate PULUMI_HOME for each stack. [#490](https://github.com/pulumi/pulumi-kubernetes-operator/pull/490)
 - Use Go v1.21 for builds. [#504](https://github.com/pulumi/pulumi-kubernetes-operator/pull/504)
+- Update pulumi/pulumi to v3.92.0 [#517](https://github.com/pulumi/pulumi-kubernetes-operator/pull/517)
 
 ## 1.13.0 (2023-08-04)
 - Use digest field for Flux source artifact if present [#459](https://github.com/pulumi/pulumi-kubernetes-operator/pull/459)
