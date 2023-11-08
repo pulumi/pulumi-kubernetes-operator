@@ -2,6 +2,8 @@ CHANGELOG
 =========
 
 ## HEAD (unreleased)
+
+## 1.14.0 (2023-11-08)
 - Changed indentation in deploy/helm/pulumi-operator/templates/deployment.yaml for volumes and volumeMounts.
 - Use a separate PULUMI_HOME for each stack. [#490](https://github.com/pulumi/pulumi-kubernetes-operator/pull/490)
 - Use Go v1.21 for builds. [#504](https://github.com/pulumi/pulumi-kubernetes-operator/pull/504)
