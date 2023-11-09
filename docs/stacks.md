@@ -197,6 +197,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>preserveWorkingDirectory</b></td>
+        <td>boolean</td>
+        <td>
+          (optional) PreserveWorkingDirectory can be set to true to preserve working directory between reconciliations<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecprogramref">programRef</a></b></td>
         <td>object</td>
         <td>
@@ -2162,6 +2169,13 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td>[]object</td>
         <td>
           (optional) Prerequisites is a list of references to other stacks, each with a constraint on how long ago it must have succeeded. This can be used to make sure e.g., state is re-evaluated before running a stack that depends on it.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>preserveWorkingDirectory</b></td>
+        <td>boolean</td>
+        <td>
+          (optional) PreserveWorkingDirectory can be set to true to preserve working directory between reconciliations<br/>
         </td>
         <td>false</td>
       </tr><tr>

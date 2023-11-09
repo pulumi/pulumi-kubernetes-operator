@@ -591,7 +591,9 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 	}
 
 	// Delete the workspace directory after the reconciliation is completed (regardless of success or failure).
-	defer sess.CleanupWorkspaceDir()
+	if !sess.stack.PreserveWorkingDirectory {
+		defer sess.CleanupWorkspaceDir()
+	}
 
 	// Check which kind of source we have.
 
