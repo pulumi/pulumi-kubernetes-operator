@@ -24,6 +24,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
+        name: {{ template "pulumi-kubernetes-operator.name" . }}
         app: {{ template "pulumi-kubernetes-operator.name" . }}
         release: {{ .Release.Name }}
       {{- include "pulumi-kubernetes-operator.selectorLabels" . | nindent 8 }}
