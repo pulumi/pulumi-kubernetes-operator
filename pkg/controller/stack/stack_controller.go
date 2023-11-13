@@ -585,7 +585,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 
 	// Create the workspace directory. Any problem here is unexpected, and treated as a
 	// controller error.
-	_, err = sess.MakeWorkspaceDir()
+	_, err = sess.MakeWorkspaceDir(sess.stack.PreserveWorkingDirectory)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("unable to create tmp directory for workspace: %w", err)
 	}
@@ -1265,13 +1265,13 @@ func (sess *reconcileStackSession) getPulumiHome() string {
 // stack is processed by at most one thread at a time, and stacks have unique qualified names, and
 // the workspace directory is expected to be removed after processing, this won't cause collisions; but, we
 // check anyway, treating the existence of the workspace directory as a crude lock.
-func (sess *reconcileStackSession) MakeWorkspaceDir() (string, error) {
+func (sess *reconcileStackSession) MakeWorkspaceDir(preserveWorkingDirectory bool) (string, error) {
 	workspaceDir := filepath.Join(sess.rootDir, "workspace")
 	_, err := os.Stat(workspaceDir)
 	switch {
 	case os.IsNotExist(err):
 		break
-	case err == nil:
+	case err == nil && !preserveWorkingDirectory:
 		return "", fmt.Errorf("expected workspace directory %q for stack not to exist already, but it does", workspaceDir)
 	case err != nil:
 		return "", fmt.Errorf("error while checking for workspace directory: %w", err)
