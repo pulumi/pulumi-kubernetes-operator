@@ -82,7 +82,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | podSecurityContext.fsGroup | int | `1000` | pulumi-kubernetes-operator group is 1000 |
 | podSecurityContext.runAsUser | int | `1000` | pulumi-kubernetes-operator user is 1000 |
 | replicaCount | int | `1` | Specifies the replica count for the deployment |
-| terminationGracePeriodSeconds | int | `` | Specifies termination grace period |
+| terminationGracePeriodSeconds | int | `300` | Specifies termination grace period |
 | resources | object | `{"limits":{"cpu":"500m","memory":"5123Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | CPU/Memory resource requests/limits |
 | securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":10003,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security Context see [values.yaml](values.yaml) |
 | serviceAccount.annotations | object | `{}` | Additional ServiceAccount annotations |
