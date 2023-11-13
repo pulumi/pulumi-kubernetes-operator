@@ -25,7 +25,7 @@ maintainers:
 annotations:
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/changes: |
-    - Added "name" label with pulumi-kubernetes-operator.name value to pulumi-kubernetes-operator Deployment at ReplicaSet level.
+    - Added "name" label with pulumi-kubernetes-operator.name value to pulumi-kubernetes-operator Deployment at ReplicaSet level. (#519)
   artifacthub.io/images: |
     - name: pulumi-kubernetes-operator
       image: docker.io/pulumi-kubernetes-operator:v1.13.0
