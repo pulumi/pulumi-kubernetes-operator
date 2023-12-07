@@ -15,7 +15,7 @@ require (
 	github.com/prometheus/client_golang v1.11.1
 	github.com/prometheus/common v0.30.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
-	github.com/pulumi/pulumi/sdk/v3 v3.94.2
+	github.com/pulumi/pulumi/sdk/v3 v3.95.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.4
 	github.com/whilp/git-urls v1.0.0
@@ -112,10 +112,12 @@ require (
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/opentracing/basictracer-go v1.1.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
+	github.com/pgavlin/fx v0.1.6 // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pkg/term v1.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
+	github.com/pulumi/appdash v0.0.0-20231130102013-538fec2a741d // indirect
 	github.com/pulumi/esc v0.5.6 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
@@ -159,7 +161,6 @@ require (
 	k8s.io/kube-state-metrics v1.7.2 // indirect
 	lukechampine.com/frand v1.4.2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.1.0 // indirect
-	sourcegraph.com/sourcegraph/appdash v0.0.0-20211028080628-e2786a622600 // indirect
 )
 
 replace (
