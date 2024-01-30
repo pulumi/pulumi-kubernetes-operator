@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	git "github.com/go-git/go-git/v5"
 	"github.com/operator-framework/operator-lib/handler"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
@@ -30,7 +31,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 	giturls "github.com/whilp/git-urls"
-	git "gopkg.in/src-d/go-git.v4"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
