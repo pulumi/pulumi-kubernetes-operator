@@ -41,7 +41,7 @@ jobs:
           make dep-tidy
           git update-index -q --refresh
           if ! git diff-files --quiet; then
-            echo ::set-output name=changes::1
+            echo changes=1 >> "$GITHUB_OUTPUT"
           fi
       - name: Build codegen + Schema + SDKs
         if: steps.gomod.outputs.changes != 0
