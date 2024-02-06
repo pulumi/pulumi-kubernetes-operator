@@ -90,7 +90,6 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- end }}
-      {{- if .Values.initContainers  }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -103,6 +102,7 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if .Values.initContainers  }}
       initContainers:
       {{- with .Values.initContainers }}
         {{- toYaml . | nindent 6 }}
