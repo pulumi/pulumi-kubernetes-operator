@@ -1262,7 +1262,8 @@ func (sess *reconcileStackSession) getPulumiHome() string {
 // thing) the go build cache does not treat new clones of the same repo as distinct files. Since a
 // stack is processed by at most one thread at a time, and stacks have unique qualified names, and
 // the workspace directory is expected to be removed after processing, this won't cause collisions; but, we
-// check anyway, treating the existence of the workspace directory as a crude lock.
+// check anyway and cleanup any left over directories from previous runs. Using the directory as a lock isn't
+// needed as Pulumi's state has locks to prevent concurrent operations
 func (sess *reconcileStackSession) MakeWorkspaceDir() (string, error) {
 	workspaceDir := filepath.Join(sess.rootDir, "workspace")
 	_, err := os.Stat(workspaceDir)
@@ -1270,7 +1271,8 @@ func (sess *reconcileStackSession) MakeWorkspaceDir() (string, error) {
 	case os.IsNotExist(err):
 		break
 	case err == nil:
-		return "", fmt.Errorf("expected workspace directory %q for stack not to exist already, but it does", workspaceDir)
+		sess.logger.Debug("Found leftover workspace directory %q, cleaning it up", workspaceDir)
+		sess.CleanupWorkspaceDir()
 	case err != nil:
 		return "", fmt.Errorf("error while checking for workspace directory: %w", err)
 	}
