@@ -250,7 +250,7 @@ kubectl delete secret pulumi-api-secret
 kubectl delete secret pulumi-aws-secrets
 ```
 
-Check out [`ext_s3_bucket_stack.yaml`](../stack-examples/yaml/ext_s3_bucket_stack.yaml) for an extended options exmaple.
+Check out [`ext_s3_bucket_stack.yaml`](../stack-examples/yaml/ext_s3_bucket_stack.yaml) for an extended options example.
 
 ## Troubleshooting
 

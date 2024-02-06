@@ -477,7 +477,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{}, sess.finalize(ctx, instance)
 	}
 
-	// This makes sure the status reflects the outcome of reconcilation. Any non-error return means
+	// This makes sure the status reflects the outcome of reconciliation. Any non-error return means
 	// the object definition was observed, whether the object ended up in a ready state or not. An
 	// error return (now we have successfully fetched the object) means it is "in progress" and not
 	// ready.
@@ -1131,7 +1131,7 @@ func (sess *reconcileStackSession) resolveResourceRef(ctx context.Context, ref *
 			}
 			return string(secretVal), nil
 		}
-		return "", errors.New("Mising secret reference in ResourceRef")
+		return "", errors.New("Missing secret reference in ResourceRef")
 	default:
 		return "", fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
 	}
