@@ -3,6 +3,42 @@ entries:
   pulumi-kubernetes-operator:
   - annotations:
       artifacthub.io/changes: |
+        - Fix nodeSelector, affinity, tolerations in the Helm chart (#548)
+      artifacthub.io/containsSecurityUpdates: "false"
+      artifacthub.io/images: |
+        - name: pulumi-kubernetes-operator
+          image: docker.io/pulumi-kubernetes-operator:v1.14.0
+      artifacthub.io/license: Apache-2.0
+      artifacthub.io/links: |
+        - name: website
+          url: https://pulumi.com
+      artifacthub.io/maintainers: |
+        - name: dirien
+          email: engin@pulumi.com
+    apiVersion: v2
+    appVersion: 1.14.0
+    created: "2024-02-08T17:15:40.66710693Z"
+    description: A Helm chart for the Pulumi Kubernetes Operator
+    digest: d2f20ed89662e8fc340d70fea042d3a0248bb1199f2957aa6efd964edaaa0b05
+    home: https://pulumi.com
+    icon: https://www.pulumi.com/logos/brand/twitter-card.png
+    keywords:
+    - pulumi
+    - kubernetes
+    - operator
+    maintainers:
+    - email: engin@pulumi.com
+      name: dirien
+      url: https://pulumi.com
+    name: pulumi-kubernetes-operator
+    sources:
+    - https://github.com/pulumi/pulumi-kubernetes-operator
+    type: application
+    urls:
+    - https://github.com/pulumi/pulumi-kubernetes-operator/releases/download/pulumi-kubernetes-operator-0.6.0/pulumi-kubernetes-operator-0.6.0.tgz
+    version: 0.6.0
+  - annotations:
+      artifacthub.io/changes: |
         - set terminationGracePeriodSeconds for HelmCharts (#520)
       artifacthub.io/containsSecurityUpdates: "false"
       artifacthub.io/images: |
@@ -181,4 +217,4 @@ entries:
     urls:
     - https://github.com/pulumi/pulumi-kubernetes-operator/releases/download/pulumi-kubernetes-operator-0.1.0/pulumi-kubernetes-operator-0.1.0.tgz
     version: 0.1.0
-generated: "2023-11-16T13:54:47.666872589Z"
+generated: "2024-02-08T17:15:40.667138589Z"
