@@ -3,6 +3,8 @@ CHANGELOG
 
 ## HEAD (unreleased)
 - Clean up stale workspace directories and don't treat them as a crude lock. [#552](https://github.com/pulumi/pulumi-kubernetes-operator/pull/552)
+- Fixed `nodeSelector`, `affinity`, and `tolerations` Helm chart values that were previously effectively ignored.
+  [#548](https://github.com/pulumi/pulumi-kubernetes-operator/pull/548)
 
 ## 1.14.0 (2023-11-08)
 - Changed indentation in deploy/helm/pulumi-operator/templates/deployment.yaml for volumes and volumeMounts.
