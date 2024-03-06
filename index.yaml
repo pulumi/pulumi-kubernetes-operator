@@ -17,6 +17,42 @@ entries:
           email: engin@pulumi.com
     apiVersion: v2
     appVersion: 1.14.0
+    created: "2024-03-06T14:10:54.361076579Z"
+    description: A Helm chart for the Pulumi Kubernetes Operator
+    digest: 3b8c07aad47b9f1eb0f138521b232c7e138ea8eebcf63df90870f896b8f4ab36
+    home: https://pulumi.com
+    icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
+    keywords:
+    - pulumi
+    - kubernetes
+    - operator
+    maintainers:
+    - email: engin@pulumi.com
+      name: dirien
+      url: https://pulumi.com
+    name: pulumi-kubernetes-operator
+    sources:
+    - https://github.com/pulumi/pulumi-kubernetes-operator
+    type: application
+    urls:
+    - https://github.com/pulumi/pulumi-kubernetes-operator/releases/download/pulumi-kubernetes-operator-0.7.1/pulumi-kubernetes-operator-0.7.1.tgz
+    version: 0.7.1
+  - annotations:
+      artifacthub.io/changes: |
+        - add cluster role and fluxcd crd rules to role
+      artifacthub.io/containsSecurityUpdates: "false"
+      artifacthub.io/images: |
+        - name: pulumi-kubernetes-operator
+          image: docker.io/pulumi-kubernetes-operator:v1.14.0
+      artifacthub.io/license: Apache-2.0
+      artifacthub.io/links: |
+        - name: website
+          url: https://pulumi.com
+      artifacthub.io/maintainers: |
+        - name: dirien
+          email: engin@pulumi.com
+    apiVersion: v2
+    appVersion: 1.14.0
     created: "2024-03-06T13:43:58.159080293Z"
     description: A Helm chart for the Pulumi Kubernetes Operator
     digest: 8c2e8a1fc462434d892849a5046c04c57117e3fb5b79cde56b4fe08a7ef5e5be
@@ -253,4 +289,4 @@ entries:
     urls:
     - https://github.com/pulumi/pulumi-kubernetes-operator/releases/download/pulumi-kubernetes-operator-0.1.0/pulumi-kubernetes-operator-0.1.0.tgz
     version: 0.1.0
-generated: "2024-03-06T13:43:58.159145455Z"
+generated: "2024-03-06T14:10:54.361108208Z"
