@@ -36,7 +36,7 @@ controller:
 extraEnv: []
 
 # -- Create a ClusterRole resource for the node-red pod. default: false
-createClusterRole: true
+createClusterRole: false
 
 ## -- Enable this and set the rules: to whatever custom rules you want for the Cluster Role resource.
 clusterRoleRules:
