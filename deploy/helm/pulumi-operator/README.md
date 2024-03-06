@@ -63,7 +63,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | controller.kubernetesClusterDomain | string | `"cluster.local"` | Kubernetes Cluster Domain, default: `cluster.local` |
 | controller.maxConcurrentReconciles | string | `"10"` | Max concurrent reconciles, default: `10` |
 | controller.pulumiInferNamespace | string | `"1"` | Pulumi infer namespace, default: `1` |
-| createClusterRole | bool | `true` | Create a ClusterRole resource for the node-red pod. default: false |
+| createClusterRole | bool | `false` | Create a ClusterRole resource for the node-red pod. default: false |
 | deploymentAnnotations | object | `{}` | Deployment annotations |
 | deploymentStrategy | string | `""` | Specifies the strategy used to replace old Pods by new ones, default: `RollingUpdate` |
 | extraEnv | list | `[]` | Extra Environments to be passed to the operator |
