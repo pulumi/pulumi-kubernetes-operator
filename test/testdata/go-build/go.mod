@@ -1,6 +1,6 @@
 module go-build
 
-go 1.18
+go 1.21
 
 require github.com/pulumi/pulumi/sdk/v3 v3.53.0
 

@@ -4,6 +4,9 @@ deploymentStrategy: ""
 # -- Specifies the replica count for the deployment
 replicaCount: 1
 
+# -- Specifies termination grace period, default: `300`
+terminationGracePeriodSeconds: 300
+
 image:
   # -- The image registry to pull from
   registry: docker.io

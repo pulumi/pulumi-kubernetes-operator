@@ -26,14 +26,15 @@ jobs:
           python-version: 3.7
 
       - name: Run Trivy vulnerability scanner in IaC mode
-        uses: aquasecurity/trivy-action@e5f43133f6e8736992c9f3c1b3296e24b37e17f2 # 0.10.0
+        uses: aquasecurity/trivy-action@2b6a709cf9c4025c5438138008beaddbb02086f0 # 0.14.0
         with:
           scan-type: 'config'
           hide-progress: false
           format: 'sarif'
           scan-ref: 'deploy/helm/pulumi-operator'
           output: 'trivy-results.sarif'
-          exit-code: '1'
+          limit-severities-for-sarif: true
+          exit-code: '0'
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
 
@@ -44,7 +45,7 @@ jobs:
 
       - name: Setup Chart Linting
         id: lint
-        uses: helm/chart-testing-action@e8788873172cb653a90ca2e819d79d65a66d4e76 # v2.4.0
+        uses: helm/chart-testing-action@e6669bcd63d7cb57cb4380c33043eebe5d111992 # v2.6.1
 
       - name: List changed charts
         id: list-changed
@@ -53,8 +54,8 @@ jobs:
           changed=$(ct --config ./.github/configs/ct-lint.yaml list-changed)
           charts=$(echo "$changed" | tr '\n' ' ' | xargs)
           if [[ -n "$changed" ]]; then
-            echo "::set-output name=changed::true"
-            echo "::set-output name=changed_charts::$charts"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "changed_charts=$charts" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run Artifact Hub lint

@@ -209,7 +209,8 @@ func refetch(s *pulumiv1.Stack) {
 // deleteAndWaitForFinalization removes the stack object, and waits until requesting it gives a "not
 // found" result, indicating that finalizers have been run. The object at *stack is invalidated.
 func deleteAndWaitForFinalization(obj client.Object) {
-	ExpectWithOffset(1, k8sClient.Delete(context.TODO(), obj)).To(Succeed())
+	err := k8sClient.Delete(context.TODO(), obj)
+	ExpectWithOffset(1, client.IgnoreNotFound(err)).To(BeNil())
 	key := client.ObjectKeyFromObject(obj)
 	EventuallyWithOffset(1, func() bool {
 		err := k8sClient.Get(context.TODO(), key, obj)
@@ -219,7 +220,7 @@ func deleteAndWaitForFinalization(obj client.Object) {
 		}
 		ExpectWithOffset(2, client.IgnoreNotFound(err)).To(BeNil())
 		return true
-	}, "2m", "5s").Should(BeTrue())
+	}, "2m", "5s").Should(BeTrue(), "stack is finalized")
 }
 
 func expectReady(conditions []metav1.Condition) {

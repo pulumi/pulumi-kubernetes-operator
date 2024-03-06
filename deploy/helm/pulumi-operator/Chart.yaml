@@ -9,8 +9,9 @@ icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
 
 type: application
 
-version: 0.2.0
-appVersion: "1.13.0"
+
+version: 0.7.0
+appVersion: 1.14.0
 
 keywords:
   - pulumi
@@ -28,7 +29,7 @@ annotations:
     - add cluster role and fluxcd crd rules to role
   artifacthub.io/images: |
     - name: pulumi-kubernetes-operator
-      image: docker.io/pulumi-kubernetes-operator:v1.10.1
+      image: docker.io/pulumi-kubernetes-operator:v1.14.0
   artifacthub.io/license: Apache-2.0
   artifacthub.io/links: |
     - name: website

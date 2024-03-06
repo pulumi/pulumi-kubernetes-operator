@@ -1,4 +1,4 @@
-![Pulumi Kubernetes Operator](https://github.com/pulumi/pulumi-kubernetes-operator/workflows/Pulumi%20Kubernetes%20Operator/badge.svg?branch=master)
+![Pulumi Kubernetes Operator](https://github.com/pulumi/pulumi-kubernetes-operator/actions/workflows/master.yaml/badge.svg?branch=master)
 # Pulumi Kubernetes Operator
 
 A Kubernetes operator that provides a CI/CD workflow for Pulumi stacks using Kubernetes primitives.

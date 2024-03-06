@@ -23,7 +23,12 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.19.x
+          go-version: 1.21.x
+      # Get the last semver tag and use it as the version for the release. This is required as we release both Helm charts and the operator
+      # within this repository.
+      - name: Get last semver tag
+        id: semver
+        run: echo "GORELEASER_CURRENT_TAG=$(git describe --tags --match "v*" --abbrev=0)" >> $GITHUB_ENV
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:
@@ -44,7 +49,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.19.x
+          go-version: 1.21.x
       - name: Install Ginkgo testing framework
         run: |
           # Do the install from outside the code tree to avoid messing with go.sum
