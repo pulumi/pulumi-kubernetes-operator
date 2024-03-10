@@ -89,7 +89,7 @@ rules:
   - list
   - update
 - apiGroups:
-  - source.toolkit.fluxcd.io'
+  - source.toolkit.fluxcd.io
   resources:
   - '*'
   verbs:
