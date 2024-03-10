@@ -25,7 +25,7 @@ maintainers:
 annotations:
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/changes: |
-    - add cluster role and fluxcd crd rules to role
+    - Fix type in CRD
   artifacthub.io/images: |
     - name: pulumi-kubernetes-operator
       image: docker.io/pulumi-kubernetes-operator:v1.14.0
