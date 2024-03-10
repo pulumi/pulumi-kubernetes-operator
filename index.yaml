@@ -3,6 +3,42 @@ entries:
   pulumi-kubernetes-operator:
   - annotations:
       artifacthub.io/changes: |
+        - Fix type in CRD
+      artifacthub.io/containsSecurityUpdates: "false"
+      artifacthub.io/images: |
+        - name: pulumi-kubernetes-operator
+          image: docker.io/pulumi-kubernetes-operator:v1.14.0
+      artifacthub.io/license: Apache-2.0
+      artifacthub.io/links: |
+        - name: website
+          url: https://pulumi.com
+      artifacthub.io/maintainers: |
+        - name: dirien
+          email: engin@pulumi.com
+    apiVersion: v2
+    appVersion: 1.14.0
+    created: "2024-03-10T07:14:36.424682136Z"
+    description: A Helm chart for the Pulumi Kubernetes Operator
+    digest: 9915fa8eedc06398e4fce50bdeabbc21d32c8b847d63765beeec7e15e0fe0667
+    home: https://pulumi.com
+    icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
+    keywords:
+    - pulumi
+    - kubernetes
+    - operator
+    maintainers:
+    - email: engin@pulumi.com
+      name: dirien
+      url: https://pulumi.com
+    name: pulumi-kubernetes-operator
+    sources:
+    - https://github.com/pulumi/pulumi-kubernetes-operator
+    type: application
+    urls:
+    - https://github.com/pulumi/pulumi-kubernetes-operator/releases/download/pulumi-kubernetes-operator-0.7.2/pulumi-kubernetes-operator-0.7.2.tgz
+    version: 0.7.2
+  - annotations:
+      artifacthub.io/changes: |
         - add cluster role and fluxcd crd rules to role
       artifacthub.io/containsSecurityUpdates: "false"
       artifacthub.io/images: |
@@ -289,4 +325,4 @@ entries:
     urls:
     - https://github.com/pulumi/pulumi-kubernetes-operator/releases/download/pulumi-kubernetes-operator-0.1.0/pulumi-kubernetes-operator-0.1.0.tgz
     version: 0.1.0
-generated: "2024-03-06T14:10:54.361108208Z"
+generated: "2024-03-10T07:14:36.424720357Z"
