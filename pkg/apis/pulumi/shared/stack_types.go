@@ -96,6 +96,8 @@ type StackSpec struct {
 
 	// (optional) Refresh can be set to true to refresh the stack before it is updated.
 	Refresh bool `json:"refresh,omitempty"`
+	// (optional) PreserveWorkingDirectory can be set to true to preserve working directory between reconciliations
+	PreserveWorkingDirectory bool `json:"preserveWorkingDirectory,omitempty"`
 	// (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have
 	// changes during a refresh before the update is run.
 	// This could occur, for example, is a resource's state is changing outside of Pulumi

@@ -580,6 +580,10 @@ spec:
                   - name
                   type: object
                 type: array
+              preserveWorkingDirectory:
+                description: (optional) PreserveWorkingDirectory can be set to true
+                  to preserve working directory between reconciliations
+                type: boolean
               programRef:
                 description: ProgramRef refers to a Program object, to be used as
                   the source for the stack.
@@ -1398,6 +1402,10 @@ spec:
                   - name
                   type: object
                 type: array
+              preserveWorkingDirectory:
+                description: (optional) PreserveWorkingDirectory can be set to true
+                  to preserve working directory between reconciliations
+                type: boolean
               programRef:
                 description: ProgramRef refers to a Program object, to be used as
                   the source for the stack.
