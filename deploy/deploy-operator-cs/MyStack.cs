@@ -7,8 +7,8 @@ using Pulumi.Kubernetes.Types.Inputs.Rbac.V1;
 
 class MyStack : Stack
 {
-    public const string DefaultCRDVersion = "v1.14.0";
-    public const string DefaultOperatorVersion = "v1.14.0";
+    public const string DefaultCRDVersion = "v1.15.0";
+    public const string DefaultOperatorVersion = "v1.15.0";
 
     public MyStack()
     {
@@ -36,15 +36,15 @@ class MyStack : Stack
             var operatorRole = new Kubernetes.Rbac.V1.Role($"operator-role-{ns}", new RoleArgs
             {
                 Metadata = new ObjectMetaArgs{Namespace = ns},
-                Rules = 
+                Rules =
                 {
                     new PolicyRuleArgs
                     {
-                        ApiGroups = 
+                        ApiGroups =
                         {
                             "",
                         },
-                        Resources = 
+                        Resources =
                         {
                             "pods",
                             "services",
@@ -55,7 +55,7 @@ class MyStack : Stack
                             "configmaps",
                             "secrets",
                         },
-                        Verbs = 
+                        Verbs =
                         {
                             "create",
                             "delete",
@@ -68,18 +68,18 @@ class MyStack : Stack
                     },
                     new PolicyRuleArgs
                     {
-                        ApiGroups = 
+                        ApiGroups =
                         {
                             "apps",
                         },
-                        Resources = 
+                        Resources =
                         {
                             "deployments",
                             "daemonsets",
                             "replicasets",
                             "statefulsets",
                         },
-                        Verbs = 
+                        Verbs =
                         {
                             "create",
                             "delete",
@@ -92,15 +92,15 @@ class MyStack : Stack
                     },
                     new PolicyRuleArgs
                     {
-                        ApiGroups = 
+                        ApiGroups =
                         {
                             "monitoring.coreos.com",
                         },
-                        Resources = 
+                        Resources =
                         {
                             "servicemonitors",
                         },
-                        Verbs = 
+                        Verbs =
                         {
                             "create",
                             "get",
@@ -108,65 +108,65 @@ class MyStack : Stack
                     },
                     new PolicyRuleArgs
                     {
-                        ApiGroups = 
+                        ApiGroups =
                         {
                             "apps",
                         },
-                        ResourceNames = 
+                        ResourceNames =
                         {
                             "pulumi-kubernetes-operator",
                         },
-                        Resources = 
+                        Resources =
                         {
                             "deployments/finalizers",
                         },
-                        Verbs = 
+                        Verbs =
                         {
                             "update",
                         },
                     },
                     new PolicyRuleArgs
                     {
-                        ApiGroups = 
+                        ApiGroups =
                         {
                             "",
                         },
-                        Resources = 
+                        Resources =
                         {
                             "pods",
                         },
-                        Verbs = 
+                        Verbs =
                         {
                             "get",
                         },
                     },
                     new PolicyRuleArgs
                     {
-                        ApiGroups = 
+                        ApiGroups =
                         {
                             "apps",
                         },
-                        Resources = 
+                        Resources =
                         {
                             "replicasets",
                             "deployments",
                         },
-                        Verbs = 
+                        Verbs =
                         {
                             "get",
                         },
                     },
                     new PolicyRuleArgs
                     {
-                        ApiGroups = 
+                        ApiGroups =
                         {
                             "pulumi.com",
                         },
-                        Resources = 
+                        Resources =
                         {
                             "*",
                         },
-                        Verbs = 
+                        Verbs =
                         {
                             "create",
                             "delete",
@@ -179,15 +179,15 @@ class MyStack : Stack
                     },
                     new PolicyRuleArgs
                     {
-                        ApiGroups = 
+                        ApiGroups =
                         {
                             "coordination.k8s.io",
                         },
-                        Resources = 
+                        Resources =
                         {
                             "leases",
                         },
-                        Verbs = 
+                        Verbs =
                         {
                             "create",
                             "get",
@@ -201,7 +201,7 @@ class MyStack : Stack
             var operatorRoleBinding = new Kubernetes.Rbac.V1.RoleBinding($"operator-role-binding-{ns}", new RoleBindingArgs
             {
                 Metadata = new ObjectMetaArgs{Namespace = ns},
-                Subjects = 
+                Subjects =
                 {
                     new SubjectArgs
                     {
@@ -224,7 +224,7 @@ class MyStack : Stack
                     Replicas = 1,
                     Selector = new LabelSelectorArgs
                     {
-                        MatchLabels = 
+                        MatchLabels =
                         {
                             { "name", "pulumi-kubernetes-operator" },
                         },
@@ -233,7 +233,7 @@ class MyStack : Stack
                     {
                         Metadata = new ObjectMetaArgs
                         {
-                            Labels = 
+                            Labels =
                             {
                                 { "name", "pulumi-kubernetes-operator" },
                             },
@@ -241,23 +241,23 @@ class MyStack : Stack
                         Spec = new PodSpecArgs
                         {
                             ServiceAccountName = operatorServiceAccount.Metadata.Apply(md => md.Name),
-                            Containers = 
+                            Containers =
                             {
                                 new ContainerArgs
                                 {
                                     Name = "pulumi-kubernetes-operator",
                                     Image = $"pulumi/pulumi-kubernetes-operator:{operatorVersion}",
-                                    Command = 
+                                    Command =
                                     {
                                         "pulumi-kubernetes-operator",
                                     },
-                                    Args = 
+                                    Args =
                                     {
                                         "--zap-level=error",
                                         "--zap-time-encoding=iso8601",
                                     },
                                     ImagePullPolicy = "Always",
-                                    Env = 
+                                    Env =
                                     {
                                         new EnvVarArgs
                                         {
