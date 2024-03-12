@@ -14,29 +14,13 @@ To install the chart using the OCI artifact, run:
 helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --version 0.7.2
 ```
 
-## Usage
-Adding `pulumi-kubernetes-operator` repository
-Before installing any chart provided by this repository, add the `pulumi-kubernetes-operator` Charts Repository:
-
-```bash
-helm repo add pulumi-kubernetes-operator https://pulumi.github.io/pulumi-kubernetes-operator/
-helm repo update
-```
-
-### Installing the Chart 📦
-To install the chart with the release name `pulumi-kubernetes-operator` run:
-
-```bash
-helm install pulumi-kubernetes-operator pulumi-kubernetes-operator/pulumi-kubernetes-operator --version 0.7.2
-```
-
 After a few seconds, the `pulumi-kubernetes-operator` should be running.
 
 To install the chart in a specific namespace use following commands:
 
 ```bash
 kubectl create ns pulumi-kubernetes-operator
-helm install pulumi-kubernetes-operator pulumi-kubernetes-operator/pulumi-kubernetes-operator --namespace pulumi-kubernetes-operator
+helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --namespace pulumi-kubernetes-operator
 ```
 
 > **Tip**: List all releases using `helm list`, a release is a name used to track a specific deployment
