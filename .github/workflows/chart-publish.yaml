@@ -6,6 +6,9 @@ on:
       - master
     paths:
       - "deploy/helm/**"
+      - "!deploy/helm/pulumi-operator/README.md"
+      - "!deploy/helm/pulumi-operator/README.md.gotmpl"
+      
 env:
   HELM_DOCS_VERSION: "1.11.0"
 
