@@ -1,4 +1,4 @@
-# node-red ⚙
+# Pulumi Kubernetes Operator - Helm Chart
 
 ![Version: 0.7.2](https://img.shields.io/badge/Version-0.7.2-informational?style=for-the-badge) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=for-the-badge) ![AppVersion: 1.14.0](https://img.shields.io/badge/AppVersion-1.14.0-informational?style=for-the-badge)
 
