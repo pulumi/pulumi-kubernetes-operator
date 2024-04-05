@@ -7,4 +7,14 @@ layout:
 - go.kubebuilder.io/v4
 projectName: upgrade
 repo: github.com/pulumi/pulumi-kubernetes-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: my.domain
+  group: pulumi.com
+  kind: Stack
+  path: github.com/pulumi/pulumi-kubernetes-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"
