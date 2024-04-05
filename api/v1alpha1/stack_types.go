@@ -17,28 +17,16 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/pulumi/pulumi-kubernetes-operator/api/shared"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// StackSpec defines the desired state of Stack
-type StackSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Stack. Edit stack_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
-}
-
-// StackStatus defines the observed state of Stack
-type StackStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// Stack is the Schema for the stacks API
+// Stack is the Schema for the stacks API.
+// Deprecated: Note Stacks from pulumi.com/v1alpha1 is deprecated in favor of pulumi.com/v1.
+// It is completely backward compatible. Users are strongly encouraged to switch to pulumi.com/v1.
 type Stack struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -50,6 +38,8 @@ type Stack struct {
 //+kubebuilder:object:root=true
 
 // StackList contains a list of Stack
+// Deprecated: Note Stack:ost from pulumi.com/v1alpha1 is deprecated in favor of pulumi.com/v1.
+// It is completely backward compatible. Users are strongly encouraged to switch to pulumi.com/v1.
 type StackList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
