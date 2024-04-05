@@ -19,7 +19,10 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
+	goruntime "runtime"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -37,7 +40,13 @@ import (
 	pulumicomv1 "github.com/pulumi/pulumi-kubernetes-operator/api/v1"
 	pulumicomv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/api/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/internal/controller"
+	"github.com/pulumi/pulumi-kubernetes-operator/version"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	//+kubebuilder:scaffold:imports
+)
+
+const (
+	defaultGracefulShutdownTimeout = 5 * time.Minute
 )
 
 var (
@@ -53,15 +62,23 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
+var log = logf.Log.WithName("cmd")
+
+func printVersion() {
+	log.Info(fmt.Sprintf("Operator Version: %s", version.Version))
+	log.Info(fmt.Sprintf("Go Version: %s", goruntime.Version()))
+	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", goruntime.GOOS, goruntime.GOARCH))
+}
+
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&metricsAddr, "metrics-bind-address", "0.0.0.0:8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+	flag.BoolVar(&enableLeaderElection, "leader-elect", true,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&secureMetrics, "metrics-secure", false,
@@ -75,6 +92,8 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	printVersion()
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -96,6 +115,19 @@ func main() {
 		TLSOpts: tlsOpts,
 	})
 
+	gracefulShutdownTimeout := defaultGracefulShutdownTimeout
+	raw := os.Getenv("GRACEFUL_SHUTDOWN_TIMEOUT_DURATION")
+	if raw != "" {
+		var err error
+		gracefulShutdownTimeout, err = time.ParseDuration(raw)
+		if err != nil {
+			log.Error(err, "")
+			os.Exit(1)
+		}
+	}
+
+	log.Info("Graceful shutdown", "timeout", gracefulShutdownTimeout)
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
@@ -103,10 +135,11 @@ func main() {
 			SecureServing: secureMetrics,
 			TLSOpts:       tlsOpts,
 		},
-		WebhookServer:          webhookServer,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "2c4068f1.my.domain",
+		WebhookServer:           webhookServer,
+		GracefulShutdownTimeout: &gracefulShutdownTimeout,
+		HealthProbeBindAddress:  probeAddr,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        "pulumi-kubernetes-operator-lock",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
