@@ -5,12 +5,13 @@ home: https://pulumi.com
 sources:
   - https://github.com/pulumi/pulumi-kubernetes-operator
 
-icon: https://www.pulumi.com/logos/brand/twitter-card.png
+icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
 
 type: application
 
-version: 0.5.0
-appVersion: 1.13.0
+
+version: 0.7.3
+appVersion: 1.14.0
 
 keywords:
   - pulumi
@@ -28,7 +29,7 @@ annotations:
     - Added "name" label with pulumi-kubernetes-operator.name value to pulumi-kubernetes-operator Deployment at ReplicaSet level. (#519)
   artifacthub.io/images: |
     - name: pulumi-kubernetes-operator
-      image: docker.io/pulumi-kubernetes-operator:v1.13.0
+      image: docker.io/pulumi-kubernetes-operator:v1.14.0
   artifacthub.io/license: Apache-2.0
   artifacthub.io/links: |
     - name: website

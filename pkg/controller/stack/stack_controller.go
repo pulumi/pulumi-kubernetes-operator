@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	git "github.com/go-git/go-git/v5"
 	"github.com/operator-framework/operator-lib/handler"
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
@@ -30,7 +31,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 	giturls "github.com/whilp/git-urls"
-	git "gopkg.in/src-d/go-git.v4"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -477,7 +477,7 @@ func (r *ReconcileStack) Reconcile(ctx context.Context, request reconcile.Reques
 		return reconcile.Result{}, sess.finalize(ctx, instance)
 	}
 
-	// This makes sure the status reflects the outcome of reconcilation. Any non-error return means
+	// This makes sure the status reflects the outcome of reconciliation. Any non-error return means
 	// the object definition was observed, whether the object ended up in a ready state or not. An
 	// error return (now we have successfully fetched the object) means it is "in progress" and not
 	// ready.
@@ -1131,7 +1131,7 @@ func (sess *reconcileStackSession) resolveResourceRef(ctx context.Context, ref *
 			}
 			return string(secretVal), nil
 		}
-		return "", errors.New("Mising secret reference in ResourceRef")
+		return "", errors.New("Missing secret reference in ResourceRef")
 	default:
 		return "", fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
 	}
@@ -1262,7 +1262,8 @@ func (sess *reconcileStackSession) getPulumiHome() string {
 // thing) the go build cache does not treat new clones of the same repo as distinct files. Since a
 // stack is processed by at most one thread at a time, and stacks have unique qualified names, and
 // the workspace directory is expected to be removed after processing, this won't cause collisions; but, we
-// check anyway, treating the existence of the workspace directory as a crude lock.
+// check anyway and cleanup any left over directories from previous runs. Using the directory as a lock isn't
+// needed as Pulumi's state has locks to prevent concurrent operations
 func (sess *reconcileStackSession) MakeWorkspaceDir() (string, error) {
 	workspaceDir := filepath.Join(sess.rootDir, "workspace")
 	_, err := os.Stat(workspaceDir)
@@ -1270,7 +1271,8 @@ func (sess *reconcileStackSession) MakeWorkspaceDir() (string, error) {
 	case os.IsNotExist(err):
 		break
 	case err == nil:
-		return "", fmt.Errorf("expected workspace directory %q for stack not to exist already, but it does", workspaceDir)
+		sess.logger.Debug("Found leftover workspace directory %q, cleaning it up", workspaceDir)
+		sess.CleanupWorkspaceDir()
 	case err != nil:
 		return "", fmt.Errorf("error while checking for workspace directory: %w", err)
 	}

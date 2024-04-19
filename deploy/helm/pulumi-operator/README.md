@@ -1,6 +1,6 @@
-# node-red ⚙
+# Pulumi Kubernetes Operator - Helm Chart
 
-![Version: 0.3.0](https://img.shields.io/badge/Version-0.3.0-informational?style=for-the-badge) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=for-the-badge) ![AppVersion: 1.13.0](https://img.shields.io/badge/AppVersion-1.13.0-informational?style=for-the-badge)
+![Version: 0.7.2](https://img.shields.io/badge/Version-0.7.2-informational?style=for-the-badge) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=for-the-badge) ![AppVersion: 1.14.0](https://img.shields.io/badge/AppVersion-1.14.0-informational?style=for-the-badge)
 
 ## Description 📜
 
@@ -11,23 +11,7 @@ A Helm chart for the Pulumi Kubernetes Operator
 To install the chart using the OCI artifact, run:
 
 ```bash
-helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --version 0.3.0
-```
-
-## Usage
-Adding `pulumi-kubernetes-operator` repository
-Before installing any chart provided by this repository, add the `pulumi-kubernetes-operator` Charts Repository:
-
-```bash
-helm repo add pulumi-kubernetes-operator https://pulumi.github.io/pulumi-kubernetes-operator/
-helm repo update
-```
-
-### Installing the Chart 📦
-To install the chart with the release name `pulumi-kubernetes-operator` run:
-
-```bash
-helm install pulumi-kubernetes-operator pulumi-kubernetes-operator/pulumi-kubernetes-operator --version 0.3.0
+helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --version 0.7.2
 ```
 
 After a few seconds, the `pulumi-kubernetes-operator` should be running.
@@ -36,7 +20,7 @@ To install the chart in a specific namespace use following commands:
 
 ```bash
 kubectl create ns pulumi-kubernetes-operator
-helm install pulumi-kubernetes-operator pulumi-kubernetes-operator/pulumi-kubernetes-operator --namespace pulumi-kubernetes-operator
+helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --namespace pulumi-kubernetes-operator
 ```
 
 > **Tip**: List all releases using `helm list`, a release is a name used to track a specific deployment
@@ -56,11 +40,14 @@ The command removes all the Kubernetes components associated with the chart and 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | The affinity constraint |
+| clusterRoleRules.enabled | bool | `false` | Enable custom rules for the application controller's ClusterRole resource default: false |
+| clusterRoleRules.rules | list | `[]` | List of custom rules for the application controller's ClusterRole resource default: [] |
 | controller.args | list | `["--zap-level=error","--zap-time-encoding=iso8601"]` | List of arguments to pass to the operator |
 | controller.gracefulShutdownTimeoutDuration | string | `"5m"` | Graceful shutdown timeout duration, default: `5m` |
 | controller.kubernetesClusterDomain | string | `"cluster.local"` | Kubernetes Cluster Domain, default: `cluster.local` |
 | controller.maxConcurrentReconciles | string | `"10"` | Max concurrent reconciles, default: `10` |
 | controller.pulumiInferNamespace | string | `"1"` | Pulumi infer namespace, default: `1` |
+| createClusterRole | bool | `false` | Create a ClusterRole resource for the node-red pod. default: false |
 | deploymentAnnotations | object | `{}` | Deployment annotations |
 | deploymentStrategy | string | `""` | Specifies the strategy used to replace old Pods by new ones, default: `RollingUpdate` |
 | extraEnv | list | `[]` | Extra Environments to be passed to the operator |
@@ -88,6 +75,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | serviceAccount.create | bool | `true` | Create service account |
 | serviceAccount.name | string | `""` | Service account name to use, when empty will be set to created account if |
 | serviceMonitor.enabled | bool | `false` | When set true then use a ServiceMonitor to configure scraping |
+| terminationGracePeriodSeconds | int | `300` | Specifies termination grace period, default: `300` |
 | tolerations | list | `[]` | Toleration labels for pod assignment |
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,

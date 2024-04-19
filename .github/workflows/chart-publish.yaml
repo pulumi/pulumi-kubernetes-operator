@@ -6,6 +6,9 @@ on:
       - master
     paths:
       - "deploy/helm/**"
+      - "!deploy/helm/pulumi-operator/README.md"
+      - "!deploy/helm/pulumi-operator/README.md.gotmpl"
+      
 env:
   HELM_DOCS_VERSION: "1.11.0"
 
@@ -64,7 +67,7 @@ jobs:
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
-      - uses: sigstore/cosign-installer@204a51a57a74d190b284a0ce69b44bc37201f343 # v3.0.3
+      - uses: sigstore/cosign-installer@1fc5bd396d372bee37d608f955b336615edf79c8 # v3.2.0
       - name: Push chart to GHCR
         env:
           COSIGN_EXPERIMENTAL: 1

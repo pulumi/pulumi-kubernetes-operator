@@ -88,3 +88,12 @@ rules:
   - get
   - list
   - update
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+
