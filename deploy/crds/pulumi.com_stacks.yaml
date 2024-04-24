@@ -75,7 +75,7 @@ spec:
                 type: string
               config:
                 additionalProperties:
-                  x-kubernetes-preserve-unknown-fields: true
+                  type: string
                 description: (optional) Config is the configuration for this stack,
                   which can be optionally specified inline. If this is omitted, configuration
                   is assumed to be checked in and taken from the source repository.
@@ -992,7 +992,7 @@ spec:
                 type: string
               config:
                 additionalProperties:
-                  x-kubernetes-preserve-unknown-fields: true
+                  type: string
                 description: (optional) Config is the configuration for this stack,
                   which can be optionally specified inline. If this is omitted, configuration
                   is assumed to be checked in and taken from the source repository.

@@ -9,20 +9,20 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
-type JsonConfig map[string]apiextensionsv1.JSON
+type StructuredConfig map[string]apiextensionsv1.JSON
 
 type ConfigKeyValue struct {
 	Key   string
 	Value auto.ConfigValue
 }
 
-func (c JsonConfig) Unmarshal() ([]ConfigKeyValue, error) {
+func (c StructuredConfig) Unmarshal() ([]ConfigKeyValue, error) {
 	flatten, err := flattenKeys(c)
 	if err != nil {
 		return nil, err
 	}
 
-	configValues := make([]ConfigKeyValue, 0)
+	configValues := make([]ConfigKeyValue, 0, len(flatten))
 	for key, value := range flatten {
 		configValues = append(configValues, ConfigKeyValue{
 			Key: key,
@@ -35,7 +35,7 @@ func (c JsonConfig) Unmarshal() ([]ConfigKeyValue, error) {
 	return configValues, nil
 }
 
-func flattenKeys(config JsonConfig) (map[string]any, error) {
+func flattenKeys(config StructuredConfig) (map[string]any, error) {
 	output := make(map[string]any)
 
 	for k, jsonValue := range config {

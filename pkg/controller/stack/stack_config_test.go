@@ -42,7 +42,7 @@ func TestFlattenStackConfigFromJson(t *testing.T) {
 		"an-integer-config": toJson(123456),
 	}
 
-	configValues, err := JsonConfig(sourceConfigMap).Unmarshal()
+	configValues, err := StructuredConfig(sourceConfigMap).Unmarshal()
 
 	if assert.Nil(t, err) {
 		expected := []ConfigKeyValue{

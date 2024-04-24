@@ -13,7 +13,6 @@ import (
 
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -99,10 +98,10 @@ var _ = When("a stack uses a provider with credentials kept in state", Ordered, 
 
 		setupStack = createStack("run-rabbitmq", "setup")
 		setupStack.Spec.DestroyOnFinalize = true // tear down the container afterwards
-		setupStack.Spec.Config = map[string]v1.JSON{
-			"password":   {Raw: []byte(randString())},
-			"port":       {Raw: []byte(rabbitPort)},
-			"secretName": {Raw: []byte(credsSecretName)},
+		setupStack.Spec.Config = map[string]string{
+			"password":   randString(),
+			"port":       rabbitPort,
+			"secretName": credsSecretName,
 		} // changing this will force it to restart RabbitMQ with the new creds
 		Expect(k8sClient.Create(ctx, setupStack)).To(Succeed())
 		waitForStackSuccess(setupStack, "120s")
@@ -110,9 +109,9 @@ var _ = When("a stack uses a provider with credentials kept in state", Ordered, 
 		// running this the first time should succeed -- the program will run and get the
 		// credentials from the secret, which then go into the stack state.
 		useRabbitStack = createStack("use-rabbitmq", "use")
-		useRabbitStack.Spec.Config = map[string]v1.JSON{
-			"port":       {Raw: []byte(rabbitPort)},
-			"secretName": {Raw: []byte(credsSecretName)},
+		useRabbitStack.Spec.Config = map[string]string{
+			"port":       rabbitPort,
+			"secretName": credsSecretName,
 		}
 
 		Expect(k8sClient.Create(context.TODO(), useRabbitStack)).To(Succeed())
@@ -133,10 +132,10 @@ var _ = When("a stack uses a provider with credentials kept in state", Ordered, 
 			// "rotate" the credentials by rerunning the setup stack in such a way as to recreate
 			// the passphrase
 			refetch(setupStack)
-			setupStack.Spec.Config = map[string]v1.JSON{
-				"password":   {Raw: []byte(randString())},
-				"port":       {Raw: []byte(rabbitPort)},
-				"secretName": {Raw: []byte(credsSecretName)},
+			setupStack.Spec.Config = map[string]string{
+				"password":   randString(),
+				"port":       rabbitPort,
+				"secretName": credsSecretName,
 			}
 			resetWaitForStack()
 			Expect(k8sClient.Update(ctx, setupStack)).To(Succeed())
@@ -176,9 +175,9 @@ var _ = When("a stack uses a provider with credentials kept in state", Ordered, 
 			// refreshes the _same_ state because it uses the same backend stack name.
 			targetedStack = createStack("use-rabbitmq", "use")
 			targetedStack.Spec.Targets = []string{providerURN}
-			targetedStack.Spec.Config = map[string]v1.JSON{
-				"port":       {Raw: []byte(rabbitPort)},
-				"secretName": {Raw: []byte(credsSecretName)},
+			targetedStack.Spec.Config = map[string]string{
+				"port":       rabbitPort,
+				"secretName": credsSecretName,
 			}
 			Expect(k8sClient.Create(ctx, targetedStack)).To(Succeed())
 			DeferCleanup(func() {
@@ -202,10 +201,10 @@ var _ = When("a stack uses a provider with credentials kept in state", Ordered, 
 				// "rotate" the credentials by rerunning the setup stack in such a way as to recreate
 				// the passphrase
 				refetch(setupStack)
-				setupStack.Spec.Config = map[string]v1.JSON{
-					"password":   {Raw: []byte(randString())},
-					"port":       {Raw: []byte(rabbitPort)},
-					"secretName": {Raw: []byte(credsSecretName)},
+				setupStack.Spec.Config = map[string]string{
+					"password":   randString(),
+					"port":       rabbitPort,
+					"secretName": credsSecretName,
 				}
 				resetWaitForStack()
 				Expect(k8sClient.Update(ctx, setupStack)).To(Succeed())

@@ -121,7 +121,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td>false</td>
       </tr><tr>
         <td><b>config</b></td>
-        <td>map[string]JSON</td>
+        <td>map[string]string</td>
         <td>
           (optional) Config is the configuration for this stack, which can be optionally specified inline. If this is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
         </td>
@@ -2355,7 +2355,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td>false</td>
       </tr><tr>
         <td><b>config</b></td>
-        <td>map[string]JSON</td>
+        <td>map[string]string</td>
         <td>
           (optional) Config is the configuration for this stack, which can be optionally specified inline. If this is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
         </td>

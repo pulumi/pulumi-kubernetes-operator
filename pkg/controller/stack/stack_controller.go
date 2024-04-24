@@ -1110,7 +1110,7 @@ func (sess *reconcileStackSession) resolveConfigRefs(ctx context.Context, refs m
 			structuredRef := ref.StructuredRef
 			if structuredRef != nil {
 				// StructuredRef handles value as json, flattening all keys to build a list of Pulumi key:value configs
-				jsonConfig := JsonConfig(map[string]apiextensionsv1.JSON{
+				jsonConfig := StructuredConfig(map[string]apiextensionsv1.JSON{
 					k: structuredRef.Value,
 				})
 				structuredConfig, err := jsonConfig.Unmarshal()
@@ -1628,12 +1628,18 @@ func (sess *reconcileStackSession) InstallProjectDependencies(ctx context.Contex
 }
 
 func (sess *reconcileStackSession) UpdateConfig(ctx context.Context) error {
-	var configValues []ConfigKeyValue
+	// Initialize a single config value slice to all values;
+	// plain config will be handled with values from ConfigRefs
+	configValues := make([]ConfigKeyValue, 0, len(sess.stack.Config))
 
-	// Config values will be handled as a structured config
-	configValues, err := JsonConfig(sess.stack.Config).Unmarshal()
-	if err != nil {
-		return fmt.Errorf("Fail reading config values: %w", err)
+	for k, v := range sess.stack.Config {
+		configValues = append(configValues, ConfigKeyValue{
+			Key: k,
+			Value: auto.ConfigValue{
+				Value:  v,
+				Secret: false,
+			},
+		})
 	}
 
 	// appending ConfigRefs values
