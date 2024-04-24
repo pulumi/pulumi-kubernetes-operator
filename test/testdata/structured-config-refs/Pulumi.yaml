@@ -1,0 +1,4 @@
+name: structured-config-refs
+runtime: go
+description: Just a simple program to test structured configs
+

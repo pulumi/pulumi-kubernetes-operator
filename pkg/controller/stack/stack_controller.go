@@ -1086,7 +1086,7 @@ func (sess *reconcileStackSession) SetEnvRefsForWorkspace(ctx context.Context, w
 	return nil
 }
 
-func (sess *reconcileStackSession) resolveConfigRefs(ctx context.Context, refs map[string]shared.ConfigRef) ([]ConfigKeyValue, error) {
+func (sess *reconcileStackSession) resolveConfigRefs(ctx context.Context) ([]ConfigKeyValue, error) {
 	allConfigs := make([]ConfigKeyValue, 0)
 	for k, ref := range sess.stack.ConfigRefs {
 		// ConfigMap and Structured are special config cases, so they are checked first
@@ -1643,7 +1643,7 @@ func (sess *reconcileStackSession) UpdateConfig(ctx context.Context) error {
 	}
 
 	// appending ConfigRefs values
-	configValuesFromRefs, err := sess.resolveConfigRefs(ctx, sess.stack.ConfigRefs)
+	configValuesFromRefs, err := sess.resolveConfigRefs(ctx)
 	if err != nil {
 		return fmt.Errorf("Fail reading ConfigRef values: %w", err)
 	}

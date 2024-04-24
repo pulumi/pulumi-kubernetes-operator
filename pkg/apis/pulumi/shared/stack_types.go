@@ -301,6 +301,17 @@ func NewSecretResourceRef(namespace, name, key string) ResourceRef {
 	}
 }
 
+// NewSecretResourceRef creates a new Secret resource ref.
+func NewSecretConfigResourceRef(namespace, name, key string) ConfigRef {
+	secretResourceRef := NewSecretResourceRef(namespace, name, key)
+	return ConfigRef{
+		SelectorType: ConfigResourceSelectorType(secretResourceRef.SelectorType),
+		ConfigResourceSelector: ConfigResourceSelector{
+			ResourceSelector: secretResourceRef.ResourceSelector,
+		},
+	}
+}
+
 // NewLiteralResourceRef creates a new literal resource ref.
 func NewLiteralResourceRef(value string) ResourceRef {
 	return ResourceRef{
