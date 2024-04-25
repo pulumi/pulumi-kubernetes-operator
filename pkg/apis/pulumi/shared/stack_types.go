@@ -47,7 +47,8 @@ type StackSpec struct {
 	// is omitted, configuration is assumed to be checked in and taken from the source repository.
 	Config map[string]string `json:"config,omitempty"`
 	// (optional) ConfigRefs is the configuration for this stack, which can be specified through ConfigRef.
-	// is omitted, configuration is assumed to be checked in and taken from the source repository.
+	// If this is omitted, configuration is assumed to be checked in and taken from the source repository.
+	// If present, ConfigRefs values will be merged with values passed through Config
 	ConfigRefs map[string]ConfigRef `json:"configRefs,omitempty"`
 	// (optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
@@ -232,13 +233,13 @@ type FluxSourceReference struct {
 // strings are currently supported.
 type ResourceRef struct {
 	// SelectorType is required and signifies the type of selector. Must be one of:
-	// Env, FS, Secret, ConfigMap, Literal
+	// Env, FS, Secret, Literal
 	SelectorType     ResourceSelectorType `json:"type"`
 	ResourceSelector `json:",inline"`
 }
 
 // ConfigRef identifies a resource from which config information can be loaded.
-// Environment variables, files on the filesystem, Kubernetes Secrets, ConfigMap, structured and config literal values
+// Environment variables, files on the filesystem, Kubernetes Secrets, ConfigMaps, structured and config literal values
 // strings are currently supported.
 type ConfigRef struct {
 	// SelectorType is required and signifies the type of selector. Must be one of:
@@ -253,8 +254,9 @@ type ConfigResourceSelector struct {
 	ResourceSelector `json:",inline"`
 
 	// ConfigMapRef refers to a Kubernetes ConfigMap
+	// It will be assumed the ConfigMap key content is the stack config in YAML format.
 	ConfigMapRef *ConfigMapSelector `json:"configmap,omitempty"`
-	// StructuredRef refers to a structured value
+	// StructuredRef refers to a structured value in YAML format.
 	StructuredRef *StructuredRef `json:"structured,omitempty"`
 }
 

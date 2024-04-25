@@ -209,9 +209,10 @@ var _ = Describe("Stack Controller", func() {
 
 	Context("configuring a stack using ConfigRefs", func() {
 		var stack *pulumiv1.Stack
-		var configDir string
 
 		When("using a FileSystemRef", func() {
+			var configDir string
+
 			BeforeEach(func() {
 				By("Creating directory to store configs")
 				configDir, err = os.MkdirTemp("", "secrets")

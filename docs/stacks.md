@@ -130,7 +130,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b><a href="#stackspecconfigrefskey">configRefs</a></b></td>
         <td>map[string]object</td>
         <td>
-          (optional) ConfigRefs is the configuration for this stack, which can be specified through ConfigRef. is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+          (optional) ConfigRefs is the configuration for this stack, which can be specified through ConfigRef. If this is omitted, configuration is assumed to be checked in and taken from the source repository. If present, ConfigRefs values will be merged with values passed through Config<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -291,7 +291,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
 
 
 
-ConfigRef identifies a resource from which config information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets, ConfigMap, structured and config literal values strings are currently supported.
+ConfigRef identifies a resource from which config information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets, ConfigMaps, structured and config literal values strings are currently supported.
 
 <table>
     <thead>
@@ -313,7 +313,7 @@ ConfigRef identifies a resource from which config information can be loaded. Env
         <td><b><a href="#stackspecconfigrefskeyconfigmap">configmap</a></b></td>
         <td>object</td>
         <td>
-          ConfigMapRef refers to a Kubernetes ConfigMap<br/>
+          ConfigMapRef refers to a Kubernetes ConfigMap It will be assumed the ConfigMap key content is the stack config in YAML format.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -348,7 +348,7 @@ ConfigRef identifies a resource from which config information can be loaded. Env
         <td><b><a href="#stackspecconfigrefskeystructured">structured</a></b></td>
         <td>object</td>
         <td>
-          StructuredRef refers to a structured value<br/>
+          StructuredRef refers to a structured value in YAML format.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -360,7 +360,7 @@ ConfigRef identifies a resource from which config information can be loaded. Env
 
 
 
-ConfigMapRef refers to a Kubernetes ConfigMap
+ConfigMapRef refers to a Kubernetes ConfigMap It will be assumed the ConfigMap key content is the stack config in YAML format.
 
 <table>
     <thead>
@@ -523,7 +523,7 @@ SecretRef refers to a Kubernetes Secret
 
 
 
-StructuredRef refers to a structured value
+StructuredRef refers to a structured value in YAML format.
 
 <table>
     <thead>
@@ -565,7 +565,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -858,7 +858,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1069,7 +1069,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1246,7 +1246,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1457,7 +1457,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1634,7 +1634,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1899,7 +1899,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -2364,7 +2364,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b><a href="#stackspecconfigrefskey-1">configRefs</a></b></td>
         <td>map[string]object</td>
         <td>
-          (optional) ConfigRefs is the configuration for this stack, which can be specified through ConfigRef. is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+          (optional) ConfigRefs is the configuration for this stack, which can be specified through ConfigRef. If this is omitted, configuration is assumed to be checked in and taken from the source repository. If present, ConfigRefs values will be merged with values passed through Config<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2525,7 +2525,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
 
 
 
-ConfigRef identifies a resource from which config information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets, ConfigMap, structured and config literal values strings are currently supported.
+ConfigRef identifies a resource from which config information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets, ConfigMaps, structured and config literal values strings are currently supported.
 
 <table>
     <thead>
@@ -2547,7 +2547,7 @@ ConfigRef identifies a resource from which config information can be loaded. Env
         <td><b><a href="#stackspecconfigrefskeyconfigmap-1">configmap</a></b></td>
         <td>object</td>
         <td>
-          ConfigMapRef refers to a Kubernetes ConfigMap<br/>
+          ConfigMapRef refers to a Kubernetes ConfigMap It will be assumed the ConfigMap key content is the stack config in YAML format.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2582,7 +2582,7 @@ ConfigRef identifies a resource from which config information can be loaded. Env
         <td><b><a href="#stackspecconfigrefskeystructured-1">structured</a></b></td>
         <td>object</td>
         <td>
-          StructuredRef refers to a structured value<br/>
+          StructuredRef refers to a structured value in YAML format.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2594,7 +2594,7 @@ ConfigRef identifies a resource from which config information can be loaded. Env
 
 
 
-ConfigMapRef refers to a Kubernetes ConfigMap
+ConfigMapRef refers to a Kubernetes ConfigMap It will be assumed the ConfigMap key content is the stack config in YAML format.
 
 <table>
     <thead>
@@ -2757,7 +2757,7 @@ SecretRef refers to a Kubernetes Secret
 
 
 
-StructuredRef refers to a structured value
+StructuredRef refers to a structured value in YAML format.
 
 <table>
     <thead>
@@ -2799,7 +2799,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -3092,7 +3092,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -3303,7 +3303,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -3480,7 +3480,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -3691,7 +3691,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -3868,7 +3868,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -4133,7 +4133,7 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
