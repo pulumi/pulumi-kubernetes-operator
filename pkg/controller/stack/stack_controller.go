@@ -1098,26 +1098,24 @@ func (sess *reconcileStackSession) resolveConfigRefs(ctx context.Context) ([]Con
 				if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: configMapRef.Name, Namespace: configMapRef.Namespace}, &config); err != nil {
 					return nil, fmt.Errorf("Failed to get the ConfigMap %s on namespace %s: %w", configMapRef.Name, configMapRef.Namespace, err)
 				}
-				allConfigs = append(allConfigs, ConfigKeyValue{
-					Key: k,
-					Value: auto.ConfigValue{
-						Value:  config.Data[configMapRef.Key],
-						Secret: false,
-					},
-				})
+				// assumes the whole configmaps's data is the config content; try to read as a conventional stack yaml config
+				var configMapContent map[string]any
+				if err := yaml.Unmarshal([]byte(config.Data[configMapRef.Key]), &configMapContent); err != nil {
+					return nil, fmt.Errorf("Failed to read the ConfigMap content as a stack YAML config. Namespace=%s Name=%s: %w", configMapRef.Namespace, configMapRef.Name, err)
+				}
+				structuredConfig := StructuredConfig(configMapContent).Flatten()
+				allConfigs = append(allConfigs, structuredConfig...)
 			}
 		case shared.ConfigResourceSelectorStructured:
 			structuredRef := ref.StructuredRef
 			if structuredRef != nil {
 				// StructuredRef handles value as json, flattening all keys to build a list of Pulumi key:value configs
-				jsonConfig := StructuredConfig(map[string]apiextensionsv1.JSON{
-					k: structuredRef.Value,
-				})
-				structuredConfig, err := jsonConfig.Unmarshal()
+				structuredConfig, err := NewStructuredConfigFromJSON(structuredRef.Value)
 				if err != nil {
 					return nil, fmt.Errorf("Failed to unmarshall %s as a structured config: %w", k, err)
 				}
-				allConfigs = append(allConfigs, structuredConfig...)
+				configs := structuredConfig.Flatten()
+				allConfigs = append(allConfigs, configs...)
 			}
 		// Secret should be handled here as well because auto.ConfigValue should be marked as Secret:true
 		case shared.ConfigResourceSelectorType(shared.ResourceSelectorSecret):

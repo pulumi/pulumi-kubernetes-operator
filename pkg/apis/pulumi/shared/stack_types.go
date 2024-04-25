@@ -48,7 +48,7 @@ type StackSpec struct {
 	Config map[string]string `json:"config,omitempty"`
 	// (optional) ConfigRefs is the configuration for this stack, which can be specified through ConfigRef.
 	// is omitted, configuration is assumed to be checked in and taken from the source repository.
-	ConfigRefs map[string]ConfigRef `json:"configsRef,omitempty"`
+	ConfigRefs map[string]ConfigRef `json:"configRefs,omitempty"`
 	// (optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
 	// Deprecated: use SecretRefs instead.
@@ -275,6 +275,16 @@ func NewEnvResourceRef(envVarName string) ResourceRef {
 	}
 }
 
+func NewEnvConfigResourceRef(envVarName string) ConfigRef {
+	envResourceRef := NewEnvResourceRef(envVarName)
+	return ConfigRef{
+		SelectorType: ConfigResourceSelectorType(envResourceRef.SelectorType),
+		ConfigResourceSelector: ConfigResourceSelector{
+			ResourceSelector: envResourceRef.ResourceSelector,
+		},
+	}
+}
+
 // NewFileSystemResourceRef creates a new file system resource ref.
 func NewFileSystemResourceRef(path string) ResourceRef {
 	return ResourceRef{
@@ -283,6 +293,17 @@ func NewFileSystemResourceRef(path string) ResourceRef {
 			FileSystem: &FSSelector{
 				Path: path,
 			},
+		},
+	}
+}
+
+// NewConfigFileSystemResourceRef creates a new file system resource ref.
+func NewFileSystemConfigResourceRef(path string) ConfigRef {
+	fsResourceRef := NewFileSystemResourceRef(path)
+	return ConfigRef{
+		SelectorType: ConfigResourceSelectorType(fsResourceRef.SelectorType),
+		ConfigResourceSelector: ConfigResourceSelector{
+			ResourceSelector: fsResourceRef.ResourceSelector,
 		},
 	}
 }
@@ -301,7 +322,7 @@ func NewSecretResourceRef(namespace, name, key string) ResourceRef {
 	}
 }
 
-// NewSecretResourceRef creates a new Secret resource ref.
+// NewSecretConfigResourceRef creates a new Secret resource ref to be used as config.
 func NewSecretConfigResourceRef(namespace, name, key string) ConfigRef {
 	secretResourceRef := NewSecretResourceRef(namespace, name, key)
 	return ConfigRef{
@@ -319,6 +340,43 @@ func NewLiteralResourceRef(value string) ResourceRef {
 		ResourceSelector: ResourceSelector{
 			LiteralRef: &LiteralRef{
 				Value: value,
+			},
+		},
+	}
+}
+
+// NewLiteralConfigResourceRef creates a new config literal resource ref.
+func NewLiteralConfigResourceRef(value string) ConfigRef {
+	literalResourceRef := NewLiteralResourceRef(value)
+	return ConfigRef{
+		SelectorType: ConfigResourceSelectorType(literalResourceRef.SelectorType),
+		ConfigResourceSelector: ConfigResourceSelector{
+			ResourceSelector: literalResourceRef.ResourceSelector,
+		},
+	}
+}
+
+// NewStructuredConfigResourceRef creates a new structured config resource ref.
+func NewStructuredConfigResourceRef(config apiextensionsv1.JSON) ConfigRef {
+	return ConfigRef{
+		SelectorType: ConfigResourceSelectorStructured,
+		ConfigResourceSelector: ConfigResourceSelector{
+			StructuredRef: &StructuredRef{
+				Value: config,
+			},
+		},
+	}
+}
+
+// NewConfigMapConfigResourceRef creates a new ConfigMap resource ref to be used as config.
+func NewConfigMapConfigResourceRef(namespace, name, key string) ConfigRef {
+	return ConfigRef{
+		SelectorType: ConfigResourceSelectorConfigMap,
+		ConfigResourceSelector: ConfigResourceSelector{
+			ConfigMapRef: &ConfigMapSelector{
+				Namespace: namespace,
+				Name:      name,
+				Key:       key,
 			},
 		},
 	}

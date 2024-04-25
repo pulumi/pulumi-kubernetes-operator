@@ -127,7 +127,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigsrefkey">configsRef</a></b></td>
+        <td><b><a href="#stackspecconfigrefskey">configRefs</a></b></td>
         <td>map[string]object</td>
         <td>
           (optional) ConfigRefs is the configuration for this stack, which can be specified through ConfigRef. is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
@@ -286,7 +286,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
 </table>
 
 
-### Stack.spec.configsRef[key]
+### Stack.spec.configRefs[key]
 <sup><sup>[↩ Parent](#stackspec)</sup></sup>
 
 
@@ -310,42 +310,42 @@ ConfigRef identifies a resource from which config information can be loaded. Env
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigsrefkeyconfigmap">configmap</a></b></td>
+        <td><b><a href="#stackspecconfigrefskeyconfigmap">configmap</a></b></td>
         <td>object</td>
         <td>
           ConfigMapRef refers to a Kubernetes ConfigMap<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigsrefkeyenv">env</a></b></td>
+        <td><b><a href="#stackspecconfigrefskeyenv">env</a></b></td>
         <td>object</td>
         <td>
           Env selects an environment variable set on the operator process<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigsrefkeyfilesystem">filesystem</a></b></td>
+        <td><b><a href="#stackspecconfigrefskeyfilesystem">filesystem</a></b></td>
         <td>object</td>
         <td>
           FileSystem selects a file on the operator's file system<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigsrefkeyliteral">literal</a></b></td>
+        <td><b><a href="#stackspecconfigrefskeyliteral">literal</a></b></td>
         <td>object</td>
         <td>
           LiteralRef refers to a literal value<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigsrefkeysecret">secret</a></b></td>
+        <td><b><a href="#stackspecconfigrefskeysecret">secret</a></b></td>
         <td>object</td>
         <td>
           SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigsrefkeystructured">structured</a></b></td>
+        <td><b><a href="#stackspecconfigrefskeystructured">structured</a></b></td>
         <td>object</td>
         <td>
           StructuredRef refers to a structured value<br/>
@@ -355,8 +355,8 @@ ConfigRef identifies a resource from which config information can be loaded. Env
 </table>
 
 
-### Stack.spec.configsRef[key].configmap
-<sup><sup>[↩ Parent](#stackspecconfigsrefkey)</sup></sup>
+### Stack.spec.configRefs[key].configmap
+<sup><sup>[↩ Parent](#stackspecconfigrefskey)</sup></sup>
 
 
 
@@ -396,8 +396,8 @@ ConfigMapRef refers to a Kubernetes ConfigMap
 </table>
 
 
-### Stack.spec.configsRef[key].env
-<sup><sup>[↩ Parent](#stackspecconfigsrefkey)</sup></sup>
+### Stack.spec.configRefs[key].env
+<sup><sup>[↩ Parent](#stackspecconfigrefskey)</sup></sup>
 
 
 
@@ -423,8 +423,8 @@ Env selects an environment variable set on the operator process
 </table>
 
 
-### Stack.spec.configsRef[key].filesystem
-<sup><sup>[↩ Parent](#stackspecconfigsrefkey)</sup></sup>
+### Stack.spec.configRefs[key].filesystem
+<sup><sup>[↩ Parent](#stackspecconfigrefskey)</sup></sup>
 
 
 
@@ -450,8 +450,8 @@ FileSystem selects a file on the operator's file system
 </table>
 
 
-### Stack.spec.configsRef[key].literal
-<sup><sup>[↩ Parent](#stackspecconfigsrefkey)</sup></sup>
+### Stack.spec.configRefs[key].literal
+<sup><sup>[↩ Parent](#stackspecconfigrefskey)</sup></sup>
 
 
 
@@ -477,8 +477,8 @@ LiteralRef refers to a literal value
 </table>
 
 
-### Stack.spec.configsRef[key].secret
-<sup><sup>[↩ Parent](#stackspecconfigsrefkey)</sup></sup>
+### Stack.spec.configRefs[key].secret
+<sup><sup>[↩ Parent](#stackspecconfigrefskey)</sup></sup>
 
 
 
@@ -518,8 +518,8 @@ SecretRef refers to a Kubernetes Secret
 </table>
 
 
-### Stack.spec.configsRef[key].structured
-<sup><sup>[↩ Parent](#stackspecconfigsrefkey)</sup></sup>
+### Stack.spec.configRefs[key].structured
+<sup><sup>[↩ Parent](#stackspecconfigrefskey)</sup></sup>
 
 
 
@@ -2361,7 +2361,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigsrefkey-1">configsRef</a></b></td>
+        <td><b><a href="#stackspecconfigrefskey-1">configRefs</a></b></td>
         <td>map[string]object</td>
         <td>
           (optional) ConfigRefs is the configuration for this stack, which can be specified through ConfigRef. is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
@@ -2520,7 +2520,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
 </table>
 
 
-### Stack.spec.configsRef[key]
+### Stack.spec.configRefs[key]
 <sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
 
 
@@ -2544,42 +2544,42 @@ ConfigRef identifies a resource from which config information can be loaded. Env
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigsrefkeyconfigmap-1">configmap</a></b></td>
+        <td><b><a href="#stackspecconfigrefskeyconfigmap-1">configmap</a></b></td>
         <td>object</td>
         <td>
           ConfigMapRef refers to a Kubernetes ConfigMap<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigsrefkeyenv-1">env</a></b></td>
+        <td><b><a href="#stackspecconfigrefskeyenv-1">env</a></b></td>
         <td>object</td>
         <td>
           Env selects an environment variable set on the operator process<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigsrefkeyfilesystem-1">filesystem</a></b></td>
+        <td><b><a href="#stackspecconfigrefskeyfilesystem-1">filesystem</a></b></td>
         <td>object</td>
         <td>
           FileSystem selects a file on the operator's file system<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigsrefkeyliteral-1">literal</a></b></td>
+        <td><b><a href="#stackspecconfigrefskeyliteral-1">literal</a></b></td>
         <td>object</td>
         <td>
           LiteralRef refers to a literal value<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigsrefkeysecret-1">secret</a></b></td>
+        <td><b><a href="#stackspecconfigrefskeysecret-1">secret</a></b></td>
         <td>object</td>
         <td>
           SecretRef refers to a Kubernetes Secret<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigsrefkeystructured-1">structured</a></b></td>
+        <td><b><a href="#stackspecconfigrefskeystructured-1">structured</a></b></td>
         <td>object</td>
         <td>
           StructuredRef refers to a structured value<br/>
@@ -2589,8 +2589,8 @@ ConfigRef identifies a resource from which config information can be loaded. Env
 </table>
 
 
-### Stack.spec.configsRef[key].configmap
-<sup><sup>[↩ Parent](#stackspecconfigsrefkey-1)</sup></sup>
+### Stack.spec.configRefs[key].configmap
+<sup><sup>[↩ Parent](#stackspecconfigrefskey-1)</sup></sup>
 
 
 
@@ -2630,8 +2630,8 @@ ConfigMapRef refers to a Kubernetes ConfigMap
 </table>
 
 
-### Stack.spec.configsRef[key].env
-<sup><sup>[↩ Parent](#stackspecconfigsrefkey-1)</sup></sup>
+### Stack.spec.configRefs[key].env
+<sup><sup>[↩ Parent](#stackspecconfigrefskey-1)</sup></sup>
 
 
 
@@ -2657,8 +2657,8 @@ Env selects an environment variable set on the operator process
 </table>
 
 
-### Stack.spec.configsRef[key].filesystem
-<sup><sup>[↩ Parent](#stackspecconfigsrefkey-1)</sup></sup>
+### Stack.spec.configRefs[key].filesystem
+<sup><sup>[↩ Parent](#stackspecconfigrefskey-1)</sup></sup>
 
 
 
@@ -2684,8 +2684,8 @@ FileSystem selects a file on the operator's file system
 </table>
 
 
-### Stack.spec.configsRef[key].literal
-<sup><sup>[↩ Parent](#stackspecconfigsrefkey-1)</sup></sup>
+### Stack.spec.configRefs[key].literal
+<sup><sup>[↩ Parent](#stackspecconfigrefskey-1)</sup></sup>
 
 
 
@@ -2711,8 +2711,8 @@ LiteralRef refers to a literal value
 </table>
 
 
-### Stack.spec.configsRef[key].secret
-<sup><sup>[↩ Parent](#stackspecconfigsrefkey-1)</sup></sup>
+### Stack.spec.configRefs[key].secret
+<sup><sup>[↩ Parent](#stackspecconfigrefskey-1)</sup></sup>
 
 
 
@@ -2752,8 +2752,8 @@ SecretRef refers to a Kubernetes Secret
 </table>
 
 
-### Stack.spec.configsRef[key].structured
-<sup><sup>[↩ Parent](#stackspecconfigsrefkey-1)</sup></sup>
+### Stack.spec.configRefs[key].structured
+<sup><sup>[↩ Parent](#stackspecconfigrefskey-1)</sup></sup>
 
 
 

@@ -9,18 +9,24 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
-type StructuredConfig map[string]apiextensionsv1.JSON
+type StructuredConfig map[string]any
 
 type ConfigKeyValue struct {
 	Key   string
 	Value auto.ConfigValue
 }
 
-func (c StructuredConfig) Unmarshal() ([]ConfigKeyValue, error) {
-	flatten, err := flattenKeys(c)
-	if err != nil {
+func NewStructuredConfigFromJSON(rawValue apiextensionsv1.JSON) (*StructuredConfig, error) {
+	var data map[string]any
+	if err := json.Unmarshal(rawValue.Raw, &data); err != nil {
 		return nil, err
 	}
+	structuredConfig := StructuredConfig(data)
+	return &structuredConfig, nil
+}
+
+func (c StructuredConfig) Flatten() []ConfigKeyValue {
+	flatten := flattenKeys(c)
 
 	configValues := make([]ConfigKeyValue, 0, len(flatten))
 	for key, value := range flatten {
@@ -32,61 +38,43 @@ func (c StructuredConfig) Unmarshal() ([]ConfigKeyValue, error) {
 		})
 	}
 
-	return configValues, nil
+	return configValues
 }
 
-func flattenKeys(config StructuredConfig) (map[string]any, error) {
+func flattenKeys(config StructuredConfig) map[string]any {
 	output := make(map[string]any)
 
-	for k, jsonValue := range config {
-		var d any
-		if err := json.Unmarshal(jsonValue.Raw, &d); err != nil {
-			return nil, err
-		}
-
-		err := flatten(output, d, k)
-		if err != nil {
-			return nil, err
-		}
+	for k, v := range config {
+		flatten(output, v, k)
 	}
 
-	return output, nil
+	return output
 }
 
-func flatten(flatMap map[string]any, nested any, prefix string) error {
-	assign := func(newKey string, v any) error {
+func flatten(flatMap map[string]any, nested any, prefix string) {
+	assign := func(newKey string, v any) {
 		switch v.(type) {
 		case map[string]any, []any:
-			if err := flatten(flatMap, v, newKey); err != nil {
-				return err
-			}
+			flatten(flatMap, v, newKey)
 		default:
 			flatMap[newKey] = v
 		}
-
-		return nil
 	}
 
 	switch nested.(type) {
 	case map[string]any:
 		for k, v := range nested.(map[string]any) {
 			newKey := enkey(prefix, k)
-			if err := assign(newKey, v); err != nil {
-				return err
-			}
+			assign(newKey, v)
 		}
 	case []any:
 		for i, v := range nested.([]any) {
 			newKey := indexedKey(prefix, strconv.Itoa(i))
-			if err := assign(newKey, v); err != nil {
-				return err
-			}
+			assign(newKey, v)
 		}
 	default:
-		return assign(prefix, nested)
+		assign(prefix, nested)
 	}
-
-	return nil
 }
 
 func enkey(prefix, subkey string) string {

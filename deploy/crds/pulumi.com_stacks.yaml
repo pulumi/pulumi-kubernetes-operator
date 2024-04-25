@@ -80,7 +80,7 @@ spec:
                   which can be optionally specified inline. If this is omitted, configuration
                   is assumed to be checked in and taken from the source repository.
                 type: object
-              configsRef:
+              configRefs:
                 additionalProperties:
                   description: ConfigRef identifies a resource from which config information
                     can be loaded. Environment variables, files on the filesystem,
@@ -997,7 +997,7 @@ spec:
                   which can be optionally specified inline. If this is omitted, configuration
                   is assumed to be checked in and taken from the source repository.
                 type: object
-              configsRef:
+              configRefs:
                 additionalProperties:
                   description: ConfigRef identifies a resource from which config information
                     can be loaded. Environment variables, files on the filesystem,

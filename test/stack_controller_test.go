@@ -4,6 +4,7 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/pkg/apis/pulumi/v1"
+	"sigs.k8s.io/yaml"
 
 	git "github.com/go-git/go-git/v5"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -202,6 +204,385 @@ var _ = Describe("Stack Controller", func() {
 				"secretVal":    v1.JSON{Raw: []byte(`"[secret]"`)},
 				"nestedSecret": v1.JSON{Raw: []byte(`"[secret]"`)},
 			}))
+		})
+	})
+
+	Context("configuring a stack using ConfigRefs", func() {
+		var stack *pulumiv1.Stack
+		var configDir string
+
+		When("using a FileSystemRef", func() {
+			BeforeEach(func() {
+				By("Creating directory to store configs")
+				configDir, err = os.MkdirTemp("", "secrets")
+				if err != nil {
+					Fail("Failed to create config temp directory")
+				}
+				Expect(os.WriteFile(filepath.Join(configDir, "word.txt"), []byte("just-a-word-in-a-file"), 0600)).To(Succeed())
+			})
+
+			AfterEach(func() {
+				deleteAndWaitForFinalization(stack)
+			})
+
+			It("can deploy a stack reading a config from a file", func() {
+
+				// Use a local backend for this test.
+				// Local backend doesn't allow setting slashes in stack name.
+				const stackName = "dev"
+				fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
+
+				// Define the stack spec
+				localSpec := shared.StackSpec{
+					Backend: fmt.Sprintf("file://%s", backendDir),
+					Stack:   stackName,
+					GitSource: &shared.GitSource{
+						ProjectRepo: baseDir,
+						RepoDir:     "test/testdata/config-refs",
+						Commit:      commit,
+					},
+					SecretsProvider: "passphrase",
+					EnvRefs:         defaultEnvRefs(),
+					ConfigRefs: map[string]shared.ConfigRef{
+						"word": shared.NewFileSystemConfigResourceRef(filepath.Join(configDir, "word.txt")),
+					},
+					Refresh: true,
+				}
+
+				// Create the stack
+				name := "config-refs-with-file-stack"
+				stack = generateStackV1(name, namespace, localSpec)
+				Expect(k8sClient.Create(ctx, stack)).Should(Succeed())
+
+				// Check that the stack updated successfully
+				fetched := &pulumiv1.Stack{}
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
+					if err != nil {
+						return false
+					}
+					return stackUpdatedToCommit(fetched.Status.LastUpdate, stack.Spec.Commit)
+				}, stackExecTimeout, interval).Should(BeTrue())
+				// Validate outputs.
+				Expect(fetched.Status.Outputs).Should(HaveKeyWithValue("word", v1.JSON{Raw: []byte(`"just-a-word-in-a-file"`)}))
+			})
+		})
+
+		When("using an EnvRef", func() {
+			AfterEach(func() {
+				deleteAndWaitForFinalization(stack)
+			})
+
+			It("can deploy a stack reading a config from an EnvVar", func() {
+
+				// Use a local backend for this test.
+				// Local backend doesn't allow setting slashes in stack name.
+				const stackName = "dev"
+				fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
+
+				err := os.Setenv("WORD", "just-a-word")
+				if err != nil {
+					Fail("Unable to set WORD environment variable.")
+				}
+
+				// Define the stack spec
+				localSpec := shared.StackSpec{
+					Backend: fmt.Sprintf("file://%s", backendDir),
+					Stack:   stackName,
+					GitSource: &shared.GitSource{
+						ProjectRepo: baseDir,
+						RepoDir:     "test/testdata/config-refs",
+						Commit:      commit,
+					},
+					SecretsProvider: "passphrase",
+					EnvRefs:         defaultEnvRefs(),
+					ConfigRefs: map[string]shared.ConfigRef{
+						"word": shared.NewEnvConfigResourceRef("WORD"),
+					},
+					Refresh: true,
+				}
+
+				// Create the stack
+				name := "config-refs-with-envs-stack"
+				stack = generateStackV1(name, namespace, localSpec)
+				Expect(k8sClient.Create(ctx, stack)).Should(Succeed())
+
+				// Check that the stack updated successfully
+				fetched := &pulumiv1.Stack{}
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
+					if err != nil {
+						return false
+					}
+					return stackUpdatedToCommit(fetched.Status.LastUpdate, stack.Spec.Commit)
+				}, stackExecTimeout, interval).Should(BeTrue())
+				// Validate outputs.
+				Expect(fetched.Status.Outputs).Should(HaveKeyWithValue("word", v1.JSON{Raw: []byte(`"just-a-word"`)}))
+			})
+		})
+
+		When("using a SecretRef", func() {
+			var configSecret *corev1.Secret
+
+			BeforeEach(func() {
+				// Create the config secret
+				By("Creating the Config Secret")
+				configSecret = generateSecret("config-secret", namespace,
+					map[string][]byte{
+						"secret-word": []byte("just-a-secret-word"),
+					},
+				)
+				Expect(k8sClient.Create(ctx, configSecret)).Should(Succeed())
+				DeferCleanup(func() {
+					if configSecret != nil {
+						By("Deleting the Config Secret")
+						Expect(k8sClient.Delete(ctx, configSecret)).Should(Succeed())
+					}
+				})
+			})
+
+			AfterEach(func() {
+				deleteAndWaitForFinalization(stack)
+			})
+
+			It("can deploy a stack reading a config from a Secret", func() {
+
+				// Use a local backend for this test.
+				// Local backend doesn't allow setting slashes in stack name.
+				const stackName = "dev"
+				fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
+
+				// Define the stack spec
+				localSpec := shared.StackSpec{
+					Backend: fmt.Sprintf("file://%s", backendDir),
+					Stack:   stackName,
+					GitSource: &shared.GitSource{
+						ProjectRepo: baseDir,
+						RepoDir:     "test/testdata/config-refs",
+						Commit:      commit,
+					},
+					SecretsProvider: "passphrase",
+					EnvRefs:         defaultEnvRefs(),
+					Config: map[string]string{
+						"word": "just-a-word",
+					},
+					ConfigRefs: map[string]shared.ConfigRef{
+						"secret-word": shared.NewSecretConfigResourceRef(namespace, configSecret.Name, "secret-word"),
+					},
+					Refresh: true,
+				}
+
+				// Create the stack
+				name := "config-refs-with-secret-stack"
+				stack = generateStackV1(name, namespace, localSpec)
+				Expect(k8sClient.Create(ctx, stack)).Should(Succeed())
+
+				// Check that the stack updated successfully
+				fetched := &pulumiv1.Stack{}
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
+					if err != nil {
+						return false
+					}
+					return stackUpdatedToCommit(fetched.Status.LastUpdate, stack.Spec.Commit)
+				}, stackExecTimeout, interval).Should(BeTrue())
+				// Validate outputs.
+				Expect(fetched.Status.Outputs).Should(BeEquivalentTo(shared.StackOutputs{
+					"word":        v1.JSON{Raw: []byte(`"just-a-word"`)},
+					"secret-word": v1.JSON{Raw: []byte(`"[secret]"`)},
+				}))
+			})
+		})
+
+		When("using a LiteralRef", func() {
+			AfterEach(func() {
+				deleteAndWaitForFinalization(stack)
+			})
+
+			It("can deploy a stack reading a config from a Literal value", func() {
+
+				// Use a local backend for this test.
+				// Local backend doesn't allow setting slashes in stack name.
+				const stackName = "dev"
+				fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
+
+				// Define the stack spec
+				localSpec := shared.StackSpec{
+					Backend: fmt.Sprintf("file://%s", backendDir),
+					Stack:   stackName,
+					GitSource: &shared.GitSource{
+						ProjectRepo: baseDir,
+						RepoDir:     "test/testdata/config-refs",
+						Commit:      commit,
+					},
+					SecretsProvider: "passphrase",
+					EnvRefs:         defaultEnvRefs(),
+					ConfigRefs: map[string]shared.ConfigRef{
+						"word": shared.NewLiteralConfigResourceRef("just-a-literal-word"),
+					},
+					Refresh: true,
+				}
+
+				// Create the stack
+				name := "config-refs-with-literal-stack"
+				stack = generateStackV1(name, namespace, localSpec)
+				Expect(k8sClient.Create(ctx, stack)).Should(Succeed())
+
+				// Check that the stack updated successfully
+				fetched := &pulumiv1.Stack{}
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
+					if err != nil {
+						return false
+					}
+					return stackUpdatedToCommit(fetched.Status.LastUpdate, stack.Spec.Commit)
+				}, stackExecTimeout, interval).Should(BeTrue())
+				// Validate outputs.
+				Expect(fetched.Status.Outputs).Should(HaveKeyWithValue("word", v1.JSON{Raw: []byte(`"just-a-literal-word"`)}))
+			})
+		})
+
+		When("using a StructuredRef", func() {
+			AfterEach(func() {
+				deleteAndWaitForFinalization(stack)
+			})
+
+			It("can deploy a stack reading a config from a Structured value", func() {
+
+				// Use a local backend for this test.
+				// Local backend doesn't allow setting slashes in stack name.
+				const stackName = "dev"
+				fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
+
+				structuredConfig := map[string]any{
+					"structured": map[string]any{
+						"nested": map[string]any{
+							"field": "just-a-structured-value",
+						},
+					},
+				}
+				jsonStructuredConfig, err := json.Marshal(structuredConfig)
+				if err != nil {
+					Fail("Failed to serialize a structured config to json.")
+				}
+
+				// Define the stack spec
+				localSpec := shared.StackSpec{
+					Backend: fmt.Sprintf("file://%s", backendDir),
+					Stack:   stackName,
+					GitSource: &shared.GitSource{
+						ProjectRepo: baseDir,
+						RepoDir:     "test/testdata/structured-config-refs",
+						Commit:      commit,
+					},
+					SecretsProvider: "passphrase",
+					EnvRefs:         defaultEnvRefs(),
+					ConfigRefs: map[string]shared.ConfigRef{
+						"structured": shared.NewStructuredConfigResourceRef(v1.JSON{Raw: jsonStructuredConfig}),
+					},
+					Refresh: true,
+				}
+
+				// Create the stack
+				name := "config-refs-with-literal-stack"
+				stack = generateStackV1(name, namespace, localSpec)
+				Expect(k8sClient.Create(ctx, stack)).Should(Succeed())
+
+				// Check that the stack updated successfully
+				fetched := &pulumiv1.Stack{}
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
+					if err != nil {
+						return false
+					}
+					return stackUpdatedToCommit(fetched.Status.LastUpdate, stack.Spec.Commit)
+				}, stackExecTimeout, interval).Should(BeTrue())
+				// Validate outputs.
+				Expect(fetched.Status.Outputs).Should(BeEquivalentTo(shared.StackOutputs{
+					"nested-config-field": v1.JSON{Raw: []byte(`"just-a-structured-value"`)},
+				}))
+			})
+		})
+
+		When("using a ConfigMapRef", func() {
+			var configMap *corev1.ConfigMap
+
+			BeforeEach(func() {
+				// Create the configmap
+				By("Creating the ConfigMap")
+
+				structuredConfig := map[string]any{
+					"structured": map[string]any{
+						"nested": map[string]any{
+							"field": "just-a-structured-value",
+						},
+					},
+				}
+
+				structuredConfigAsYaml, err := yaml.Marshal(structuredConfig)
+				if err != nil {
+					Fail("Failed to serialize a structured config to yaml.")
+				}
+
+				configMap = generateConfigMap("config-secret", namespace, map[string]string{
+					"Pulumi.dev.yaml": string(structuredConfigAsYaml),
+				})
+				Expect(k8sClient.Create(ctx, configMap)).Should(Succeed())
+				DeferCleanup(func() {
+					if configMap != nil {
+						By("Deleting the ConfigMap")
+						Expect(k8sClient.Delete(ctx, configMap)).Should(Succeed())
+					}
+				})
+			})
+
+			AfterEach(func() {
+				deleteAndWaitForFinalization(stack)
+			})
+
+			It("can deploy a stack reading a config from a ConfigMap", func() {
+
+				// Use a local backend for this test.
+				// Local backend doesn't allow setting slashes in stack name.
+				const stackName = "dev"
+				fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
+
+				// Define the stack spec
+				localSpec := shared.StackSpec{
+					Backend: fmt.Sprintf("file://%s", backendDir),
+					Stack:   stackName,
+					GitSource: &shared.GitSource{
+						ProjectRepo: baseDir,
+						RepoDir:     "test/testdata/structured-config-refs",
+						Commit:      commit,
+					},
+					SecretsProvider: "passphrase",
+					EnvRefs:         defaultEnvRefs(),
+					ConfigRefs: map[string]shared.ConfigRef{
+						"stack-config": shared.NewConfigMapConfigResourceRef(namespace, configMap.Name, "Pulumi.dev.yaml"),
+					},
+					Refresh: true,
+				}
+
+				// Create the stack
+				name := "config-refs-with-literal-stack"
+				stack = generateStackV1(name, namespace, localSpec)
+				Expect(k8sClient.Create(ctx, stack)).Should(Succeed())
+
+				// Check that the stack updated successfully
+				fetched := &pulumiv1.Stack{}
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
+					if err != nil {
+						return false
+					}
+					return stackUpdatedToCommit(fetched.Status.LastUpdate, stack.Spec.Commit)
+				}, stackExecTimeout, interval).Should(BeTrue())
+				// Validate outputs.
+				Expect(fetched.Status.Outputs).Should(BeEquivalentTo(shared.StackOutputs{
+					"nested-config-field": v1.JSON{Raw: []byte(`"just-a-structured-value"`)},
+				}))
+			})
 		})
 	})
 
@@ -492,5 +873,19 @@ func generateSecret(name, namespace string, data map[string][]byte) *corev1.Secr
 		},
 		Data: data,
 		Type: "Opaque",
+	}
+}
+
+func generateConfigMap(name, namespace string, data map[string]string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "apps/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      strings.Join([]string{name, randString()}, "-"),
+			Namespace: namespace,
+		},
+		Data: data,
 	}
 }

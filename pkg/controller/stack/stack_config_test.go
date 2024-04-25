@@ -19,32 +19,33 @@ func TestFlattenStackConfigFromJson(t *testing.T) {
 		return apiextensionsv1.JSON{Raw: b}
 	}
 
-	sourceConfigMap := map[string]apiextensionsv1.JSON{
-		"aws:region": toJson("us-east-1"),
-		"aws:assumeRole": toJson(map[string]any{
+	sourceConfigMap := map[string]any{
+		"aws:region": "us-east-1",
+		"aws:assumeRole": map[string]any{
 			"roleArn":     "my-role-arn",
 			"sessionName": "my-session-name",
-		}),
-		"aws:defaultTags": toJson(map[string]any{
+		},
+		"aws:defaultTags": map[string]any{
 			"tags": map[string]any{
 				"my-tag": "tag-value",
 			},
-		}),
-		"an-object-config": toJson(map[string]any{
+		},
+		"an-object-config": map[string]any{
 			"another-config": map[string]any{
 				"config-key": "value",
 			},
 			"a-nested-list-config": []any{"one", "two", "three"},
-		}),
-		"a-list-config":     toJson([]any{"a", "b", "c"}),
-		"a-simple-config":   toJson("just-a-simple-value"),
-		"a-boolean-config":  toJson(true),
-		"an-integer-config": toJson(123456),
+		},
+		"a-list-config":     []any{"a", "b", "c"},
+		"a-simple-config":   "just-a-simple-value",
+		"a-boolean-config":  true,
+		"an-integer-config": 123456,
 	}
 
-	configValues, err := StructuredConfig(sourceConfigMap).Unmarshal()
+	structuredConfig, err := NewStructuredConfigFromJSON(toJson(sourceConfigMap))
+	if assert.NoError(t, err) {
+		configValues := structuredConfig.Flatten()
 
-	if assert.Nil(t, err) {
 		expected := []ConfigKeyValue{
 			{
 				Key: "a-boolean-config",
@@ -146,6 +147,6 @@ func TestFlattenStackConfigFromJson(t *testing.T) {
 			},
 		}
 
-		assert.Equal(t, expected, configValues)
+		assert.ElementsMatch(t, expected, configValues)
 	}
 }
