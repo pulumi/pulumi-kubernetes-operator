@@ -19,7 +19,7 @@ install-crds:
 codegen: install-controller-gen install-crdoc generate-k8s generate-crds generate-crdocs
 
 install-controller-gen:
-	@echo "Installing controller-gen to GOPATH/bin"; pushd /tmp >& /dev/null && go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.2 ; popd >& /dev/null
+	@echo "Installing controller-gen to GOPATH/bin"; pushd /tmp >& /dev/null && go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.15.0 ; popd >& /dev/null
 
 install-crdoc:
 	@echo "Installing crdoc to go GOPATH/bin"; pushd /tmp >& /dev/null && go install fybrik.io/crdoc@v0.5.2; popd >& /dev/null
@@ -48,7 +48,7 @@ push-image:
 
 test: codegen download-test-deps
 	KUBEBUILDER_ASSETS="$(shell setup-envtest --use-env use -p path)" \
-		ginkgo -nodes=${TEST_NODES} --randomize-all ./test/...
+		go run github.com/onsi/ginkgo/v2/ginkgo -nodes=${TEST_NODES} --randomize-all -v ./...
 
 deploy:
 	kubectl apply -f deploy/yaml/service_account.yaml

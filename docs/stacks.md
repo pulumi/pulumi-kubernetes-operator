@@ -95,42 +95,61 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>accessTokenSecret</b></td>
         <td>string</td>
         <td>
-          (optional) AccessTokenSecret is the name of a Secret containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN instead.<br/>
+          (optional) AccessTokenSecret is the name of a Secret containing the PULUMI_ACCESS_TOKEN for Pulumi access.
+Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>backend</b></td>
         <td>string</td>
         <td>
-          (optional) Backend is an optional backend URL to use for all Pulumi operations.<br/> Examples:<br/> - Pulumi Service:              "https://app.pulumi.com" (default)<br/> - Self-managed Pulumi Service: "https://pulumi.acmecorp.com" <br/> - Local:                       "file://./einstein" <br/> - AWS:                         "s3://<my-pulumi-state-bucket>" <br/> - Azure:                       "azblob://<my-pulumi-state-bucket>" <br/> - GCP:                         "gs://<my-pulumi-state-bucket>" <br/> See: https://www.pulumi.com/docs/intro/concepts/state/<br/>
+          (optional) Backend is an optional backend URL to use for all Pulumi operations.<br/>
+Examples:<br/>
+  - Pulumi Service:              "https://app.pulumi.com" (default)<br/>
+  - Self-managed Pulumi Service: "https://pulumi.acmecorp.com" <br/>
+  - Local:                       "file://./einstein" <br/>
+  - AWS:                         "s3://<my-pulumi-state-bucket>" <br/>
+  - Azure:                       "azblob://<my-pulumi-state-bucket>" <br/>
+  - GCP:                         "gs://<my-pulumi-state-bucket>" <br/>
+See: https://www.pulumi.com/docs/intro/concepts/state/<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>branch</b></td>
         <td>string</td>
         <td>
-          (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This is mutually exclusive with the Commit setting. Either value needs to be specified. When specified, the operator will periodically poll to check if the branch has any new commits. The frequency of the polling is configurable through ResyncFrequencySeconds, defaulting to every 60 seconds.<br/>
+          (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This
+is mutually exclusive with the Commit setting. Either value needs to be specified.
+When specified, the operator will periodically poll to check if the branch has any new commits.
+The frequency of the polling is configurable through ResyncFrequencySeconds, defaulting to every 60 seconds.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>commit</b></td>
         <td>string</td>
         <td>
-          (optional) Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This is mutually exclusive with the Branch setting. Either value needs to be specified.<br/>
+          (optional) Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This
+is mutually exclusive with the Branch setting. Either value needs to be specified.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>config</b></td>
         <td>map[string]string</td>
         <td>
-          (optional) Config is the configuration for this stack, which can be optionally specified inline. If this is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+          (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
+is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>continueResyncOnCommitMatch</b></td>
         <td>boolean</td>
         <td>
-          (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying to update stacks even if the revision of the source matches. This might be useful in environments where Pulumi programs have dynamic elements for example, calls to internal APIs where GitOps style commit tracking is not sufficient.  Defaults to false, i.e. when a particular revision is successfully run, the operator will not attempt to rerun the program at that revision again.<br/>
+          (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying
+to update stacks even if the revision of the source matches. This might be useful in
+environments where Pulumi programs have dynamic elements for example, calls to internal APIs
+where GitOps style commit tracking is not sufficient.  Defaults to false, i.e. when a
+particular revision is successfully run, the operator will not attempt to rerun the program
+at that revision again.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -144,28 +163,35 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b><a href="#stackspecenvrefskey">envRefs</a></b></td>
         <td>map[string]object</td>
         <td>
-          (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where the variables' values should be loaded from (one of literal, environment variable, file on the filesystem, or Kubernetes Secret) as values.<br/>
+          (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where
+the variables' values should be loaded from (one of literal, environment variable, file on the
+filesystem, or Kubernetes Secret) as values.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>envSecrets</b></td>
         <td>[]string</td>
         <td>
-          (optional) SecretEnvs is an optional array of Secret names containing environment variables to set. Deprecated: use EnvRefs instead.<br/>
+          (optional) SecretEnvs is an optional array of Secret names containing environment variables to set.
+Deprecated: use EnvRefs instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>envs</b></td>
         <td>[]string</td>
         <td>
-          (optional) Envs is an optional array of config maps containing environment variables to set. Deprecated: use EnvRefs instead.<br/>
+          (optional) Envs is an optional array of config maps containing environment variables to set.
+Deprecated: use EnvRefs instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>expectNoRefreshChanges</b></td>
         <td>boolean</td>
         <td>
-          (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have changes during a refresh before the update is run. This could occur, for example, is a resource's state is changing outside of Pulumi (e.g., metadata, timestamps).<br/>
+          (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have
+changes during a refresh before the update is run.
+This could occur, for example, is a resource's state is changing outside of Pulumi
+(e.g., metadata, timestamps).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -179,21 +205,39 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b><a href="#stackspecgitauth">gitAuth</a></b></td>
         <td>object</td>
         <td>
-          (optional) GitAuth allows configuring git authentication options There are 3 different authentication options: * SSH private key (and its optional password) * Personal access token * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials.<br/>
+          (optional) GitAuth allows configuring git authentication options
+There are 3 different authentication options:
+  * SSH private key (and its optional password)
+  * Personal access token
+  * Basic auth username and password
+Only one authentication mode will be considered if more than one option is specified,
+with ssh private key/password preferred first, then personal access token, and finally
+basic auth credentials.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>gitAuthSecret</b></td>
         <td>string</td>
         <td>
-          (optional) GitAuthSecret is the the name of a Secret containing an authentication option for the git repository. There are 3 different authentication options: * Personal access token * SSH private key (and it's optional password) * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.<br/>
+          (optional) GitAuthSecret is the the name of a Secret containing an
+authentication option for the git repository.
+There are 3 different authentication options:
+  * Personal access token
+  * SSH private key (and it's optional password)
+  * Basic auth username and password
+Only one authentication mode will be considered if more than one option is specified,
+with ssh private key/password preferred first, then personal access token, and finally
+basic auth credentials.
+Deprecated. Use GitAuth instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecprerequisitesindex">prerequisites</a></b></td>
         <td>[]object</td>
         <td>
-          (optional) Prerequisites is a list of references to other stacks, each with a constraint on how long ago it must have succeeded. This can be used to make sure e.g., state is re-evaluated before running a stack that depends on it.<br/>
+          (optional) Prerequisites is a list of references to other stacks, each with a constraint on
+how long ago it must have succeeded. This can be used to make sure e.g., state is
+re-evaluated before running a stack that depends on it.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -221,14 +265,19 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>repoDir</b></td>
         <td>string</td>
         <td>
-          (optional) RepoDir is the directory to work from in the project's source repository where Pulumi.yaml is located. It is used in case Pulumi.yaml is not in the project source root.<br/>
+          (optional) RepoDir is the directory to work from in the project's source repository
+where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
+in the project source root.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>resyncFrequencySeconds</b></td>
         <td>integer</td>
         <td>
-          (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at the specified frequency even if no changes to the custom resource are detected. If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency. The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.<br/>
+          (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at
+the specified frequency even if no changes to the custom resource are detected.
+If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency.
+The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -237,42 +286,61 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>retryOnUpdateConflict</b></td>
         <td>boolean</td>
         <td>
-          (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop in the event that the update hits a HTTP 409 conflict due to another update in progress. This is only recommended if you are sure that the stack updates are idempotent, and if you are willing to accept retry loops until all spawned retries succeed. This will also create a more populated, and randomized activity timeline for the stack in the Pulumi Service.<br/>
+          (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop
+in the event that the update hits a HTTP 409 conflict due to
+another update in progress.
+This is only recommended if you are sure that the stack updates are
+idempotent, and if you are willing to accept retry loops until
+all spawned retries succeed. This will also create a more populated,
+and randomized activity timeline for the stack in the Pulumi Service.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>secrets</b></td>
         <td>map[string]string</td>
         <td>
-          (optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository. Deprecated: use SecretRefs instead.<br/>
+          (optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this
+is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
+Deprecated: use SecretRefs instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>secretsProvider</b></td>
         <td>string</td>
         <td>
-          (optional) SecretsProvider is used to initialize a Stack with alternative encryption. Examples: - AWS:   "awskms:///arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1" - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname" - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY" - See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-with-alternative-encryption<br/>
+          (optional) SecretsProvider is used to initialize a Stack with alternative encryption.
+Examples:
+  - AWS:   "awskms:///arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"
+  - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"
+  - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"
+
+
+See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-with-alternative-encryption<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecsecretsrefkey">secretsRef</a></b></td>
         <td>map[string]object</td>
         <td>
-          (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.<br/>
+          (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef.
+If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>targets</b></td>
         <td>[]string</td>
         <td>
-          (optional) Targets is a list of URNs of resources to update exclusively. If supplied, only resources mentioned will be updated.<br/>
+          (optional) Targets is a list of URNs of resources to update exclusively. If supplied, only
+resources mentioned will be updated.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>useLocalStackOnly</b></td>
         <td>boolean</td>
         <td>
-          (optional) UseLocalStackOnly can be set to true to prevent the operator from creating stacks that do not exist in the tracking git repo. The default behavior is to create a stack if it doesn't exist.<br/>
+          (optional) UseLocalStackOnly can be set to true to prevent the operator from
+creating stacks that do not exist in the tracking git repo.
+The default behavior is to create a stack if it doesn't exist.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -284,7 +352,9 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
 
 <table>
     <thead>
@@ -299,7 +369,8 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -449,7 +520,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -483,7 +555,8 @@ FluxSource specifies how to fetch source code from a Flux source object.
         <td><b>dir</b></td>
         <td>string</td>
         <td>
-          Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of interest, within the fetched source.<br/>
+          Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
+interest, within the fetched source.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -536,7 +609,14 @@ FluxSource specifies how to fetch source code from a Flux source object.
 
 
 
-(optional) GitAuth allows configuring git authentication options There are 3 different authentication options: * SSH private key (and its optional password) * Personal access token * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials.
+(optional) GitAuth allows configuring git authentication options
+There are 3 different authentication options:
+  * SSH private key (and its optional password)
+  * Personal access token
+  * Basic auth username and password
+Only one authentication mode will be considered if more than one option is specified,
+with ssh private key/password preferred first, then personal access token, and finally
+basic auth credentials.
 
 <table>
     <thead>
@@ -551,21 +631,25 @@ FluxSource specifies how to fetch source code from a Flux source object.
         <td><b><a href="#stackspecgitauthaccesstoken">accessToken</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauth">basicAuth</a></b></td>
         <td>object</td>
         <td>
-          BasicAuth configures git authentication through basic auth — i.e. username and password. Both UserName and Password are required.<br/>
+          BasicAuth configures git authentication through basic auth —
+i.e. username and password. Both UserName and Password are required.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauth">sshAuth</a></b></td>
         <td>object</td>
         <td>
-          SSHAuth configures ssh-based auth for git authentication. SSHPrivateKey is required but password is optional.<br/>
+          SSHAuth configures ssh-based auth for git authentication.
+SSHPrivateKey is required but password is optional.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -577,7 +661,9 @@ FluxSource specifies how to fetch source code from a Flux source object.
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
 
 <table>
     <thead>
@@ -592,7 +678,8 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -742,7 +829,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -754,7 +842,8 @@ SecretRef refers to a Kubernetes Secret
 
 
 
-BasicAuth configures git authentication through basic auth — i.e. username and password. Both UserName and Password are required.
+BasicAuth configures git authentication through basic auth —
+i.e. username and password. Both UserName and Password are required.
 
 <table>
     <thead>
@@ -769,14 +858,18 @@ BasicAuth configures git authentication through basic auth — i.e. username and
         <td><b><a href="#stackspecgitauthbasicauthpassword">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthusername">userName</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.<br/>
         </td>
         <td>true</td>
       </tr></tbody>
@@ -788,7 +881,9 @@ BasicAuth configures git authentication through basic auth — i.e. username and
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
 
 <table>
     <thead>
@@ -803,7 +898,8 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -953,7 +1049,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -965,7 +1062,9 @@ SecretRef refers to a Kubernetes Secret
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
 
 <table>
     <thead>
@@ -980,7 +1079,8 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1130,7 +1230,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1142,7 +1243,8 @@ SecretRef refers to a Kubernetes Secret
 
 
 
-SSHAuth configures ssh-based auth for git authentication. SSHPrivateKey is required but password is optional.
+SSHAuth configures ssh-based auth for git authentication.
+SSHPrivateKey is required but password is optional.
 
 <table>
     <thead>
@@ -1157,14 +1259,18 @@ SSHAuth configures ssh-based auth for git authentication. SSHPrivateKey is requi
         <td><b><a href="#stackspecgitauthsshauthsshprivatekey">sshPrivateKey</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthpassword">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1176,7 +1282,9 @@ SSHAuth configures ssh-based auth for git authentication. SSHPrivateKey is requi
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
 
 <table>
     <thead>
@@ -1191,7 +1299,8 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1341,7 +1450,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1353,7 +1463,9 @@ SecretRef refers to a Kubernetes Secret
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
 
 <table>
     <thead>
@@ -1368,7 +1480,8 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1518,7 +1631,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1530,7 +1644,8 @@ SecretRef refers to a Kubernetes Secret
 
 
 
-PrerequisiteRef refers to another stack, and gives requirements for the prerequisite to be considered satisfied.
+PrerequisiteRef refers to another stack, and gives requirements for the prerequisite to be
+considered satisfied.
 
 <table>
     <thead>
@@ -1552,7 +1667,8 @@ PrerequisiteRef refers to another stack, and gives requirements for the prerequi
         <td><b><a href="#stackspecprerequisitesindexrequirement">requirement</a></b></td>
         <td>object</td>
         <td>
-          Requirement gives specific requirements for the prerequisite; the base requirement is that the referenced stack is in a successful state.<br/>
+          Requirement gives specific requirements for the prerequisite; the base requirement is that
+the referenced stack is in a successful state.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1564,7 +1680,8 @@ PrerequisiteRef refers to another stack, and gives requirements for the prerequi
 
 
 
-Requirement gives specific requirements for the prerequisite; the base requirement is that the referenced stack is in a successful state.
+Requirement gives specific requirements for the prerequisite; the base requirement is that
+the referenced stack is in a successful state.
 
 <table>
     <thead>
@@ -1579,7 +1696,10 @@ Requirement gives specific requirements for the prerequisite; the base requireme
         <td><b>succeededWithinDuration</b></td>
         <td>string</td>
         <td>
-          SucceededWithinDuration gives a duration within which the prerequisite must have reached a succeeded state; e.g., "1h" means "the prerequisite must be successful, and have become so in the last hour". Fields (should there ever be more than one) are not intended to be mutually exclusive.<br/>
+          SucceededWithinDuration gives a duration within which the prerequisite must have reached a
+succeeded state; e.g., "1h" means "the prerequisite must be successful, and have become so in
+the last hour". Fields (should there ever be more than one) are not intended to be mutually
+exclusive.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1618,7 +1738,9 @@ ProgramRef refers to a Program object, to be used as the source for the stack.
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
 
 <table>
     <thead>
@@ -1633,7 +1755,8 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1783,7 +1906,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1833,7 +1957,8 @@ StackStatus defines the observed state of Stack
         <td><b>observedReconcileRequest</b></td>
         <td>string</td>
         <td>
-          ObservedReconcileRequest records the value of the annotation named for `ReconcileRequestAnnotation` when it was last seen.<br/>
+          ObservedReconcileRequest records the value of the annotation named for
+`ReconcileRequestAnnotation` when it was last seen.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1852,8 +1977,21 @@ StackStatus defines the observed state of Stack
 
 
 
-Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{ // Represents the observations of a foo's current state. // Known .status.conditions.type are: "Available", "Progressing", and "Degraded" // +patchMergeKey=type // +patchStrategy=merge // +listType=map // +listMapKey=type Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"` 
- // other fields }
+Condition contains details for one aspect of the current state of this API Resource.
+---
+This struct is intended for direct use as an array at the field path .status.conditions.  For example,
+type FooStatus struct{
+    // Represents the observations of a foo's current state.
+    // Known .status.conditions.type are: "Available", "Progressing", and "Degraded"
+    // +patchMergeKey=type
+    // +patchStrategy=merge
+    // +listType=map
+    // +listMapKey=type
+    Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+
+
+    // other fields
+}
 
 <table>
     <thead>
@@ -1868,7 +2006,8 @@ Condition contains details for one aspect of the current state of this API Resou
         <td><b>lastTransitionTime</b></td>
         <td>string</td>
         <td>
-          lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
+          lastTransitionTime is the last time the condition transitioned from one status to another.
+This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.<br/>
           <br/>
             <i>Format</i>: date-time<br/>
         </td>
@@ -1877,14 +2016,19 @@ Condition contains details for one aspect of the current state of this API Resou
         <td><b>message</b></td>
         <td>string</td>
         <td>
-          message is a human readable message indicating details about the transition. This may be an empty string.<br/>
+          message is a human readable message indicating details about the transition.
+This may be an empty string.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>reason</b></td>
         <td>string</td>
         <td>
-          reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.<br/>
+          reason contains a programmatic identifier indicating the reason for the condition's last transition.
+Producers of specific condition types may define expected values and meanings for this field,
+and whether the values are considered a guaranteed API.
+The value should be a CamelCase string.
+This field may not be empty.<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1900,14 +2044,20 @@ Condition contains details for one aspect of the current state of this API Resou
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          type of condition in CamelCase or in foo.example.com/CamelCase. --- Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)<br/>
+          type of condition in CamelCase or in foo.example.com/CamelCase.
+---
+Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
+useful (see .node.status.conditions), the ability to deconflict is important.
+The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b>observedGeneration</b></td>
         <td>integer</td>
         <td>
-          observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.<br/>
+          observedGeneration represents the .metadata.generation that the condition was set based upon.
+For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+with respect to the current state of the instance.<br/>
           <br/>
             <i>Format</i>: int64<br/>
             <i>Minimum</i>: 0<br/>
@@ -1990,7 +2140,9 @@ Resource Types:
 
 
 
-Stack is the Schema for the stacks API. Deprecated: Note Stacks from pulumi.com/v1alpha1 is deprecated in favor of pulumi.com/v1. It is completely backward compatible. Users are strongly encouraged to switch to pulumi.com/v1.
+Stack is the Schema for the stacks API.
+Deprecated: Note Stacks from pulumi.com/v1alpha1 is deprecated in favor of pulumi.com/v1.
+It is completely backward compatible. Users are strongly encouraged to switch to pulumi.com/v1.
 
 <table>
     <thead>
@@ -2063,42 +2215,61 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>accessTokenSecret</b></td>
         <td>string</td>
         <td>
-          (optional) AccessTokenSecret is the name of a Secret containing the PULUMI_ACCESS_TOKEN for Pulumi access. Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN instead.<br/>
+          (optional) AccessTokenSecret is the name of a Secret containing the PULUMI_ACCESS_TOKEN for Pulumi access.
+Deprecated: use EnvRefs with a "secret" entry with the key PULUMI_ACCESS_TOKEN instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>backend</b></td>
         <td>string</td>
         <td>
-          (optional) Backend is an optional backend URL to use for all Pulumi operations.<br/> Examples:<br/> - Pulumi Service:              "https://app.pulumi.com" (default)<br/> - Self-managed Pulumi Service: "https://pulumi.acmecorp.com" <br/> - Local:                       "file://./einstein" <br/> - AWS:                         "s3://<my-pulumi-state-bucket>" <br/> - Azure:                       "azblob://<my-pulumi-state-bucket>" <br/> - GCP:                         "gs://<my-pulumi-state-bucket>" <br/> See: https://www.pulumi.com/docs/intro/concepts/state/<br/>
+          (optional) Backend is an optional backend URL to use for all Pulumi operations.<br/>
+Examples:<br/>
+  - Pulumi Service:              "https://app.pulumi.com" (default)<br/>
+  - Self-managed Pulumi Service: "https://pulumi.acmecorp.com" <br/>
+  - Local:                       "file://./einstein" <br/>
+  - AWS:                         "s3://<my-pulumi-state-bucket>" <br/>
+  - Azure:                       "azblob://<my-pulumi-state-bucket>" <br/>
+  - GCP:                         "gs://<my-pulumi-state-bucket>" <br/>
+See: https://www.pulumi.com/docs/intro/concepts/state/<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>branch</b></td>
         <td>string</td>
         <td>
-          (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This is mutually exclusive with the Commit setting. Either value needs to be specified. When specified, the operator will periodically poll to check if the branch has any new commits. The frequency of the polling is configurable through ResyncFrequencySeconds, defaulting to every 60 seconds.<br/>
+          (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This
+is mutually exclusive with the Commit setting. Either value needs to be specified.
+When specified, the operator will periodically poll to check if the branch has any new commits.
+The frequency of the polling is configurable through ResyncFrequencySeconds, defaulting to every 60 seconds.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>commit</b></td>
         <td>string</td>
         <td>
-          (optional) Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This is mutually exclusive with the Branch setting. Either value needs to be specified.<br/>
+          (optional) Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This
+is mutually exclusive with the Branch setting. Either value needs to be specified.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>config</b></td>
         <td>map[string]string</td>
         <td>
-          (optional) Config is the configuration for this stack, which can be optionally specified inline. If this is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+          (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
+is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>continueResyncOnCommitMatch</b></td>
         <td>boolean</td>
         <td>
-          (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying to update stacks even if the revision of the source matches. This might be useful in environments where Pulumi programs have dynamic elements for example, calls to internal APIs where GitOps style commit tracking is not sufficient.  Defaults to false, i.e. when a particular revision is successfully run, the operator will not attempt to rerun the program at that revision again.<br/>
+          (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying
+to update stacks even if the revision of the source matches. This might be useful in
+environments where Pulumi programs have dynamic elements for example, calls to internal APIs
+where GitOps style commit tracking is not sufficient.  Defaults to false, i.e. when a
+particular revision is successfully run, the operator will not attempt to rerun the program
+at that revision again.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2112,28 +2283,35 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b><a href="#stackspecenvrefskey-1">envRefs</a></b></td>
         <td>map[string]object</td>
         <td>
-          (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where the variables' values should be loaded from (one of literal, environment variable, file on the filesystem, or Kubernetes Secret) as values.<br/>
+          (optional) EnvRefs is an optional map containing environment variables as keys and stores descriptors to where
+the variables' values should be loaded from (one of literal, environment variable, file on the
+filesystem, or Kubernetes Secret) as values.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>envSecrets</b></td>
         <td>[]string</td>
         <td>
-          (optional) SecretEnvs is an optional array of Secret names containing environment variables to set. Deprecated: use EnvRefs instead.<br/>
+          (optional) SecretEnvs is an optional array of Secret names containing environment variables to set.
+Deprecated: use EnvRefs instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>envs</b></td>
         <td>[]string</td>
         <td>
-          (optional) Envs is an optional array of config maps containing environment variables to set. Deprecated: use EnvRefs instead.<br/>
+          (optional) Envs is an optional array of config maps containing environment variables to set.
+Deprecated: use EnvRefs instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>expectNoRefreshChanges</b></td>
         <td>boolean</td>
         <td>
-          (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have changes during a refresh before the update is run. This could occur, for example, is a resource's state is changing outside of Pulumi (e.g., metadata, timestamps).<br/>
+          (optional) ExpectNoRefreshChanges can be set to true if a stack is not expected to have
+changes during a refresh before the update is run.
+This could occur, for example, is a resource's state is changing outside of Pulumi
+(e.g., metadata, timestamps).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2147,21 +2325,39 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b><a href="#stackspecgitauth-1">gitAuth</a></b></td>
         <td>object</td>
         <td>
-          (optional) GitAuth allows configuring git authentication options There are 3 different authentication options: * SSH private key (and its optional password) * Personal access token * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials.<br/>
+          (optional) GitAuth allows configuring git authentication options
+There are 3 different authentication options:
+  * SSH private key (and its optional password)
+  * Personal access token
+  * Basic auth username and password
+Only one authentication mode will be considered if more than one option is specified,
+with ssh private key/password preferred first, then personal access token, and finally
+basic auth credentials.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>gitAuthSecret</b></td>
         <td>string</td>
         <td>
-          (optional) GitAuthSecret is the the name of a Secret containing an authentication option for the git repository. There are 3 different authentication options: * Personal access token * SSH private key (and it's optional password) * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials. Deprecated. Use GitAuth instead.<br/>
+          (optional) GitAuthSecret is the the name of a Secret containing an
+authentication option for the git repository.
+There are 3 different authentication options:
+  * Personal access token
+  * SSH private key (and it's optional password)
+  * Basic auth username and password
+Only one authentication mode will be considered if more than one option is specified,
+with ssh private key/password preferred first, then personal access token, and finally
+basic auth credentials.
+Deprecated. Use GitAuth instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecprerequisitesindex-1">prerequisites</a></b></td>
         <td>[]object</td>
         <td>
-          (optional) Prerequisites is a list of references to other stacks, each with a constraint on how long ago it must have succeeded. This can be used to make sure e.g., state is re-evaluated before running a stack that depends on it.<br/>
+          (optional) Prerequisites is a list of references to other stacks, each with a constraint on
+how long ago it must have succeeded. This can be used to make sure e.g., state is
+re-evaluated before running a stack that depends on it.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2189,14 +2385,19 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>repoDir</b></td>
         <td>string</td>
         <td>
-          (optional) RepoDir is the directory to work from in the project's source repository where Pulumi.yaml is located. It is used in case Pulumi.yaml is not in the project source root.<br/>
+          (optional) RepoDir is the directory to work from in the project's source repository
+where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
+in the project source root.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>resyncFrequencySeconds</b></td>
         <td>integer</td>
         <td>
-          (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at the specified frequency even if no changes to the custom resource are detected. If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency. The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.<br/>
+          (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at
+the specified frequency even if no changes to the custom resource are detected.
+If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency.
+The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -2205,42 +2406,61 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         <td><b>retryOnUpdateConflict</b></td>
         <td>boolean</td>
         <td>
-          (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop in the event that the update hits a HTTP 409 conflict due to another update in progress. This is only recommended if you are sure that the stack updates are idempotent, and if you are willing to accept retry loops until all spawned retries succeed. This will also create a more populated, and randomized activity timeline for the stack in the Pulumi Service.<br/>
+          (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop
+in the event that the update hits a HTTP 409 conflict due to
+another update in progress.
+This is only recommended if you are sure that the stack updates are
+idempotent, and if you are willing to accept retry loops until
+all spawned retries succeed. This will also create a more populated,
+and randomized activity timeline for the stack in the Pulumi Service.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>secrets</b></td>
         <td>map[string]string</td>
         <td>
-          (optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository. Deprecated: use SecretRefs instead.<br/>
+          (optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this
+is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
+Deprecated: use SecretRefs instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>secretsProvider</b></td>
         <td>string</td>
         <td>
-          (optional) SecretsProvider is used to initialize a Stack with alternative encryption. Examples: - AWS:   "awskms:///arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1" - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname" - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY" - See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-with-alternative-encryption<br/>
+          (optional) SecretsProvider is used to initialize a Stack with alternative encryption.
+Examples:
+  - AWS:   "awskms:///arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34bc-56ef-1234567890ab?region=us-east-1"
+  - Azure: "azurekeyvault://acmecorpvault.vault.azure.net/keys/mykeyname"
+  - GCP:   "gcpkms://projects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"
+
+
+See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-with-alternative-encryption<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecsecretsrefkey-1">secretsRef</a></b></td>
         <td>map[string]object</td>
         <td>
-          (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef. If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.<br/>
+          (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef.
+If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>targets</b></td>
         <td>[]string</td>
         <td>
-          (optional) Targets is a list of URNs of resources to update exclusively. If supplied, only resources mentioned will be updated.<br/>
+          (optional) Targets is a list of URNs of resources to update exclusively. If supplied, only
+resources mentioned will be updated.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>useLocalStackOnly</b></td>
         <td>boolean</td>
         <td>
-          (optional) UseLocalStackOnly can be set to true to prevent the operator from creating stacks that do not exist in the tracking git repo. The default behavior is to create a stack if it doesn't exist.<br/>
+          (optional) UseLocalStackOnly can be set to true to prevent the operator from
+creating stacks that do not exist in the tracking git repo.
+The default behavior is to create a stack if it doesn't exist.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2252,7 +2472,9 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
 
 <table>
     <thead>
@@ -2267,7 +2489,8 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -2417,7 +2640,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2451,7 +2675,8 @@ FluxSource specifies how to fetch source code from a Flux source object.
         <td><b>dir</b></td>
         <td>string</td>
         <td>
-          Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of interest, within the fetched source.<br/>
+          Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
+interest, within the fetched source.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2504,7 +2729,14 @@ FluxSource specifies how to fetch source code from a Flux source object.
 
 
 
-(optional) GitAuth allows configuring git authentication options There are 3 different authentication options: * SSH private key (and its optional password) * Personal access token * Basic auth username and password Only one authentication mode will be considered if more than one option is specified, with ssh private key/password preferred first, then personal access token, and finally basic auth credentials.
+(optional) GitAuth allows configuring git authentication options
+There are 3 different authentication options:
+  * SSH private key (and its optional password)
+  * Personal access token
+  * Basic auth username and password
+Only one authentication mode will be considered if more than one option is specified,
+with ssh private key/password preferred first, then personal access token, and finally
+basic auth credentials.
 
 <table>
     <thead>
@@ -2519,21 +2751,25 @@ FluxSource specifies how to fetch source code from a Flux source object.
         <td><b><a href="#stackspecgitauthaccesstoken-1">accessToken</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauth-1">basicAuth</a></b></td>
         <td>object</td>
         <td>
-          BasicAuth configures git authentication through basic auth — i.e. username and password. Both UserName and Password are required.<br/>
+          BasicAuth configures git authentication through basic auth —
+i.e. username and password. Both UserName and Password are required.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauth-1">sshAuth</a></b></td>
         <td>object</td>
         <td>
-          SSHAuth configures ssh-based auth for git authentication. SSHPrivateKey is required but password is optional.<br/>
+          SSHAuth configures ssh-based auth for git authentication.
+SSHPrivateKey is required but password is optional.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2545,7 +2781,9 @@ FluxSource specifies how to fetch source code from a Flux source object.
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
 
 <table>
     <thead>
@@ -2560,7 +2798,8 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -2710,7 +2949,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2722,7 +2962,8 @@ SecretRef refers to a Kubernetes Secret
 
 
 
-BasicAuth configures git authentication through basic auth — i.e. username and password. Both UserName and Password are required.
+BasicAuth configures git authentication through basic auth —
+i.e. username and password. Both UserName and Password are required.
 
 <table>
     <thead>
@@ -2737,14 +2978,18 @@ BasicAuth configures git authentication through basic auth — i.e. username and
         <td><b><a href="#stackspecgitauthbasicauthpassword-1">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthusername-1">userName</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.<br/>
         </td>
         <td>true</td>
       </tr></tbody>
@@ -2756,7 +3001,9 @@ BasicAuth configures git authentication through basic auth — i.e. username and
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
 
 <table>
     <thead>
@@ -2771,7 +3018,8 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -2921,7 +3169,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2933,7 +3182,9 @@ SecretRef refers to a Kubernetes Secret
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
 
 <table>
     <thead>
@@ -2948,7 +3199,8 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -3098,7 +3350,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3110,7 +3363,8 @@ SecretRef refers to a Kubernetes Secret
 
 
 
-SSHAuth configures ssh-based auth for git authentication. SSHPrivateKey is required but password is optional.
+SSHAuth configures ssh-based auth for git authentication.
+SSHPrivateKey is required but password is optional.
 
 <table>
     <thead>
@@ -3125,14 +3379,18 @@ SSHAuth configures ssh-based auth for git authentication. SSHPrivateKey is requi
         <td><b><a href="#stackspecgitauthsshauthsshprivatekey-1">sshPrivateKey</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthpassword-1">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.<br/>
+          ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3144,7 +3402,9 @@ SSHAuth configures ssh-based auth for git authentication. SSHPrivateKey is requi
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
 
 <table>
     <thead>
@@ -3159,7 +3419,8 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -3309,7 +3570,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3321,7 +3583,9 @@ SecretRef refers to a Kubernetes Secret
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
 
 <table>
     <thead>
@@ -3336,7 +3600,8 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -3486,7 +3751,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3498,7 +3764,8 @@ SecretRef refers to a Kubernetes Secret
 
 
 
-PrerequisiteRef refers to another stack, and gives requirements for the prerequisite to be considered satisfied.
+PrerequisiteRef refers to another stack, and gives requirements for the prerequisite to be
+considered satisfied.
 
 <table>
     <thead>
@@ -3520,7 +3787,8 @@ PrerequisiteRef refers to another stack, and gives requirements for the prerequi
         <td><b><a href="#stackspecprerequisitesindexrequirement-1">requirement</a></b></td>
         <td>object</td>
         <td>
-          Requirement gives specific requirements for the prerequisite; the base requirement is that the referenced stack is in a successful state.<br/>
+          Requirement gives specific requirements for the prerequisite; the base requirement is that
+the referenced stack is in a successful state.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3532,7 +3800,8 @@ PrerequisiteRef refers to another stack, and gives requirements for the prerequi
 
 
 
-Requirement gives specific requirements for the prerequisite; the base requirement is that the referenced stack is in a successful state.
+Requirement gives specific requirements for the prerequisite; the base requirement is that
+the referenced stack is in a successful state.
 
 <table>
     <thead>
@@ -3547,7 +3816,10 @@ Requirement gives specific requirements for the prerequisite; the base requireme
         <td><b>succeededWithinDuration</b></td>
         <td>string</td>
         <td>
-          SucceededWithinDuration gives a duration within which the prerequisite must have reached a succeeded state; e.g., "1h" means "the prerequisite must be successful, and have become so in the last hour". Fields (should there ever be more than one) are not intended to be mutually exclusive.<br/>
+          SucceededWithinDuration gives a duration within which the prerequisite must have reached a
+succeeded state; e.g., "1h" means "the prerequisite must be successful, and have become so in
+the last hour". Fields (should there ever be more than one) are not intended to be mutually
+exclusive.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -3586,7 +3858,9 @@ ProgramRef refers to a Program object, to be used as the source for the stack.
 
 
 
-ResourceRef identifies a resource from which information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets and literal strings are currently supported.
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
 
 <table>
     <thead>
@@ -3601,7 +3875,8 @@ ResourceRef identifies a resource from which information can be loaded. Environm
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, Literal<br/>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -3751,7 +4026,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
