@@ -3,8 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.2
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: programs.pulumi.com
 spec:
   group: pulumi.com
@@ -25,14 +24,19 @@ spec:
         description: Program is the schema for the inline YAML program API.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -54,8 +58,9 @@ spec:
                       - List<String>
                       type: string
                   type: object
-                description: configuration specifies the Pulumi config inputs to the
-                  deployment. Either type or default is required.
+                description: |-
+                  configuration specifies the Pulumi config inputs to the deployment.
+                  Either type or default is required.
                 type: object
               outputs:
                 additionalProperties:
@@ -77,9 +82,9 @@ spec:
                         state:
                           additionalProperties:
                             x-kubernetes-preserve-unknown-fields: true
-                          description: state contains the known properties (input
-                            & output) of the resource. This assists the provider in
-                            figuring out the correct resource.
+                          description: |-
+                            state contains the known properties (input & output) of the resource. This assists
+                            the provider in figuring out the correct resource.
                           type: object
                       required:
                       - id
@@ -95,9 +100,9 @@ spec:
                             type: string
                           type: array
                         aliases:
-                          description: aliases specifies names that this resource
-                            used to have, so that renaming or refactoring doesn’t
-                            replace it.
+                          description: |-
+                            aliases specifies names that this resource used to have, so that renaming or refactoring
+                            doesn’t replace it.
                           items:
                             type: string
                           type: array
@@ -139,9 +144,9 @@ spec:
                             cloud account under the control of Pulumi.
                           type: string
                         parent:
-                          description: parent resource option specifies a parent for
-                            a resource. It is used to associate children with the
-                            parents that encapsulate or are responsible for them.
+                          description: |-
+                            parent resource option specifies a parent for a resource. It is used to associate
+                            children with the parents that encapsulate or are responsible for them.
                           x-kubernetes-preserve-unknown-fields: true
                         protect:
                           description: protect prevents accidental deletion of a resource.
@@ -180,8 +185,9 @@ spec:
               variables:
                 additionalProperties:
                   x-kubernetes-preserve-unknown-fields: true
-                description: variables specifies intermediate values of the program;
-                  the values of variables are expressions that can be re-used.
+                description: |-
+                  variables specifies intermediate values of the program; the values of variables are
+                  expressions that can be re-used.
                 type: object
             type: object
         type: object
