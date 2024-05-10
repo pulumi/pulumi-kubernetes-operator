@@ -169,7 +169,7 @@ type Program struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec ProgramSpec `json:"program,omitempty"`
+	Program ProgramSpec `json:"program,omitempty"`
 }
 
 //+kubebuilder:object:root=true
