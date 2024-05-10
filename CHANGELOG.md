@@ -2,6 +2,7 @@ CHANGELOG
 =========
 
 ## HEAD (unreleased)
+- Update pulumi/pulumi to v3.114.0.
 
 ## 1.15.0 (2024-04-12)
 - Clean up stale workspace directories and don't treat them as a crude lock. [#552](https://github.com/pulumi/pulumi-kubernetes-operator/pull/552)
