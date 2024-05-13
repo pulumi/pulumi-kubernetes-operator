@@ -80,7 +80,8 @@ Program is the schema for the inline YAML program API.
         <td><b><a href="#programprogramconfigurationkey">configuration</a></b></td>
         <td>map[string]object</td>
         <td>
-          configuration specifies the Pulumi config inputs to the deployment. Either type or default is required.<br/>
+          configuration specifies the Pulumi config inputs to the deployment.
+Either type or default is required.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -101,7 +102,8 @@ Program is the schema for the inline YAML program API.
         <td><b>variables</b></td>
         <td>map[string]JSON</td>
         <td>
-          variables specifies intermediate values of the program; the values of variables are expressions that can be re-used.<br/>
+          variables specifies intermediate values of the program; the values of variables are
+expressions that can be re-used.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -219,7 +221,8 @@ A getter function for the resource. Supplying get is mutually exclusive to prope
         <td><b>state</b></td>
         <td>map[string]JSON</td>
         <td>
-          state contains the known properties (input & output) of the resource. This assists the provider in figuring out the correct resource.<br/>
+          state contains the known properties (input & output) of the resource. This assists
+the provider in figuring out the correct resource.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -253,7 +256,8 @@ options contains all resource options supported by Pulumi.
         <td><b>aliases</b></td>
         <td>[]string</td>
         <td>
-          aliases specifies names that this resource used to have, so that renaming or refactoring doesn’t replace it.<br/>
+          aliases specifies names that this resource used to have, so that renaming or refactoring
+doesn’t replace it.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -295,7 +299,8 @@ options contains all resource options supported by Pulumi.
         <td><b>parent</b></td>
         <td>JSON</td>
         <td>
-          parent resource option specifies a parent for a resource. It is used to associate children with the parents that encapsulate or are responsible for them.<br/>
+          parent resource option specifies a parent for a resource. It is used to associate
+children with the parents that encapsulate or are responsible for them.<br/>
         </td>
         <td>false</td>
       </tr><tr>
