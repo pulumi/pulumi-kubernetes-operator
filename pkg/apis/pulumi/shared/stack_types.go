@@ -46,10 +46,10 @@ type StackSpec struct {
 	// (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, configuration is assumed to be checked in and taken from the source repository.
 	Config map[string]string `json:"config,omitempty"`
-	// (optional) ConfigRefs is the configuration for this stack, which can be specified through ConfigRef.
+	// (optional) ConfigRefs is an optional list of configuration values for this stack, which can be specified through each ConfigRef.
 	// If this is omitted, configuration is assumed to be checked in and taken from the source repository.
-	// If present, ConfigRefs values will be merged with values passed through Config
-	ConfigRefs map[string]ConfigRef `json:"configRefs,omitempty"`
+	// If present, ConfigRefs values will be merged with the ones passed through Config field (ConfigRefs values have precedence, and configs will the same key name will be overwritten).
+	ConfigRefs []map[string]ConfigRef `json:"configRefs,omitempty"`
 	// (optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
 	// Deprecated: use SecretRefs instead.
@@ -251,13 +251,19 @@ type ConfigRef struct {
 // ConfigResourceSelector is a union over resource config selectors supporting one of
 // filesystem, environment variable, Kubernetes Secret, Kubernetes ConfigMaps, a structured value and literal values.
 type ConfigResourceSelector struct {
-	ResourceSelector `json:",inline"`
+	// FileSystem selects a file on the operator's file system
+	FileSystem *FSSelector `json:"filesystem,omitempty"`
+	// Env selects an environment variable set on the operator process
+	Env *EnvSelector `json:"env,omitempty"`
+	// SecretRef refers to a Kubernetes Secret
+	SecretRef *SecretSelector `json:"secret,omitempty"`
 
-	// ConfigMapRef refers to a Kubernetes ConfigMap
+	// ConfigMapRef refers to a Kubernetes ConfigMap.
 	// It will be assumed the ConfigMap key content is the stack config in YAML format.
 	ConfigMapRef *ConfigMapSelector `json:"configmap,omitempty"`
-	// StructuredRef refers to a structured value in YAML format.
-	StructuredRef *StructuredRef `json:"structured,omitempty"`
+	// ConfigLiteralRef refers to a literal config value.
+	// It could be both a single or a structured (in YAML format) ones.
+	ConfigLiteralRef *ConfigLiteralRef `json:"literal,omitempty"`
 }
 
 type ProgramReference struct {
@@ -282,7 +288,7 @@ func NewEnvConfigResourceRef(envVarName string) ConfigRef {
 	return ConfigRef{
 		SelectorType: ConfigResourceSelectorType(envResourceRef.SelectorType),
 		ConfigResourceSelector: ConfigResourceSelector{
-			ResourceSelector: envResourceRef.ResourceSelector,
+			Env: envResourceRef.Env,
 		},
 	}
 }
@@ -305,7 +311,7 @@ func NewFileSystemConfigResourceRef(path string) ConfigRef {
 	return ConfigRef{
 		SelectorType: ConfigResourceSelectorType(fsResourceRef.SelectorType),
 		ConfigResourceSelector: ConfigResourceSelector{
-			ResourceSelector: fsResourceRef.ResourceSelector,
+			FileSystem: fsResourceRef.FileSystem,
 		},
 	}
 }
@@ -330,7 +336,7 @@ func NewSecretConfigResourceRef(namespace, name, key string) ConfigRef {
 	return ConfigRef{
 		SelectorType: ConfigResourceSelectorType(secretResourceRef.SelectorType),
 		ConfigResourceSelector: ConfigResourceSelector{
-			ResourceSelector: secretResourceRef.ResourceSelector,
+			SecretRef: secretResourceRef.SecretRef,
 		},
 	}
 }
@@ -347,23 +353,12 @@ func NewLiteralResourceRef(value string) ResourceRef {
 	}
 }
 
-// NewLiteralConfigResourceRef creates a new config literal resource ref.
-func NewLiteralConfigResourceRef(value string) ConfigRef {
-	literalResourceRef := NewLiteralResourceRef(value)
+// NewConfigLiteralResourceRef creates a new structured config resource ref.
+func NewConfigLiteralResourceRef(config apiextensionsv1.JSON) ConfigRef {
 	return ConfigRef{
-		SelectorType: ConfigResourceSelectorType(literalResourceRef.SelectorType),
+		SelectorType: ConfigResourceSelectorLiteral,
 		ConfigResourceSelector: ConfigResourceSelector{
-			ResourceSelector: literalResourceRef.ResourceSelector,
-		},
-	}
-}
-
-// NewStructuredConfigResourceRef creates a new structured config resource ref.
-func NewStructuredConfigResourceRef(config apiextensionsv1.JSON) ConfigRef {
-	return ConfigRef{
-		SelectorType: ConfigResourceSelectorStructured,
-		ConfigResourceSelector: ConfigResourceSelector{
-			StructuredRef: &StructuredRef{
+			ConfigLiteralRef: &ConfigLiteralRef{
 				Value: config,
 			},
 		},
@@ -402,10 +397,10 @@ const (
 type ConfigResourceSelectorType string
 
 const (
-	// ConfigSelectorStructured indicates the resource is a Kubernetes ConfigMap
+	// ConfigResourceSelectorConfigMap indicates the resource is a Kubernetes ConfigMap
 	ConfigResourceSelectorConfigMap = ConfigResourceSelectorType("ConfigMap")
-	// ConfigResourceSelectorStructured indicates the resource is a structured
-	ConfigResourceSelectorStructured = ConfigResourceSelectorType("Structured")
+	// ConfigResourceSelectorLiteral indicates the resource is a literal value (simple or structured)
+	ConfigResourceSelectorLiteral = ConfigResourceSelectorType("Literal")
 )
 
 // ResourceSelector is a union over resource selectors supporting one of
@@ -455,8 +450,8 @@ type ConfigMapSelector struct {
 	Key string `json:"key"`
 }
 
-// StructuredRef identifies a structured value to load.
-type StructuredRef struct {
+// ConfigLiteralRef identifies a config value to load; it could be a single value, or a structured one
+type ConfigLiteralRef struct {
 	// Value to load
 	Value apiextensionsv1.JSON `json:"value"`
 }

@@ -1088,67 +1088,77 @@ func (sess *reconcileStackSession) SetEnvRefsForWorkspace(ctx context.Context, w
 
 func (sess *reconcileStackSession) resolveConfigRefs(ctx context.Context) ([]ConfigKeyValue, error) {
 	allConfigs := make([]ConfigKeyValue, 0)
-	for k, ref := range sess.stack.ConfigRefs {
-		// ConfigMap and Structured are special config cases, so they are checked first
-		switch ref.SelectorType {
-		case shared.ConfigResourceSelectorConfigMap:
-			configMapRef := ref.ConfigMapRef
-			if configMapRef != nil {
-				var config corev1.ConfigMap
-				if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: configMapRef.Name, Namespace: configMapRef.Namespace}, &config); err != nil {
-					return nil, fmt.Errorf("Failed to get the ConfigMap %s on namespace %s: %w", configMapRef.Name, configMapRef.Namespace, err)
+	for _, configRefMap := range sess.stack.ConfigRefs {
+		for k, ref := range configRefMap {
+			// ConfigMap and Structured are special config cases, so they are checked first
+			switch ref.SelectorType {
+			case shared.ConfigResourceSelectorConfigMap:
+				configMapRef := ref.ConfigMapRef
+				if configMapRef != nil {
+					var config corev1.ConfigMap
+					if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: configMapRef.Name, Namespace: configMapRef.Namespace}, &config); err != nil {
+						return nil, fmt.Errorf("Failed to get the ConfigMap %s on namespace %s: %w", configMapRef.Name, configMapRef.Namespace, err)
+					}
+					// assumes the whole configmaps's data is the config content; try to read as a conventional stack yaml config
+					var configMapContent map[string]any
+					if err := yaml.Unmarshal([]byte(config.Data[configMapRef.Key]), &configMapContent); err != nil {
+						return nil, fmt.Errorf("Failed to read the ConfigMap content as a stack YAML config. Namespace=%s Name=%s: %w", configMapRef.Namespace, configMapRef.Name, err)
+					}
+					structuredConfig := StructuredConfig(configMapContent).Flatten()
+					allConfigs = append(allConfigs, structuredConfig...)
 				}
-				// assumes the whole configmaps's data is the config content; try to read as a conventional stack yaml config
-				var configMapContent map[string]any
-				if err := yaml.Unmarshal([]byte(config.Data[configMapRef.Key]), &configMapContent); err != nil {
-					return nil, fmt.Errorf("Failed to read the ConfigMap content as a stack YAML config. Namespace=%s Name=%s: %w", configMapRef.Namespace, configMapRef.Name, err)
+			case shared.ConfigResourceSelectorLiteral:
+				literalRef := ref.ConfigLiteralRef
+				if literalRef != nil {
+					// ConfigLiteralRef handles both simple and structured values as json, flattening all keys to build a list of Pulumi key:value configs
+					structuredConfig, err := NewStructuredConfigFromJSON(k, literalRef.Value)
+					if err != nil {
+						return nil, fmt.Errorf("Failed to unmarshall %s as a structured config: %w", k, err)
+					}
+					configs := structuredConfig.Flatten()
+					allConfigs = append(allConfigs, configs...)
 				}
-				structuredConfig := StructuredConfig(configMapContent).Flatten()
-				allConfigs = append(allConfigs, structuredConfig...)
-			}
-		case shared.ConfigResourceSelectorStructured:
-			structuredRef := ref.StructuredRef
-			if structuredRef != nil {
-				// StructuredRef handles value as json, flattening all keys to build a list of Pulumi key:value configs
-				structuredConfig, err := NewStructuredConfigFromJSON(structuredRef.Value)
+			// Secret should be handled here as well because auto.ConfigValue should be marked as Secret:true
+			case shared.ConfigResourceSelectorType(shared.ResourceSelectorSecret):
+				secretValue, err := sess.resolveResourceRef(ctx, &shared.ResourceRef{
+					SelectorType: shared.ResourceSelectorSecret,
+					ResourceSelector: shared.ResourceSelector{
+						FileSystem: ref.FileSystem,
+						Env:        ref.Env,
+						SecretRef:  ref.SecretRef,
+					},
+				})
 				if err != nil {
-					return nil, fmt.Errorf("Failed to unmarshall %s as a structured config: %w", k, err)
+					return nil, err
 				}
-				configs := structuredConfig.Flatten()
-				allConfigs = append(allConfigs, configs...)
+				allConfigs = append(allConfigs, ConfigKeyValue{
+					Key: k,
+					Value: auto.ConfigValue{
+						Value:  secretValue,
+						Secret: true,
+					},
+				})
+			default:
+				// try to resolve as a ResourceRef
+				value, err := sess.resolveResourceRef(ctx, &shared.ResourceRef{
+					SelectorType: shared.ResourceSelectorType(ref.SelectorType),
+					ResourceSelector: shared.ResourceSelector{
+						FileSystem: ref.FileSystem,
+						Env:        ref.Env,
+						SecretRef:  ref.SecretRef,
+					},
+				})
+				if err != nil {
+					return nil, err
+				}
+				allConfigs = append(allConfigs, ConfigKeyValue{
+					Key: k,
+					Value: auto.ConfigValue{
+						Value:  value,
+						Secret: false,
+					},
+				})
 			}
-		// Secret should be handled here as well because auto.ConfigValue should be marked as Secret:true
-		case shared.ConfigResourceSelectorType(shared.ResourceSelectorSecret):
-			secretValue, err := sess.resolveResourceRef(ctx, &shared.ResourceRef{
-				SelectorType:     shared.ResourceSelectorSecret,
-				ResourceSelector: ref.ResourceSelector,
-			})
-			if err != nil {
-				return nil, err
-			}
-			allConfigs = append(allConfigs, ConfigKeyValue{
-				Key: k,
-				Value: auto.ConfigValue{
-					Value:  secretValue,
-					Secret: true,
-				},
-			})
-		default:
-			// try to resolve as a ResourceRef
-			value, err := sess.resolveResourceRef(ctx, &shared.ResourceRef{
-				SelectorType:     shared.ResourceSelectorType(ref.SelectorType),
-				ResourceSelector: ref.ResourceSelector,
-			})
-			if err != nil {
-				return nil, err
-			}
-			allConfigs = append(allConfigs, ConfigKeyValue{
-				Key: k,
-				Value: auto.ConfigValue{
-					Value:  value,
-					Secret: false,
-				},
-			})
 		}
 	}
 

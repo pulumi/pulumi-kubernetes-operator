@@ -244,8 +244,10 @@ var _ = Describe("Stack Controller", func() {
 					},
 					SecretsProvider: "passphrase",
 					EnvRefs:         defaultEnvRefs(),
-					ConfigRefs: map[string]shared.ConfigRef{
-						"word": shared.NewFileSystemConfigResourceRef(filepath.Join(configDir, "word.txt")),
+					ConfigRefs: []map[string]shared.ConfigRef{
+						{
+							"word": shared.NewFileSystemConfigResourceRef(filepath.Join(configDir, "word.txt")),
+						},
 					},
 					Refresh: true,
 				}
@@ -297,8 +299,10 @@ var _ = Describe("Stack Controller", func() {
 					},
 					SecretsProvider: "passphrase",
 					EnvRefs:         defaultEnvRefs(),
-					ConfigRefs: map[string]shared.ConfigRef{
-						"word": shared.NewEnvConfigResourceRef("WORD"),
+					ConfigRefs: []map[string]shared.ConfigRef{
+						{
+							"word": shared.NewEnvConfigResourceRef("WORD"),
+						},
 					},
 					Refresh: true,
 				}
@@ -367,8 +371,10 @@ var _ = Describe("Stack Controller", func() {
 					Config: map[string]string{
 						"word": "just-a-word",
 					},
-					ConfigRefs: map[string]shared.ConfigRef{
-						"secret-word": shared.NewSecretConfigResourceRef(namespace, configSecret.Name, "secret-word"),
+					ConfigRefs: []map[string]shared.ConfigRef{
+						{
+							"secret-word": shared.NewSecretConfigResourceRef(namespace, configSecret.Name, "secret-word"),
+						},
 					},
 					Refresh: true,
 				}
@@ -395,7 +401,7 @@ var _ = Describe("Stack Controller", func() {
 			})
 		})
 
-		When("using a LiteralRef", func() {
+		When("using a ConfigLiteralRef, with a simple value", func() {
 			AfterEach(func() {
 				deleteAndWaitForFinalization(stack)
 			})
@@ -406,6 +412,8 @@ var _ = Describe("Stack Controller", func() {
 				// Local backend doesn't allow setting slashes in stack name.
 				const stackName = "dev"
 				fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
+
+				jsonValue := v1.JSON{Raw: []byte(`"just-a-literal-word"`)}
 
 				// Define the stack spec
 				localSpec := shared.StackSpec{
@@ -418,8 +426,10 @@ var _ = Describe("Stack Controller", func() {
 					},
 					SecretsProvider: "passphrase",
 					EnvRefs:         defaultEnvRefs(),
-					ConfigRefs: map[string]shared.ConfigRef{
-						"word": shared.NewLiteralConfigResourceRef("just-a-literal-word"),
+					ConfigRefs: []map[string]shared.ConfigRef{
+						{
+							"word": shared.NewConfigLiteralResourceRef(jsonValue),
+						},
 					},
 					Refresh: true,
 				}
@@ -439,16 +449,16 @@ var _ = Describe("Stack Controller", func() {
 					return stackUpdatedToCommit(fetched.Status.LastUpdate, stack.Spec.Commit)
 				}, stackExecTimeout, interval).Should(BeTrue())
 				// Validate outputs.
-				Expect(fetched.Status.Outputs).Should(HaveKeyWithValue("word", v1.JSON{Raw: []byte(`"just-a-literal-word"`)}))
+				Expect(fetched.Status.Outputs).Should(HaveKeyWithValue("word", jsonValue))
 			})
 		})
 
-		When("using a StructuredRef", func() {
+		When("using a ConfigLiteralRef, with a structured, complex value", func() {
 			AfterEach(func() {
 				deleteAndWaitForFinalization(stack)
 			})
 
-			It("can deploy a stack reading a config from a Structured value", func() {
+			It("can deploy a stack reading a config from a literal (structured) value", func() {
 
 				// Use a local backend for this test.
 				// Local backend doesn't allow setting slashes in stack name.
@@ -478,8 +488,10 @@ var _ = Describe("Stack Controller", func() {
 					},
 					SecretsProvider: "passphrase",
 					EnvRefs:         defaultEnvRefs(),
-					ConfigRefs: map[string]shared.ConfigRef{
-						"structured": shared.NewStructuredConfigResourceRef(v1.JSON{Raw: jsonStructuredConfig}),
+					ConfigRefs: []map[string]shared.ConfigRef{
+						{
+							"structured": shared.NewConfigLiteralResourceRef(v1.JSON{Raw: jsonStructuredConfig}),
+						},
 					},
 					Refresh: true,
 				}
@@ -559,8 +571,10 @@ var _ = Describe("Stack Controller", func() {
 					},
 					SecretsProvider: "passphrase",
 					EnvRefs:         defaultEnvRefs(),
-					ConfigRefs: map[string]shared.ConfigRef{
-						"stack-config": shared.NewConfigMapConfigResourceRef(namespace, configMap.Name, "Pulumi.dev.yaml"),
+					ConfigRefs: []map[string]shared.ConfigRef{
+						{
+							"stack-config": shared.NewConfigMapConfigResourceRef(namespace, configMap.Name, "Pulumi.dev.yaml"),
+						},
 					},
 					Refresh: true,
 				}
@@ -582,6 +596,85 @@ var _ = Describe("Stack Controller", func() {
 				// Validate outputs.
 				Expect(fetched.Status.Outputs).Should(BeEquivalentTo(shared.StackOutputs{
 					"nested-config-field": v1.JSON{Raw: []byte(`"just-a-structured-value"`)},
+				}))
+			})
+		})
+
+		When("using multiple ConfigRef values", func() {
+			AfterEach(func() {
+				deleteAndWaitForFinalization(stack)
+			})
+
+			It("can deploy a stack reading a config from multiple ConfigRef values; the order should be predictable", func() {
+
+				// Use a local backend for this test.
+				// Local backend doesn't allow setting slashes in stack name.
+				const stackName = "dev"
+				fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
+
+				structuredConfig1 := map[string]any{
+					"structured": map[string]any{
+						"nested": map[string]any{
+							"field": "i-am-the-first-value",
+						},
+					},
+				}
+				jsonStructuredConfig1, err := json.Marshal(structuredConfig1)
+				if err != nil {
+					Fail("Failed to serialize a structured config to json.")
+				}
+
+				structuredConfig2 := map[string]any{
+					"structured": map[string]any{
+						"nested": map[string]any{
+							"field": "i-am-the-second-value",
+						},
+					},
+				}
+				jsonStructuredConfig2, err := json.Marshal(structuredConfig2)
+				if err != nil {
+					Fail("Failed to serialize a structured config to json.")
+				}
+
+				// Define the stack spec
+				localSpec := shared.StackSpec{
+					Backend: fmt.Sprintf("file://%s", backendDir),
+					Stack:   stackName,
+					GitSource: &shared.GitSource{
+						ProjectRepo: baseDir,
+						RepoDir:     "test/testdata/structured-config-refs",
+						Commit:      commit,
+					},
+					SecretsProvider: "passphrase",
+					EnvRefs:         defaultEnvRefs(),
+					ConfigRefs: []map[string]shared.ConfigRef{
+						{
+							"structured": shared.NewConfigLiteralResourceRef(v1.JSON{Raw: jsonStructuredConfig1}),
+						},
+						{
+							"structured": shared.NewConfigLiteralResourceRef(v1.JSON{Raw: jsonStructuredConfig2}),
+						},
+					},
+					Refresh: true,
+				}
+
+				// Create the stack
+				name := "config-refs-with-multiple-values-stack"
+				stack = generateStackV1(name, namespace, localSpec)
+				Expect(k8sClient.Create(ctx, stack)).Should(Succeed())
+
+				// Check that the stack updated successfully
+				fetched := &pulumiv1.Stack{}
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
+					if err != nil {
+						return false
+					}
+					return stackUpdatedToCommit(fetched.Status.LastUpdate, stack.Spec.Commit)
+				}, stackExecTimeout, interval).Should(BeTrue())
+				// Validate outputs.
+				Expect(fetched.Status.Outputs).Should(BeEquivalentTo(shared.StackOutputs{
+					"nested-config-field": v1.JSON{Raw: []byte(`"i-am-the-second-value"`)},
 				}))
 			})
 		})

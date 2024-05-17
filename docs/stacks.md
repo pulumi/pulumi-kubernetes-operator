@@ -127,10 +127,10 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigrefskey">configRefs</a></b></td>
-        <td>map[string]object</td>
+        <td><b><a href="#stackspecconfigrefsindexkey">configRefs</a></b></td>
+        <td>[]map[string]object</td>
         <td>
-          (optional) ConfigRefs is the configuration for this stack, which can be specified through ConfigRef. If this is omitted, configuration is assumed to be checked in and taken from the source repository. If present, ConfigRefs values will be merged with values passed through Config<br/>
+          (optional) ConfigRefs is an optional list of configuration values for this stack, which can be specified through each ConfigRef. If this is omitted, configuration is assumed to be checked in and taken from the source repository. If present, ConfigRefs values will be merged with the ones passed through Config field (ConfigRefs values have precedence, and configs will the same key name will be overwritten).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -286,7 +286,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
 </table>
 
 
-### Stack.spec.configRefs[key]
+### Stack.spec.configRefs[index][key]
 <sup><sup>[↩ Parent](#stackspec)</sup></sup>
 
 
@@ -310,57 +310,50 @@ ConfigRef identifies a resource from which config information can be loaded. Env
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigrefskeyconfigmap">configmap</a></b></td>
+        <td><b><a href="#stackspecconfigrefsindexkeyconfigmap">configmap</a></b></td>
         <td>object</td>
         <td>
-          ConfigMapRef refers to a Kubernetes ConfigMap It will be assumed the ConfigMap key content is the stack config in YAML format.<br/>
+          ConfigMapRef refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigrefskeyenv">env</a></b></td>
+        <td><b><a href="#stackspecconfigrefsindexkeyenv">env</a></b></td>
         <td>object</td>
         <td>
           Env selects an environment variable set on the operator process<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigrefskeyfilesystem">filesystem</a></b></td>
+        <td><b><a href="#stackspecconfigrefsindexkeyfilesystem">filesystem</a></b></td>
         <td>object</td>
         <td>
           FileSystem selects a file on the operator's file system<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigrefskeyliteral">literal</a></b></td>
+        <td><b><a href="#stackspecconfigrefsindexkeyliteral">literal</a></b></td>
         <td>object</td>
         <td>
-          LiteralRef refers to a literal value<br/>
+          ConfigLiteralRef refers to a literal config value. It could be both a single or a structured (in YAML format) ones.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigrefskeysecret">secret</a></b></td>
+        <td><b><a href="#stackspecconfigrefsindexkeysecret">secret</a></b></td>
         <td>object</td>
         <td>
           SecretRef refers to a Kubernetes Secret<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#stackspecconfigrefskeystructured">structured</a></b></td>
-        <td>object</td>
-        <td>
-          StructuredRef refers to a structured value in YAML format.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### Stack.spec.configRefs[key].configmap
-<sup><sup>[↩ Parent](#stackspecconfigrefskey)</sup></sup>
+### Stack.spec.configRefs[index][key].configmap
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey)</sup></sup>
 
 
 
-ConfigMapRef refers to a Kubernetes ConfigMap It will be assumed the ConfigMap key content is the stack config in YAML format.
+ConfigMapRef refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.
 
 <table>
     <thead>
@@ -396,8 +389,8 @@ ConfigMapRef refers to a Kubernetes ConfigMap It will be assumed the ConfigMap k
 </table>
 
 
-### Stack.spec.configRefs[key].env
-<sup><sup>[↩ Parent](#stackspecconfigrefskey)</sup></sup>
+### Stack.spec.configRefs[index][key].env
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey)</sup></sup>
 
 
 
@@ -423,8 +416,8 @@ Env selects an environment variable set on the operator process
 </table>
 
 
-### Stack.spec.configRefs[key].filesystem
-<sup><sup>[↩ Parent](#stackspecconfigrefskey)</sup></sup>
+### Stack.spec.configRefs[index][key].filesystem
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey)</sup></sup>
 
 
 
@@ -450,12 +443,12 @@ FileSystem selects a file on the operator's file system
 </table>
 
 
-### Stack.spec.configRefs[key].literal
-<sup><sup>[↩ Parent](#stackspecconfigrefskey)</sup></sup>
+### Stack.spec.configRefs[index][key].literal
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey)</sup></sup>
 
 
 
-LiteralRef refers to a literal value
+ConfigLiteralRef refers to a literal config value. It could be both a single or a structured (in YAML format) ones.
 
 <table>
     <thead>
@@ -468,7 +461,7 @@ LiteralRef refers to a literal value
     </thead>
     <tbody><tr>
         <td><b>value</b></td>
-        <td>string</td>
+        <td>JSON</td>
         <td>
           Value to load<br/>
         </td>
@@ -477,8 +470,8 @@ LiteralRef refers to a literal value
 </table>
 
 
-### Stack.spec.configRefs[key].secret
-<sup><sup>[↩ Parent](#stackspecconfigrefskey)</sup></sup>
+### Stack.spec.configRefs[index][key].secret
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey)</sup></sup>
 
 
 
@@ -514,33 +507,6 @@ SecretRef refers to a Kubernetes Secret
           Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### Stack.spec.configRefs[key].structured
-<sup><sup>[↩ Parent](#stackspecconfigrefskey)</sup></sup>
-
-
-
-StructuredRef refers to a structured value in YAML format.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>value</b></td>
-        <td>JSON</td>
-        <td>
-          Value to load<br/>
-        </td>
-        <td>true</td>
       </tr></tbody>
 </table>
 
@@ -2361,10 +2327,10 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigrefskey-1">configRefs</a></b></td>
-        <td>map[string]object</td>
+        <td><b><a href="#stackspecconfigrefsindexkey-1">configRefs</a></b></td>
+        <td>[]map[string]object</td>
         <td>
-          (optional) ConfigRefs is the configuration for this stack, which can be specified through ConfigRef. If this is omitted, configuration is assumed to be checked in and taken from the source repository. If present, ConfigRefs values will be merged with values passed through Config<br/>
+          (optional) ConfigRefs is an optional list of configuration values for this stack, which can be specified through each ConfigRef. If this is omitted, configuration is assumed to be checked in and taken from the source repository. If present, ConfigRefs values will be merged with the ones passed through Config field (ConfigRefs values have precedence, and configs will the same key name will be overwritten).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2520,7 +2486,7 @@ StackSpec defines the desired state of Pulumi Stack being managed by this operat
 </table>
 
 
-### Stack.spec.configRefs[key]
+### Stack.spec.configRefs[index][key]
 <sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
 
 
@@ -2544,57 +2510,50 @@ ConfigRef identifies a resource from which config information can be loaded. Env
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigrefskeyconfigmap-1">configmap</a></b></td>
+        <td><b><a href="#stackspecconfigrefsindexkeyconfigmap-1">configmap</a></b></td>
         <td>object</td>
         <td>
-          ConfigMapRef refers to a Kubernetes ConfigMap It will be assumed the ConfigMap key content is the stack config in YAML format.<br/>
+          ConfigMapRef refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigrefskeyenv-1">env</a></b></td>
+        <td><b><a href="#stackspecconfigrefsindexkeyenv-1">env</a></b></td>
         <td>object</td>
         <td>
           Env selects an environment variable set on the operator process<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigrefskeyfilesystem-1">filesystem</a></b></td>
+        <td><b><a href="#stackspecconfigrefsindexkeyfilesystem-1">filesystem</a></b></td>
         <td>object</td>
         <td>
           FileSystem selects a file on the operator's file system<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigrefskeyliteral-1">literal</a></b></td>
+        <td><b><a href="#stackspecconfigrefsindexkeyliteral-1">literal</a></b></td>
         <td>object</td>
         <td>
-          LiteralRef refers to a literal value<br/>
+          ConfigLiteralRef refers to a literal config value. It could be both a single or a structured (in YAML format) ones.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#stackspecconfigrefskeysecret-1">secret</a></b></td>
+        <td><b><a href="#stackspecconfigrefsindexkeysecret-1">secret</a></b></td>
         <td>object</td>
         <td>
           SecretRef refers to a Kubernetes Secret<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#stackspecconfigrefskeystructured-1">structured</a></b></td>
-        <td>object</td>
-        <td>
-          StructuredRef refers to a structured value in YAML format.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### Stack.spec.configRefs[key].configmap
-<sup><sup>[↩ Parent](#stackspecconfigrefskey-1)</sup></sup>
+### Stack.spec.configRefs[index][key].configmap
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey-1)</sup></sup>
 
 
 
-ConfigMapRef refers to a Kubernetes ConfigMap It will be assumed the ConfigMap key content is the stack config in YAML format.
+ConfigMapRef refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.
 
 <table>
     <thead>
@@ -2630,8 +2589,8 @@ ConfigMapRef refers to a Kubernetes ConfigMap It will be assumed the ConfigMap k
 </table>
 
 
-### Stack.spec.configRefs[key].env
-<sup><sup>[↩ Parent](#stackspecconfigrefskey-1)</sup></sup>
+### Stack.spec.configRefs[index][key].env
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey-1)</sup></sup>
 
 
 
@@ -2657,8 +2616,8 @@ Env selects an environment variable set on the operator process
 </table>
 
 
-### Stack.spec.configRefs[key].filesystem
-<sup><sup>[↩ Parent](#stackspecconfigrefskey-1)</sup></sup>
+### Stack.spec.configRefs[index][key].filesystem
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey-1)</sup></sup>
 
 
 
@@ -2684,12 +2643,12 @@ FileSystem selects a file on the operator's file system
 </table>
 
 
-### Stack.spec.configRefs[key].literal
-<sup><sup>[↩ Parent](#stackspecconfigrefskey-1)</sup></sup>
+### Stack.spec.configRefs[index][key].literal
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey-1)</sup></sup>
 
 
 
-LiteralRef refers to a literal value
+ConfigLiteralRef refers to a literal config value. It could be both a single or a structured (in YAML format) ones.
 
 <table>
     <thead>
@@ -2702,7 +2661,7 @@ LiteralRef refers to a literal value
     </thead>
     <tbody><tr>
         <td><b>value</b></td>
-        <td>string</td>
+        <td>JSON</td>
         <td>
           Value to load<br/>
         </td>
@@ -2711,8 +2670,8 @@ LiteralRef refers to a literal value
 </table>
 
 
-### Stack.spec.configRefs[key].secret
-<sup><sup>[↩ Parent](#stackspecconfigrefskey-1)</sup></sup>
+### Stack.spec.configRefs[index][key].secret
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey-1)</sup></sup>
 
 
 
@@ -2748,33 +2707,6 @@ SecretRef refers to a Kubernetes Secret
           Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### Stack.spec.configRefs[key].structured
-<sup><sup>[↩ Parent](#stackspecconfigrefskey-1)</sup></sup>
-
-
-
-StructuredRef refers to a structured value in YAML format.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>value</b></td>
-        <td>JSON</td>
-        <td>
-          Value to load<br/>
-        </td>
-        <td>true</td>
       </tr></tbody>
 </table>
 

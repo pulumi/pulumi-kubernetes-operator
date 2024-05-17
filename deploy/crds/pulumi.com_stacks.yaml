@@ -81,104 +81,100 @@ spec:
                   is assumed to be checked in and taken from the source repository.
                 type: object
               configRefs:
-                additionalProperties:
-                  description: ConfigRef identifies a resource from which config information
-                    can be loaded. Environment variables, files on the filesystem,
-                    Kubernetes Secrets, ConfigMaps, structured and config literal
-                    values strings are currently supported.
-                  properties:
-                    configmap:
-                      description: ConfigMapRef refers to a Kubernetes ConfigMap It
-                        will be assumed the ConfigMap key content is the stack config
-                        in YAML format.
-                      properties:
-                        key:
-                          description: Key within the ConfigMap to use.
-                          type: string
-                        name:
-                          description: Name of the ConfigMap
-                          type: string
-                        namespace:
-                          description: Namespace where the ConfigMap is stored. Deprecated;
-                            non-empty values will be considered invalid unless namespace
-                            isolation is disabled in the controller.
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                    env:
-                      description: Env selects an environment variable set on the
-                        operator process
-                      properties:
-                        name:
-                          description: Name of the environment variable
-                          type: string
-                      required:
-                      - name
-                      type: object
-                    filesystem:
-                      description: FileSystem selects a file on the operator's file
-                        system
-                      properties:
-                        path:
-                          description: Path on the filesystem to use to load information
-                            from.
-                          type: string
-                      required:
-                      - path
-                      type: object
-                    literal:
-                      description: LiteralRef refers to a literal value
-                      properties:
-                        value:
-                          description: Value to load
-                          type: string
-                      required:
-                      - value
-                      type: object
-                    secret:
-                      description: SecretRef refers to a Kubernetes Secret
-                      properties:
-                        key:
-                          description: Key within the Secret to use.
-                          type: string
-                        name:
-                          description: Name of the Secret
-                          type: string
-                        namespace:
-                          description: Namespace where the Secret is stored. Deprecated;
-                            non-empty values will be considered invalid unless namespace
-                            isolation is disabled in the controller.
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                    structured:
-                      description: StructuredRef refers to a structured value in YAML
-                        format.
-                      properties:
-                        value:
-                          description: Value to load
-                          x-kubernetes-preserve-unknown-fields: true
-                      required:
-                      - value
-                      type: object
-                    type:
-                      description: 'SelectorType is required and signifies the type
-                        of selector. Must be one of: Env, FS, Secret, ConfigMap, Structured,
-                        Literal'
-                      type: string
-                  required:
-                  - type
+                description: (optional) ConfigRefs is an optional list of configuration
+                  values for this stack, which can be specified through each ConfigRef.
+                  If this is omitted, configuration is assumed to be checked in and
+                  taken from the source repository. If present, ConfigRefs values
+                  will be merged with the ones passed through Config field (ConfigRefs
+                  values have precedence, and configs will the same key name will
+                  be overwritten).
+                items:
+                  additionalProperties:
+                    description: ConfigRef identifies a resource from which config
+                      information can be loaded. Environment variables, files on the
+                      filesystem, Kubernetes Secrets, ConfigMaps, structured and config
+                      literal values strings are currently supported.
+                    properties:
+                      configmap:
+                        description: ConfigMapRef refers to a Kubernetes ConfigMap.
+                          It will be assumed the ConfigMap key content is the stack
+                          config in YAML format.
+                        properties:
+                          key:
+                            description: Key within the ConfigMap to use.
+                            type: string
+                          name:
+                            description: Name of the ConfigMap
+                            type: string
+                          namespace:
+                            description: Namespace where the ConfigMap is stored.
+                              Deprecated; non-empty values will be considered invalid
+                              unless namespace isolation is disabled in the controller.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      env:
+                        description: Env selects an environment variable set on the
+                          operator process
+                        properties:
+                          name:
+                            description: Name of the environment variable
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      filesystem:
+                        description: FileSystem selects a file on the operator's file
+                          system
+                        properties:
+                          path:
+                            description: Path on the filesystem to use to load information
+                              from.
+                            type: string
+                        required:
+                        - path
+                        type: object
+                      literal:
+                        description: ConfigLiteralRef refers to a literal config value.
+                          It could be both a single or a structured (in YAML format)
+                          ones.
+                        properties:
+                          value:
+                            description: Value to load
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - value
+                        type: object
+                      secret:
+                        description: SecretRef refers to a Kubernetes Secret
+                        properties:
+                          key:
+                            description: Key within the Secret to use.
+                            type: string
+                          name:
+                            description: Name of the Secret
+                            type: string
+                          namespace:
+                            description: Namespace where the Secret is stored. Deprecated;
+                              non-empty values will be considered invalid unless namespace
+                              isolation is disabled in the controller.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      type:
+                        description: 'SelectorType is required and signifies the type
+                          of selector. Must be one of: Env, FS, Secret, ConfigMap,
+                          Structured, Literal'
+                        type: string
+                    required:
+                    - type
+                    type: object
                   type: object
-                description: (optional) ConfigRefs is the configuration for this stack,
-                  which can be specified through ConfigRef. If this is omitted, configuration
-                  is assumed to be checked in and taken from the source repository.
-                  If present, ConfigRefs values will be merged with values passed
-                  through Config
-                type: object
+                type: array
               continueResyncOnCommitMatch:
                 description: (optional) ContinueResyncOnCommitMatch - when true -
                   informs the operator to continue trying to update stacks even if
@@ -998,104 +994,100 @@ spec:
                   is assumed to be checked in and taken from the source repository.
                 type: object
               configRefs:
-                additionalProperties:
-                  description: ConfigRef identifies a resource from which config information
-                    can be loaded. Environment variables, files on the filesystem,
-                    Kubernetes Secrets, ConfigMaps, structured and config literal
-                    values strings are currently supported.
-                  properties:
-                    configmap:
-                      description: ConfigMapRef refers to a Kubernetes ConfigMap It
-                        will be assumed the ConfigMap key content is the stack config
-                        in YAML format.
-                      properties:
-                        key:
-                          description: Key within the ConfigMap to use.
-                          type: string
-                        name:
-                          description: Name of the ConfigMap
-                          type: string
-                        namespace:
-                          description: Namespace where the ConfigMap is stored. Deprecated;
-                            non-empty values will be considered invalid unless namespace
-                            isolation is disabled in the controller.
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                    env:
-                      description: Env selects an environment variable set on the
-                        operator process
-                      properties:
-                        name:
-                          description: Name of the environment variable
-                          type: string
-                      required:
-                      - name
-                      type: object
-                    filesystem:
-                      description: FileSystem selects a file on the operator's file
-                        system
-                      properties:
-                        path:
-                          description: Path on the filesystem to use to load information
-                            from.
-                          type: string
-                      required:
-                      - path
-                      type: object
-                    literal:
-                      description: LiteralRef refers to a literal value
-                      properties:
-                        value:
-                          description: Value to load
-                          type: string
-                      required:
-                      - value
-                      type: object
-                    secret:
-                      description: SecretRef refers to a Kubernetes Secret
-                      properties:
-                        key:
-                          description: Key within the Secret to use.
-                          type: string
-                        name:
-                          description: Name of the Secret
-                          type: string
-                        namespace:
-                          description: Namespace where the Secret is stored. Deprecated;
-                            non-empty values will be considered invalid unless namespace
-                            isolation is disabled in the controller.
-                          type: string
-                      required:
-                      - key
-                      - name
-                      type: object
-                    structured:
-                      description: StructuredRef refers to a structured value in YAML
-                        format.
-                      properties:
-                        value:
-                          description: Value to load
-                          x-kubernetes-preserve-unknown-fields: true
-                      required:
-                      - value
-                      type: object
-                    type:
-                      description: 'SelectorType is required and signifies the type
-                        of selector. Must be one of: Env, FS, Secret, ConfigMap, Structured,
-                        Literal'
-                      type: string
-                  required:
-                  - type
+                description: (optional) ConfigRefs is an optional list of configuration
+                  values for this stack, which can be specified through each ConfigRef.
+                  If this is omitted, configuration is assumed to be checked in and
+                  taken from the source repository. If present, ConfigRefs values
+                  will be merged with the ones passed through Config field (ConfigRefs
+                  values have precedence, and configs will the same key name will
+                  be overwritten).
+                items:
+                  additionalProperties:
+                    description: ConfigRef identifies a resource from which config
+                      information can be loaded. Environment variables, files on the
+                      filesystem, Kubernetes Secrets, ConfigMaps, structured and config
+                      literal values strings are currently supported.
+                    properties:
+                      configmap:
+                        description: ConfigMapRef refers to a Kubernetes ConfigMap.
+                          It will be assumed the ConfigMap key content is the stack
+                          config in YAML format.
+                        properties:
+                          key:
+                            description: Key within the ConfigMap to use.
+                            type: string
+                          name:
+                            description: Name of the ConfigMap
+                            type: string
+                          namespace:
+                            description: Namespace where the ConfigMap is stored.
+                              Deprecated; non-empty values will be considered invalid
+                              unless namespace isolation is disabled in the controller.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      env:
+                        description: Env selects an environment variable set on the
+                          operator process
+                        properties:
+                          name:
+                            description: Name of the environment variable
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      filesystem:
+                        description: FileSystem selects a file on the operator's file
+                          system
+                        properties:
+                          path:
+                            description: Path on the filesystem to use to load information
+                              from.
+                            type: string
+                        required:
+                        - path
+                        type: object
+                      literal:
+                        description: ConfigLiteralRef refers to a literal config value.
+                          It could be both a single or a structured (in YAML format)
+                          ones.
+                        properties:
+                          value:
+                            description: Value to load
+                            x-kubernetes-preserve-unknown-fields: true
+                        required:
+                        - value
+                        type: object
+                      secret:
+                        description: SecretRef refers to a Kubernetes Secret
+                        properties:
+                          key:
+                            description: Key within the Secret to use.
+                            type: string
+                          name:
+                            description: Name of the Secret
+                            type: string
+                          namespace:
+                            description: Namespace where the Secret is stored. Deprecated;
+                              non-empty values will be considered invalid unless namespace
+                              isolation is disabled in the controller.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      type:
+                        description: 'SelectorType is required and signifies the type
+                          of selector. Must be one of: Env, FS, Secret, ConfigMap,
+                          Structured, Literal'
+                        type: string
+                    required:
+                    - type
+                    type: object
                   type: object
-                description: (optional) ConfigRefs is the configuration for this stack,
-                  which can be specified through ConfigRef. If this is omitted, configuration
-                  is assumed to be checked in and taken from the source repository.
-                  If present, ConfigRefs values will be merged with values passed
-                  through Config
-                type: object
+                type: array
               continueResyncOnCommitMatch:
                 description: (optional) ContinueResyncOnCommitMatch - when true -
                   informs the operator to continue trying to update stacks even if

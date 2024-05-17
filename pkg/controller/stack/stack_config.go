@@ -16,12 +16,18 @@ type ConfigKeyValue struct {
 	Value auto.ConfigValue
 }
 
-func NewStructuredConfigFromJSON(rawValue apiextensionsv1.JSON) (*StructuredConfig, error) {
-	var data map[string]any
+func NewStructuredConfigFromJSON(key string, rawValue apiextensionsv1.JSON) (*StructuredConfig, error) {
+	var data any
 	if err := json.Unmarshal(rawValue.Raw, &data); err != nil {
 		return nil, err
 	}
-	structuredConfig := StructuredConfig(data)
+	if dataAsMap, err := data.(map[string]any); err {
+		structuredConfig := StructuredConfig(dataAsMap)
+		return &structuredConfig, nil
+	}
+	structuredConfig := StructuredConfig(map[string]any{
+		key: data,
+	})
 	return &structuredConfig, nil
 }
 
