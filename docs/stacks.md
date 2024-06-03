@@ -141,6 +141,13 @@ is omitted, configuration is assumed to be checked in and taken from the source 
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#stackspecconfigrefsindexkey">configRefs</a></b></td>
+        <td>[]map[string]object</td>
+        <td>
+          (optional) ConfigRefs is an optional list of configuration values for this stack, which can be specified through each ConfigRef. If this is omitted, configuration is assumed to be checked in and taken from the source repository. If present, ConfigRefs values will be merged with the ones passed through Config field (ConfigRefs values have precedence, and configs will the same key name will be overwritten).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>continueResyncOnCommitMatch</b></td>
         <td>boolean</td>
         <td>
@@ -343,6 +350,183 @@ creating stacks that do not exist in the tracking git repo.
 The default behavior is to create a stack if it doesn't exist.<br/>
         </td>
         <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRefs[index][key]
+<sup><sup>[↩ Parent](#stackspec)</sup></sup>
+
+
+
+ConfigRef identifies a resource from which config information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets, ConfigMaps, structured and config literal values strings are currently supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Structured, Literal<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefsindexkeyconfigmap">configmap</a></b></td>
+        <td>object</td>
+        <td>
+          ConfigMap refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefsindexkeyenv">env</a></b></td>
+        <td>object</td>
+        <td>
+          Env selects an environment variable set on the operator process<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefsindexkeyfilesystem">filesystem</a></b></td>
+        <td>object</td>
+        <td>
+          FileSystem selects a file on the operator's file system<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefsindexkeyliteral">literal</a></b></td>
+        <td>object</td>
+        <td>
+          Literal refers to a literal config value. It could be both a single or a structured (in YAML format) ones.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRefs[index][key].configmap
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey)</sup></sup>
+
+
+
+ConfigMap refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the ConfigMap to use.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the ConfigMap<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace where the ConfigMap is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRefs[index][key].env
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey)</sup></sup>
+
+
+
+Env selects an environment variable set on the operator process
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the environment variable<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRefs[index][key].filesystem
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey)</sup></sup>
+
+
+
+FileSystem selects a file on the operator's file system
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Path on the filesystem to use to load information from.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRefs[index][key].literal
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey)</sup></sup>
+
+
+
+Literal refers to a literal config value. It could be both a single or a structured (in YAML format) ones.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>value</b></td>
+        <td>JSON</td>
+        <td>
+          Value to load<br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
 
@@ -2261,6 +2445,13 @@ is omitted, configuration is assumed to be checked in and taken from the source 
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#stackspecconfigrefsindexkey-1">configRefs</a></b></td>
+        <td>[]map[string]object</td>
+        <td>
+          (optional) ConfigRefs is an optional list of configuration values for this stack, which can be specified through each ConfigRef. If this is omitted, configuration is assumed to be checked in and taken from the source repository. If present, ConfigRefs values will be merged with the ones passed through Config field (ConfigRefs values have precedence, and configs will the same key name will be overwritten).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>continueResyncOnCommitMatch</b></td>
         <td>boolean</td>
         <td>
@@ -2463,6 +2654,183 @@ creating stacks that do not exist in the tracking git repo.
 The default behavior is to create a stack if it doesn't exist.<br/>
         </td>
         <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRefs[index][key]
+<sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
+
+
+
+ConfigRef identifies a resource from which config information can be loaded. Environment variables, files on the filesystem, Kubernetes Secrets, ConfigMaps, structured and config literal values strings are currently supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          SelectorType is required and signifies the type of selector. Must be one of: Env, FS, Secret, ConfigMap, Structured, Literal<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefsindexkeyconfigmap-1">configmap</a></b></td>
+        <td>object</td>
+        <td>
+          ConfigMap refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefsindexkeyenv-1">env</a></b></td>
+        <td>object</td>
+        <td>
+          Env selects an environment variable set on the operator process<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefsindexkeyfilesystem-1">filesystem</a></b></td>
+        <td>object</td>
+        <td>
+          FileSystem selects a file on the operator's file system<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefsindexkeyliteral-1">literal</a></b></td>
+        <td>object</td>
+        <td>
+          Literal refers to a literal config value. It could be both a single or a structured (in YAML format) ones.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRefs[index][key].configmap
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey-1)</sup></sup>
+
+
+
+ConfigMap refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the ConfigMap to use.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the ConfigMap<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace where the ConfigMap is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRefs[index][key].env
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey-1)</sup></sup>
+
+
+
+Env selects an environment variable set on the operator process
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the environment variable<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRefs[index][key].filesystem
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey-1)</sup></sup>
+
+
+
+FileSystem selects a file on the operator's file system
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Path on the filesystem to use to load information from.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRefs[index][key].literal
+<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey-1)</sup></sup>
+
+
+
+Literal refers to a literal config value. It could be both a single or a structured (in YAML format) ones.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>value</b></td>
+        <td>JSON</td>
+        <td>
+          Value to load<br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
 

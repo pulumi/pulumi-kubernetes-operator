@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -1085,6 +1086,64 @@ func (sess *reconcileStackSession) SetEnvRefsForWorkspace(ctx context.Context, w
 	return nil
 }
 
+func (sess *reconcileStackSession) resolveConfigRefs(ctx context.Context) ([]ConfigKeyValue, error) {
+	allConfigs := make([]ConfigKeyValue, 0)
+	for _, configRefMap := range sess.stack.ConfigRefs {
+		for k, configRef := range configRefMap {
+			// ConfigMap and Literal are special config cases, so they are checked first
+			switch configRef.SelectorType {
+			case shared.ConfigResourceSelectorConfigMap:
+				configMapRef := configRef.ConfigMap
+				if configMapRef != nil {
+					var config corev1.ConfigMap
+					if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: configMapRef.Name, Namespace: configMapRef.Namespace}, &config); err != nil {
+						return nil, fmt.Errorf("Failed to get the ConfigMap %s on namespace %s: %w", configMapRef.Name, configMapRef.Namespace, err)
+					}
+					// assumes the whole configmaps's data is the config content; try to read as a conventional stack yaml config
+					var configMapContent map[string]any
+					if err := yaml.Unmarshal([]byte(config.Data[configMapRef.Key]), &configMapContent); err != nil {
+						return nil, fmt.Errorf("Failed to read the ConfigMap content as a stack YAML config. Namespace=%s Name=%s: %w", configMapRef.Namespace, configMapRef.Name, err)
+					}
+					structuredConfig := StructuredConfig(configMapContent).Flatten()
+					allConfigs = append(allConfigs, structuredConfig...)
+				}
+			case shared.ConfigResourceSelectorLiteral:
+				literalRef := configRef.Literal
+				if literalRef != nil {
+					// ConfigLiteralRef handles both simple and structured values as json, flattening all keys to build a list of Pulumi key:value configs
+					structuredConfig, err := NewStructuredConfigFromJSON(k, literalRef.Value)
+					if err != nil {
+						return nil, fmt.Errorf("Failed to unmarshall %s as a literal config: %w", k, err)
+					}
+					configs := structuredConfig.Flatten()
+					allConfigs = append(allConfigs, configs...)
+				}
+			default:
+				// try to resolve as a ResourceRef
+				value, err := sess.resolveResourceRef(ctx, &shared.ResourceRef{
+					SelectorType: shared.ResourceSelectorType(configRef.SelectorType),
+					ResourceSelector: shared.ResourceSelector{
+						FileSystem: configRef.FileSystem,
+						Env:        configRef.Env,
+					},
+				})
+				if err != nil {
+					return nil, err
+				}
+				allConfigs = append(allConfigs, ConfigKeyValue{
+					Key: k,
+					Value: auto.ConfigValue{
+						Value:  value,
+						Secret: false,
+					},
+				})
+			}
+		}
+	}
+
+	return allConfigs, nil
+}
+
 func (sess *reconcileStackSession) resolveResourceRef(ctx context.Context, ref *shared.ResourceRef) (string, error) {
 	switch ref.SelectorType {
 	case shared.ResourceSelectorEnv:
@@ -1556,20 +1615,46 @@ func (sess *reconcileStackSession) InstallProjectDependencies(ctx context.Contex
 }
 
 func (sess *reconcileStackSession) UpdateConfig(ctx context.Context) error {
-	m := make(auto.ConfigMap)
+	// Initialize a single config value slice to all values;
+	// plain config will be handled with values from ConfigRefs
+	configValues := make([]ConfigKeyValue, 0, len(sess.stack.Config))
+
 	for k, v := range sess.stack.Config {
-		m[k] = auto.ConfigValue{
-			Value:  v,
-			Secret: false,
-		}
+		configValues = append(configValues, ConfigKeyValue{
+			Key: k,
+			Value: auto.ConfigValue{
+				Value:  v,
+				Secret: false,
+			},
+		})
 	}
+
+	// appending ConfigRefs values
+	configValuesFromRefs, err := sess.resolveConfigRefs(ctx)
+	if err != nil {
+		return fmt.Errorf("Fail reading ConfigRef values: %w", err)
+	}
+	configValues = append(configValues, configValuesFromRefs...)
+
+	// config values should be ordered by key to avoid problems like try to set 'c[1]=value1' before 'c[0]=value2'
+	sort.Slice(configValues, func(i, j int) bool {
+		return configValues[i].Key < configValues[j].Key
+	})
+
+	// set all configs as path=true
+	for _, v := range configValues {
+		sess.autoStack.SetConfigWithOptions(ctx, v.Key, v.Value, &auto.ConfigOptions{
+			Path: true,
+		})
+	}
+
+	m := make(auto.ConfigMap)
 	for k, v := range sess.stack.Secrets {
 		m[k] = auto.ConfigValue{
 			Value:  v,
 			Secret: true,
 		}
 	}
-
 	for k, ref := range sess.stack.SecretRefs {
 		resolved, err := sess.resolveResourceRef(ctx, &ref)
 		if err != nil {
@@ -1794,7 +1879,7 @@ func (sess *reconcileStackSession) addDefaultPermalink(ctx context.Context, stac
 	// Get stack URL.
 	info, err := sess.autoStack.Info(ctx)
 	if err != nil {
-		sess.logger.Error(err, "Failed to update Stack status with default permalink", "Stack.Name", stack.Spec.Stack)
+		sess.logger.Error(err, "Fail to update Stack status with default permalink", "Stack.Name", stack.Spec.Stack)
 		return err
 	}
 	// Set stack URL.
