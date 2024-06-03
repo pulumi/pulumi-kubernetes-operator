@@ -349,56 +349,6 @@ var _ = Describe("Stack Controller", func() {
 			AfterEach(func() {
 				deleteAndWaitForFinalization(stack)
 			})
-
-			It("can deploy a stack reading a config from a Secret", func() {
-
-				// Use a local backend for this test.
-				// Local backend doesn't allow setting slashes in stack name.
-				const stackName = "dev"
-				fmt.Fprintf(GinkgoWriter, "Stack.Name: %s\n", stackName)
-
-				// Define the stack spec
-				localSpec := shared.StackSpec{
-					Backend: fmt.Sprintf("file://%s", backendDir),
-					Stack:   stackName,
-					GitSource: &shared.GitSource{
-						ProjectRepo: baseDir,
-						RepoDir:     "test/testdata/config-refs",
-						Commit:      commit,
-					},
-					SecretsProvider: "passphrase",
-					EnvRefs:         defaultEnvRefs(),
-					Config: map[string]string{
-						"word": "just-a-word",
-					},
-					ConfigRefs: []map[string]shared.ConfigRef{
-						{
-							"secret-word": shared.NewSecretConfigResourceRef(namespace, configSecret.Name, "secret-word"),
-						},
-					},
-					Refresh: true,
-				}
-
-				// Create the stack
-				name := "config-refs-with-secret-stack"
-				stack = generateStackV1(name, namespace, localSpec)
-				Expect(k8sClient.Create(ctx, stack)).Should(Succeed())
-
-				// Check that the stack updated successfully
-				fetched := &pulumiv1.Stack{}
-				Eventually(func() bool {
-					err := k8sClient.Get(ctx, types.NamespacedName{Name: stack.Name, Namespace: namespace}, fetched)
-					if err != nil {
-						return false
-					}
-					return stackUpdatedToCommit(fetched.Status.LastUpdate, stack.Spec.Commit)
-				}, stackExecTimeout, interval).Should(BeTrue())
-				// Validate outputs.
-				Expect(fetched.Status.Outputs).Should(BeEquivalentTo(shared.StackOutputs{
-					"word":        v1.JSON{Raw: []byte(`"just-a-word"`)},
-					"secret-word": v1.JSON{Raw: []byte(`"[secret]"`)},
-				}))
-			})
 		})
 
 		When("using a ConfigLiteralRef, with a simple value", func() {

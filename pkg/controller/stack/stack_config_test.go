@@ -9,6 +9,32 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
+func toJson(v any) apiextensionsv1.JSON {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return apiextensionsv1.JSON{Raw: b}
+}
+
+func TestNewLiteralConfigFromJson(t *testing.T) {
+	structuredConfig, err := NewStructuredConfigFromJSON("sample", toJson("just-a-value"))
+	if assert.NoError(t, err) {
+		configValues := structuredConfig.Flatten()
+		expected := []ConfigKeyValue{
+			{
+				Key: "sample",
+				Value: auto.ConfigValue{
+					Value:  "just-a-value",
+					Secret: false,
+				},
+			},
+		}
+
+		assert.ElementsMatch(t, expected, configValues)
+	}
+}
+
 func TestNewStructuredConfigFromJson(t *testing.T) {
 	toJson := func(v any) apiextensionsv1.JSON {
 		b, err := json.Marshal(v)

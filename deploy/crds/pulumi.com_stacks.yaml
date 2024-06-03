@@ -96,9 +96,9 @@ spec:
                       literal values strings are currently supported.
                     properties:
                       configmap:
-                        description: ConfigMapRef refers to a Kubernetes ConfigMap.
-                          It will be assumed the ConfigMap key content is the stack
-                          config in YAML format.
+                        description: ConfigMap refers to a Kubernetes ConfigMap. It
+                          will be assumed the ConfigMap key content is the stack config
+                          in YAML format.
                         properties:
                           key:
                             description: Key within the ConfigMap to use.
@@ -137,8 +137,8 @@ spec:
                         - path
                         type: object
                       literal:
-                        description: ConfigLiteralRef refers to a literal config value.
-                          It could be both a single or a structured (in YAML format)
+                        description: Literal refers to a literal config value. It
+                          could be both a single or a structured (in YAML format)
                           ones.
                         properties:
                           value:
@@ -146,24 +146,6 @@ spec:
                             x-kubernetes-preserve-unknown-fields: true
                         required:
                         - value
-                        type: object
-                      secret:
-                        description: SecretRef refers to a Kubernetes Secret
-                        properties:
-                          key:
-                            description: Key within the Secret to use.
-                            type: string
-                          name:
-                            description: Name of the Secret
-                            type: string
-                          namespace:
-                            description: Namespace where the Secret is stored. Deprecated;
-                              non-empty values will be considered invalid unless namespace
-                              isolation is disabled in the controller.
-                            type: string
-                        required:
-                        - key
-                        - name
                         type: object
                       type:
                         description: 'SelectorType is required and signifies the type
@@ -1009,9 +991,9 @@ spec:
                       literal values strings are currently supported.
                     properties:
                       configmap:
-                        description: ConfigMapRef refers to a Kubernetes ConfigMap.
-                          It will be assumed the ConfigMap key content is the stack
-                          config in YAML format.
+                        description: ConfigMap refers to a Kubernetes ConfigMap. It
+                          will be assumed the ConfigMap key content is the stack config
+                          in YAML format.
                         properties:
                           key:
                             description: Key within the ConfigMap to use.
@@ -1050,8 +1032,8 @@ spec:
                         - path
                         type: object
                       literal:
-                        description: ConfigLiteralRef refers to a literal config value.
-                          It could be both a single or a structured (in YAML format)
+                        description: Literal refers to a literal config value. It
+                          could be both a single or a structured (in YAML format)
                           ones.
                         properties:
                           value:
@@ -1059,24 +1041,6 @@ spec:
                             x-kubernetes-preserve-unknown-fields: true
                         required:
                         - value
-                        type: object
-                      secret:
-                        description: SecretRef refers to a Kubernetes Secret
-                        properties:
-                          key:
-                            description: Key within the Secret to use.
-                            type: string
-                          name:
-                            description: Name of the Secret
-                            type: string
-                          namespace:
-                            description: Namespace where the Secret is stored. Deprecated;
-                              non-empty values will be considered invalid unless namespace
-                              isolation is disabled in the controller.
-                            type: string
-                        required:
-                        - key
-                        - name
                         type: object
                       type:
                         description: 'SelectorType is required and signifies the type

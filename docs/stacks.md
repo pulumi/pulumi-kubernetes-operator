@@ -313,7 +313,7 @@ ConfigRef identifies a resource from which config information can be loaded. Env
         <td><b><a href="#stackspecconfigrefsindexkeyconfigmap">configmap</a></b></td>
         <td>object</td>
         <td>
-          ConfigMapRef refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.<br/>
+          ConfigMap refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -334,14 +334,7 @@ ConfigRef identifies a resource from which config information can be loaded. Env
         <td><b><a href="#stackspecconfigrefsindexkeyliteral">literal</a></b></td>
         <td>object</td>
         <td>
-          ConfigLiteralRef refers to a literal config value. It could be both a single or a structured (in YAML format) ones.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#stackspecconfigrefsindexkeysecret">secret</a></b></td>
-        <td>object</td>
-        <td>
-          SecretRef refers to a Kubernetes Secret<br/>
+          Literal refers to a literal config value. It could be both a single or a structured (in YAML format) ones.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -353,7 +346,7 @@ ConfigRef identifies a resource from which config information can be loaded. Env
 
 
 
-ConfigMapRef refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.
+ConfigMap refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.
 
 <table>
     <thead>
@@ -448,7 +441,7 @@ FileSystem selects a file on the operator's file system
 
 
 
-ConfigLiteralRef refers to a literal config value. It could be both a single or a structured (in YAML format) ones.
+Literal refers to a literal config value. It could be both a single or a structured (in YAML format) ones.
 
 <table>
     <thead>
@@ -466,47 +459,6 @@ ConfigLiteralRef refers to a literal config value. It could be both a single or 
           Value to load<br/>
         </td>
         <td>true</td>
-      </tr></tbody>
-</table>
-
-
-### Stack.spec.configRefs[index][key].secret
-<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey)</sup></sup>
-
-
-
-SecretRef refers to a Kubernetes Secret
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>key</b></td>
-        <td>string</td>
-        <td>
-          Key within the Secret to use.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>name</b></td>
-        <td>string</td>
-        <td>
-          Name of the Secret<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>namespace</b></td>
-        <td>string</td>
-        <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
-        </td>
-        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -2513,7 +2465,7 @@ ConfigRef identifies a resource from which config information can be loaded. Env
         <td><b><a href="#stackspecconfigrefsindexkeyconfigmap-1">configmap</a></b></td>
         <td>object</td>
         <td>
-          ConfigMapRef refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.<br/>
+          ConfigMap refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2534,14 +2486,7 @@ ConfigRef identifies a resource from which config information can be loaded. Env
         <td><b><a href="#stackspecconfigrefsindexkeyliteral-1">literal</a></b></td>
         <td>object</td>
         <td>
-          ConfigLiteralRef refers to a literal config value. It could be both a single or a structured (in YAML format) ones.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#stackspecconfigrefsindexkeysecret-1">secret</a></b></td>
-        <td>object</td>
-        <td>
-          SecretRef refers to a Kubernetes Secret<br/>
+          Literal refers to a literal config value. It could be both a single or a structured (in YAML format) ones.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2553,7 +2498,7 @@ ConfigRef identifies a resource from which config information can be loaded. Env
 
 
 
-ConfigMapRef refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.
+ConfigMap refers to a Kubernetes ConfigMap. It will be assumed the ConfigMap key content is the stack config in YAML format.
 
 <table>
     <thead>
@@ -2648,7 +2593,7 @@ FileSystem selects a file on the operator's file system
 
 
 
-ConfigLiteralRef refers to a literal config value. It could be both a single or a structured (in YAML format) ones.
+Literal refers to a literal config value. It could be both a single or a structured (in YAML format) ones.
 
 <table>
     <thead>
@@ -2666,47 +2611,6 @@ ConfigLiteralRef refers to a literal config value. It could be both a single or 
           Value to load<br/>
         </td>
         <td>true</td>
-      </tr></tbody>
-</table>
-
-
-### Stack.spec.configRefs[index][key].secret
-<sup><sup>[↩ Parent](#stackspecconfigrefsindexkey-1)</sup></sup>
-
-
-
-SecretRef refers to a Kubernetes Secret
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>key</b></td>
-        <td>string</td>
-        <td>
-          Key within the Secret to use.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>name</b></td>
-        <td>string</td>
-        <td>
-          Name of the Secret<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>namespace</b></td>
-        <td>string</td>
-        <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid unless namespace isolation is disabled in the controller.<br/>
-        </td>
-        <td>false</td>
       </tr></tbody>
 </table>
 

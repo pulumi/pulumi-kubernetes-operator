@@ -86,18 +86,13 @@ func (in *ConfigResourceSelector) DeepCopyInto(out *ConfigResourceSelector) {
 		*out = new(EnvSelector)
 		**out = **in
 	}
-	if in.SecretRef != nil {
-		in, out := &in.SecretRef, &out.SecretRef
-		*out = new(SecretSelector)
-		**out = **in
-	}
-	if in.ConfigMapRef != nil {
-		in, out := &in.ConfigMapRef, &out.ConfigMapRef
+	if in.ConfigMap != nil {
+		in, out := &in.ConfigMap, &out.ConfigMap
 		*out = new(ConfigMapSelector)
 		**out = **in
 	}
-	if in.ConfigLiteralRef != nil {
-		in, out := &in.ConfigLiteralRef, &out.ConfigLiteralRef
+	if in.Literal != nil {
+		in, out := &in.Literal, &out.Literal
 		*out = new(ConfigLiteralRef)
 		(*in).DeepCopyInto(*out)
 	}

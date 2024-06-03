@@ -1089,11 +1089,11 @@ func (sess *reconcileStackSession) SetEnvRefsForWorkspace(ctx context.Context, w
 func (sess *reconcileStackSession) resolveConfigRefs(ctx context.Context) ([]ConfigKeyValue, error) {
 	allConfigs := make([]ConfigKeyValue, 0)
 	for _, configRefMap := range sess.stack.ConfigRefs {
-		for k, ref := range configRefMap {
-			// ConfigMap and Structured are special config cases, so they are checked first
-			switch ref.SelectorType {
+		for k, configRef := range configRefMap {
+			// ConfigMap and Literal are special config cases, so they are checked first
+			switch configRef.SelectorType {
 			case shared.ConfigResourceSelectorConfigMap:
-				configMapRef := ref.ConfigMapRef
+				configMapRef := configRef.ConfigMap
 				if configMapRef != nil {
 					var config corev1.ConfigMap
 					if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: configMapRef.Name, Namespace: configMapRef.Namespace}, &config); err != nil {
@@ -1108,44 +1108,23 @@ func (sess *reconcileStackSession) resolveConfigRefs(ctx context.Context) ([]Con
 					allConfigs = append(allConfigs, structuredConfig...)
 				}
 			case shared.ConfigResourceSelectorLiteral:
-				literalRef := ref.ConfigLiteralRef
+				literalRef := configRef.Literal
 				if literalRef != nil {
 					// ConfigLiteralRef handles both simple and structured values as json, flattening all keys to build a list of Pulumi key:value configs
 					structuredConfig, err := NewStructuredConfigFromJSON(k, literalRef.Value)
 					if err != nil {
-						return nil, fmt.Errorf("Failed to unmarshall %s as a structured config: %w", k, err)
+						return nil, fmt.Errorf("Failed to unmarshall %s as a literal config: %w", k, err)
 					}
 					configs := structuredConfig.Flatten()
 					allConfigs = append(allConfigs, configs...)
 				}
-			// Secret should be handled here as well because auto.ConfigValue should be marked as Secret:true
-			case shared.ConfigResourceSelectorType(shared.ResourceSelectorSecret):
-				secretValue, err := sess.resolveResourceRef(ctx, &shared.ResourceRef{
-					SelectorType: shared.ResourceSelectorSecret,
-					ResourceSelector: shared.ResourceSelector{
-						FileSystem: ref.FileSystem,
-						Env:        ref.Env,
-						SecretRef:  ref.SecretRef,
-					},
-				})
-				if err != nil {
-					return nil, err
-				}
-				allConfigs = append(allConfigs, ConfigKeyValue{
-					Key: k,
-					Value: auto.ConfigValue{
-						Value:  secretValue,
-						Secret: true,
-					},
-				})
 			default:
 				// try to resolve as a ResourceRef
 				value, err := sess.resolveResourceRef(ctx, &shared.ResourceRef{
-					SelectorType: shared.ResourceSelectorType(ref.SelectorType),
+					SelectorType: shared.ResourceSelectorType(configRef.SelectorType),
 					ResourceSelector: shared.ResourceSelector{
-						FileSystem: ref.FileSystem,
-						Env:        ref.Env,
-						SecretRef:  ref.SecretRef,
+						FileSystem: configRef.FileSystem,
+						Env:        configRef.Env,
 					},
 				})
 				if err != nil {

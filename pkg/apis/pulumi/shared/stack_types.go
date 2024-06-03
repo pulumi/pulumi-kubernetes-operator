@@ -255,15 +255,12 @@ type ConfigResourceSelector struct {
 	FileSystem *FSSelector `json:"filesystem,omitempty"`
 	// Env selects an environment variable set on the operator process
 	Env *EnvSelector `json:"env,omitempty"`
-	// SecretRef refers to a Kubernetes Secret
-	SecretRef *SecretSelector `json:"secret,omitempty"`
-
-	// ConfigMapRef refers to a Kubernetes ConfigMap.
+	// ConfigMap refers to a Kubernetes ConfigMap.
 	// It will be assumed the ConfigMap key content is the stack config in YAML format.
-	ConfigMapRef *ConfigMapSelector `json:"configmap,omitempty"`
-	// ConfigLiteralRef refers to a literal config value.
+	ConfigMap *ConfigMapSelector `json:"configmap,omitempty"`
+	// Literal refers to a literal config value.
 	// It could be both a single or a structured (in YAML format) ones.
-	ConfigLiteralRef *ConfigLiteralRef `json:"literal,omitempty"`
+	Literal *ConfigLiteralRef `json:"literal,omitempty"`
 }
 
 type ProgramReference struct {
@@ -330,17 +327,6 @@ func NewSecretResourceRef(namespace, name, key string) ResourceRef {
 	}
 }
 
-// NewSecretConfigResourceRef creates a new Secret resource ref to be used as config.
-func NewSecretConfigResourceRef(namespace, name, key string) ConfigRef {
-	secretResourceRef := NewSecretResourceRef(namespace, name, key)
-	return ConfigRef{
-		SelectorType: ConfigResourceSelectorType(secretResourceRef.SelectorType),
-		ConfigResourceSelector: ConfigResourceSelector{
-			SecretRef: secretResourceRef.SecretRef,
-		},
-	}
-}
-
 // NewLiteralResourceRef creates a new literal resource ref.
 func NewLiteralResourceRef(value string) ResourceRef {
 	return ResourceRef{
@@ -358,7 +344,7 @@ func NewConfigLiteralResourceRef(config apiextensionsv1.JSON) ConfigRef {
 	return ConfigRef{
 		SelectorType: ConfigResourceSelectorLiteral,
 		ConfigResourceSelector: ConfigResourceSelector{
-			ConfigLiteralRef: &ConfigLiteralRef{
+			Literal: &ConfigLiteralRef{
 				Value: config,
 			},
 		},
@@ -370,7 +356,7 @@ func NewConfigMapConfigResourceRef(namespace, name, key string) ConfigRef {
 	return ConfigRef{
 		SelectorType: ConfigResourceSelectorConfigMap,
 		ConfigResourceSelector: ConfigResourceSelector{
-			ConfigMapRef: &ConfigMapSelector{
+			ConfigMap: &ConfigMapSelector{
 				Namespace: namespace,
 				Name:      name,
 				Key:       key,
