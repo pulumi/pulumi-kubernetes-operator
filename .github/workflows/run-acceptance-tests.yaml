@@ -38,7 +38,7 @@ jobs:
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:
-          version: latest
+          version: v1.26.2
           args: release --snapshot --skip-publish --rm-dist --skip-sign
   operator-int-tests:
     runs-on: ubuntu-latest
