@@ -17,6 +17,42 @@ entries:
           email: engin@pulumi.com
     apiVersion: v2
     appVersion: 1.14.0
+    created: "2024-07-08T21:16:30.176734248Z"
+    description: A Helm chart for the Pulumi Kubernetes Operator
+    digest: 6eadac3a02cae6c718c1d573c7f367286f64866a9347eb0095cf075ef78b2e21
+    home: https://pulumi.com
+    icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
+    keywords:
+    - pulumi
+    - kubernetes
+    - operator
+    maintainers:
+    - email: engin@pulumi.com
+      name: dirien
+      url: https://pulumi.com
+    name: pulumi-kubernetes-operator
+    sources:
+    - https://github.com/pulumi/pulumi-kubernetes-operator
+    type: application
+    urls:
+    - https://github.com/pulumi/pulumi-kubernetes-operator/releases/download/pulumi-kubernetes-operator-0.7.4/pulumi-kubernetes-operator-0.7.4.tgz
+    version: 0.7.4
+  - annotations:
+      artifacthub.io/changes: |
+        - Added "name" label with pulumi-kubernetes-operator.name value to pulumi-kubernetes-operator Deployment at ReplicaSet level. (#519)
+      artifacthub.io/containsSecurityUpdates: "false"
+      artifacthub.io/images: |
+        - name: pulumi-kubernetes-operator
+          image: docker.io/pulumi-kubernetes-operator:v1.14.0
+      artifacthub.io/license: Apache-2.0
+      artifacthub.io/links: |
+        - name: website
+          url: https://pulumi.com
+      artifacthub.io/maintainers: |
+        - name: dirien
+          email: engin@pulumi.com
+    apiVersion: v2
+    appVersion: 1.14.0
     created: "2024-04-19T13:46:51.112706636Z"
     description: A Helm chart for the Pulumi Kubernetes Operator
     digest: efe1516863e4bfd22b562ba45dd21f1ebb0f67e2ec5ce7ee269824ede7fd7580
@@ -361,4 +397,4 @@ entries:
     urls:
     - https://github.com/pulumi/pulumi-kubernetes-operator/releases/download/pulumi-kubernetes-operator-0.1.0/pulumi-kubernetes-operator-0.1.0.tgz
     version: 0.1.0
-generated: "2024-04-19T13:46:51.11275129Z"
+generated: "2024-07-08T21:16:30.176811041Z"
