@@ -35,6 +35,7 @@ require (
 	github.com/fluxcd/pkg/http/fetch v0.2.0
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/onsi/ginkgo/v2 v2.3.1
+	go.uber.org/mock v0.4.0
 	sigs.k8s.io/yaml v1.2.0
 )
 
