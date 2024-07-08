@@ -1,0 +1,10 @@
+API server listening at: [::]:2345
+2023-11-08T16:22:58-08:00 warning layer=rpc Listening for remote connections (connections are not authenticated nor encrypted)
+2023-11-08T16:22:58-08:00 info layer=debugger launching process with args: [/var/folders/d4/bznc6qv135qc7ngyh8ld56lm0000gn/T/pulumi-go.1784204566]
+2023-11-08T16:23:00-08:00 warning layer=debugger debug_frame workaround not applied: function internal/abi.(*RegArgs).Dump (at 0x1026a9640) covered by 0x1026a9640-0x1026a9810
+2023-11-08T16:23:00-08:00 debug layer=debugger Adding target 98745 "/var/folders/d4/bznc6qv135qc7ngyh8ld56lm0000gn/T/pulumi-go.1784204566"
+2023-11-08T16:23:21-08:00 info layer=debugger created breakpoint: &api.Breakpoint{ID:2, Name:"", Addr:0x1043237ac, Addrs:[]uint64{0x1043237ac}, AddrPid:[]int{98745}, File:"/Users/eronwright/Pulumi/pulumi-kubernetes-operator/deploy/deploy-operator-go/main.go", Line:20, FunctionName:"main.main.func1", Cond:"", HitCond:"", HitCondPerG:false, Tracepoint:false, TraceReturn:false, Goroutine:false, Stacktrace:0, Variables:[]string(nil), LoadArgs:(*api.LoadConfig)(0x1400902c2a0), LoadLocals:(*api.LoadConfig)(0x1400902c2d0), WatchExpr:"", WatchType:0x0, VerboseDescr:[]string(nil), HitCount:map[string]uint64{}, TotalHitCount:0x0, Disabled:false, UserData:interface {}(nil)}
+2023-11-08T16:23:21-08:00 debug layer=debugger continuing
+2023-11-08T16:23:31-08:00 debug layer=debugger continuing
+2023-11-08T16:23:32-08:00 debug layer=debugger continuing
+2023-11-08T16:23:32-08:00 debug layer=debugger detaching

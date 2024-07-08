@@ -1,0 +1,12 @@
+ls ~/apiVersion: pulumi.com/v1
+kind: Program
+metadata:
+  name: password
+program:
+  resources:
+    password:
+      type: random:RandomPassword
+      properties:
+        length: 12
+  outputs:
+    password: ${password.result}

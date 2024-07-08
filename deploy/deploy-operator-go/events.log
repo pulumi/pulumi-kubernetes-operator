@@ -1,0 +1,7 @@
+{"sequence":0,"timestamp":1699569122,"diagnosticEvent":{"prefix":"<{%fg 3%}>warning: <{%reset%}>","message":"<{%reset%}>using pulumi-resource-kubernetes from $PATH at /Users/eronwright/go/bin/pulumi-resource-kubernetes<{%reset%}>\n","color":"raw","severity":"warning"}}
+{"sequence":1,"timestamp":1699569122,"preludeEvent":{"config":{}}}
+{"sequence":2,"timestamp":1699569129,"diagnosticEvent":{"message":"<{%reset%}>Waiting for debugger to attach...<{%reset%}>\n","color":"raw","severity":"info","ephemeral":true}}
+{"sequence":3,"timestamp":1699569129,"startDebuggingEvent":{"config":{"host":"localhost","mode":"remote","name":"Pulumi: Attach to Program (Go)","port":57052,"request":"attach","type":"go"}}}
+{"sequence":4,"timestamp":1699633516,"diagnosticEvent":{"prefix":"<{%fg 1%}>error: <{%reset%}>","message":"<{%reset%}>preview canceled<{%reset%}>\n","color":"raw","severity":"error"}}
+{"sequence":5,"timestamp":1699633516,"summaryEvent":{"maybeCorrupt":false,"durationSeconds":11041,"resourceChanges":{},"PolicyPacks":{}}}
+{"sequence":6,"timestamp":1699633516,"cancelEvent":{}}

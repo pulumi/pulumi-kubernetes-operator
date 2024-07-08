@@ -27,6 +27,7 @@ func main() {
 		}
 		if len(namespaces) == 0 {
 			namespaces = []string{namespace}
+			// return errors.New("me unhappy")
 		}
 
 		var crdVersion string

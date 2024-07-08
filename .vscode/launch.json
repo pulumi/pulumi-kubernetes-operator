@@ -4,6 +4,7 @@
 	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
 	"version": "0.2.0",
 	"configurations": [
+
 		{
 			"name": "Manager",
 			"type": "go",
@@ -18,6 +19,64 @@
 			"args": [
 				"--zap-level=debug"
 			]
+		},
+		// {
+		// 	"name": "Test",
+		// 	"port": 9229,
+		// 	"request": "attach",
+		// 	"skipFiles": [
+		// 		"<node_internals>/**"
+		// 	],
+		// 	"type": "pulumi"
+		// },
+		{
+			"name": ".NET Core Attach",
+			"type": "coreclr",
+			"request": "attach",
+			"processId": "${command:pickProcess}",
+		},
+		{
+			"name": "NodeJS Attach",
+			"processId": "${command:PickProcess}",
+			"request": "attach",
+			"skipFiles": [
+				"<node_internals>/**"
+			],
+			"type": "node",
+			"continueOnAttach": true
+		},
+		{
+			"name": "Python: Attach",
+			"type": "python",
+			"request": "attach",
+			"connect": {
+				"host": "127.0.0.1",
+				"port": 51388
+			},
+			// "preLaunchTask": "Run pulumi up and wait to start",
+			// "pathMappings": [
+			// 	{
+			// 		"localRoot": "${workspaceFolder}",
+			// 		"remoteRoot": "."
+			// 	}
+			// ],
+			"justMyCode": true
+		},
+		
+		{
+			"name": "Go: Attach Remote",
+			"type": "go",
+			"request": "attach",
+			"mode": "remote",
+			"host": "127.0.0.1",
+			"port": 63053,
+		},
+		{
+			"name": "Go: Attach Local",
+			"type": "go",
+			"request": "attach",
+			"mode": "local",
+			"processId": 42331,
 		}
 	]
 }
