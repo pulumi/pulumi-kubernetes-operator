@@ -2,6 +2,11 @@ CHANGELOG
 =========
 
 ## HEAD (unreleased)
+
+### Fixed
+- Respect `serviceAccount.name` in Helm chart values. [#530](https://github.com/pulumi/pulumi-kubernetes-operator/pull/530)
+
+### Changed
 - Update pulumi/pulumi to v3.115.2. [#580](https://github.com/pulumi/pulumi-kubernetes-operator/pull/580)
 - Regenerate CRDs with controller-gen v0.15.0. [#581](https://github.com/pulumi/pulumi-kubernetes-operator/pull/581)
 
