@@ -24,6 +24,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
+        name: {{ template "pulumi-kubernetes-operator.name" . }}
         app: {{ template "pulumi-kubernetes-operator.name" . }}
         release: {{ .Release.Name }}
       {{- include "pulumi-kubernetes-operator.selectorLabels" . | nindent 8 }}
@@ -90,7 +91,6 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- end }}
-      {{- if .Values.initContainers  }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -103,6 +103,7 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if .Values.initContainers  }}
       initContainers:
       {{- with .Values.initContainers }}
         {{- toYaml . | nindent 6 }}

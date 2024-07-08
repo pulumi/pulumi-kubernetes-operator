@@ -1,0 +1,19 @@
+{{- if .Values.createClusterRole }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "pulumi-kubernetes-operator.fullname" . }}
+  labels:
+  {{- include "pulumi-kubernetes-operator.labels" . | nindent 4 }}
+rules:
+  {{- if .Values.clusterRoleRules.enabled }}
+    {{- toYaml .Values.clusterRoleRules.rules | nindent 2 }}
+  {{- else }}
+  - apiGroups:
+      - '*'
+    resources:
+      - '*'
+    verbs:
+      - '*'
+  {{- end }}
+{{- end }}

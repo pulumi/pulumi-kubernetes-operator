@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Create URL to the run output
         id: vars
-        run: echo ::set-output name=run-url::https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+        run: echo run-url=https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID >> "$GITHUB_OUTPUT"
       - name: Update with Result
         uses: peter-evans/create-or-update-comment@v1
         with:
@@ -88,6 +88,10 @@ jobs:
 
           # Run tests
           make test
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Cleanup
         if: ${{ always() }}
         run: |

@@ -5,11 +5,11 @@ home: https://pulumi.com
 sources:
   - https://github.com/pulumi/pulumi-kubernetes-operator
 
-icon: https://www.pulumi.com/logos/brand/twitter-card.png
+icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
 
 type: application
 
-version: 0.5.1
+version: 0.7.4
 appVersion: 1.14.0
 
 keywords:
@@ -25,7 +25,7 @@ maintainers:
 annotations:
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/changes: |
-    - set terminationGracePeriodSeconds for HelmCharts (#520)
+    - Added "name" label with pulumi-kubernetes-operator.name value to pulumi-kubernetes-operator Deployment at ReplicaSet level. (#519)
   artifacthub.io/images: |
     - name: pulumi-kubernetes-operator
       image: docker.io/pulumi-kubernetes-operator:v1.14.0
