@@ -1,0 +1,22 @@
+FROM pulumi/pulumi:3.115.2
+
+RUN apt-get install tini
+ENTRYPOINT ["tini", "--", "/usr/local/bin/pulumi-kubernetes-agent"]
+
+# install agent binary
+COPY pulumi-kubernetes-agent /usr/local/bin/pulumi-kubernetes-agent
+
+RUN useradd -m pulumi-kubernetes-agent
+RUN mkdir -p /home/pulumi-kubernetes-agent/.ssh \
+    && touch /home/pulumi-kubernetes-agent/.ssh/known_hosts \
+    && chmod 700 /home/pulumi-kubernetes-agent/.ssh \
+    && chown -R pulumi-kubernetes-agent:pulumi-kubernetes-agent /home/pulumi-kubernetes-agent/.ssh
+
+USER pulumi-kubernetes-agent
+
+ENV XDG_CONFIG_HOME=/tmp/.config
+ENV XDG_CACHE_HOME=/tmp/.cache
+ENV XDG_CONFIG_CACHE=/tmp/.cache
+ENV GOCACHE=/tmp/.cache/go-build
+ENV GOPATH=/tmp/.cache/go
+

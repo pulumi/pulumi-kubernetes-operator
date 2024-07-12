@@ -1,0 +1,51 @@
+
+kind: Workspace
+apiversion: auto.pulumi.com/v1alpha1
+metadata:
+  name: my-random
+spec:
+  git:
+    url: https://github.com/pulumi/examples.git
+    projectPath: random-yaml
+  stack:
+    name: dev
+  backend:
+    pulumi: 
+      cloudUrl: https://api.pulumi.com
+      stackName: dev
+      orgName: my-org
+  volumes:
+    - name: my-config
+      configMap:
+        name: my-config
+    - name: token
+      projected:
+        oidc:
+          audience: api.pulumi.com
+status:
+  conditions:
+  - lastTransitionTime: "2021-07-29T15:00:00Z"
+    message: Workspace is ready
+    reason: Initialized
+    status: "True"
+    type: Ready
+
+---
+kind: Update
+apiversion: auto.pulumi.com/v1alpha1
+metadata:
+  generateName: my-random-
+spec:
+  workspaceName: my-random
+  config:
+    - configMap:
+      name: my-config
+      key: my-key
+
+---
+kind: Destroy
+apiversion: auto.pulumi.com/v1alpha1
+metadata:
+  generateName: my-random-
+spec:
+  workspaceName: my-random

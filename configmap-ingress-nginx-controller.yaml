@@ -1,0 +1,22 @@
+apiVersion: v1
+data:
+  allow-snippet-annotations: "false"
+  error-log-level: "debug"
+kind: ConfigMap
+metadata:
+  annotations:
+    meta.helm.sh/release-name: ingress-nginx
+    meta.helm.sh/release-namespace: ingress-nginx
+  creationTimestamp: "2024-07-10T19:55:08Z"
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+    app.kubernetes.io/version: 1.11.0
+    helm.sh/chart: ingress-nginx-4.11.0
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+  resourceVersion: "43398"
+  uid: 2e73b386-257c-4443-a4cb-7315c534a8e8

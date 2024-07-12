@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30s"
+    nginx.ingress.kubernetes.io/enable-rewrite-log: "true"
+  name: sample-workspace
+  namespace: default
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: sample-workspace
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: sample-workspace
+            port:
+              number: 50051
+
