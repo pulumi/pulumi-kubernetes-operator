@@ -34,11 +34,11 @@
 			},
 		},
 		{
-			"name": "Agent",
+			"name": "Agent (v2)",
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "agent/cmd"
+			"program": "operator/agent/cmd"
 		}
 	]
 }
