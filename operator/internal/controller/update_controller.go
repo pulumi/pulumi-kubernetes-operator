@@ -94,7 +94,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			Status: metav1.ConditionUnknown,
 		}
 	}
-	updateConditions := func() error {
+	updateStatus := func() error {
 		obj.Status.ObservedGeneration = obj.Generation
 		progressing.ObservedGeneration = obj.Generation
 		meta.SetStatusCondition(&obj.Status.Conditions, *progressing)
@@ -119,7 +119,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		failed.Reason = "unknown"
 		complete.Status = metav1.ConditionTrue
 		complete.Reason = "Aborted"
-		return ctrl.Result{}, updateConditions()
+		return ctrl.Result{}, updateStatus()
 	}
 
 	l.Info("Updating the status")
@@ -129,7 +129,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	failed.Reason = "Progressing"
 	complete.Status = metav1.ConditionFalse
 	complete.Reason = "Progressing"
-	err = updateConditions()
+	err = updateStatus()
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
@@ -155,7 +155,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		failed.Reason = "Progressing"
 		complete.Status = metav1.ConditionFalse
 		complete.Reason = "Progressing"
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, updateConditions()
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, updateStatus()
 	}
 	defer func() {
 		_ = conn.Close()
@@ -197,7 +197,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				failed.Status = metav1.ConditionTrue
 				failed.Reason = result.Summary.Result
 			}
-			err = updateConditions()
+			err = updateStatus()
 			if err != nil {
 				done <- fmt.Errorf("failed to update the status: %w", err)
 				return

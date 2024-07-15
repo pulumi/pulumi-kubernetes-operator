@@ -89,6 +89,9 @@ type WorkspaceStatus struct {
 	// +kubebuilder:validation:Minimum=0
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
+	// +optional
+	Address string `json:"address,omitempty"`
+
 	// Represents the observations of a workspace's current state.
 	// Known .status.conditions.type are: "Ready"
 	// +patchMergeKey=type
@@ -103,6 +106,7 @@ type WorkspaceStatus struct {
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="Image",type=string,JSONPath=`.spec.image`
 //+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+//+kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.status.address`
 
 // Workspace is the Schema for the workspaces API
 // A Workspace is an execution context containing a single Pulumi project, a program, and multiple stacks.

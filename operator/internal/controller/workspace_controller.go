@@ -89,7 +89,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			Status: metav1.ConditionUnknown,
 		}
 	}
-	updateConditions := func() error {
+	updateStatus := func() error {
 		w.Status.ObservedGeneration = w.Generation
 		ready.ObservedGeneration = w.Generation
 		meta.SetStatusCondition(&w.Status.Conditions, *ready)
@@ -126,7 +126,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		l.Info("no replicas available; retry later")
 		ready.Status = metav1.ConditionFalse
 		ready.Reason = "WaitingForReplicas"
-		return ctrl.Result{}, updateConditions()
+		return ctrl.Result{}, updateStatus()
 	}
 
 	// Locate the workspace pod, to figure out whether workspace initialization is needed.
@@ -141,12 +141,14 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		l.Info("pod is being deleted; retry later")
 		ready.Status = metav1.ConditionFalse
 		ready.Reason = "PodDeleting"
-		return ctrl.Result{}, updateConditions()
+		return ctrl.Result{}, updateStatus()
 	}
 
 	// Connect to the workspace's GRPC server
 	addr := fmt.Sprintf("%s:%d", fqdnForService(w), WorkspaceGrpcPort)
 	l.Info("Connecting", "addr", addr)
+	w.Status.Address = addr
+
 	connectCtx, connectCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer connectCancel()
 	conn, err := connect(connectCtx, addr)
@@ -155,7 +157,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		ready.Status = metav1.ConditionFalse
 		ready.Reason = "ConnectionFailed"
 		ready.Message = err.Error()
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, updateConditions()
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, updateStatus()
 	}
 	defer func() {
 		_ = conn.Close()
@@ -169,7 +171,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		ready.Status = metav1.ConditionFalse
 		ready.Reason = "Initializing"
 		ready.Message = ""
-		if err := updateConditions(); err != nil {
+		if err := updateStatus(); err != nil {
 			return ctrl.Result{}, err
 		}
 
@@ -199,10 +201,10 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				ready.Reason = "ArtifactFailed"
 				ready.Message = err.Error()
 				if apierrors.IsNotFound(err) {
-					return ctrl.Result{}, updateConditions()
+					return ctrl.Result{}, updateStatus()
 				}
 				// Retry with backoff on transient errors.
-				_ = updateConditions()
+				_ = updateStatus()
 				return ctrl.Result{}, err
 			}
 
@@ -212,7 +214,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				ready.Status = metav1.ConditionFalse
 				ready.Reason = "ArtifactFailed"
 				ready.Message = "Source artifact not found, retrying later"
-				return ctrl.Result{}, updateConditions()
+				return ctrl.Result{}, updateStatus()
 			}
 
 			source := &agentpb.InitializeRequest_Flux{
@@ -241,7 +243,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return ctrl.Result{}, err
 			}
 
-			return ctrl.Result{}, updateConditions()
+			return ctrl.Result{}, updateStatus()
 		}
 
 		// set the "initalized" annotation
@@ -267,7 +269,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	ready.Message = ""
 	l.Info("Ready")
 
-	return ctrl.Result{}, updateConditions()
+	return ctrl.Result{}, updateStatus()
 }
 
 // SetupWithManager sets up the controller with the Manager.
