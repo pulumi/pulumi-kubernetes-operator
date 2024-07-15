@@ -11,7 +11,7 @@ agent: protoc
 		github.com/pulumi/pulumi-kubernetes-operator/agent/cmd
 
 image: agent
-	docker build -t pulumi/pulumi-kubernetes-agent:latest -f ../Dockerfile.agent ../
+	docker build -t pulumi/pulumi-kubernetes-agent:latest .
 
 .PHONY: agent protoc image
 
