@@ -29,15 +29,20 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
+	UpdateIndexerWorkspace = "index.spec.workspaceRef"
+
 	UpdateConditionTypeComplete    = "Complete"
 	UpdateConditionTypeFailed      = "Failed"
 	UpdateConditionTypeProgressing = "Progressing"
@@ -53,6 +58,7 @@ type UpdateReconciler struct {
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates/finalizers,verbs=update
+//+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch
 
 // Reconcile
 func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -128,15 +134,21 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
 
-	// TODO check the workspace status before proceeding
+	// TODO check the w status before proceeding
+	w := &autov1alpha1.Workspace{}
+	err = r.Client.Get(ctx, client.ObjectKey{Namespace: obj.Namespace, Name: obj.Spec.WorkspaceName}, w)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to get workspace: %w", err)
+	}
 
 	// Connect to the workspace's GRPC server
-	addr := fmt.Sprintf("%s-workspace:%d", obj.Spec.WorkspaceName, WorkspaceGrpcPort)
+	addr := fmt.Sprintf("%s:%d", fqdnForService(w), WorkspaceGrpcPort)
 	l.Info("Connecting", "addr", addr)
-	connectCtx, _ := context.WithTimeout(ctx, 10*time.Second)
+	connectCtx, connectCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer connectCancel()
 	conn, err := connect(connectCtx, addr)
 	if err != nil {
-		l.Error(err, "unable to connect; retrying later")
+		l.Error(err, "unable to connect; retrying later", "addr", addr)
 		progressing.Status = metav1.ConditionFalse
 		progressing.Reason = "TransientFailure"
 		failed.Status = metav1.ConditionFalse
@@ -168,6 +180,8 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			}
 			l.Info("Result received", "result", result)
 
+			obj.Status.StartTime = metav1.NewTime(result.Summary.StartTime.AsTime())
+			obj.Status.EndTime = metav1.NewTime(result.Summary.EndTime.AsTime())
 			if result.Permalink != nil {
 				obj.Status.Permalink = *result.Permalink
 			}
@@ -202,7 +216,38 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *UpdateReconciler) SetupWithManager(mgr ctrl.Manager) error {
+
+	// index the updates by workspace
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &autov1alpha1.Update{},
+		UpdateIndexerWorkspace, indexUpdateByWorkspace); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&autov1alpha1.Update{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&autov1alpha1.Workspace{},
+			handler.EnqueueRequestsFromMapFunc(r.mapWorkspaceToUpdate),
+			builder.WithPredicates(&predicate.ResourceVersionChangedPredicate{})).
 		Complete(r)
+}
+
+func indexUpdateByWorkspace(obj client.Object) []string {
+	w := obj.(*autov1alpha1.Update)
+	return []string{w.Spec.WorkspaceName}
+}
+
+func (r *UpdateReconciler) mapWorkspaceToUpdate(ctx context.Context, obj client.Object) []reconcile.Request {
+	l := log.FromContext(ctx)
+
+	objs := &autov1alpha1.UpdateList{}
+	err := r.Client.List(ctx, objs, client.InNamespace(obj.GetNamespace()), client.MatchingFields{UpdateIndexerWorkspace: obj.GetName()})
+	if err != nil {
+		l.Error(err, "unable to list updates")
+		return nil
+	}
+	requests := make([]reconcile.Request, len(objs.Items))
+	for i, mapped := range objs.Items {
+		requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Name: mapped.Name, Namespace: mapped.Namespace}}
+	}
+	return requests
 }

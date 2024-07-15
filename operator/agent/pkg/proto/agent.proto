@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto";
+
+package protobuf;
+
+service AutomationService {
+  rpc Initialize(InitializeRequest) returns (InitializeResult) {}
+  rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResult) {}
+  rpc Info(InfoRequest) returns (InfoResult) {}
+  rpc Refresh (RefreshRequest) returns (stream RefreshResult) {}
+  rpc Up (UpRequest) returns (stream UpResult) {}
+  rpc Destroy (DestroyRequest) returns (stream DestroyResult) {}
+}
+
+message InitializeRequest {
+  oneof source {
+    GitSource git = 1;
+    FluxSource flux = 2;
+  }
+}
+
+message GitSource {
+  string url = 1;
+  oneof ref {
+    string branch = 2;
+    string commit_hash = 3;
+  }
+  optional string dir = 4;
+}
+
+message FluxSource {
+  string url = 1;
+  // string revision = 2;
+  string digest = 2;
+  optional string dir = 3;
+}
+
+message InitializeResult {
+}
+
+message WhoAmIRequest {
+}
+
+message WhoAmIResult {
+	string user = 1;
+  repeated string organizations = 2;
+  string url = 3;
+}
+
+message InfoRequest {
+  string stack = 1;
+}
+
+message InfoResult {
+	StackSummary summary = 1;
+}
+
+// StackSummary is a description of a stack and its current status.
+message StackSummary {
+  string name = 1;
+  google.protobuf.Timestamp last_update = 2;
+  bool update_in_progress = 3;
+  optional int32 resource_count = 4;
+  optional string url = 5;
+}
+
+message RefreshRequest {
+  string stack = 1;
+}
+
+message RefreshResult {
+  string stdout = 1;
+  string stderr = 2;
+	UpdateSummary summary = 3;
+  optional string permalink = 4;
+}
+
+message UpRequest {
+  string stack = 1;
+}
+
+message UpResult {
+  string stdout = 1;
+  string stderr = 2;
+	UpdateSummary summary = 3;
+  optional string permalink = 4;
+}
+
+message UpdateSummary {
+  google.protobuf.Timestamp start_time = 1;
+  google.protobuf.Timestamp end_time = 2;
+  string result = 3;
+  string message = 4;
+}
+
+message DestroyRequest {
+  string stack = 1;
+}
+
+message DestroyResult {
+  string stdout = 1;
+  string stderr = 2;
+	UpdateSummary summary = 3;
+  optional string permalink = 4;
+}

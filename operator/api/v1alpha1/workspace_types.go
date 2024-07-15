@@ -101,6 +101,8 @@ type WorkspaceStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Image",type=string,JSONPath=`.spec.image`
+//+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 
 // Workspace is the Schema for the workspaces API
 // A Workspace is an execution context containing a single Pulumi project, a program, and multiple stacks.

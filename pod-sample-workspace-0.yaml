@@ -1,10 +1,8 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  creationTimestamp: "2024-07-12T18:13:53Z"
+  creationTimestamp: "2024-07-12T23:33:49Z"
   generateName: sample-workspace-
-  annotations:
-    pulumi.com/initialized: "true"
   labels:
     app.kubernetes.io/component: workspace
     app.kubernetes.io/instance: sample
@@ -21,9 +19,9 @@ metadata:
     controller: true
     kind: StatefulSet
     name: sample-workspace
-    uid: 609fe9df-5da2-410d-a2cf-7a974d2a47bf
-  resourceVersion: "159524"
-  uid: 4f7042f4-07e6-4d93-8364-636b6dd726db
+    uid: 9ce975e4-5bd2-4168-81ed-d34ade744272
+  resourceVersion: "202746"
+  uid: c65b8f47-8ed8-4766-b307-8fb737efcfc9
 spec:
   containers:
   - env:
@@ -46,7 +44,7 @@ spec:
     - mountPath: /tmp
       name: tmp
     - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
-      name: kube-api-access-rkllb
+      name: kube-api-access-4v87k
       readOnly: true
   dnsPolicy: ClusterFirst
   enableServiceLinks: true
@@ -73,7 +71,7 @@ spec:
   volumes:
   - emptyDir: {}
     name: tmp
-  - name: kube-api-access-rkllb
+  - name: kube-api-access-4v87k
     projected:
       defaultMode: 420
       sources:
@@ -94,29 +92,29 @@ spec:
 status:
   conditions:
   - lastProbeTime: null
-    lastTransitionTime: "2024-07-12T18:13:54Z"
+    lastTransitionTime: "2024-07-12T23:33:50Z"
     status: "True"
     type: PodReadyToStartContainers
   - lastProbeTime: null
-    lastTransitionTime: "2024-07-12T18:13:53Z"
+    lastTransitionTime: "2024-07-12T23:33:49Z"
     status: "True"
     type: Initialized
   - lastProbeTime: null
-    lastTransitionTime: "2024-07-12T18:13:54Z"
+    lastTransitionTime: "2024-07-12T23:33:50Z"
     status: "True"
     type: Ready
   - lastProbeTime: null
-    lastTransitionTime: "2024-07-12T18:13:54Z"
+    lastTransitionTime: "2024-07-12T23:33:50Z"
     status: "True"
     type: ContainersReady
   - lastProbeTime: null
-    lastTransitionTime: "2024-07-12T18:13:53Z"
+    lastTransitionTime: "2024-07-12T23:33:49Z"
     status: "True"
     type: PodScheduled
   containerStatuses:
-  - containerID: docker://f1cf5a365809d2b6b8da0adab7c5441bbd12d372dd17f369800cb94b926729d0
+  - containerID: docker://b9dd4bc7d59efb0ca7428e1a0bbc1581d62134d0541576a860653dc001c4a1c5
     image: pulumi/pulumi-kubernetes-agent:latest
-    imageID: docker://sha256:1bdbbd79e6c98b472def22577728ba6f83df812ae6829f017bbaf4725129cccc
+    imageID: docker://sha256:3c6563c49d34d039e04668356c180d2344277515e39bcf24bc3e41444228f4ab
     lastState: {}
     name: server
     ready: true
@@ -124,13 +122,13 @@ status:
     started: true
     state:
       running:
-        startedAt: "2024-07-12T18:13:53Z"
+        startedAt: "2024-07-12T23:33:49Z"
   hostIP: 192.168.65.3
   hostIPs:
   - ip: 192.168.65.3
   phase: Running
-  podIP: 10.1.28.94
+  podIP: 10.1.28.101
   podIPs:
-  - ip: 10.1.28.94
+  - ip: 10.1.28.101
   qosClass: BestEffort
-  startTime: "2024-07-12T18:13:53Z"
+  startTime: "2024-07-12T23:33:49Z"

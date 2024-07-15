@@ -34,6 +34,12 @@ type UpdateStatus struct {
 	// +kubebuilder:validation:Minimum=0
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
+	// The start time of the operation.
+	StartTime metav1.Time `json:"startTime,omitempty"`
+
+	// The end time of the operation.
+	EndTime metav1.Time `json:"endTime,omitempty"`
+
 	// Represents the permalink URL in the Pulumi Console for the operation. Not available for DIY backends.
 	// +optional
 	Permalink string `json:"permalink,omitempty"`
@@ -51,9 +57,12 @@ type UpdateStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="Workspace",type=string,JSONPath=`.spec.workspaceName`
+//+kubebuilder:printcolumn:name="Start Time",type=date,priority=10,JSONPath=`.status.startTime`
+//+kubebuilder:printcolumn:name="End Time",type=date,priority=10,JSONPath=`.status.endTime`
 //+kubebuilder:printcolumn:name="Progressing",type=string,JSONPath=`.status.conditions[?(@.type=="Progressing")].status`
 //+kubebuilder:printcolumn:name="Failed",type=string,JSONPath=`.status.conditions[?(@.type=="Failed")].status`
 //+kubebuilder:printcolumn:name="Complete",type=string,JSONPath=`.status.conditions[?(@.type=="Complete")].status`
+//+kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.status.permalink`
 
 // Update is the Schema for the updates API
 type Update struct {

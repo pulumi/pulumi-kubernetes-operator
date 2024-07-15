@@ -14,7 +14,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.18.4
 )
 
-replace github.com/pulumi/pulumi-kubernetes-operator/agent => ../agent
+replace github.com/pulumi/pulumi-kubernetes-operator/agent => ./agent
 
 require (
 	github.com/fluxcd/pkg/apis/acl v0.3.0 // indirect

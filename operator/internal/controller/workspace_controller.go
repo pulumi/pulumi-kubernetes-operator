@@ -61,6 +61,12 @@ type WorkspaceReconciler struct {
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces/finalizers,verbs=update
+//+kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=ocirepositories,verbs=get;list;watch
+//+kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=gitrepositories,verbs=get;list;watch
+//+kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets,verbs=get;list;watch
+//+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -139,12 +145,13 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// Connect to the workspace's GRPC server
-	addr := fmt.Sprintf("%s:%d", nameForService(w), WorkspaceGrpcPort)
+	addr := fmt.Sprintf("%s:%d", fqdnForService(w), WorkspaceGrpcPort)
 	l.Info("Connecting", "addr", addr)
-	connectCtx, _ := context.WithTimeout(ctx, 10*time.Second)
+	connectCtx, connectCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer connectCancel()
 	conn, err := connect(connectCtx, addr)
 	if err != nil {
-		l.Error(err, "unable to connect; retrying later")
+		l.Error(err, "unable to connect; retrying later", "addr", addr)
 		ready.Status = metav1.ConditionFalse
 		ready.Reason = "ConnectionFailed"
 		ready.Message = err.Error()
@@ -154,11 +161,6 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		_ = conn.Close()
 	}()
 	workspaceClient := agentpb.NewAutomationServiceClient(conn)
-
-	// if ready.Status == metav1.ConditionTrue {
-	// 	l.Info("Ready")
-	// 	return ctrl.Result{}, nil
-	// }
 
 	initializedV, ok := pod.Annotations[PodAnnotationInitialized]
 	initialized, _ := strconv.ParseBool(initializedV)
@@ -310,15 +312,15 @@ func (r *WorkspaceReconciler) mapFluxSourceToWorkspace(ctx context.Context, obj 
 
 	apiVersion, kind := obj.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
 	key := fmt.Sprintf("%s/%s/%s", apiVersion, kind, obj.GetName())
-	workspaces := &autov1alpha1.WorkspaceList{}
-	err := r.Client.List(ctx, workspaces, client.InNamespace(obj.GetNamespace()), client.MatchingFields{WorkspaceIndexerFluxSource: key})
+	objs := &autov1alpha1.WorkspaceList{}
+	err := r.Client.List(ctx, objs, client.InNamespace(obj.GetNamespace()), client.MatchingFields{WorkspaceIndexerFluxSource: key})
 	if err != nil {
 		l.Error(err, "unable to list workspaces")
 		return nil
 	}
-	requests := make([]reconcile.Request, len(workspaces.Items))
-	for i, w := range workspaces.Items {
-		requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Name: w.Name, Namespace: w.Namespace}}
+	requests := make([]reconcile.Request, len(objs.Items))
+	for i, mapped := range objs.Items {
+		requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Name: mapped.Name, Namespace: mapped.Namespace}}
 	}
 	return requests
 }
@@ -337,6 +339,10 @@ func nameForStatefulSet(w *autov1alpha1.Workspace) string {
 
 func nameForService(w *autov1alpha1.Workspace) string {
 	return w.Name + "-workspace"
+}
+
+func fqdnForService(w *autov1alpha1.Workspace) string {
+	return fmt.Sprintf("%s.%s.svc.cluster.local", nameForService(w), w.Namespace)
 }
 
 func labelsForStatefulSet(w *autov1alpha1.Workspace) map[string]string {
