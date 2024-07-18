@@ -18,6 +18,8 @@ package controller
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"time"
@@ -32,8 +34,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	hashutil "k8s.io/kubernetes/pkg/util/hash"
 	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -49,6 +53,7 @@ const (
 	WorkspaceIndexerFluxSource  = "index.spec.flux.sourceRef"
 	WorkspaceConditionTypeReady = "Ready"
 	PodAnnotationInitialized    = "auto.pulumi.com/initialized"
+	PodAnnotationSourceHash     = "auto.pulumi.com/source-hash"
 )
 
 // WorkspaceReconciler reconciles a Workspace object
@@ -96,6 +101,64 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return r.Status().Update(ctx, w)
 	}
 
+	if w.DeletionTimestamp != nil {
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = "Deleting"
+		ready.Message = "Workspace is being deleted"
+		return ctrl.Result{}, updateStatus()
+	}
+
+	// determine the source revision to use in later steps.
+	source := &sourceSpec{}
+	if w.Spec.Git != nil {
+		source.Git = &agentpb.GitSource{
+			Url: w.Spec.Git.ProjectRepo,
+			Dir: &w.Spec.Git.RepoDir,
+		}
+		if w.Spec.Git.RepoDir != "" {
+			source.Git.Dir = &w.Spec.Git.RepoDir
+		}
+		if w.Spec.Git.Commit != "" {
+			source.Git.Ref = &agentpb.GitSource_CommitHash{CommitHash: w.Spec.Git.Commit}
+		} else if w.Spec.Git.Branch != "" {
+			source.Git.Ref = &agentpb.GitSource_Branch{Branch: w.Spec.Git.Branch}
+		}
+	}
+	if w.Spec.Flux != nil {
+		// Resolve the source reference and requeue the reconciliation if the source is not found.
+		artifactSource, err := r.getSource(ctx, w)
+		if err != nil {
+			ready.Status = metav1.ConditionFalse
+			ready.Reason = "ArtifactFailed"
+			ready.Message = err.Error()
+			if apierrors.IsNotFound(err) {
+				return ctrl.Result{}, updateStatus()
+			}
+			// Retry with backoff on transient errors.
+			_ = updateStatus()
+			return ctrl.Result{}, err
+		}
+
+		// Requeue the reconciliation if the source artifact is not found.
+		artifact := artifactSource.GetArtifact()
+		if artifact == nil {
+			ready.Status = metav1.ConditionFalse
+			ready.Reason = "ArtifactFailed"
+			ready.Message = "Source artifact not found, retrying later"
+			return ctrl.Result{}, updateStatus()
+		}
+
+		source.Flux = &agentpb.FluxSource{
+			Url:    artifact.URL,
+			Digest: artifact.Digest,
+		}
+		if w.Spec.Flux.Dir != "" {
+			source.Flux.Dir = &w.Spec.Flux.Dir
+		}
+	}
+	sourceHash := source.Hash()
+	l.Info("Applying StatefulSet", "hash", sourceHash, "source", source)
+
 	// service
 	svc, err := newService(w)
 	if err != nil {
@@ -109,8 +172,10 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, fmt.Errorf("failed to apply service: %w", err)
 	}
 
-	// statefulset
-	ss, err := newStatefulSet(w)
+	// make a statefulset, incorporating the source revision into the pod spec.
+	// whenever the revision changes, the statefulset will be updated.
+	// once the statefulset is updated, initialize the pod to that source revision.
+	ss, err := newStatefulSet(w, source)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -122,10 +187,16 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, fmt.Errorf("failed to apply statefulset: %w", err)
 	}
 
+	if ss.Status.ObservedGeneration != ss.Generation || ss.Status.UpdateRevision != ss.Status.CurrentRevision {
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = "RollingUpdate"
+		ready.Message = "Waiting for the statefulset to be updated"
+		return ctrl.Result{}, updateStatus()
+	}
 	if ss.Status.AvailableReplicas < 1 {
-		l.Info("no replicas available; retry later")
 		ready.Status = metav1.ConditionFalse
 		ready.Reason = "WaitingForReplicas"
+		ready.Message = "Waiting for the workspace pod to be available"
 		return ctrl.Result{}, updateStatus()
 	}
 
@@ -137,11 +208,11 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("unable to find the workspace pod: %w", err)
 	}
-	if pod.DeletionTimestamp != nil {
-		l.Info("pod is being deleted; retry later")
-		ready.Status = metav1.ConditionFalse
-		ready.Reason = "PodDeleting"
-		return ctrl.Result{}, updateStatus()
+	podRevision := pod.Labels["controller-revision-hash"]
+	if podRevision != ss.Status.CurrentRevision {
+		// the pod cache must be stale because the statefulset is up-to-date yet the revision is mismatched.
+		l.Info("source revision mismatch; requeuing", "actual", podRevision, "expected", ss.Status.CurrentRevision)
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Connect to the workspace's GRPC server
@@ -167,7 +238,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	initializedV, ok := pod.Annotations[PodAnnotationInitialized]
 	initialized, _ := strconv.ParseBool(initializedV)
 	if !ok || !initialized {
-		l.Info("initializing the source")
+		l.Info("initializing the source", "hash", sourceHash)
 		ready.Status = metav1.ConditionFalse
 		ready.Reason = "Initializing"
 		ready.Message = ""
@@ -176,58 +247,15 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		initReq := &agentpb.InitializeRequest{}
-		if w.Spec.Git != nil {
-			source := &agentpb.InitializeRequest_Git{
-				Git: &agentpb.GitSource{
-					Url: w.Spec.Git.ProjectRepo,
-					Dir: &w.Spec.Git.RepoDir,
-				},
+		if source.Git != nil {
+			initReq.Source = &agentpb.InitializeRequest_Git{
+				Git: source.Git,
 			}
-			if w.Spec.Git.RepoDir != "" {
-				source.Git.Dir = &w.Spec.Git.RepoDir
-			}
-			if w.Spec.Git.Commit != "" {
-				source.Git.Ref = &agentpb.GitSource_CommitHash{CommitHash: w.Spec.Git.Commit}
-			} else if w.Spec.Git.Branch != "" {
-				source.Git.Ref = &agentpb.GitSource_Branch{Branch: w.Spec.Git.Branch}
-			}
-			initReq.Source = source
 		}
-		if w.Spec.Flux != nil {
-			// Resolve the source reference and requeue the reconciliation if the source is not found.
-			artifactSource, err := r.getSource(ctx, w)
-			if err != nil {
-				ready.Status = metav1.ConditionFalse
-				ready.Reason = "ArtifactFailed"
-				ready.Message = err.Error()
-				if apierrors.IsNotFound(err) {
-					return ctrl.Result{}, updateStatus()
-				}
-				// Retry with backoff on transient errors.
-				_ = updateStatus()
-				return ctrl.Result{}, err
+		if source.Flux != nil {
+			initReq.Source = &agentpb.InitializeRequest_Flux{
+				Flux: source.Flux,
 			}
-
-			// Requeue the reconciliation if the source artifact is not found.
-			artifact := artifactSource.GetArtifact()
-			if artifact == nil {
-				ready.Status = metav1.ConditionFalse
-				ready.Reason = "ArtifactFailed"
-				ready.Message = "Source artifact not found, retrying later"
-				return ctrl.Result{}, updateStatus()
-			}
-
-			source := &agentpb.InitializeRequest_Flux{
-				Flux: &agentpb.FluxSource{
-					Url:    artifact.URL,
-					Digest: artifact.Digest,
-				},
-			}
-			if w.Spec.Flux.Dir != "" {
-				source.Flux.Dir = &w.Spec.Flux.Dir
-			}
-
-			initReq.Source = source
 		}
 
 		l.Info("initializing the workspace")
@@ -251,10 +279,9 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			pod.Annotations = make(map[string]string)
 		}
 		pod.Annotations[PodAnnotationInitialized] = "true"
-
-		err = r.Update(ctx, ss, client.FieldOwner(FieldManager))
+		err = r.Update(ctx, pod, client.FieldOwner(FieldManager))
 		if err != nil {
-			l.Error(err, "unable to update the pod; deleting the workspace pod to retry later")
+			l.Error(err, "unable to update the workspace pod; deleting the pod to retry later")
 			err = r.Client.Delete(ctx, pod)
 			if err != nil {
 				return ctrl.Result{}, err
@@ -289,13 +316,13 @@ func (r *WorkspaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.StatefulSet{},
 			builder.WithPredicates(&predicate.ResourceVersionChangedPredicate{})).
 		Watches(&sourcev1b2.OCIRepository{},
-			handler.EnqueueRequestsFromMapFunc(r.mapFluxSourceToWorkspace),
+			r.newFluxMapper(sourcev1b2.GroupVersion, sourcev1b2.OCIRepositoryKind),
 			builder.WithPredicates(&predicate.ResourceVersionChangedPredicate{})).
 		Watches(&sourcev1.GitRepository{},
-			handler.EnqueueRequestsFromMapFunc(r.mapFluxSourceToWorkspace),
+			r.newFluxMapper(sourcev1.GroupVersion, sourcev1.GitRepositoryKind),
 			builder.WithPredicates(&predicate.ResourceVersionChangedPredicate{})).
 		Watches(&sourcev1b2.Bucket{},
-			handler.EnqueueRequestsFromMapFunc(r.mapFluxSourceToWorkspace),
+			r.newFluxMapper(sourcev1b2.GroupVersion, sourcev1b2.BucketKind),
 			builder.WithPredicates(&predicate.ResourceVersionChangedPredicate{})).
 		Complete(r)
 }
@@ -309,10 +336,22 @@ func indexWorkspaceByFluxSource(obj client.Object) []string {
 	return []string{key}
 }
 
-func (r *WorkspaceReconciler) mapFluxSourceToWorkspace(ctx context.Context, obj client.Object) []reconcile.Request {
-	l := log.FromContext(ctx)
+func (r *WorkspaceReconciler) newFluxMapper(gv schema.GroupVersion, kind string) handler.EventHandler {
+	m := &fluxMapper{
+		Client:           r.Client,
+		GroupVersionKind: schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: kind},
+	}
+	return handler.EnqueueRequestsFromMapFunc(m.mapFluxSourceToWorkspace)
+}
 
-	apiVersion, kind := obj.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
+type fluxMapper struct {
+	client.Client
+	schema.GroupVersionKind
+}
+
+func (r *fluxMapper) mapFluxSourceToWorkspace(ctx context.Context, obj client.Object) []reconcile.Request {
+	l := log.FromContext(ctx)
+	apiVersion, kind := r.ToAPIVersionAndKind()
 	key := fmt.Sprintf("%s/%s/%s", apiVersion, kind, obj.GetName())
 	objs := &autov1alpha1.WorkspaceList{}
 	err := r.Client.List(ctx, objs, client.InNamespace(obj.GetNamespace()), client.MatchingFields{WorkspaceIndexerFluxSource: key})
@@ -356,7 +395,7 @@ func labelsForStatefulSet(w *autov1alpha1.Workspace) map[string]string {
 	}
 }
 
-func newStatefulSet(w *autov1alpha1.Workspace) (*appsv1.StatefulSet, error) {
+func newStatefulSet(w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.StatefulSet, error) {
 	labels := labelsForStatefulSet(w)
 	statefulset := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
@@ -375,6 +414,10 @@ func newStatefulSet(w *autov1alpha1.Workspace) (*appsv1.StatefulSet, error) {
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
+					Annotations: map[string]string{
+						// this annotation is used to cause pod replacement when the source has changed.
+						PodAnnotationSourceHash: source.Hash(),
+					},
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName:            w.Spec.ServiceAccountName,
@@ -442,8 +485,23 @@ func newService(w *autov1alpha1.Workspace) (*corev1.Service, error) {
 	return service, nil
 }
 
+type sourceSpec struct {
+	Git  *agentpb.GitSource
+	Flux *agentpb.FluxSource
+}
+
+func (s *sourceSpec) Hash() string {
+	hasher := md5.New()
+	hashutil.DeepHashObject(hasher, s)
+	return hex.EncodeToString(hasher.Sum(nil)[0:])
+}
+
+type source interface {
+	sourcev1.Source
+}
+
 func (r *WorkspaceReconciler) getSource(ctx context.Context,
-	obj *autov1alpha1.Workspace) (sourcev1.Source, error) {
+	obj *autov1alpha1.Workspace) (source, error) {
 	var src sourcev1.Source
 	namespacedName := types.NamespacedName{
 		Namespace: obj.GetNamespace(),
