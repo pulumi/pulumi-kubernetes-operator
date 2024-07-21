@@ -16,6 +16,7 @@ import (
 	"github.com/fluxcd/pkg/http/fetch"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/optpreview"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optrefresh"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 )
@@ -28,6 +29,7 @@ const (
 type Server struct {
 	WorkDir string
 
+	stopCtx     context.Context
 	initialized atomic.Bool
 	workspace   auto.Workspace
 
@@ -36,8 +38,9 @@ type Server struct {
 
 var _ = pb.AutomationServiceServer(&Server{})
 
-func NewServer(workDir string) *Server {
+func NewServer(stopCtx context.Context, workDir string) *Server {
 	return &Server{
+		stopCtx: stopCtx,
 		WorkDir: workDir,
 	}
 }
@@ -47,6 +50,9 @@ func (s *Server) isInitialized() bool {
 }
 
 func (s *Server) Initialize(ctx context.Context, in *pb.InitializeRequest) (*pb.InitializeResult, error) {
+	ctx, cancel := mergeContext(s.stopCtx, ctx)
+	defer cancel()
+
 	if !s.initialized.CompareAndSwap(false, true) {
 		// TODO: persist to workdir
 		return nil, fmt.Errorf("server already initialized")
@@ -132,6 +138,7 @@ func (s *Server) Info(ctx context.Context, in *pb.InfoRequest) (*pb.InfoResult, 
 	if err != nil {
 		return nil, err
 	}
+
 	resp := &pb.InfoResult{
 		Summary: &pb.StackSummary{
 			Name:       info.Name,
@@ -139,6 +146,72 @@ func (s *Server) Info(ctx context.Context, in *pb.InfoRequest) (*pb.InfoResult, 
 		},
 	}
 	return resp, nil
+}
+
+// Preview implements proto.AutomationServiceServer.
+func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_PreviewServer) error {
+	ctx := srv.Context()
+	if !s.isInitialized() {
+		return fmt.Errorf("server not initialized")
+	}
+	stack, err := auto.UpsertStack(ctx, in.Stack, s.workspace)
+	if err != nil {
+		return fmt.Errorf("failed to select stack: %w", err)
+	}
+
+	opts := []optpreview.Option{
+		optpreview.UserAgent(UserAgent),
+		optpreview.Diff(), /* richer result? */
+	}
+
+	if in.Parallel != nil {
+		opts = append(opts, optpreview.Parallel(int(*in.Parallel)))
+	}
+	if in.ExpectNoChanges {
+		opts = append(opts, optpreview.ExpectNoChanges())
+	}
+	if in.Replace != nil {
+		opts = append(opts, optpreview.Replace(in.Replace))
+	}
+	if in.Target != nil {
+		opts = append(opts, optpreview.Target(in.Target))
+	}
+	if in.TargetDependents {
+		opts = append(opts, optpreview.TargetDependents())
+	}
+	// TODO:PolicyPack
+	if in.Refresh {
+		opts = append(opts, optpreview.Refresh())
+	}
+	if in.Message != nil {
+		opts = append(opts, optpreview.Message(*in.Message))
+	}
+
+	fmt.Println("Starting preview")
+	res, err := stack.Preview(ctx, opts...)
+	if err != nil {
+		fmt.Printf("Failed to refresh stack: %v\n", err)
+		return err
+	}
+	resp := &pb.PreviewResult{
+		Stdout: res.StdOut,
+		Stderr: res.StdErr,
+	}
+	// TODO: ChangeSummary
+	permalink, err := res.GetPermalink()
+	if err != nil && err != auto.ErrParsePermalinkFailed {
+		return err
+	}
+	if permalink != "" {
+		resp.Permalink = pointer.String(permalink)
+	}
+
+	if err := srv.Send(resp); err != nil {
+		return err
+	}
+	fmt.Println("Preview succeeded!")
+
+	return nil
 }
 
 // Refresh implements proto.AutomationServiceServer.
@@ -286,4 +359,18 @@ func parseTime(s *string) *timestamppb.Timestamp {
 		return nil
 	}
 	return timestamppb.New(t)
+}
+
+func mergeContext(a, b context.Context) (context.Context, context.CancelFunc) {
+	mctx, mcancel := context.WithCancel(a) // will cancel if `a` cancels
+
+	go func() {
+		select {
+		case <-mctx.Done(): // don't leak go-routine on clean gRPC run
+		case <-b.Done():
+			mcancel() // b canceled, so cancel mctx
+		}
+	}()
+
+	return mctx, mcancel
 }

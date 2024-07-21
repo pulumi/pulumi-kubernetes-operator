@@ -10,6 +10,7 @@ service AutomationService {
   rpc Initialize(InitializeRequest) returns (InitializeResult) {}
   rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResult) {}
   rpc Info(InfoRequest) returns (InfoResult) {}
+  rpc Preview (PreviewRequest) returns (stream PreviewResult) {}
   rpc Refresh (RefreshRequest) returns (stream RefreshResult) {}
   rpc Up (UpRequest) returns (stream UpResult) {}
   rpc Destroy (DestroyRequest) returns (stream DestroyResult) {}
@@ -72,6 +73,40 @@ message RefreshRequest {
 }
 
 message RefreshResult {
+  string stdout = 1;
+  string stderr = 2;
+	UpdateSummary summary = 3;
+  optional string permalink = 4;
+}
+
+message PreviewRequest {
+  // The stack to preview
+  string stack = 1;
+  // Parallel is the number of resource operations to run in parallel at once
+  // (1 for no parallelism). Defaults to unbounded. (default 2147483647)
+  optional int32 parallel = 2;
+  // Return an error if any changes occur during this preview
+  bool expect_no_changes = 3;
+  // Specify resources to replace
+  repeated string replace = 4;
+  // Specify an exclusive list of resource URNs to update
+  repeated string target = 5;
+  // Allows updating of dependent targets discovered but not specified in the Target list
+  bool target_dependents = 6;
+  // Run one or more policy packs as part of this update
+  repeated PolicyPack policy_pack = 7;
+  // Refresh will run a refresh before the preview.
+  bool refresh = 8;
+  // Message (optional) to associate with the preview operation
+  optional string message = 9;
+}
+
+message PolicyPack {
+  string name = 1;
+  string configPath = 2;
+}
+
+message PreviewResult {
   string stdout = 1;
   string stderr = 2;
 	UpdateSummary summary = 3;

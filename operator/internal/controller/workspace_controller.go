@@ -38,7 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	hashutil "k8s.io/kubernetes/pkg/util/hash"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,6 +54,12 @@ const (
 	WorkspaceConditionTypeReady = "Ready"
 	PodAnnotationInitialized    = "auto.pulumi.com/initialized"
 	PodAnnotationSourceHash     = "auto.pulumi.com/source-hash"
+
+	// Termination grace period for the workspace pod and any update running in it.
+	// Upon an update to the workspec spec or content, the statefulset will be updated,
+	// leading to graceful pod replacement. The pod receives a SIGTERM signal and has
+	// this much time to shut down before it is killed.
+	WorkspacePodTerminationGracePeriodSeconds = 10 * 60
 )
 
 // WorkspaceReconciler reconciles a Workspace object
@@ -410,7 +416,7 @@ func newStatefulSet(w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.Stat
 		Spec: appsv1.StatefulSetSpec{
 			Selector:    &metav1.LabelSelector{MatchLabels: labels},
 			ServiceName: nameForService(w),
-			Replicas:    pointer.Int32(1),
+			Replicas:    ptr.To[int32](1),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
@@ -421,7 +427,7 @@ func newStatefulSet(w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.Stat
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName:            w.Spec.ServiceAccountName,
-					TerminationGracePeriodSeconds: pointer.Int64(30),
+					TerminationGracePeriodSeconds: ptr.To[int64](WorkspacePodTerminationGracePeriodSeconds),
 					Containers: []corev1.Container{
 						{
 							Name:            WorkspaceContainerName,

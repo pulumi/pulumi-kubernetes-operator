@@ -22,6 +22,7 @@ const (
 	AutomationService_Initialize_FullMethodName = "/protobuf.AutomationService/Initialize"
 	AutomationService_WhoAmI_FullMethodName     = "/protobuf.AutomationService/WhoAmI"
 	AutomationService_Info_FullMethodName       = "/protobuf.AutomationService/Info"
+	AutomationService_Preview_FullMethodName    = "/protobuf.AutomationService/Preview"
 	AutomationService_Refresh_FullMethodName    = "/protobuf.AutomationService/Refresh"
 	AutomationService_Up_FullMethodName         = "/protobuf.AutomationService/Up"
 	AutomationService_Destroy_FullMethodName    = "/protobuf.AutomationService/Destroy"
@@ -34,6 +35,7 @@ type AutomationServiceClient interface {
 	Initialize(ctx context.Context, in *InitializeRequest, opts ...grpc.CallOption) (*InitializeResult, error)
 	WhoAmI(ctx context.Context, in *WhoAmIRequest, opts ...grpc.CallOption) (*WhoAmIResult, error)
 	Info(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResult, error)
+	Preview(ctx context.Context, in *PreviewRequest, opts ...grpc.CallOption) (AutomationService_PreviewClient, error)
 	Refresh(ctx context.Context, in *RefreshRequest, opts ...grpc.CallOption) (AutomationService_RefreshClient, error)
 	Up(ctx context.Context, in *UpRequest, opts ...grpc.CallOption) (AutomationService_UpClient, error)
 	Destroy(ctx context.Context, in *DestroyRequest, opts ...grpc.CallOption) (AutomationService_DestroyClient, error)
@@ -77,9 +79,42 @@ func (c *automationServiceClient) Info(ctx context.Context, in *InfoRequest, opt
 	return out, nil
 }
 
+func (c *automationServiceClient) Preview(ctx context.Context, in *PreviewRequest, opts ...grpc.CallOption) (AutomationService_PreviewClient, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &AutomationService_ServiceDesc.Streams[0], AutomationService_Preview_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &automationServicePreviewClient{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type AutomationService_PreviewClient interface {
+	Recv() (*PreviewResult, error)
+	grpc.ClientStream
+}
+
+type automationServicePreviewClient struct {
+	grpc.ClientStream
+}
+
+func (x *automationServicePreviewClient) Recv() (*PreviewResult, error) {
+	m := new(PreviewResult)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *automationServiceClient) Refresh(ctx context.Context, in *RefreshRequest, opts ...grpc.CallOption) (AutomationService_RefreshClient, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &AutomationService_ServiceDesc.Streams[0], AutomationService_Refresh_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &AutomationService_ServiceDesc.Streams[1], AutomationService_Refresh_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +147,7 @@ func (x *automationServiceRefreshClient) Recv() (*RefreshResult, error) {
 
 func (c *automationServiceClient) Up(ctx context.Context, in *UpRequest, opts ...grpc.CallOption) (AutomationService_UpClient, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &AutomationService_ServiceDesc.Streams[1], AutomationService_Up_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &AutomationService_ServiceDesc.Streams[2], AutomationService_Up_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +180,7 @@ func (x *automationServiceUpClient) Recv() (*UpResult, error) {
 
 func (c *automationServiceClient) Destroy(ctx context.Context, in *DestroyRequest, opts ...grpc.CallOption) (AutomationService_DestroyClient, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &AutomationService_ServiceDesc.Streams[2], AutomationService_Destroy_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &AutomationService_ServiceDesc.Streams[3], AutomationService_Destroy_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -183,6 +218,7 @@ type AutomationServiceServer interface {
 	Initialize(context.Context, *InitializeRequest) (*InitializeResult, error)
 	WhoAmI(context.Context, *WhoAmIRequest) (*WhoAmIResult, error)
 	Info(context.Context, *InfoRequest) (*InfoResult, error)
+	Preview(*PreviewRequest, AutomationService_PreviewServer) error
 	Refresh(*RefreshRequest, AutomationService_RefreshServer) error
 	Up(*UpRequest, AutomationService_UpServer) error
 	Destroy(*DestroyRequest, AutomationService_DestroyServer) error
@@ -201,6 +237,9 @@ func (UnimplementedAutomationServiceServer) WhoAmI(context.Context, *WhoAmIReque
 }
 func (UnimplementedAutomationServiceServer) Info(context.Context, *InfoRequest) (*InfoResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Info not implemented")
+}
+func (UnimplementedAutomationServiceServer) Preview(*PreviewRequest, AutomationService_PreviewServer) error {
+	return status.Errorf(codes.Unimplemented, "method Preview not implemented")
 }
 func (UnimplementedAutomationServiceServer) Refresh(*RefreshRequest, AutomationService_RefreshServer) error {
 	return status.Errorf(codes.Unimplemented, "method Refresh not implemented")
@@ -276,6 +315,27 @@ func _AutomationService_Info_Handler(srv interface{}, ctx context.Context, dec f
 		return srv.(AutomationServiceServer).Info(ctx, req.(*InfoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _AutomationService_Preview_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(PreviewRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(AutomationServiceServer).Preview(m, &automationServicePreviewServer{ServerStream: stream})
+}
+
+type AutomationService_PreviewServer interface {
+	Send(*PreviewResult) error
+	grpc.ServerStream
+}
+
+type automationServicePreviewServer struct {
+	grpc.ServerStream
+}
+
+func (x *automationServicePreviewServer) Send(m *PreviewResult) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _AutomationService_Refresh_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -362,6 +422,11 @@ var AutomationService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Preview",
+			Handler:       _AutomationService_Preview_Handler,
+			ServerStreams: true,
+		},
 		{
 			StreamName:    "Refresh",
 			Handler:       _AutomationService_Refresh_Handler,
