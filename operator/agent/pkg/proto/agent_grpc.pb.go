@@ -96,7 +96,7 @@ func (c *automationServiceClient) Preview(ctx context.Context, in *PreviewReques
 }
 
 type AutomationService_PreviewClient interface {
-	Recv() (*PreviewResult, error)
+	Recv() (*PreviewStream, error)
 	grpc.ClientStream
 }
 
@@ -104,8 +104,8 @@ type automationServicePreviewClient struct {
 	grpc.ClientStream
 }
 
-func (x *automationServicePreviewClient) Recv() (*PreviewResult, error) {
-	m := new(PreviewResult)
+func (x *automationServicePreviewClient) Recv() (*PreviewStream, error) {
+	m := new(PreviewStream)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -326,7 +326,7 @@ func _AutomationService_Preview_Handler(srv interface{}, stream grpc.ServerStrea
 }
 
 type AutomationService_PreviewServer interface {
-	Send(*PreviewResult) error
+	Send(*PreviewStream) error
 	grpc.ServerStream
 }
 
@@ -334,7 +334,7 @@ type automationServicePreviewServer struct {
 	grpc.ServerStream
 }
 
-func (x *automationServicePreviewServer) Send(m *PreviewResult) error {
+func (x *automationServicePreviewServer) Send(m *PreviewStream) error {
 	return x.ServerStream.SendMsg(m)
 }
 

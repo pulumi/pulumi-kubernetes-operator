@@ -1,5 +1,6 @@
 syntax = "proto3";
 
+import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto";
@@ -10,7 +11,7 @@ service AutomationService {
   rpc Initialize(InitializeRequest) returns (InitializeResult) {}
   rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResult) {}
   rpc Info(InfoRequest) returns (InfoResult) {}
-  rpc Preview (PreviewRequest) returns (stream PreviewResult) {}
+  rpc Preview (PreviewRequest) returns (stream PreviewStream) {}
   rpc Refresh (RefreshRequest) returns (stream RefreshResult) {}
   rpc Up (UpRequest) returns (stream UpResult) {}
   rpc Destroy (DestroyRequest) returns (stream DestroyResult) {}
@@ -104,6 +105,19 @@ message PreviewRequest {
 message PolicyPack {
   string name = 1;
   string configPath = 2;
+}
+
+message PreviewStream {
+  oneof response {
+    EngineEvent event = 1;
+    PreviewResult result = 2;
+  }
+}
+
+message EngineEvent {
+  string stdout = 1;
+  google.protobuf.Struct event = 2; // the full properties to use for validation.
+
 }
 
 message PreviewResult {

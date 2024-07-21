@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -10,11 +11,13 @@ import (
 	"time"
 
 	pb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/utils/pointer"
 
 	"github.com/fluxcd/pkg/http/fetch"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/events"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optpreview"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optrefresh"
@@ -206,6 +209,25 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 		opts = append(opts, optpreview.Message(*in.Message))
 	}
 
+	// event streaming
+	prevCh := make(chan events.EngineEvent)
+	opts = append(opts, optpreview.EventStreams(prevCh))
+	go func() {
+		for evt := range prevCh {
+			m := make(map[string]any)
+			j, _ := json.Marshal(evt.EngineEvent)
+			_ = json.Unmarshal(j, &m)
+			data, err := structpb.NewStruct(m)
+			if err != nil {
+				panic(fmt.Errorf("failed to marshal event: %w", err))
+			}
+			msg := &pb.PreviewStream{Response: &pb.PreviewStream_Event{Event: &pb.EngineEvent{Event: data}}}
+			if err := srv.Send(msg); err != nil {
+				panic(err)
+			}
+		}
+	}()
+
 	fmt.Println("Starting preview")
 	res, err := stack.Preview(ctx, opts...)
 	if err != nil {
@@ -225,7 +247,8 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 		resp.Permalink = pointer.String(permalink)
 	}
 
-	if err := srv.Send(resp); err != nil {
+	msg := &pb.PreviewStream{Response: &pb.PreviewStream_Result{Result: resp}}
+	if err := srv.Send(msg); err != nil {
 		return err
 	}
 	fmt.Println("Preview succeeded!")
