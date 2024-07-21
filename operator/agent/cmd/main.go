@@ -53,6 +53,16 @@ func main() {
 
 	cancelCtx := signals.SetupSignalHandler()
 
+	// Open the workspace
+	autoServer := server.NewServer(cancelCtx, *workdir)
+
+	if *workdir != "" {
+		log.Println("Opening the workspace")
+		if err := autoServer.Open(cancelCtx); err != nil {
+			log.Fatalf("failed to open: %v", err)
+		}
+	}
+
 	// Start the grpc server
 	log.Println("Starting the Agent")
 	lis, err := net.Listen("tcp", fmt.Sprintf("%s:%d", *host, *port))
@@ -60,7 +70,7 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
-	pb.RegisterAutomationServiceServer(s, server.NewServer(cancelCtx, *workdir))
+	pb.RegisterAutomationServiceServer(s, autoServer)
 
 	log.Printf("server listening at %v\n", lis.Addr())
 

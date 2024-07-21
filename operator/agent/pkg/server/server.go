@@ -49,6 +49,25 @@ func (s *Server) isInitialized() bool {
 	return s.initialized.Load() && s.workspace != nil
 }
 
+func (s *Server) Open(ctx context.Context) error {
+	if !s.initialized.CompareAndSwap(false, true) {
+		return fmt.Errorf("server already initialized")
+	}
+
+	workDir := s.WorkDir
+	opts := []auto.LocalWorkspaceOption{}
+
+	opts = append(opts, auto.WorkDir(workDir))
+	w, err := auto.NewLocalWorkspace(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+	s.workspace = w
+
+	log.Printf("workspace initialized")
+	return nil
+}
+
 func (s *Server) Initialize(ctx context.Context, in *pb.InitializeRequest) (*pb.InitializeResult, error) {
 	ctx, cancel := mergeContext(s.stopCtx, ctx)
 	defer cancel()
