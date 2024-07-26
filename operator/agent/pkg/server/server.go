@@ -4,18 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
-	"path/filepath"
-	"sync/atomic"
 	"time"
 
 	pb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
-	"github.com/fluxcd/pkg/http/fetch"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/events"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
@@ -30,110 +26,43 @@ const (
 )
 
 type Server struct {
-	WorkDir string
-
-	stopCtx     context.Context
-	initialized atomic.Bool
-	workspace   auto.Workspace
+	cancelContext context.Context
+	cancelFunc    context.CancelFunc
+	workspace     auto.Workspace
 
 	pb.UnimplementedAutomationServiceServer
 }
 
 var _ = pb.AutomationServiceServer(&Server{})
 
-func NewServer(stopCtx context.Context, workDir string) *Server {
-	return &Server{
-		stopCtx: stopCtx,
-		WorkDir: workDir,
-	}
-}
+func NewServer(ctx context.Context, workDir string) (*Server, error) {
 
-func (s *Server) isInitialized() bool {
-	return s.initialized.Load() && s.workspace != nil
-}
-
-func (s *Server) Open(ctx context.Context) error {
-	if !s.initialized.CompareAndSwap(false, true) {
-		return fmt.Errorf("server already initialized")
-	}
-
-	workDir := s.WorkDir
 	opts := []auto.LocalWorkspaceOption{}
-
 	opts = append(opts, auto.WorkDir(workDir))
 	w, err := auto.NewLocalWorkspace(ctx, opts...)
 	if err != nil {
-		return fmt.Errorf("failed to create workspace: %w", err)
+		return nil, fmt.Errorf("auto.NewLocalWorkspace: %w", err)
 	}
-	s.workspace = w
 
-	log.Printf("workspace initialized")
-	return nil
+	_, err = w.ProjectSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	cancelContext, cancelFunc := context.WithCancel(context.Background())
+	server := &Server{
+		workspace:     w,
+		cancelContext: cancelContext,
+		cancelFunc:    cancelFunc,
+	}
+	return server, nil
 }
 
-func (s *Server) Initialize(ctx context.Context, in *pb.InitializeRequest) (*pb.InitializeResult, error) {
-	ctx, cancel := mergeContext(s.stopCtx, ctx)
-	defer cancel()
-
-	if !s.initialized.CompareAndSwap(false, true) {
-		// TODO: persist to workdir
-		return nil, fmt.Errorf("server already initialized")
-	}
-
-	workDir := s.WorkDir
-	opts := []auto.LocalWorkspaceOption{}
-
-	if src := in.GetFlux(); src != nil {
-		// https://github.com/fluxcd/kustomize-controller/blob/a1a33f2adda783dd2a17234f5d8e84caca4e24e2/internal/controller/kustomization_controller.go#L328
-
-		fetcher := fetch.New(
-			fetch.WithRetries(FluxRetries),
-			fetch.WithHostnameOverwrite(os.Getenv("SOURCE_CONTROLLER_LOCALHOST")),
-			fetch.WithUntar())
-
-		err := fetcher.FetchWithContext(ctx, src.Url, src.Digest, s.WorkDir)
-		if err != nil {
-			return nil, fmt.Errorf("flux fetch failed: %w", err)
-		}
-
-		if src.Dir != nil {
-			workDir = filepath.Join(s.WorkDir, *src.Dir)
-		}
-
-		log.Printf("initializing the workspace directory with flux source (%q)", src.Url)
-
-	} else if src := in.GetGit(); src != nil {
-		repo := auto.GitRepo{
-			URL:        src.Url,
-			Branch:     src.GetBranch(),
-			CommitHash: src.GetCommitHash(),
-		}
-		if src.Dir != nil {
-			repo.ProjectPath = *src.Dir
-		}
-		opts = append(opts, auto.Repo(repo))
-
-		log.Printf("initializing the workspace directory with git source (%q)", src.Url)
-	}
-
-	opts = append(opts, auto.WorkDir(workDir))
-	w, err := auto.NewLocalWorkspace(ctx, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create workspace: %w", err)
-	}
-	s.workspace = w
-
-	log.Printf("workspace initialized")
-
-	resp := &pb.InitializeResult{}
-	return resp, nil
+func (s *Server) Cancel() {
+	s.cancelFunc()
 }
 
 func (s *Server) WhoAmI(ctx context.Context, in *pb.WhoAmIRequest) (*pb.WhoAmIResult, error) {
-	if !s.isInitialized() {
-		return nil, fmt.Errorf("server not initialized")
-	}
-
 	whoami, err := s.workspace.WhoAmIDetails(ctx)
 	if err != nil {
 		return nil, err
@@ -147,10 +76,6 @@ func (s *Server) WhoAmI(ctx context.Context, in *pb.WhoAmIRequest) (*pb.WhoAmIRe
 }
 
 func (s *Server) Info(ctx context.Context, in *pb.InfoRequest) (*pb.InfoResult, error) {
-	if !s.isInitialized() {
-		return nil, fmt.Errorf("server not initialized")
-	}
-
 	stack, err := auto.UpsertStack(ctx, in.Stack, s.workspace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to select stack: %w", err)
@@ -173,9 +98,6 @@ func (s *Server) Info(ctx context.Context, in *pb.InfoRequest) (*pb.InfoResult, 
 // Preview implements proto.AutomationServiceServer.
 func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_PreviewServer) error {
 	ctx := srv.Context()
-	if !s.isInitialized() {
-		return fmt.Errorf("server not initialized")
-	}
 	stack, err := auto.UpsertStack(ctx, in.Stack, s.workspace)
 	if err != nil {
 		return fmt.Errorf("failed to select stack: %w", err)
@@ -183,6 +105,8 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 
 	opts := []optpreview.Option{
 		optpreview.UserAgent(UserAgent),
+		optpreview.ProgressStreams(os.Stdout),
+		optpreview.ErrorProgressStreams(os.Stderr),
 		optpreview.Diff(), /* richer result? */
 	}
 
@@ -244,7 +168,7 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 		return err
 	}
 	if permalink != "" {
-		resp.Permalink = pointer.String(permalink)
+		resp.Permalink = ptr.To(permalink)
 	}
 
 	msg := &pb.PreviewStream{Response: &pb.PreviewStream_Result{Result: resp}}
@@ -259,9 +183,6 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 // Refresh implements proto.AutomationServiceServer.
 func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_RefreshServer) error {
 	ctx := srv.Context()
-	if !s.isInitialized() {
-		return fmt.Errorf("server not initialized")
-	}
 	stack, err := auto.UpsertStack(ctx, in.Stack, s.workspace)
 	if err != nil {
 		return fmt.Errorf("failed to select stack: %w", err)
@@ -288,7 +209,7 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 		return err
 	}
 	if permalink != "" {
-		resp.Permalink = pointer.String(permalink)
+		resp.Permalink = ptr.To(permalink)
 	}
 
 	if err := srv.Send(resp); err != nil {
@@ -302,9 +223,6 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 // Up implements proto.AutomationServiceServer.
 func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 	ctx := srv.Context()
-	if !s.isInitialized() {
-		return fmt.Errorf("server not initialized")
-	}
 	stack, err := auto.UpsertStack(ctx, in.Stack, s.workspace)
 	if err != nil {
 		return fmt.Errorf("failed to select stack: %w", err)
@@ -336,7 +254,7 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 		return err
 	}
 	if permalink != "" {
-		resp.Permalink = pointer.String(permalink)
+		resp.Permalink = ptr.To(permalink)
 	}
 
 	if err := srv.Send(resp); err != nil {
@@ -350,9 +268,6 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 // Up implements proto.AutomationServiceServer.
 func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_DestroyServer) error {
 	ctx := srv.Context()
-	if !s.isInitialized() {
-		return fmt.Errorf("server not initialized")
-	}
 	stack, err := auto.UpsertStack(ctx, in.Stack, s.workspace)
 	if err != nil {
 		return fmt.Errorf("failed to select stack: %w", err)
@@ -381,7 +296,7 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 		return err
 	}
 	if permalink != "" {
-		resp.Permalink = pointer.String(permalink)
+		resp.Permalink = ptr.To(permalink)
 	}
 
 	if err := srv.Send(resp); err != nil {

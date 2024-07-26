@@ -19,20 +19,18 @@ import (
 const _ = grpc.SupportPackageIsVersion8
 
 const (
-	AutomationService_Initialize_FullMethodName = "/protobuf.AutomationService/Initialize"
-	AutomationService_WhoAmI_FullMethodName     = "/protobuf.AutomationService/WhoAmI"
-	AutomationService_Info_FullMethodName       = "/protobuf.AutomationService/Info"
-	AutomationService_Preview_FullMethodName    = "/protobuf.AutomationService/Preview"
-	AutomationService_Refresh_FullMethodName    = "/protobuf.AutomationService/Refresh"
-	AutomationService_Up_FullMethodName         = "/protobuf.AutomationService/Up"
-	AutomationService_Destroy_FullMethodName    = "/protobuf.AutomationService/Destroy"
+	AutomationService_WhoAmI_FullMethodName  = "/protobuf.AutomationService/WhoAmI"
+	AutomationService_Info_FullMethodName    = "/protobuf.AutomationService/Info"
+	AutomationService_Preview_FullMethodName = "/protobuf.AutomationService/Preview"
+	AutomationService_Refresh_FullMethodName = "/protobuf.AutomationService/Refresh"
+	AutomationService_Up_FullMethodName      = "/protobuf.AutomationService/Up"
+	AutomationService_Destroy_FullMethodName = "/protobuf.AutomationService/Destroy"
 )
 
 // AutomationServiceClient is the client API for AutomationService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AutomationServiceClient interface {
-	Initialize(ctx context.Context, in *InitializeRequest, opts ...grpc.CallOption) (*InitializeResult, error)
 	WhoAmI(ctx context.Context, in *WhoAmIRequest, opts ...grpc.CallOption) (*WhoAmIResult, error)
 	Info(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResult, error)
 	Preview(ctx context.Context, in *PreviewRequest, opts ...grpc.CallOption) (AutomationService_PreviewClient, error)
@@ -47,16 +45,6 @@ type automationServiceClient struct {
 
 func NewAutomationServiceClient(cc grpc.ClientConnInterface) AutomationServiceClient {
 	return &automationServiceClient{cc}
-}
-
-func (c *automationServiceClient) Initialize(ctx context.Context, in *InitializeRequest, opts ...grpc.CallOption) (*InitializeResult, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(InitializeResult)
-	err := c.cc.Invoke(ctx, AutomationService_Initialize_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *automationServiceClient) WhoAmI(ctx context.Context, in *WhoAmIRequest, opts ...grpc.CallOption) (*WhoAmIResult, error) {
@@ -215,7 +203,6 @@ func (x *automationServiceDestroyClient) Recv() (*DestroyResult, error) {
 // All implementations must embed UnimplementedAutomationServiceServer
 // for forward compatibility
 type AutomationServiceServer interface {
-	Initialize(context.Context, *InitializeRequest) (*InitializeResult, error)
 	WhoAmI(context.Context, *WhoAmIRequest) (*WhoAmIResult, error)
 	Info(context.Context, *InfoRequest) (*InfoResult, error)
 	Preview(*PreviewRequest, AutomationService_PreviewServer) error
@@ -229,9 +216,6 @@ type AutomationServiceServer interface {
 type UnimplementedAutomationServiceServer struct {
 }
 
-func (UnimplementedAutomationServiceServer) Initialize(context.Context, *InitializeRequest) (*InitializeResult, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Initialize not implemented")
-}
 func (UnimplementedAutomationServiceServer) WhoAmI(context.Context, *WhoAmIRequest) (*WhoAmIResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WhoAmI not implemented")
 }
@@ -261,24 +245,6 @@ type UnsafeAutomationServiceServer interface {
 
 func RegisterAutomationServiceServer(s grpc.ServiceRegistrar, srv AutomationServiceServer) {
 	s.RegisterService(&AutomationService_ServiceDesc, srv)
-}
-
-func _AutomationService_Initialize_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InitializeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AutomationServiceServer).Initialize(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AutomationService_Initialize_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AutomationServiceServer).Initialize(ctx, req.(*InitializeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _AutomationService_WhoAmI_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -408,10 +374,6 @@ var AutomationService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "protobuf.AutomationService",
 	HandlerType: (*AutomationServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Initialize",
-			Handler:    _AutomationService_Initialize_Handler,
-		},
 		{
 			MethodName: "WhoAmI",
 			Handler:    _AutomationService_WhoAmI_Handler,

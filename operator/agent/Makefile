@@ -7,8 +7,8 @@ protoc:
 
 agent: protoc
 	@echo "Building agent"
-	GOOS=linux GOARCH=amd64 go build -o ../pulumi-kubernetes-agent \
-		github.com/pulumi/pulumi-kubernetes-operator/agent/cmd
+	go build -o pulumi-kubernetes-agent \
+		github.com/pulumi/pulumi-kubernetes-operator/agent
 
 image: agent
 	docker build -t pulumi/pulumi-kubernetes-agent:latest .
