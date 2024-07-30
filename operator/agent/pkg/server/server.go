@@ -1,3 +1,18 @@
+/*
+Copyright © 2024 Pulumi Corporation
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package server
 
 import (
@@ -7,6 +22,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-logr/logr"
 	pb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -26,6 +42,7 @@ const (
 )
 
 type Server struct {
+	log           logr.Logger
 	cancelContext context.Context
 	cancelFunc    context.CancelFunc
 	workspace     auto.Workspace
@@ -36,7 +53,7 @@ type Server struct {
 var _ = pb.AutomationServiceServer(&Server{})
 
 func NewServer(ctx context.Context, workDir string) (*Server, error) {
-
+	log := logr.FromContextOrDiscard(ctx)
 	opts := []auto.LocalWorkspaceOption{}
 	opts = append(opts, auto.WorkDir(workDir))
 	w, err := auto.NewLocalWorkspace(ctx, opts...)
@@ -44,13 +61,16 @@ func NewServer(ctx context.Context, workDir string) (*Server, error) {
 		return nil, fmt.Errorf("auto.NewLocalWorkspace: %w", err)
 	}
 
-	_, err = w.ProjectSettings(ctx)
+	proj, err := w.ProjectSettings(ctx)
 	if err != nil {
 		return nil, err
 	}
+	log.Info("serving the Pulumi project", "workspace", workDir,
+		"project", proj.Name, "runtime", proj.Runtime.Name())
 
 	cancelContext, cancelFunc := context.WithCancel(context.Background())
 	server := &Server{
+		log:           log,
 		workspace:     w,
 		cancelContext: cancelContext,
 		cancelFunc:    cancelFunc,
@@ -175,6 +195,7 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 	if err := srv.Send(msg); err != nil {
 		return err
 	}
+	s.log.Info("Preview succeeded!")
 	fmt.Println("Preview succeeded!")
 
 	return nil

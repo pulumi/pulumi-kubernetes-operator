@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,24 +18,39 @@ package cmd
 import (
 	"os"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
+	"github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/log"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
-
+var verbose bool
+var zapLog *zap.Logger
+var Log logr.Logger
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "agent",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "Pulumi Kubernetes Operator Agent",
+	Long: `Provides tooling and a gRPC service for the Pulumi Kubernetes Operator 
+to use to perform stack operations.`,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		var err error
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+		zc := zap.NewDevelopmentConfig()
+		if !verbose {
+			zc.Level.SetLevel(zap.InfoLevel)
+		}
+		zapLog, err = zc.Build()
+		if err != nil {
+			return err
+		}
+		log.Global = zapr.NewLogger(zapLog)
+
+		Log = log.Global.WithName("cmd")
+		return nil
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -48,15 +63,5 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.agent.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
 }
-
-

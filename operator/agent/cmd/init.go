@@ -1,12 +1,22 @@
 /*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
+Copyright © 2024 Pulumi Corporation
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 package cmd
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"os"
 
 	"github.com/fluxcd/pkg/http/fetch"
@@ -36,22 +46,12 @@ For Flux sources:
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
-		// verify that the target directory doesn't exist, for safety and to dictate the file permissions.
-		target, err := os.Stat(TargetDir)
-		if err != nil && !os.IsNotExist(err) {
-			fmt.Fprintln(cmd.ErrOrStderr(), err.Error())
-			os.Exit(1)
-		}
-		if target != nil {
-			fmt.Fprintln(cmd.ErrOrStderr(), "fatal: target directory exists")
-			os.Exit(1)
-		}
-
-		err = os.MkdirAll(TargetDir, 0777)
+		err := os.MkdirAll(TargetDir, 0777)
 		if err != nil {
-			fmt.Fprintln(cmd.ErrOrStderr(), "fatal: unable to create target directory")
+			Log.Error(err, "fatal: unable to make target directory")
 			os.Exit(1)
 		}
+		Log.V(1).Info("target directory created", "dir", TargetDir)
 
 		// fetch the configured flux source
 		if FluxUrl != "" {
@@ -61,29 +61,15 @@ For Flux sources:
 				fetch.WithHostnameOverwrite(os.Getenv("SOURCE_CONTROLLER_LOCALHOST")),
 				fetch.WithUntar())
 
-			fmt.Fprintln(cmd.OutOrStdout(), "Fetching Flux source...")
+			Log.Info("flux source fetching", "url", FluxUrl, "digest", FluxDigest)
 			err := fetcher.FetchWithContext(ctx, FluxUrl, FluxDigest, TargetDir)
 			if err != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "Fetch error: %s\n", err.Error())
-				os.Exit(1)
+				Log.Error(err, "fatal: unable to fetch flux source")
+				os.Exit(2)
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "Source fetched")
+			Log.Info("flux source fetched", "dir", TargetDir)
 		}
 	},
-}
-
-func isEmpty(name string) (bool, error) {
-	f, err := os.Open(name)
-	if err != nil {
-		return false, err
-	}
-	defer f.Close()
-
-	_, err = f.Readdirnames(1) // Or f.Readdir(1)
-	if err == io.EOF {
-		return true, nil
-	}
-	return false, err // Either not empty or error, suits both cases
 }
 
 func init() {

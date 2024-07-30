@@ -1,5 +1,8 @@
 all: protoc agent
 
+ensure:
+	go mod tidy
+	
 protoc:
 	@echo "Generating Go files"
 	cd pkg/proto && protoc --go_out=. --go_opt=paths=source_relative \
