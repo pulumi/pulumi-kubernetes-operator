@@ -19,23 +19,39 @@ import (
 const _ = grpc.SupportPackageIsVersion8
 
 const (
-	AutomationService_WhoAmI_FullMethodName  = "/protobuf.AutomationService/WhoAmI"
-	AutomationService_Info_FullMethodName    = "/protobuf.AutomationService/Info"
-	AutomationService_Preview_FullMethodName = "/protobuf.AutomationService/Preview"
-	AutomationService_Refresh_FullMethodName = "/protobuf.AutomationService/Refresh"
-	AutomationService_Up_FullMethodName      = "/protobuf.AutomationService/Up"
-	AutomationService_Destroy_FullMethodName = "/protobuf.AutomationService/Destroy"
+	AutomationService_WhoAmI_FullMethodName       = "/agent.AutomationService/WhoAmI"
+	AutomationService_Info_FullMethodName         = "/agent.AutomationService/Info"
+	AutomationService_SetAllConfig_FullMethodName = "/agent.AutomationService/SetAllConfig"
+	AutomationService_Preview_FullMethodName      = "/agent.AutomationService/Preview"
+	AutomationService_Refresh_FullMethodName      = "/agent.AutomationService/Refresh"
+	AutomationService_Up_FullMethodName           = "/agent.AutomationService/Up"
+	AutomationService_Destroy_FullMethodName      = "/agent.AutomationService/Destroy"
 )
 
 // AutomationServiceClient is the client API for AutomationService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AutomationServiceClient interface {
+	// *
+	// WhoAmI returns detailed information about the currently logged-in Pulumi identity.
 	WhoAmI(ctx context.Context, in *WhoAmIRequest, opts ...grpc.CallOption) (*WhoAmIResult, error)
+	// *
+	// Info returns information about the given stack.
 	Info(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResult, error)
+	// *
+	// SetAllConfig sets multiple configuration values for a stack.
+	SetAllConfig(ctx context.Context, in *SetAllConfigRequest, opts ...grpc.CallOption) (*SetAllConfigResult, error)
+	// *
+	// Preview performs a dry-run update to a stack, returning the expected changes.
 	Preview(ctx context.Context, in *PreviewRequest, opts ...grpc.CallOption) (AutomationService_PreviewClient, error)
+	// *
+	// Refresh updates the resources in a stack to match the current state of the cloud provider.
 	Refresh(ctx context.Context, in *RefreshRequest, opts ...grpc.CallOption) (AutomationService_RefreshClient, error)
+	// *
+	// Up creates or updates the resources in a stack, returning the actual changes.
 	Up(ctx context.Context, in *UpRequest, opts ...grpc.CallOption) (AutomationService_UpClient, error)
+	// *
+	// Destroy deletes all resources in a stack.
 	Destroy(ctx context.Context, in *DestroyRequest, opts ...grpc.CallOption) (AutomationService_DestroyClient, error)
 }
 
@@ -61,6 +77,16 @@ func (c *automationServiceClient) Info(ctx context.Context, in *InfoRequest, opt
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(InfoResult)
 	err := c.cc.Invoke(ctx, AutomationService_Info_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *automationServiceClient) SetAllConfig(ctx context.Context, in *SetAllConfigRequest, opts ...grpc.CallOption) (*SetAllConfigResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetAllConfigResult)
+	err := c.cc.Invoke(ctx, AutomationService_SetAllConfig_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +143,7 @@ func (c *automationServiceClient) Refresh(ctx context.Context, in *RefreshReques
 }
 
 type AutomationService_RefreshClient interface {
-	Recv() (*RefreshResult, error)
+	Recv() (*RefreshStream, error)
 	grpc.ClientStream
 }
 
@@ -125,8 +151,8 @@ type automationServiceRefreshClient struct {
 	grpc.ClientStream
 }
 
-func (x *automationServiceRefreshClient) Recv() (*RefreshResult, error) {
-	m := new(RefreshResult)
+func (x *automationServiceRefreshClient) Recv() (*RefreshStream, error) {
+	m := new(RefreshStream)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -150,7 +176,7 @@ func (c *automationServiceClient) Up(ctx context.Context, in *UpRequest, opts ..
 }
 
 type AutomationService_UpClient interface {
-	Recv() (*UpResult, error)
+	Recv() (*UpStream, error)
 	grpc.ClientStream
 }
 
@@ -158,8 +184,8 @@ type automationServiceUpClient struct {
 	grpc.ClientStream
 }
 
-func (x *automationServiceUpClient) Recv() (*UpResult, error) {
-	m := new(UpResult)
+func (x *automationServiceUpClient) Recv() (*UpStream, error) {
+	m := new(UpStream)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -183,7 +209,7 @@ func (c *automationServiceClient) Destroy(ctx context.Context, in *DestroyReques
 }
 
 type AutomationService_DestroyClient interface {
-	Recv() (*DestroyResult, error)
+	Recv() (*DestroyStream, error)
 	grpc.ClientStream
 }
 
@@ -191,8 +217,8 @@ type automationServiceDestroyClient struct {
 	grpc.ClientStream
 }
 
-func (x *automationServiceDestroyClient) Recv() (*DestroyResult, error) {
-	m := new(DestroyResult)
+func (x *automationServiceDestroyClient) Recv() (*DestroyStream, error) {
+	m := new(DestroyStream)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -203,11 +229,26 @@ func (x *automationServiceDestroyClient) Recv() (*DestroyResult, error) {
 // All implementations must embed UnimplementedAutomationServiceServer
 // for forward compatibility
 type AutomationServiceServer interface {
+	// *
+	// WhoAmI returns detailed information about the currently logged-in Pulumi identity.
 	WhoAmI(context.Context, *WhoAmIRequest) (*WhoAmIResult, error)
+	// *
+	// Info returns information about the given stack.
 	Info(context.Context, *InfoRequest) (*InfoResult, error)
+	// *
+	// SetAllConfig sets multiple configuration values for a stack.
+	SetAllConfig(context.Context, *SetAllConfigRequest) (*SetAllConfigResult, error)
+	// *
+	// Preview performs a dry-run update to a stack, returning the expected changes.
 	Preview(*PreviewRequest, AutomationService_PreviewServer) error
+	// *
+	// Refresh updates the resources in a stack to match the current state of the cloud provider.
 	Refresh(*RefreshRequest, AutomationService_RefreshServer) error
+	// *
+	// Up creates or updates the resources in a stack, returning the actual changes.
 	Up(*UpRequest, AutomationService_UpServer) error
+	// *
+	// Destroy deletes all resources in a stack.
 	Destroy(*DestroyRequest, AutomationService_DestroyServer) error
 	mustEmbedUnimplementedAutomationServiceServer()
 }
@@ -221,6 +262,9 @@ func (UnimplementedAutomationServiceServer) WhoAmI(context.Context, *WhoAmIReque
 }
 func (UnimplementedAutomationServiceServer) Info(context.Context, *InfoRequest) (*InfoResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Info not implemented")
+}
+func (UnimplementedAutomationServiceServer) SetAllConfig(context.Context, *SetAllConfigRequest) (*SetAllConfigResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAllConfig not implemented")
 }
 func (UnimplementedAutomationServiceServer) Preview(*PreviewRequest, AutomationService_PreviewServer) error {
 	return status.Errorf(codes.Unimplemented, "method Preview not implemented")
@@ -283,6 +327,24 @@ func _AutomationService_Info_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AutomationService_SetAllConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAllConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AutomationServiceServer).SetAllConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AutomationService_SetAllConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AutomationServiceServer).SetAllConfig(ctx, req.(*SetAllConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AutomationService_Preview_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(PreviewRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -313,7 +375,7 @@ func _AutomationService_Refresh_Handler(srv interface{}, stream grpc.ServerStrea
 }
 
 type AutomationService_RefreshServer interface {
-	Send(*RefreshResult) error
+	Send(*RefreshStream) error
 	grpc.ServerStream
 }
 
@@ -321,7 +383,7 @@ type automationServiceRefreshServer struct {
 	grpc.ServerStream
 }
 
-func (x *automationServiceRefreshServer) Send(m *RefreshResult) error {
+func (x *automationServiceRefreshServer) Send(m *RefreshStream) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -334,7 +396,7 @@ func _AutomationService_Up_Handler(srv interface{}, stream grpc.ServerStream) er
 }
 
 type AutomationService_UpServer interface {
-	Send(*UpResult) error
+	Send(*UpStream) error
 	grpc.ServerStream
 }
 
@@ -342,7 +404,7 @@ type automationServiceUpServer struct {
 	grpc.ServerStream
 }
 
-func (x *automationServiceUpServer) Send(m *UpResult) error {
+func (x *automationServiceUpServer) Send(m *UpStream) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -355,7 +417,7 @@ func _AutomationService_Destroy_Handler(srv interface{}, stream grpc.ServerStrea
 }
 
 type AutomationService_DestroyServer interface {
-	Send(*DestroyResult) error
+	Send(*DestroyStream) error
 	grpc.ServerStream
 }
 
@@ -363,7 +425,7 @@ type automationServiceDestroyServer struct {
 	grpc.ServerStream
 }
 
-func (x *automationServiceDestroyServer) Send(m *DestroyResult) error {
+func (x *automationServiceDestroyServer) Send(m *DestroyStream) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -371,7 +433,7 @@ func (x *automationServiceDestroyServer) Send(m *DestroyResult) error {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var AutomationService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "protobuf.AutomationService",
+	ServiceName: "agent.AutomationService",
 	HandlerType: (*AutomationServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -381,6 +443,10 @@ var AutomationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Info",
 			Handler:    _AutomationService_Info_Handler,
+		},
+		{
+			MethodName: "SetAllConfig",
+			Handler:    _AutomationService_SetAllConfig_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

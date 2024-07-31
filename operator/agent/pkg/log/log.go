@@ -15,6 +15,24 @@ limitations under the License.
 */
 package log
 
-import "github.com/go-logr/logr"
+import (
+	"context"
 
-var Global = logr.Discard()
+	"go.uber.org/zap"
+)
+
+type key struct{}
+
+// WithContext returns a new context with the logger added.
+func WithContext(ctx context.Context, logger *zap.Logger) context.Context {
+	return context.WithValue(ctx, key{}, logger)
+}
+
+// FromContext returns the logger in the context if it exists, otherwise a no-op logger is returned.
+func FromContext(ctx context.Context) *zap.Logger {
+	logger := ctx.Value(key{})
+	if l, ok := logger.(*zap.Logger); ok {
+		return l
+	}
+	return zap.NewNop()
+}

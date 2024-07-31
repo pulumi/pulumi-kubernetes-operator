@@ -20,7 +20,10 @@ import (
 	"os"
 
 	"github.com/fluxcd/pkg/http/fetch"
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 const (
@@ -33,6 +36,8 @@ var (
 	FluxDigest string
 )
 
+var Log logr.Logger
+
 // initCmd represents the init command
 var initCmd = &cobra.Command{
 	Use:   "init",
@@ -42,7 +47,9 @@ var initCmd = &cobra.Command{
 For Flux sources:
 	pulumi-kubernetes-agent init --flux-fetch-url URL
 `,
-
+	PreRun: func(cmd *cobra.Command, args []string) {
+		Log = zapr.NewLogger(zap.L()).WithName("init")
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 

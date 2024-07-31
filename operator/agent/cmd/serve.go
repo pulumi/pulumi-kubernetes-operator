@@ -22,9 +22,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/go-logr/logr"
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
-	"github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/log"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	pb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
 	"github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/server"
 	"github.com/spf13/cobra"
@@ -39,90 +38,80 @@ var (
 	Port    int
 )
 
+var rpcLogger *zap.Logger
+
 // serveCmd represents the serve command
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Serve the agent RPC service",
 	Long: `Start the agent gRPC server.
 `,
+	PreRun: func(cmd *cobra.Command, args []string) {
+		rpcLogger = zap.L().Named("rpc")
+		grpc_zap.ReplaceGrpcLoggerV2(rpcLogger)
+	},
 	Run: func(cmd *cobra.Command, args []string) {
+		l := zap.L().Named("serve").Sugar()
 		cancelCtx := signals.SetupSignalHandler()
 
 		// Create the automation service
 		workDir, err := filepath.EvalSymlinks(WorkDir)
 		if err != nil {
-			Log.Error(err, "fatal: unable to resolve the workspace directory")
+			l.Errorw("fatal: unable to resolve the workspace directory", zap.Error(err))
 			os.Exit(1)
 		}
-		Log.V(1).Info("opening the workspace", "workspace", workDir)
-		serverCtx := logr.NewContext(cmd.Context(), log.Global.WithName("server"))
-		autoServer, err := server.NewServer(serverCtx, workDir)
+		autoServer, err := server.NewServer(cancelCtx, workDir)
 		if err != nil {
-			Log.Error(err, "fatal: unable to open the workspace")
+			l.Errorw("fatal: unable to open the workspace", zap.Error(err))
 			os.Exit(1)
 		}
 
-		// Start the grpc server
-		loggerOpts := []logging.Option{
-			logging.WithLogOnEvents(logging.StartCall, logging.PayloadReceived, logging.PayloadSent, logging.FinishCall),
+		// Configure the grpc server.
+		// Apply zap logging and use filters to reduce log verbosity as needed.
+		opts := []grpc_zap.Option{
+			grpc_zap.WithDecider(func(fullMethodName string, err error) bool {
+				return true
+			}),
 		}
-		address := fmt.Sprintf("%s:%d", Host, Port)
-		Log.V(1).Info("starting the RPC server", "address", address)
-		lis, err := net.Listen("tcp", address)
-		if err != nil {
-			Log.Error(err, "fatal: unable to start the RPC server")
-			os.Exit(1)
+		decider := func(ctx context.Context, fullMethodName string, servingObject interface{}) bool {
+			return true
 		}
 		s := grpc.NewServer(
 			grpc.ChainUnaryInterceptor(
-				logging.UnaryServerInterceptor(InterceptorLogger(Log), loggerOpts...),
+				grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
+				grpc_zap.UnaryServerInterceptor(rpcLogger, opts...),
+				grpc_zap.PayloadUnaryServerInterceptor(rpcLogger, decider),
 			),
 			grpc.ChainStreamInterceptor(
-				logging.StreamServerInterceptor(InterceptorLogger(Log), loggerOpts...),
+				grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
+				grpc_zap.StreamServerInterceptor(rpcLogger, opts...),
+				grpc_zap.PayloadStreamServerInterceptor(rpcLogger, decider),
 			),
 		)
-
 		pb.RegisterAutomationServiceServer(s, autoServer)
-		Log.Info("server listening", "address", lis.Addr(), "workspace", workDir)
+
+		// Start the grpc server
+		address := fmt.Sprintf("%s:%d", Host, Port)
+		l.Debugw("starting the RPC server", "address", address)
+		lis, err := net.Listen("tcp", address)
+		if err != nil {
+			l.Errorw("fatal: unable to start the RPC server", zap.Error(err))
+			os.Exit(1)
+		}
+		l.Infow("server listening", "address", lis.Addr(), "workspace", workDir)
 
 		go func() {
 			<-cancelCtx.Done()
-			Log.Info("shutting down the server")
+			l.Infow("shutting down the server")
 			s.GracefulStop()
-			Log.Info("server stopped")
+			l.Infow("server stopped")
 			os.Exit(0)
 		}()
 		if err := s.Serve(lis); err != nil {
-			Log.Error(err, "fatal: server failure")
+			l.Errorw("fatal: server failure", zap.Error(err))
 			os.Exit(1)
 		}
 	},
-}
-
-const (
-	debugVerbosity = int(-zap.DebugLevel)
-	infoVerbosity  = int(-zap.InfoLevel)
-	warnVerbosity  = int(-zap.WarnLevel)
-	errorVerbosity = int(-zap.ErrorLevel)
-)
-
-// InterceptorLogger adapts logr logger to interceptor logger.
-func InterceptorLogger(l logr.Logger) logging.Logger {
-	return logging.LoggerFunc(func(_ context.Context, lvl logging.Level, msg string, fields ...any) {
-		l := l.WithValues(fields...)
-		switch lvl {
-		case logging.LevelDebug:
-			l.V(debugVerbosity).Info(msg)
-		case logging.LevelInfo:
-			l.V(infoVerbosity).Info(msg)
-		case logging.LevelWarn:
-			l.V(warnVerbosity).Info(msg)
-		case logging.LevelError:
-			l.V(errorVerbosity).Info(msg)
-		default:
-			panic(fmt.Sprintf("unknown level %v", lvl))
-		}
-	})
 }
 
 func init() {

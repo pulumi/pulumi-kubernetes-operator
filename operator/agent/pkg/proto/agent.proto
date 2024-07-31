@@ -5,20 +5,50 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto";
 
-package protobuf;
+package agent;
 
 service AutomationService {
+
+  /**
+   * WhoAmI returns detailed information about the currently logged-in Pulumi identity.
+   */
   rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResult) {}
+
+  /**
+   * Info returns information about the given stack.
+   */
   rpc Info(InfoRequest) returns (InfoResult) {}
+
+  /**
+   * SetAllConfig sets multiple configuration values for a stack.
+   */
+   rpc SetAllConfig(SetAllConfigRequest) returns (SetAllConfigResult) {}
+
+  /**
+   * Preview performs a dry-run update to a stack, returning the expected changes.
+   */
   rpc Preview (PreviewRequest) returns (stream PreviewStream) {}
-  rpc Refresh (RefreshRequest) returns (stream RefreshResult) {}
-  rpc Up (UpRequest) returns (stream UpResult) {}
-  rpc Destroy (DestroyRequest) returns (stream DestroyResult) {}
+
+  /**
+   * Refresh updates the resources in a stack to match the current state of the cloud provider.
+   */
+  rpc Refresh (RefreshRequest) returns (stream RefreshStream) {}
+
+  /**
+   * Up creates or updates the resources in a stack, returning the actual changes.
+   */
+  rpc Up (UpRequest) returns (stream UpStream) {}
+  
+  /**
+   * Destroy deletes all resources in a stack.
+   */
+  rpc Destroy (DestroyRequest) returns (stream DestroyStream) {}
 }
 
 message WhoAmIRequest {
 }
 
+// WhoAmIResult contains detailed information about the currently logged-in Pulumi identity.
 message WhoAmIResult {
 	string user = 1;
   repeated string organizations = 2;
@@ -42,8 +72,30 @@ message StackSummary {
   optional string url = 5;
 }
 
+message SetAllConfigRequest {
+  string stack = 1; // The stack to set the configuration for 
+  bool path = 2; // Parse the keys as paths in a map or list rather than raw strings
+  map<string, ConfigValue> config = 3; // a map of ConfigValue used by Pulumi programs
+}
+
+message ConfigValue {
+  google.protobuf.Value value = 1;
+  bool secret = 2;
+}
+
+message SetAllConfigResult {
+}
+
 message RefreshRequest {
-  string stack = 1;
+  string stack = 1; // The stack to refresh
+}
+
+message RefreshStream {
+  oneof response {
+    // describes a Pulumi engine event, such as a change to a resource or diagnostic message.
+    google.protobuf.Struct event = 1;
+    RefreshResult result = 2;
+  }
 }
 
 message RefreshResult {
@@ -77,20 +129,14 @@ message PreviewRequest {
 
 message PolicyPack {
   string name = 1;
-  string configPath = 2;
 }
 
 message PreviewStream {
   oneof response {
-    EngineEvent event = 1;
+    // describes a Pulumi engine event, such as a change to a resource or diagnostic message.
+    google.protobuf.Struct event = 1;
     PreviewResult result = 2;
   }
-}
-
-message EngineEvent {
-  string stdout = 1;
-  google.protobuf.Struct event = 2; // the full properties to use for validation.
-
 }
 
 message PreviewResult {
@@ -102,6 +148,35 @@ message PreviewResult {
 
 message UpRequest {
   string stack = 1;
+  // parallel is the number of resource operations to run in parallel at once
+  // (1 for no parallelism). Defaults to unbounded. (default 2147483647)
+  optional int32 parallel = 2;
+  // message (optional) to associate with the preview operation
+  optional string message = 3;
+  // Return an error if any changes occur during this update
+  optional bool expect_no_changes = 4;
+  // Specify resources to replace
+  repeated string replace = 5;
+  // Specify an exclusive list of resource URNs to update
+  repeated string target = 6;
+  // target_dependents allows updating of dependent targets discovered but not specified in the Target list
+  optional bool target_dependents = 7;
+  // // Use the update plan at the given path.
+  // optional string plan = 8;
+  // Run one or more policy packs as part of this update.
+  repeated PolicyPack policy_pack = 9;
+  // refresh will run a refresh before the update.
+  optional bool refresh = 10;
+  // continue_on_error will continue to perform the update operation despite the occurrence of errors.
+  optional bool continue_on_error = 11;
+}
+
+message UpStream {
+  oneof response {
+    // describes a Pulumi engine event, such as a change to a resource or diagnostic message.
+    google.protobuf.Struct event = 1;
+    UpResult result = 2;
+  }
 }
 
 message UpResult {
@@ -120,6 +195,14 @@ message UpdateSummary {
 
 message DestroyRequest {
   string stack = 1;
+}
+
+message DestroyStream {
+  oneof response {
+    // describes a Pulumi engine event, such as a change to a resource or diagnostic message.
+    google.protobuf.Struct event = 1;
+    DestroyResult result = 2;
+  }
 }
 
 message DestroyResult {

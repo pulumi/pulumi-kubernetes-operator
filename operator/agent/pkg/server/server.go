@@ -19,11 +19,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/go-logr/logr"
 	pb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapio"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/utils/ptr"
@@ -34,6 +35,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optpreview"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optrefresh"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 )
 
 const (
@@ -53,7 +55,8 @@ type Server struct {
 var _ = pb.AutomationServiceServer(&Server{})
 
 func NewServer(ctx context.Context, workDir string) (*Server, error) {
-	log := logr.FromContextOrDiscard(ctx)
+	l := zap.L().Named("auto").Sugar()
+
 	opts := []auto.LocalWorkspaceOption{}
 	opts = append(opts, auto.WorkDir(workDir))
 	w, err := auto.NewLocalWorkspace(ctx, opts...)
@@ -65,12 +68,11 @@ func NewServer(ctx context.Context, workDir string) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Info("serving the Pulumi project", "workspace", workDir,
+	l.Infow("opened a local workspace", "workspace", workDir,
 		"project", proj.Name, "runtime", proj.Runtime.Name())
 
 	cancelContext, cancelFunc := context.WithCancel(context.Background())
 	server := &Server{
-		log:           log,
 		workspace:     w,
 		cancelContext: cancelContext,
 		cancelFunc:    cancelFunc,
@@ -123,13 +125,11 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 		return fmt.Errorf("failed to select stack: %w", err)
 	}
 
+	// determine the options to pass to the preview operation
 	opts := []optpreview.Option{
 		optpreview.UserAgent(UserAgent),
-		optpreview.ProgressStreams(os.Stdout),
-		optpreview.ErrorProgressStreams(os.Stderr),
 		optpreview.Diff(), /* richer result? */
 	}
-
 	if in.Parallel != nil {
 		opts = append(opts, optpreview.Parallel(int(*in.Parallel)))
 	}
@@ -153,31 +153,42 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 		opts = append(opts, optpreview.Message(*in.Message))
 	}
 
-	// event streaming
-	prevCh := make(chan events.EngineEvent)
-	opts = append(opts, optpreview.EventStreams(prevCh))
+	// wire up the logging
+	plog := zap.L().Named("pulumi")
+	stdout := &zapio.Writer{Log: plog, Level: zap.InfoLevel}
+	defer stdout.Close()
+	opts = append(opts, optpreview.ProgressStreams(stdout))
+	stderr := &zapio.Writer{Log: plog, Level: zap.WarnLevel}
+	defer stderr.Close()
+	opts = append(opts, optpreview.ErrorProgressStreams(stderr))
+
+	// stream the engine events to the client
+	events := make(chan events.EngineEvent)
+	opts = append(opts, optpreview.EventStreams(events))
 	go func() {
-		for evt := range prevCh {
-			m := make(map[string]any)
-			j, _ := json.Marshal(evt.EngineEvent)
-			_ = json.Unmarshal(j, &m)
-			data, err := structpb.NewStruct(m)
+		for evt := range events {
+			data, err := marshalEngineEvent(evt.EngineEvent)
 			if err != nil {
-				panic(fmt.Errorf("failed to marshal event: %w", err))
+				s.log.Error(err, "failed to marshal an engine event", "sequence", evt.Sequence)
+				continue
 			}
-			msg := &pb.PreviewStream{Response: &pb.PreviewStream_Event{Event: &pb.EngineEvent{Event: data}}}
+			msg := &pb.PreviewStream{Response: &pb.PreviewStream_Event{Event: data}}
 			if err := srv.Send(msg); err != nil {
-				panic(err)
+				s.log.Error(err, "failed to send an engine event", "sequence", evt.Sequence)
+				continue
 			}
 		}
 	}()
 
-	fmt.Println("Starting preview")
 	res, err := stack.Preview(ctx, opts...)
 	if err != nil {
-		fmt.Printf("Failed to refresh stack: %v\n", err)
+		s.log.Error(err, "preview completed with an error")
 		return err
 	}
+	stdout.Close()
+	stderr.Close()
+	s.log.Info("preview completed", "summary", res.ChangeSummary)
+
 	resp := &pb.PreviewResult{
 		Stdout: res.StdOut,
 		Stderr: res.StdErr,
@@ -193,11 +204,9 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 
 	msg := &pb.PreviewStream{Response: &pb.PreviewStream_Result{Result: resp}}
 	if err := srv.Send(msg); err != nil {
+		s.log.Error(err, "unable to send the preview result")
 		return err
 	}
-	s.log.Info("Preview succeeded!")
-	fmt.Println("Preview succeeded!")
-
 	return nil
 }
 
@@ -233,10 +242,11 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 		resp.Permalink = ptr.To(permalink)
 	}
 
-	if err := srv.Send(resp); err != nil {
+	msg := &pb.RefreshStream{Response: &pb.RefreshStream_Result{Result: resp}}
+	if err := srv.Send(msg); err != nil {
+		s.log.Error(err, "unable to send the refresh result")
 		return err
 	}
-	fmt.Println("Refresh succeeded!")
 
 	return nil
 }
@@ -249,17 +259,75 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 		return fmt.Errorf("failed to select stack: %w", err)
 	}
 
-	fmt.Println("Starting update")
+	// determine the options to pass to the preview operation
+	opts := []optup.Option{
+		optup.UserAgent(UserAgent),
+		optup.SuppressProgress(),
+		optup.Diff(), /* richer result? */
+	}
+	if in.Parallel != nil {
+		opts = append(opts, optup.Parallel(int(*in.Parallel)))
+	}
+	if in.Message != nil {
+		opts = append(opts, optup.Message(*in.Message))
+	}
+	if in.GetExpectNoChanges() {
+		opts = append(opts, optup.ExpectNoChanges())
+	}
+	if in.Replace != nil {
+		opts = append(opts, optup.Replace(in.Replace))
+	}
+	if in.Target != nil {
+		opts = append(opts, optup.Target(in.Target))
+	}
+	if in.GetTargetDependents() {
+		opts = append(opts, optup.TargetDependents())
+	}
+	// TODO:PolicyPack
+	if in.GetRefresh() {
+		opts = append(opts, optup.Refresh())
+	}
+	if in.GetContinueOnError() {
+		opts = append(opts, optup.ContinueOnError())
+	}
 
-	// wire up our update to stream progress to stdout
-	stdoutStreamer := optup.ProgressStreams(os.Stdout)
+	// wire up the logging
+	plog := zap.L().Named("pulumi")
+	stdout := &zapio.Writer{Log: plog, Level: zap.InfoLevel}
+	defer stdout.Close()
+	stderr := &zapio.Writer{Log: plog, Level: zap.WarnLevel}
+	defer stderr.Close()
+	opts = append(opts, optup.ProgressStreams(stdout))
+	opts = append(opts, optup.ErrorProgressStreams(stderr))
+
+	// stream the engine events to the client
+	events := make(chan events.EngineEvent)
+	opts = append(opts, optup.EventStreams(events))
+	go func() {
+		for evt := range events {
+			data, err := marshalEngineEvent(evt.EngineEvent)
+			if err != nil {
+				s.log.Error(err, "failed to marshal an engine event", "sequence", evt.Sequence)
+				continue
+			}
+			msg := &pb.UpStream{Response: &pb.UpStream_Event{Event: data}}
+			if err := srv.Send(msg); err != nil {
+				s.log.Error(err, "failed to send an engine event", "sequence", evt.Sequence)
+				continue
+			}
+		}
+	}()
 
 	// run the update to deploy our program
-	res, err := stack.Up(ctx, stdoutStreamer, optup.UserAgent(UserAgent))
+	res, err := stack.Up(ctx, opts...)
 	if err != nil {
-		fmt.Printf("Failed to update stack: %v\n\n", err)
+		s.log.Error(err, "up completed with an error")
 		return err
 	}
+	stdout.Close()
+	stderr.Close()
+	s.log.Info("up completed", "summary", res.Summary)
+
 	resp := &pb.UpResult{
 		Stdout: res.StdOut,
 		Stderr: res.StdErr,
@@ -278,15 +346,16 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 		resp.Permalink = ptr.To(permalink)
 	}
 
-	if err := srv.Send(resp); err != nil {
+	msg := &pb.UpStream{Response: &pb.UpStream_Result{Result: resp}}
+	if err := srv.Send(msg); err != nil {
+		s.log.Error(err, "unable to send the up result")
 		return err
 	}
-	fmt.Println("Update succeeded!")
 
 	return nil
 }
 
-// Up implements proto.AutomationServiceServer.
+// Destroy implements proto.AutomationServiceServer.
 func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_DestroyServer) error {
 	ctx := srv.Context()
 	stack, err := auto.UpsertStack(ctx, in.Stack, s.workspace)
@@ -320,11 +389,11 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 		resp.Permalink = ptr.To(permalink)
 	}
 
-	if err := srv.Send(resp); err != nil {
+	msg := &pb.DestroyStream{Response: &pb.DestroyStream_Result{Result: resp}}
+	if err := srv.Send(msg); err != nil {
+		s.log.Error(err, "unable to send the destroy result")
 		return err
 	}
-	fmt.Println("Destroy succeeded!")
-
 	return nil
 }
 
@@ -337,6 +406,17 @@ func parseTime(s *string) *timestamppb.Timestamp {
 		return nil
 	}
 	return timestamppb.New(t)
+}
+
+func marshalEngineEvent(evt apitype.EngineEvent) (*structpb.Struct, error) {
+	m := make(map[string]any)
+	j, _ := json.Marshal(evt)
+	_ = json.Unmarshal(j, &m)
+	data, err := structpb.NewStruct(m)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 func mergeContext(a, b context.Context) (context.Context, context.CancelFunc) {

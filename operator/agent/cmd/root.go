@@ -18,16 +18,13 @@ package cmd
 import (
 	"os"
 
-	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
-	"github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/log"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
 
 var verbose bool
-var zapLog *zap.Logger
-var Log logr.Logger
+
+// var zapLog *zap.Logger
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -39,17 +36,19 @@ to use to perform stack operations.`,
 		var err error
 
 		zc := zap.NewDevelopmentConfig()
+		zc.DisableCaller = true
 		if !verbose {
 			zc.Level.SetLevel(zap.InfoLevel)
 		}
-		zapLog, err = zc.Build()
+		zapLog, err := zc.Build()
 		if err != nil {
 			return err
 		}
-		log.Global = zapr.NewLogger(zapLog)
-
-		Log = log.Global.WithName("cmd")
+		zap.ReplaceGlobals(zapLog)
 		return nil
+	},
+	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		return zap.L().Sync()
 	},
 }
 
