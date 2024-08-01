@@ -38,12 +38,12 @@ import (
 )
 
 const (
-	UserAgent   = "pulumi-kubernetes-operator"
-	FluxRetries = 3
+	UserAgent = "pulumi-kubernetes-operator"
 )
 
 type Server struct {
 	log           *zap.SugaredLogger
+	plog          *zap.Logger
 	cancelContext context.Context
 	cancelFunc    context.CancelFunc
 	workspace     auto.Workspace
@@ -53,33 +53,27 @@ type Server struct {
 
 var _ = pb.AutomationServiceServer(&Server{})
 
-func NewServer(ctx context.Context, workDir string) (*Server, error) {
-	l := zap.L().Named("server").Sugar()
+// NewServer creates a new automation server for the given workspace.
+func NewServer(ctx context.Context, workspace auto.Workspace) *Server {
+	// create loggers for the server methods and for capturing pulumi logs
+	log := zap.L().Named("auto.server").Sugar()
+	plog := zap.L().Named("pulumi")
 
-	opts := []auto.LocalWorkspaceOption{}
-	opts = append(opts, auto.WorkDir(workDir))
-	w, err := auto.NewLocalWorkspace(ctx, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("auto.NewLocalWorkspace: %w", err)
-	}
+	//  create a context for sending SIGINT to any outstanding Pulumi operations
+	cancelContext, cancelFunc := context.WithCancel(ctx)
 
-	proj, err := w.ProjectSettings(ctx)
-	if err != nil {
-		return nil, err
-	}
-	l.Infow("workspace opened", "workspace", workDir,
-		"project", proj.Name, "runtime", proj.Runtime.Name())
-
-	cancelContext, cancelFunc := context.WithCancel(context.Background())
 	server := &Server{
-		log:           l,
-		workspace:     w,
+		log:           log,
+		plog:          plog,
+		workspace:     workspace,
 		cancelContext: cancelContext,
 		cancelFunc:    cancelFunc,
 	}
-	return server, nil
+	return server
 }
 
+// Cancel cancels outstanding operations by sending a SIGINT to Pulumi.
+// This call is advisory and non-blocking.
 func (s *Server) Cancel() {
 	s.cancelFunc()
 }
@@ -114,6 +108,30 @@ func (s *Server) Info(ctx context.Context, in *pb.InfoRequest) (*pb.InfoResult, 
 			LastUpdate: parseTime(&info.LastUpdate),
 		},
 	}
+	return resp, nil
+}
+
+func (s *Server) Install(ctx context.Context, in *pb.InstallRequest) (*pb.InstallResult, error) {
+
+	// blocked: https://github.com/pulumi/pulumi/pull/16782
+
+	stdout := &zapio.Writer{Log: s.plog, Level: zap.InfoLevel}
+	defer stdout.Close()
+	stderr := &zapio.Writer{Log: s.plog, Level: zap.WarnLevel}
+	defer stderr.Close()
+	opts := &auto.InstallOptions{
+		Stdout: stdout,
+		Stderr: stderr,
+	}
+
+	s.log.Infow("installing the project dependencies")
+	if err := s.workspace.Install(ctx, opts); err != nil {
+		s.log.Errorw("install completed with an error", zap.Error(err))
+		return nil, err
+	}
+	s.log.Infow("installation completed")
+
+	resp := &pb.InstallResult{}
 	return resp, nil
 }
 
@@ -154,11 +172,10 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 	}
 
 	// wire up the logging
-	plog := zap.L().Named("pulumi")
-	stdout := &zapio.Writer{Log: plog, Level: zap.InfoLevel}
+	stdout := &zapio.Writer{Log: s.plog, Level: zap.InfoLevel}
 	defer stdout.Close()
 	opts = append(opts, optpreview.ProgressStreams(stdout))
-	stderr := &zapio.Writer{Log: plog, Level: zap.WarnLevel}
+	stderr := &zapio.Writer{Log: s.plog, Level: zap.WarnLevel}
 	defer stderr.Close()
 	opts = append(opts, optpreview.ErrorProgressStreams(stderr))
 
@@ -292,10 +309,9 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 	}
 
 	// wire up the logging
-	plog := zap.L().Named("pulumi")
-	stdout := &zapio.Writer{Log: plog, Level: zap.InfoLevel}
+	stdout := &zapio.Writer{Log: s.plog, Level: zap.InfoLevel}
 	defer stdout.Close()
-	stderr := &zapio.Writer{Log: plog, Level: zap.WarnLevel}
+	stderr := &zapio.Writer{Log: s.plog, Level: zap.WarnLevel}
 	defer stderr.Close()
 	opts = append(opts, optup.ProgressStreams(stdout))
 	opts = append(opts, optup.ErrorProgressStreams(stderr))

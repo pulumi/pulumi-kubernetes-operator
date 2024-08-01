@@ -22,7 +22,12 @@ service AutomationService {
   /**
    * SetAllConfig sets multiple configuration values for a stack.
    */
-   rpc SetAllConfig(SetAllConfigRequest) returns (SetAllConfigResult) {}
+  rpc SetAllConfig(SetAllConfigRequest) returns (SetAllConfigResult) {}
+
+     /**
+   * Install installs the Pulumi plugins and dependencies.
+   */
+  rpc Install(InstallRequest) returns (InstallResult) {}
 
   /**
    * Preview performs a dry-run update to a stack, returning the expected changes.
@@ -84,6 +89,12 @@ message ConfigValue {
 }
 
 message SetAllConfigResult {
+}
+
+message InstallRequest {
+}
+
+message InstallResult {
 }
 
 message RefreshRequest {

@@ -22,6 +22,7 @@ const (
 	AutomationService_WhoAmI_FullMethodName       = "/agent.AutomationService/WhoAmI"
 	AutomationService_Info_FullMethodName         = "/agent.AutomationService/Info"
 	AutomationService_SetAllConfig_FullMethodName = "/agent.AutomationService/SetAllConfig"
+	AutomationService_Install_FullMethodName      = "/agent.AutomationService/Install"
 	AutomationService_Preview_FullMethodName      = "/agent.AutomationService/Preview"
 	AutomationService_Refresh_FullMethodName      = "/agent.AutomationService/Refresh"
 	AutomationService_Up_FullMethodName           = "/agent.AutomationService/Up"
@@ -41,6 +42,9 @@ type AutomationServiceClient interface {
 	// *
 	// SetAllConfig sets multiple configuration values for a stack.
 	SetAllConfig(ctx context.Context, in *SetAllConfigRequest, opts ...grpc.CallOption) (*SetAllConfigResult, error)
+	// *
+	// Install installs the Pulumi plugins and dependencies.
+	Install(ctx context.Context, in *InstallRequest, opts ...grpc.CallOption) (*InstallResult, error)
 	// *
 	// Preview performs a dry-run update to a stack, returning the expected changes.
 	Preview(ctx context.Context, in *PreviewRequest, opts ...grpc.CallOption) (AutomationService_PreviewClient, error)
@@ -87,6 +91,16 @@ func (c *automationServiceClient) SetAllConfig(ctx context.Context, in *SetAllCo
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SetAllConfigResult)
 	err := c.cc.Invoke(ctx, AutomationService_SetAllConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *automationServiceClient) Install(ctx context.Context, in *InstallRequest, opts ...grpc.CallOption) (*InstallResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InstallResult)
+	err := c.cc.Invoke(ctx, AutomationService_Install_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -239,6 +253,9 @@ type AutomationServiceServer interface {
 	// SetAllConfig sets multiple configuration values for a stack.
 	SetAllConfig(context.Context, *SetAllConfigRequest) (*SetAllConfigResult, error)
 	// *
+	// Install installs the Pulumi plugins and dependencies.
+	Install(context.Context, *InstallRequest) (*InstallResult, error)
+	// *
 	// Preview performs a dry-run update to a stack, returning the expected changes.
 	Preview(*PreviewRequest, AutomationService_PreviewServer) error
 	// *
@@ -265,6 +282,9 @@ func (UnimplementedAutomationServiceServer) Info(context.Context, *InfoRequest) 
 }
 func (UnimplementedAutomationServiceServer) SetAllConfig(context.Context, *SetAllConfigRequest) (*SetAllConfigResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetAllConfig not implemented")
+}
+func (UnimplementedAutomationServiceServer) Install(context.Context, *InstallRequest) (*InstallResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Install not implemented")
 }
 func (UnimplementedAutomationServiceServer) Preview(*PreviewRequest, AutomationService_PreviewServer) error {
 	return status.Errorf(codes.Unimplemented, "method Preview not implemented")
@@ -341,6 +361,24 @@ func _AutomationService_SetAllConfig_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AutomationServiceServer).SetAllConfig(ctx, req.(*SetAllConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AutomationService_Install_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InstallRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AutomationServiceServer).Install(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AutomationService_Install_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AutomationServiceServer).Install(ctx, req.(*InstallRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -447,6 +485,10 @@ var AutomationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetAllConfig",
 			Handler:    _AutomationService_SetAllConfig_Handler,
+		},
+		{
+			MethodName: "Install",
+			Handler:    _AutomationService_Install_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
