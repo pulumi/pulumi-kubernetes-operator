@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
 	pb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
@@ -44,7 +43,7 @@ const (
 )
 
 type Server struct {
-	log           logr.Logger
+	log           *zap.SugaredLogger
 	cancelContext context.Context
 	cancelFunc    context.CancelFunc
 	workspace     auto.Workspace
@@ -55,7 +54,7 @@ type Server struct {
 var _ = pb.AutomationServiceServer(&Server{})
 
 func NewServer(ctx context.Context, workDir string) (*Server, error) {
-	l := zap.L().Named("auto").Sugar()
+	l := zap.L().Named("server").Sugar()
 
 	opts := []auto.LocalWorkspaceOption{}
 	opts = append(opts, auto.WorkDir(workDir))
@@ -68,11 +67,12 @@ func NewServer(ctx context.Context, workDir string) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	l.Infow("opened a local workspace", "workspace", workDir,
+	l.Infow("workspace opened", "workspace", workDir,
 		"project", proj.Name, "runtime", proj.Runtime.Name())
 
 	cancelContext, cancelFunc := context.WithCancel(context.Background())
 	server := &Server{
+		log:           l,
 		workspace:     w,
 		cancelContext: cancelContext,
 		cancelFunc:    cancelFunc,
@@ -169,12 +169,12 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 		for evt := range events {
 			data, err := marshalEngineEvent(evt.EngineEvent)
 			if err != nil {
-				s.log.Error(err, "failed to marshal an engine event", "sequence", evt.Sequence)
+				s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
 				continue
 			}
 			msg := &pb.PreviewStream{Response: &pb.PreviewStream_Event{Event: data}}
 			if err := srv.Send(msg); err != nil {
-				s.log.Error(err, "failed to send an engine event", "sequence", evt.Sequence)
+				s.log.Errorw("failed to send an engine event", "sequence", evt.Sequence, zap.Error(err))
 				continue
 			}
 		}
@@ -182,12 +182,12 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 
 	res, err := stack.Preview(ctx, opts...)
 	if err != nil {
-		s.log.Error(err, "preview completed with an error")
+		s.log.Errorw("preview completed with an error", zap.Error(err))
 		return err
 	}
 	stdout.Close()
 	stderr.Close()
-	s.log.Info("preview completed", "summary", res.ChangeSummary)
+	s.log.Infow("preview completed", "summary", res.ChangeSummary)
 
 	resp := &pb.PreviewResult{
 		Stdout: res.StdOut,
@@ -204,7 +204,7 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 
 	msg := &pb.PreviewStream{Response: &pb.PreviewStream_Result{Result: resp}}
 	if err := srv.Send(msg); err != nil {
-		s.log.Error(err, "unable to send the preview result")
+		s.log.Errorw("unable to send the preview result", zap.Error(err))
 		return err
 	}
 	return nil
@@ -244,7 +244,7 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 
 	msg := &pb.RefreshStream{Response: &pb.RefreshStream_Result{Result: resp}}
 	if err := srv.Send(msg); err != nil {
-		s.log.Error(err, "unable to send the refresh result")
+		s.log.Errorw("unable to send the refresh result", zap.Error(err))
 		return err
 	}
 
@@ -307,12 +307,12 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 		for evt := range events {
 			data, err := marshalEngineEvent(evt.EngineEvent)
 			if err != nil {
-				s.log.Error(err, "failed to marshal an engine event", "sequence", evt.Sequence)
+				s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
 				continue
 			}
 			msg := &pb.UpStream{Response: &pb.UpStream_Event{Event: data}}
 			if err := srv.Send(msg); err != nil {
-				s.log.Error(err, "failed to send an engine event", "sequence", evt.Sequence)
+				s.log.Errorw("failed to send an engine event", "sequence", evt.Sequence, zap.Error(err))
 				continue
 			}
 		}
@@ -321,12 +321,13 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 	// run the update to deploy our program
 	res, err := stack.Up(ctx, opts...)
 	if err != nil {
-		s.log.Error(err, "up completed with an error")
+		s.log.Errorw("up completed with an error", zap.Error(err))
 		return err
 	}
 	stdout.Close()
 	stderr.Close()
-	s.log.Info("up completed", "summary", res.Summary)
+
+	s.log.Infow("up completed", "summary", res.Summary)
 
 	resp := &pb.UpResult{
 		Stdout: res.StdOut,
@@ -348,7 +349,7 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 
 	msg := &pb.UpStream{Response: &pb.UpStream_Result{Result: resp}}
 	if err := srv.Send(msg); err != nil {
-		s.log.Error(err, "unable to send the up result")
+		s.log.Errorw("unable to send the up result", zap.Error(err))
 		return err
 	}
 
@@ -391,7 +392,7 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 
 	msg := &pb.DestroyStream{Response: &pb.DestroyStream_Result{Result: resp}}
 	if err := srv.Send(msg); err != nil {
-		s.log.Error(err, "unable to send the destroy result")
+		s.log.Errorw("unable to send the destroy result", zap.Error(err))
 		return err
 	}
 	return nil

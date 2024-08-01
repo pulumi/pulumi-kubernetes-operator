@@ -16,12 +16,9 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
 	"os"
 
 	"github.com/fluxcd/pkg/http/fetch"
-	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -36,8 +33,6 @@ var (
 	FluxDigest string
 )
 
-var Log logr.Logger
-
 // initCmd represents the init command
 var initCmd = &cobra.Command{
 	Use:   "init",
@@ -47,18 +42,16 @@ var initCmd = &cobra.Command{
 For Flux sources:
 	pulumi-kubernetes-agent init --flux-fetch-url URL
 `,
-	PreRun: func(cmd *cobra.Command, args []string) {
-		Log = zapr.NewLogger(zap.L()).WithName("init")
-	},
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
+		ctx := cmd.Context()
+		log.Debugw("executing init command", "TargetDir", TargetDir)
 
 		err := os.MkdirAll(TargetDir, 0777)
 		if err != nil {
-			Log.Error(err, "fatal: unable to make target directory")
+			log.Errorw("fatal: unable to make target directory", zap.Error(err))
 			os.Exit(1)
 		}
-		Log.V(1).Info("target directory created", "dir", TargetDir)
+		log.Debugw("target directory created", "dir", TargetDir)
 
 		// fetch the configured flux source
 		if FluxUrl != "" {
@@ -68,13 +61,13 @@ For Flux sources:
 				fetch.WithHostnameOverwrite(os.Getenv("SOURCE_CONTROLLER_LOCALHOST")),
 				fetch.WithUntar())
 
-			Log.Info("flux source fetching", "url", FluxUrl, "digest", FluxDigest)
+			log.Infow("flux source fetching", "url", FluxUrl, "digest", FluxDigest)
 			err := fetcher.FetchWithContext(ctx, FluxUrl, FluxDigest, TargetDir)
 			if err != nil {
-				Log.Error(err, "fatal: unable to fetch flux source")
+				log.Errorw("fatal: unable to fetch flux source", zap.Error(err))
 				os.Exit(2)
 			}
-			Log.Info("flux source fetched", "dir", TargetDir)
+			log.Infow("flux source fetched", "dir", TargetDir)
 		}
 	},
 }

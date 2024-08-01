@@ -51,18 +51,18 @@ var serveCmd = &cobra.Command{
 		grpc_zap.ReplaceGrpcLoggerV2(rpcLogger)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		l := zap.L().Named("serve").Sugar()
-		cancelCtx := signals.SetupSignalHandler()
+		log.Debugw("executing serve command", "TargetDir", TargetDir)
 
 		// Create the automation service
 		workDir, err := filepath.EvalSymlinks(WorkDir)
 		if err != nil {
-			l.Errorw("fatal: unable to resolve the workspace directory", zap.Error(err))
+			log.Errorw("fatal: unable to resolve the workspace directory", zap.Error(err))
 			os.Exit(1)
 		}
+		cancelCtx := signals.SetupSignalHandler()
 		autoServer, err := server.NewServer(cancelCtx, workDir)
 		if err != nil {
-			l.Errorw("fatal: unable to open the workspace", zap.Error(err))
+			log.Errorw("fatal: unable to open the workspace", zap.Error(err))
 			os.Exit(1)
 		}
 
@@ -92,23 +92,23 @@ var serveCmd = &cobra.Command{
 
 		// Start the grpc server
 		address := fmt.Sprintf("%s:%d", Host, Port)
-		l.Debugw("starting the RPC server", "address", address)
+		log.Debugw("starting the RPC server", "address", address)
 		lis, err := net.Listen("tcp", address)
 		if err != nil {
-			l.Errorw("fatal: unable to start the RPC server", zap.Error(err))
+			log.Errorw("fatal: unable to start the RPC server", zap.Error(err))
 			os.Exit(1)
 		}
-		l.Infow("server listening", "address", lis.Addr(), "workspace", workDir)
+		log.Infow("server listening", "address", lis.Addr(), "workspace", workDir)
 
 		go func() {
 			<-cancelCtx.Done()
-			l.Infow("shutting down the server")
+			log.Infow("shutting down the server")
 			s.GracefulStop()
-			l.Infow("server stopped")
+			log.Infow("server stopped")
 			os.Exit(0)
 		}()
 		if err := s.Serve(lis); err != nil {
-			l.Errorw("fatal: server failure", zap.Error(err))
+			log.Errorw("fatal: server failure", zap.Error(err))
 			os.Exit(1)
 		}
 	},

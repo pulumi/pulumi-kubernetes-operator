@@ -24,7 +24,8 @@ import (
 
 var verbose bool
 
-// var zapLog *zap.Logger
+// a command-specific logger
+var log *zap.SugaredLogger
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -35,6 +36,7 @@ to use to perform stack operations.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
 
+		// initialize the global logger
 		zc := zap.NewDevelopmentConfig()
 		zc.DisableCaller = true
 		if !verbose {
@@ -45,6 +47,9 @@ to use to perform stack operations.`,
 			return err
 		}
 		zap.ReplaceGlobals(zapLog)
+
+		// initialize a command-specific logger
+		log = zap.L().Named("cmd").Named(cmd.Name()).Sugar()
 		return nil
 	},
 	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
