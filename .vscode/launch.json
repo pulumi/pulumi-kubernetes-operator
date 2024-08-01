@@ -38,7 +38,19 @@
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "operator/agent/cmd"
+			"program": "operator/agent",
+			"args": [
+				"serve",
+				"-v",
+				"--workspace=${input:workdir}"
+			]
+		}
+	],
+	"inputs": [
+		{
+			"id": "workdir",
+			"description": "Please provide the Pulumi program directory",
+			"type": "promptString"
 		}
 	]
 }

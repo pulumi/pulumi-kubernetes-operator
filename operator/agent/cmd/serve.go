@@ -51,7 +51,7 @@ var serveCmd = &cobra.Command{
 		grpc_zap.ReplaceGrpcLoggerV2(rpcLogger)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Debugw("executing serve command", "TargetDir", TargetDir)
+		log.Debugw("executing serve command", "WorkDir", WorkDir)
 
 		// Create the automation service
 		workDir, err := filepath.EvalSymlinks(WorkDir)
