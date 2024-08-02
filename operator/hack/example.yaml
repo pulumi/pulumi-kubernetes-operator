@@ -1,0 +1,62 @@
+
+## End-to-end example using Flux, a git repository, a Pulumi workspace, and an update.
+## Prerequisites:
+## 1. Install Flux: brew install fluxcd/tap/flux && flux install
+## 2. Install PKO: make docker-build deploy
+## 3. Create a Pulumi access token: kubectl create secret generic pulumi-api-secret --from-literal=accessToken=$PULUMI_ACCESS_TOKEN
+
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: pulumi-examples
+spec:
+  interval: 5m0s
+  ref:
+    branch: master
+  timeout: 60s
+  url: https://github.com/pulumi/examples.git
+---
+kind: Workspace
+apiversion: auto.pulumi.com/v1alpha1
+metadata:
+  name: random-yaml
+spec:
+  env:
+  - name: PULUMI_ACCESS_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: pulumi-api-secret
+        key: accessToken
+  flux:
+    sourceRef:
+      apiVersion: source.toolkit.fluxcd.io/v1
+      kind: GitRepository
+      name: pulumi-examples
+    dir: random-yaml
+
+  # git:
+  #   url: https://github.com/pulumi/examples.git
+  #   projectPath: random-yaml
+
+  # backend:
+  #   pulumi:
+  #     cloudUrl: https://api.pulumi.com
+  #     stackName: dev
+  #     orgName: my-org
+  # volumes:
+  # - name: my-config
+  #   configMap:
+  #     name: my-config
+  # - name: token
+  #   projected:
+  #     oidc:
+  #       audience: api.pulumi.com
+---
+kind: Update
+apiversion: auto.pulumi.com/v1alpha1
+metadata:
+  name: random-yaml-update-1
+spec:
+  workspaceName: random-yaml
+  stackName: dev
+

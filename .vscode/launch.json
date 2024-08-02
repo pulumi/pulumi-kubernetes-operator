@@ -18,6 +18,43 @@
 			"args": [
 				"--zap-level=debug"
 			]
+		},
+		{
+			"name": "Operator (v2)",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "operator/cmd",
+			"args": [
+				"--zap-encoder=console",
+				"--zap-log-level=debug"
+			],
+			"env": {
+				"WORKSPACE_LOCALHOST": "localhost:50051",
+			},
+		},
+		{
+			"name": "Agent (v2)",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "operator/agent",
+			"args": [
+				"serve",
+				"-v",
+				"--workspace=${input:workdir}",
+				"-s=dev"
+			],
+			"env": {
+				"AWS_REGION": "us-west-1",
+			}
+		}
+	],
+	"inputs": [
+		{
+			"id": "workdir",
+			"description": "Please provide the Pulumi program directory",
+			"type": "promptString"
 		}
 	]
 }
