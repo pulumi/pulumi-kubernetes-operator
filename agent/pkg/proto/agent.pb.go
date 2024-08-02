@@ -60,7 +60,8 @@ func (*WhoAmIRequest) Descriptor() ([]byte, []int) {
 	return file_agent_proto_rawDescGZIP(), []int{0}
 }
 
-// WhoAmIResult contains detailed information about the currently logged-in Pulumi identity.
+// WhoAmIResult contains detailed information about the currently logged-in
+// Pulumi identity.
 type WhoAmIResult struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -884,7 +885,8 @@ type isRefreshStream_Response interface {
 }
 
 type RefreshStream_Event struct {
-	// describes a Pulumi engine event, such as a change to a resource or diagnostic message.
+	// describes a Pulumi engine event, such as a change to a resource or
+	// diagnostic message.
 	Event *structpb.Struct `protobuf:"bytes,1,opt,name=event,proto3,oneof"`
 }
 
@@ -983,7 +985,8 @@ type PreviewRequest struct {
 	Replace []string `protobuf:"bytes,4,rep,name=replace,proto3" json:"replace,omitempty"`
 	// Specify an exclusive list of resource URNs to update
 	Target []string `protobuf:"bytes,5,rep,name=target,proto3" json:"target,omitempty"`
-	// Allows updating of dependent targets discovered but not specified in the Target list
+	// Allows updating of dependent targets discovered but not specified in the
+	// Target list
 	TargetDependents *bool `protobuf:"varint,6,opt,name=target_dependents,json=targetDependents,proto3,oneof" json:"target_dependents,omitempty"`
 	// Run one or more policy packs as part of this update
 	PolicyPack []*PolicyPack `protobuf:"bytes,7,rep,name=policy_pack,json=policyPack,proto3" json:"policy_pack,omitempty"`
@@ -1196,7 +1199,8 @@ type isPreviewStream_Response interface {
 }
 
 type PreviewStream_Event struct {
-	// describes a Pulumi engine event, such as a change to a resource or diagnostic message.
+	// describes a Pulumi engine event, such as a change to a resource or
+	// diagnostic message.
 	Event *structpb.Struct `protobuf:"bytes,1,opt,name=event,proto3,oneof"`
 }
 
@@ -1295,7 +1299,8 @@ type UpRequest struct {
 	Replace []string `protobuf:"bytes,4,rep,name=replace,proto3" json:"replace,omitempty"`
 	// Specify an exclusive list of resource URNs to update
 	Target []string `protobuf:"bytes,5,rep,name=target,proto3" json:"target,omitempty"`
-	// target_dependents allows updating of dependent targets discovered but not specified in the Target list
+	// target_dependents allows updating of dependent targets discovered but not
+	// specified in the Target list
 	TargetDependents *bool `protobuf:"varint,6,opt,name=target_dependents,json=targetDependents,proto3,oneof" json:"target_dependents,omitempty"`
 	// // Use the update plan at the given path.
 	// optional string plan = 7;
@@ -1303,7 +1308,8 @@ type UpRequest struct {
 	PolicyPack []*PolicyPack `protobuf:"bytes,8,rep,name=policy_pack,json=policyPack,proto3" json:"policy_pack,omitempty"`
 	// refresh will run a refresh before the update.
 	Refresh *bool `protobuf:"varint,9,opt,name=refresh,proto3,oneof" json:"refresh,omitempty"`
-	// continue_on_error will continue to perform the update operation despite the occurrence of errors.
+	// continue_on_error will continue to perform the update operation despite the
+	// occurrence of errors.
 	ContinueOnError *bool `protobuf:"varint,10,opt,name=continue_on_error,json=continueOnError,proto3,oneof" json:"continue_on_error,omitempty"`
 }
 
@@ -1472,7 +1478,8 @@ type isUpStream_Response interface {
 }
 
 type UpStream_Event struct {
-	// describes a Pulumi engine event, such as a change to a resource or diagnostic message.
+	// describes a Pulumi engine event, such as a change to a resource or
+	// diagnostic message.
 	Event *structpb.Struct `protobuf:"bytes,1,opt,name=event,proto3,oneof"`
 }
 
@@ -1638,11 +1645,13 @@ type DestroyRequest struct {
 	Message *string `protobuf:"bytes,2,opt,name=message,proto3,oneof" json:"message,omitempty"`
 	// Specify an exclusive list of resource URNs to destroy
 	Target []string `protobuf:"bytes,3,rep,name=target,proto3" json:"target,omitempty"`
-	// Allows updating of dependent targets discovered but not specified in the Target list
+	// Allows updating of dependent targets discovered but not specified in the
+	// Target list
 	TargetDependents *bool `protobuf:"varint,4,opt,name=target_dependents,json=targetDependents,proto3,oneof" json:"target_dependents,omitempty"`
 	// Refresh will run a refresh before the destroy.
 	Refresh *bool `protobuf:"varint,5,opt,name=refresh,proto3,oneof" json:"refresh,omitempty"`
-	// continue_on_error will continue to perform the update operation despite the occurrence of errors.
+	// continue_on_error will continue to perform the update operation despite the
+	// occurrence of errors.
 	ContinueOnError *bool `protobuf:"varint,6,opt,name=continue_on_error,json=continueOnError,proto3,oneof" json:"continue_on_error,omitempty"`
 	// Remove the stack and its configuration after all resources in the stack
 	// have been deleted.
@@ -1800,7 +1809,8 @@ type isDestroyStream_Response interface {
 }
 
 type DestroyStream_Event struct {
-	// describes a Pulumi engine event, such as a change to a resource or diagnostic message.
+	// describes a Pulumi engine event, such as a change to a resource or
+	// diagnostic message.
 	Event *structpb.Struct `protobuf:"bytes,1,opt,name=event,proto3,oneof"`
 }
 

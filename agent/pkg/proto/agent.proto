@@ -10,15 +10,15 @@ package agent;
 service AutomationService {
 
   /**
-   * WhoAmI returns detailed information about the currently logged-in Pulumi identity.
+   * WhoAmI returns detailed information about the currently logged-in Pulumi
+   * identity.
    */
   rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResult) {}
 
-    /**
+  /**
    * Info returns information about the given stack.
    */
-   rpc SelectStack(SelectStackRequest) returns (SelectStackResult) {}
-
+  rpc SelectStack(SelectStackRequest) returns (SelectStackResult) {}
 
   /**
    * Info returns information about the given stack.
@@ -30,38 +30,41 @@ service AutomationService {
    */
   rpc SetAllConfig(SetAllConfigRequest) returns (SetAllConfigResult) {}
 
-     /**
+  /**
    * Install installs the Pulumi plugins and dependencies.
    */
   rpc Install(InstallRequest) returns (InstallResult) {}
 
   /**
-   * Preview performs a dry-run update to a stack, returning the expected changes.
+   * Preview performs a dry-run update to a stack, returning the expected
+   * changes.
    */
-  rpc Preview (PreviewRequest) returns (stream PreviewStream) {}
+  rpc Preview(PreviewRequest) returns (stream PreviewStream) {}
 
   /**
-   * Refresh updates the resources in a stack to match the current state of the cloud provider.
+   * Refresh updates the resources in a stack to match the current state of the
+   * cloud provider.
    */
-  rpc Refresh (RefreshRequest) returns (stream RefreshStream) {}
+  rpc Refresh(RefreshRequest) returns (stream RefreshStream) {}
 
   /**
-   * Up creates or updates the resources in a stack, returning the actual changes.
+   * Up creates or updates the resources in a stack, returning the actual
+   * changes.
    */
-  rpc Up (UpRequest) returns (stream UpStream) {}
-  
+  rpc Up(UpRequest) returns (stream UpStream) {}
+
   /**
    * Destroy deletes all resources in a stack.
    */
-  rpc Destroy (DestroyRequest) returns (stream DestroyStream) {}
+  rpc Destroy(DestroyRequest) returns (stream DestroyStream) {}
 }
 
-message WhoAmIRequest {
-}
+message WhoAmIRequest {}
 
-// WhoAmIResult contains detailed information about the currently logged-in Pulumi identity.
+// WhoAmIResult contains detailed information about the currently logged-in
+// Pulumi identity.
 message WhoAmIResult {
-	string user = 1;
+  string user = 1;
   repeated string organizations = 2;
   string url = 3;
 }
@@ -72,16 +75,11 @@ message SelectStackRequest {
   optional string secrets_provider = 3;
 }
 
-message SelectStackResult {
-  StackSummary summary = 1;
-} 
+message SelectStackResult { StackSummary summary = 1; }
 
-message InfoRequest {
-}
+message InfoRequest {}
 
-message InfoResult {
-	StackSummary summary = 1;
-}
+message InfoResult { StackSummary summary = 1; }
 
 // StackSummary is a description of a stack and its current status.
 message StackSummary {
@@ -93,8 +91,10 @@ message StackSummary {
 }
 
 message SetAllConfigRequest {
-  optional bool path = 1; // Parse the keys as paths in a map or list rather than raw strings
-  map<string, ConfigValue> config = 2; // a map of ConfigValue used by Pulumi programs
+  optional bool path =
+      1; // Parse the keys as paths in a map or list rather than raw strings
+  map<string, ConfigValue> config =
+      2; // a map of ConfigValue used by Pulumi programs
 }
 
 message ConfigValue {
@@ -107,19 +107,16 @@ message ConfigValue {
 
 message ConfigValueFrom {
   oneof f {
-    string env = 1; // the name of an environment variable to read
+    string env = 1;  // the name of an environment variable to read
     string path = 2; // the path to a file to read
   }
 }
 
-message SetAllConfigResult {
-}
+message SetAllConfigResult {}
 
-message InstallRequest {
-}
+message InstallRequest {}
 
-message InstallResult {
-}
+message InstallResult {}
 
 message RefreshRequest {
   // parallel is the number of resource operations to run in parallel at once
@@ -135,7 +132,8 @@ message RefreshRequest {
 
 message RefreshStream {
   oneof response {
-    // describes a Pulumi engine event, such as a change to a resource or diagnostic message.
+    // describes a Pulumi engine event, such as a change to a resource or
+    // diagnostic message.
     google.protobuf.Struct event = 1;
     RefreshResult result = 2;
   }
@@ -144,7 +142,7 @@ message RefreshStream {
 message RefreshResult {
   string stdout = 1;
   string stderr = 2;
-	UpdateSummary summary = 3;
+  UpdateSummary summary = 3;
   optional string permalink = 4;
 }
 
@@ -160,7 +158,8 @@ message PreviewRequest {
   repeated string replace = 4;
   // Specify an exclusive list of resource URNs to update
   repeated string target = 5;
-  // Allows updating of dependent targets discovered but not specified in the Target list
+  // Allows updating of dependent targets discovered but not specified in the
+  // Target list
   optional bool target_dependents = 6;
   // Run one or more policy packs as part of this update
   repeated PolicyPack policy_pack = 7;
@@ -168,13 +167,12 @@ message PreviewRequest {
   optional bool refresh = 8;
 }
 
-message PolicyPack {
-  string name = 1;
-}
+message PolicyPack { string name = 1; }
 
 message PreviewStream {
   oneof response {
-    // describes a Pulumi engine event, such as a change to a resource or diagnostic message.
+    // describes a Pulumi engine event, such as a change to a resource or
+    // diagnostic message.
     google.protobuf.Struct event = 1;
     PreviewResult result = 2;
   }
@@ -183,7 +181,7 @@ message PreviewStream {
 message PreviewResult {
   string stdout = 1;
   string stderr = 2;
-	UpdateSummary summary = 3;
+  UpdateSummary summary = 3;
   optional string permalink = 4;
 }
 
@@ -199,7 +197,8 @@ message UpRequest {
   repeated string replace = 4;
   // Specify an exclusive list of resource URNs to update
   repeated string target = 5;
-  // target_dependents allows updating of dependent targets discovered but not specified in the Target list
+  // target_dependents allows updating of dependent targets discovered but not
+  // specified in the Target list
   optional bool target_dependents = 6;
   // // Use the update plan at the given path.
   // optional string plan = 7;
@@ -207,13 +206,15 @@ message UpRequest {
   repeated PolicyPack policy_pack = 8;
   // refresh will run a refresh before the update.
   optional bool refresh = 9;
-  // continue_on_error will continue to perform the update operation despite the occurrence of errors.
+  // continue_on_error will continue to perform the update operation despite the
+  // occurrence of errors.
   optional bool continue_on_error = 10;
 }
 
 message UpStream {
   oneof response {
-    // describes a Pulumi engine event, such as a change to a resource or diagnostic message.
+    // describes a Pulumi engine event, such as a change to a resource or
+    // diagnostic message.
     google.protobuf.Struct event = 1;
     UpResult result = 2;
   }
@@ -222,7 +223,7 @@ message UpStream {
 message UpResult {
   string stdout = 1;
   string stderr = 2;
-	UpdateSummary summary = 3;
+  UpdateSummary summary = 3;
   optional string permalink = 4;
 }
 
@@ -241,20 +242,23 @@ message DestroyRequest {
   optional string message = 2;
   // Specify an exclusive list of resource URNs to destroy
   repeated string target = 3;
-  // Allows updating of dependent targets discovered but not specified in the Target list
+  // Allows updating of dependent targets discovered but not specified in the
+  // Target list
   optional bool target_dependents = 4;
   // Refresh will run a refresh before the destroy.
   optional bool refresh = 5;
-  // continue_on_error will continue to perform the update operation despite the occurrence of errors.
+  // continue_on_error will continue to perform the update operation despite the
+  // occurrence of errors.
   optional bool continue_on_error = 6;
   // Remove the stack and its configuration after all resources in the stack
-	// have been deleted.
+  // have been deleted.
   optional bool remove = 7;
 }
 
 message DestroyStream {
   oneof response {
-    // describes a Pulumi engine event, such as a change to a resource or diagnostic message.
+    // describes a Pulumi engine event, such as a change to a resource or
+    // diagnostic message.
     google.protobuf.Struct event = 1;
     DestroyResult result = 2;
   }
@@ -263,6 +267,6 @@ message DestroyStream {
 message DestroyResult {
   string stdout = 1;
   string stderr = 2;
-	UpdateSummary summary = 3;
+  UpdateSummary summary = 3;
   optional string permalink = 4;
 }

@@ -35,7 +35,8 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AutomationServiceClient interface {
 	// *
-	// WhoAmI returns detailed information about the currently logged-in Pulumi identity.
+	// WhoAmI returns detailed information about the currently logged-in Pulumi
+	// identity.
 	WhoAmI(ctx context.Context, in *WhoAmIRequest, opts ...grpc.CallOption) (*WhoAmIResult, error)
 	// *
 	// Info returns information about the given stack.
@@ -50,13 +51,16 @@ type AutomationServiceClient interface {
 	// Install installs the Pulumi plugins and dependencies.
 	Install(ctx context.Context, in *InstallRequest, opts ...grpc.CallOption) (*InstallResult, error)
 	// *
-	// Preview performs a dry-run update to a stack, returning the expected changes.
+	// Preview performs a dry-run update to a stack, returning the expected
+	// changes.
 	Preview(ctx context.Context, in *PreviewRequest, opts ...grpc.CallOption) (AutomationService_PreviewClient, error)
 	// *
-	// Refresh updates the resources in a stack to match the current state of the cloud provider.
+	// Refresh updates the resources in a stack to match the current state of the
+	// cloud provider.
 	Refresh(ctx context.Context, in *RefreshRequest, opts ...grpc.CallOption) (AutomationService_RefreshClient, error)
 	// *
-	// Up creates or updates the resources in a stack, returning the actual changes.
+	// Up creates or updates the resources in a stack, returning the actual
+	// changes.
 	Up(ctx context.Context, in *UpRequest, opts ...grpc.CallOption) (AutomationService_UpClient, error)
 	// *
 	// Destroy deletes all resources in a stack.
@@ -258,7 +262,8 @@ func (x *automationServiceDestroyClient) Recv() (*DestroyStream, error) {
 // for forward compatibility
 type AutomationServiceServer interface {
 	// *
-	// WhoAmI returns detailed information about the currently logged-in Pulumi identity.
+	// WhoAmI returns detailed information about the currently logged-in Pulumi
+	// identity.
 	WhoAmI(context.Context, *WhoAmIRequest) (*WhoAmIResult, error)
 	// *
 	// Info returns information about the given stack.
@@ -273,13 +278,16 @@ type AutomationServiceServer interface {
 	// Install installs the Pulumi plugins and dependencies.
 	Install(context.Context, *InstallRequest) (*InstallResult, error)
 	// *
-	// Preview performs a dry-run update to a stack, returning the expected changes.
+	// Preview performs a dry-run update to a stack, returning the expected
+	// changes.
 	Preview(*PreviewRequest, AutomationService_PreviewServer) error
 	// *
-	// Refresh updates the resources in a stack to match the current state of the cloud provider.
+	// Refresh updates the resources in a stack to match the current state of the
+	// cloud provider.
 	Refresh(*RefreshRequest, AutomationService_RefreshServer) error
 	// *
-	// Up creates or updates the resources in a stack, returning the actual changes.
+	// Up creates or updates the resources in a stack, returning the actual
+	// changes.
 	Up(*UpRequest, AutomationService_UpServer) error
 	// *
 	// Destroy deletes all resources in a stack.
