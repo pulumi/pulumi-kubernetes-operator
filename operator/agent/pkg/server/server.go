@@ -19,11 +19,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	pb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/utils/ptr"
@@ -42,34 +45,69 @@ const (
 )
 
 type Server struct {
-	log           *zap.SugaredLogger
-	plog          *zap.Logger
-	cancelContext context.Context
-	cancelFunc    context.CancelFunc
-	workspace     auto.Workspace
+	log        *zap.SugaredLogger
+	plog       *zap.Logger
+	cancelCtx  context.Context
+	cancelFunc context.CancelFunc
+	ws         auto.Workspace
+	stackLock  sync.Mutex
+	stack      *auto.Stack
 
 	pb.UnimplementedAutomationServiceServer
 }
 
 var _ = pb.AutomationServiceServer(&Server{})
 
+type Options struct {
+	// StackName is the name of the stack to upsert (optional).
+	StackName string
+	// SecretsProvider is the secrets provider to use for new stacks (optional).
+	SecretsProvider string
+}
+
 // NewServer creates a new automation server for the given workspace.
-func NewServer(ctx context.Context, workspace auto.Workspace) *Server {
+func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, error) {
 	// create loggers for the server methods and for capturing pulumi logs
 	log := zap.L().Named("auto.server").Sugar()
 	plog := zap.L().Named("pulumi")
 
 	//  create a context for sending SIGINT to any outstanding Pulumi operations
-	cancelContext, cancelFunc := context.WithCancel(ctx)
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	server := &Server{
-		log:           log,
-		plog:          plog,
-		workspace:     workspace,
-		cancelContext: cancelContext,
-		cancelFunc:    cancelFunc,
+		log:        log,
+		plog:       plog,
+		ws:         ws,
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
 	}
-	return server
+
+	// select the initial stack, if provided
+	if opts.StackName != "" {
+		stack, err := auto.UpsertStack(ctx, opts.StackName, ws)
+		if err != nil {
+			return nil, fmt.Errorf("failed to select stack: %w", err)
+		}
+		if opts.SecretsProvider != "" {
+			err = stack.ChangeSecretsProvider(ctx, opts.SecretsProvider, &auto.ChangeSecretsProviderOptions{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to set secrets provider: %w", err)
+			}
+		}
+		server.stack = &stack
+		server.log.Infow("selected a stack", "name", stack.Name())
+	}
+
+	return server, nil
+}
+
+func (s *Server) ensureStack() (*auto.Stack, error) {
+	s.stackLock.Lock()
+	defer s.stackLock.Unlock()
+	if s.stack == nil {
+		return nil, status.Error(codes.FailedPrecondition, "no stack is selected")
+	}
+	return s.stack, nil
 }
 
 // Cancel cancels outstanding operations by sending a SIGINT to Pulumi.
@@ -79,7 +117,7 @@ func (s *Server) Cancel() {
 }
 
 func (s *Server) WhoAmI(ctx context.Context, in *pb.WhoAmIRequest) (*pb.WhoAmIResult, error) {
-	whoami, err := s.workspace.WhoAmIDetails(ctx)
+	whoami, err := s.ws.WhoAmIDetails(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -91,10 +129,46 @@ func (s *Server) WhoAmI(ctx context.Context, in *pb.WhoAmIRequest) (*pb.WhoAmIRe
 	return resp, nil
 }
 
-func (s *Server) Info(ctx context.Context, in *pb.InfoRequest) (*pb.InfoResult, error) {
-	stack, err := auto.UpsertStack(ctx, in.Stack, s.workspace)
+func (s *Server) SelectStack(ctx context.Context, in *pb.SelectStackRequest) (*pb.SelectStackResult, error) {
+	if in.StackName == "" {
+		return nil, status.Error(codes.InvalidArgument, "invalid stack name")
+	}
+	stack, err := func() (auto.Stack, error) {
+		stack, err := auto.SelectStack(ctx, in.StackName, s.ws)
+		if err != nil {
+			if auto.IsSelectStack404Error(err) {
+				if !in.GetCreate() {
+					return auto.Stack{}, status.Error(codes.NotFound, "stack not found")
+				}
+				return auto.NewStack(ctx, in.StackName, s.ws)
+			}
+			return auto.Stack{}, err
+		}
+		return stack, nil
+	}()
 	if err != nil {
-		return nil, fmt.Errorf("failed to select stack: %w", err)
+		return nil, err
+	}
+
+	s.stackLock.Lock()
+	defer s.stackLock.Unlock()
+	s.stack = &stack
+	s.log.Infow("selected a stack", "name", stack.Name())
+
+	info, err := stack.Info(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resp := &pb.SelectStackResult{
+		Summary: marshalStackSummary(info),
+	}
+	return resp, nil
+}
+
+func (s *Server) Info(ctx context.Context, in *pb.InfoRequest) (*pb.InfoResult, error) {
+	stack, err := s.ensureStack()
+	if err != nil {
+		return nil, err
 	}
 
 	info, err := stack.Info(ctx)
@@ -103,18 +177,12 @@ func (s *Server) Info(ctx context.Context, in *pb.InfoRequest) (*pb.InfoResult, 
 	}
 
 	resp := &pb.InfoResult{
-		Summary: &pb.StackSummary{
-			Name:       info.Name,
-			LastUpdate: parseTime(&info.LastUpdate),
-		},
+		Summary: marshalStackSummary(info),
 	}
 	return resp, nil
 }
 
 func (s *Server) Install(ctx context.Context, in *pb.InstallRequest) (*pb.InstallResult, error) {
-
-	// blocked: https://github.com/pulumi/pulumi/pull/16782
-
 	stdout := &zapio.Writer{Log: s.plog, Level: zap.InfoLevel}
 	defer stdout.Close()
 	stderr := &zapio.Writer{Log: s.plog, Level: zap.WarnLevel}
@@ -125,7 +193,7 @@ func (s *Server) Install(ctx context.Context, in *pb.InstallRequest) (*pb.Instal
 	}
 
 	s.log.Infow("installing the project dependencies")
-	if err := s.workspace.Install(ctx, opts); err != nil {
+	if err := s.ws.Install(ctx, opts); err != nil {
 		s.log.Errorw("install completed with an error", zap.Error(err))
 		return nil, err
 	}
@@ -138,9 +206,9 @@ func (s *Server) Install(ctx context.Context, in *pb.InstallRequest) (*pb.Instal
 // Preview implements proto.AutomationServiceServer.
 func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_PreviewServer) error {
 	ctx := srv.Context()
-	stack, err := auto.UpsertStack(ctx, in.Stack, s.workspace)
+	stack, err := s.ensureStack()
 	if err != nil {
-		return fmt.Errorf("failed to select stack: %w", err)
+		return err
 	}
 
 	// determine the options to pass to the preview operation
@@ -230,9 +298,9 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 // Refresh implements proto.AutomationServiceServer.
 func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_RefreshServer) error {
 	ctx := srv.Context()
-	stack, err := auto.UpsertStack(ctx, in.Stack, s.workspace)
+	stack, err := s.ensureStack()
 	if err != nil {
-		return fmt.Errorf("failed to select stack: %w", err)
+		return err
 	}
 
 	fmt.Println("Starting refresh")
@@ -271,9 +339,9 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 // Up implements proto.AutomationServiceServer.
 func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 	ctx := srv.Context()
-	stack, err := auto.UpsertStack(ctx, in.Stack, s.workspace)
+	stack, err := s.ensureStack()
 	if err != nil {
-		return fmt.Errorf("failed to select stack: %w", err)
+		return err
 	}
 
 	// determine the options to pass to the preview operation
@@ -375,9 +443,9 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 // Destroy implements proto.AutomationServiceServer.
 func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_DestroyServer) error {
 	ctx := srv.Context()
-	stack, err := auto.UpsertStack(ctx, in.Stack, s.workspace)
+	stack, err := s.ensureStack()
 	if err != nil {
-		return fmt.Errorf("failed to select stack: %w", err)
+		return err
 	}
 
 	fmt.Println("Starting destroy")
@@ -414,6 +482,19 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 	return nil
 }
 
+func marshalStackSummary(info auto.StackSummary) *pb.StackSummary {
+	data := &pb.StackSummary{
+		Name:             info.Name,
+		LastUpdate:       parseTime(&info.LastUpdate),
+		UpdateInProgress: info.UpdateInProgress,
+		Url:              ptr.To(info.URL),
+	}
+	if info.ResourceCount != nil {
+		data.ResourceCount = ptr.To(int32(*info.ResourceCount))
+	}
+	return data
+}
+
 func parseTime(s *string) *timestamppb.Timestamp {
 	if s == nil {
 		return nil
@@ -434,18 +515,4 @@ func marshalEngineEvent(evt apitype.EngineEvent) (*structpb.Struct, error) {
 		return nil, err
 	}
 	return data, nil
-}
-
-func mergeContext(a, b context.Context) (context.Context, context.CancelFunc) {
-	mctx, mcancel := context.WithCancel(a) // will cancel if `a` cancels
-
-	go func() {
-		select {
-		case <-mctx.Done(): // don't leak go-routine on clean gRPC run
-		case <-b.Done():
-			mcancel() // b canceled, so cancel mctx
-		}
-	}()
-
-	return mctx, mcancel
 }

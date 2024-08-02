@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion8
 
 const (
 	AutomationService_WhoAmI_FullMethodName       = "/agent.AutomationService/WhoAmI"
+	AutomationService_SelectStack_FullMethodName  = "/agent.AutomationService/SelectStack"
 	AutomationService_Info_FullMethodName         = "/agent.AutomationService/Info"
 	AutomationService_SetAllConfig_FullMethodName = "/agent.AutomationService/SetAllConfig"
 	AutomationService_Install_FullMethodName      = "/agent.AutomationService/Install"
@@ -36,6 +37,9 @@ type AutomationServiceClient interface {
 	// *
 	// WhoAmI returns detailed information about the currently logged-in Pulumi identity.
 	WhoAmI(ctx context.Context, in *WhoAmIRequest, opts ...grpc.CallOption) (*WhoAmIResult, error)
+	// *
+	// Info returns information about the given stack.
+	SelectStack(ctx context.Context, in *SelectStackRequest, opts ...grpc.CallOption) (*SelectStackResult, error)
 	// *
 	// Info returns information about the given stack.
 	Info(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResult, error)
@@ -71,6 +75,16 @@ func (c *automationServiceClient) WhoAmI(ctx context.Context, in *WhoAmIRequest,
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(WhoAmIResult)
 	err := c.cc.Invoke(ctx, AutomationService_WhoAmI_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *automationServiceClient) SelectStack(ctx context.Context, in *SelectStackRequest, opts ...grpc.CallOption) (*SelectStackResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SelectStackResult)
+	err := c.cc.Invoke(ctx, AutomationService_SelectStack_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -248,6 +262,9 @@ type AutomationServiceServer interface {
 	WhoAmI(context.Context, *WhoAmIRequest) (*WhoAmIResult, error)
 	// *
 	// Info returns information about the given stack.
+	SelectStack(context.Context, *SelectStackRequest) (*SelectStackResult, error)
+	// *
+	// Info returns information about the given stack.
 	Info(context.Context, *InfoRequest) (*InfoResult, error)
 	// *
 	// SetAllConfig sets multiple configuration values for a stack.
@@ -276,6 +293,9 @@ type UnimplementedAutomationServiceServer struct {
 
 func (UnimplementedAutomationServiceServer) WhoAmI(context.Context, *WhoAmIRequest) (*WhoAmIResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WhoAmI not implemented")
+}
+func (UnimplementedAutomationServiceServer) SelectStack(context.Context, *SelectStackRequest) (*SelectStackResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SelectStack not implemented")
 }
 func (UnimplementedAutomationServiceServer) Info(context.Context, *InfoRequest) (*InfoResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Info not implemented")
@@ -325,6 +345,24 @@ func _AutomationService_WhoAmI_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AutomationServiceServer).WhoAmI(ctx, req.(*WhoAmIRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AutomationService_SelectStack_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SelectStackRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AutomationServiceServer).SelectStack(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AutomationService_SelectStack_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AutomationServiceServer).SelectStack(ctx, req.(*SelectStackRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -477,6 +515,10 @@ var AutomationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "WhoAmI",
 			Handler:    _AutomationService_WhoAmI_Handler,
+		},
+		{
+			MethodName: "SelectStack",
+			Handler:    _AutomationService_SelectStack_Handler,
 		},
 		{
 			MethodName: "Info",

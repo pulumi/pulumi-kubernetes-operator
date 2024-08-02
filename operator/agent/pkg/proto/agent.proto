@@ -14,6 +14,12 @@ service AutomationService {
    */
   rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResult) {}
 
+    /**
+   * Info returns information about the given stack.
+   */
+   rpc SelectStack(SelectStackRequest) returns (SelectStackResult) {}
+
+
   /**
    * Info returns information about the given stack.
    */
@@ -60,8 +66,17 @@ message WhoAmIResult {
   string url = 3;
 }
 
+message SelectStackRequest {
+  string stackName = 1;
+  optional bool create = 2;
+  optional string secrets_provider = 3;
+}
+
+message SelectStackResult {
+  StackSummary summary = 1;
+} 
+
 message InfoRequest {
-  string stack = 1;
 }
 
 message InfoResult {
@@ -78,9 +93,8 @@ message StackSummary {
 }
 
 message SetAllConfigRequest {
-  string stack = 1; // The stack to set the configuration for 
-  bool path = 2; // Parse the keys as paths in a map or list rather than raw strings
-  map<string, ConfigValue> config = 3; // a map of ConfigValue used by Pulumi programs
+  bool path = 1; // Parse the keys as paths in a map or list rather than raw strings
+  map<string, ConfigValue> config = 2; // a map of ConfigValue used by Pulumi programs
 }
 
 message ConfigValue {
@@ -98,7 +112,6 @@ message InstallResult {
 }
 
 message RefreshRequest {
-  string stack = 1; // The stack to refresh
 }
 
 message RefreshStream {
@@ -117,11 +130,11 @@ message RefreshResult {
 }
 
 message PreviewRequest {
-  // The stack to preview
-  string stack = 1;
   // Parallel is the number of resource operations to run in parallel at once
   // (1 for no parallelism). Defaults to unbounded. (default 2147483647)
-  optional int32 parallel = 2;
+  optional int32 parallel = 1;
+  // Message (optional) to associate with the preview operation
+  optional string message = 2;
   // Return an error if any changes occur during this preview
   bool expect_no_changes = 3;
   // Specify resources to replace
@@ -134,8 +147,6 @@ message PreviewRequest {
   repeated PolicyPack policy_pack = 7;
   // Refresh will run a refresh before the preview.
   bool refresh = 8;
-  // Message (optional) to associate with the preview operation
-  optional string message = 9;
 }
 
 message PolicyPack {
@@ -158,28 +169,27 @@ message PreviewResult {
 }
 
 message UpRequest {
-  string stack = 1;
   // parallel is the number of resource operations to run in parallel at once
   // (1 for no parallelism). Defaults to unbounded. (default 2147483647)
-  optional int32 parallel = 2;
+  optional int32 parallel = 1;
   // message (optional) to associate with the preview operation
-  optional string message = 3;
+  optional string message = 2;
   // Return an error if any changes occur during this update
-  optional bool expect_no_changes = 4;
+  optional bool expect_no_changes = 3;
   // Specify resources to replace
-  repeated string replace = 5;
+  repeated string replace = 4;
   // Specify an exclusive list of resource URNs to update
-  repeated string target = 6;
+  repeated string target = 5;
   // target_dependents allows updating of dependent targets discovered but not specified in the Target list
-  optional bool target_dependents = 7;
+  optional bool target_dependents = 6;
   // // Use the update plan at the given path.
-  // optional string plan = 8;
+  // optional string plan = 7;
   // Run one or more policy packs as part of this update.
-  repeated PolicyPack policy_pack = 9;
+  repeated PolicyPack policy_pack = 8;
   // refresh will run a refresh before the update.
-  optional bool refresh = 10;
+  optional bool refresh = 9;
   // continue_on_error will continue to perform the update operation despite the occurrence of errors.
-  optional bool continue_on_error = 11;
+  optional bool continue_on_error = 10;
 }
 
 message UpStream {
@@ -205,7 +215,6 @@ message UpdateSummary {
 }
 
 message DestroyRequest {
-  string stack = 1;
 }
 
 message DestroyStream {

@@ -37,6 +37,7 @@ import (
 var (
 	WorkDir     string
 	SkipInstall bool
+	Stack       string
 	Host        string
 	Port        int
 )
@@ -97,7 +98,13 @@ var serveCmd = &cobra.Command{
 		}
 
 		// Create the automation service
-		autoServer := server.NewServer(ctx, workspace)
+		autoServer, err := server.NewServer(ctx, workspace, &server.Options{
+			StackName: Stack,
+		})
+		if err != nil {
+			log.Fatalw("unable to make an automation server", zap.Error(err))
+			os.Exit(1)
+		}
 
 		// Configure the grpc server.
 		// Apply zap logging and use filters to reduce log verbosity as needed.
@@ -156,6 +163,8 @@ func init() {
 	serveCmd.MarkFlagRequired("workspace")
 
 	serveCmd.Flags().BoolVar(&SkipInstall, "skip-install", false, "Skip installation of project dependencies")
+
+	serveCmd.Flags().StringVarP(&Stack, "stack", "s", "", "Select (or create) the stack to use")
 
 	serveCmd.Flags().StringVar(&Host, "host", "0.0.0.0", "Server bind address (default: 0.0.0.0)")
 	serveCmd.Flags().IntVar(&Port, "port", 50051, "Server port (default: 50051)")
