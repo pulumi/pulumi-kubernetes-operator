@@ -18,6 +18,29 @@
 			"args": [
 				"--zap-level=debug"
 			]
+		},
+		{
+			"name": "Agent",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "agent",
+			"args": [
+				"serve",
+				"-v=false",
+				"--workspace=${input:workdir}",
+				"-s=dev"
+			],
+			"env": {
+				"AWS_REGION": "us-west-1",
+			}
+		}
+	],
+	"inputs": [
+		{
+			"id": "workdir",
+			"description": "Please provide the Pulumi program directory",
+			"type": "promptString"
 		}
 	]
 }
