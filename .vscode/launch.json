@@ -42,8 +42,12 @@
 			"args": [
 				"serve",
 				"-v",
-				"--workspace=${input:workdir}"
-			]
+				"--workspace=${input:workdir}",
+				"-s=dev"
+			],
+			"env": {
+				"AWS_REGION": "us-west-1",
+			}
 		}
 	],
 	"inputs": [

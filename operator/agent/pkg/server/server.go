@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -180,6 +181,35 @@ func (s *Server) Info(ctx context.Context, in *pb.InfoRequest) (*pb.InfoResult, 
 		Summary: marshalStackSummary(info),
 	}
 	return resp, nil
+}
+
+func (s *Server) SetAllConfig(ctx context.Context, in *pb.SetAllConfigRequest) (*pb.SetAllConfigResult, error) {
+	stack, err := s.ensureStack()
+	if err != nil {
+		return nil, err
+	}
+
+	config := make(map[string]auto.ConfigValue)
+	for k, inv := range in.GetConfig() {
+		if k == "" {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid config key: %s", k)
+		}
+		v, err := unmarshalConfigValue(inv)
+		if err != nil {
+			return nil, err
+		}
+		config[k] = v
+	}
+	s.log.Debugw("setting all config", "config", config)
+
+	err = stack.SetAllConfigWithOptions(ctx, config, &auto.ConfigOptions{
+		Path: in.GetPath(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }
 
 func (s *Server) Install(ctx context.Context, in *pb.InstallRequest) (*pb.InstallResult, error) {
@@ -480,6 +510,37 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 		return err
 	}
 	return nil
+}
+
+func unmarshalConfigValue(inv *pb.ConfigValue) (auto.ConfigValue, error) {
+	v := auto.ConfigValue{
+		Secret: inv.GetSecret(),
+	}
+	switch vv := inv.V.(type) {
+	case *pb.ConfigValue_Value:
+		// FUTURE: use JSON values
+		v.Value = fmt.Sprintf("%v", vv.Value.AsInterface())
+	case *pb.ConfigValue_ValueFrom:
+		switch from := vv.ValueFrom.F.(type) {
+		case *pb.ConfigValueFrom_Env:
+			data, ok := os.LookupEnv(from.Env)
+			if !ok {
+				return auto.ConfigValue{}, status.Errorf(codes.InvalidArgument, "missing value for environment variable: %s", from.Env)
+			}
+			v.Value = data
+		case *pb.ConfigValueFrom_Path:
+			data, err := os.ReadFile(from.Path)
+			if err != nil {
+				return auto.ConfigValue{}, status.Errorf(codes.InvalidArgument, "unreadable path: %s", from.Path)
+			}
+			v.Value = string(data)
+		default:
+			return auto.ConfigValue{}, status.Error(codes.InvalidArgument, "invalid config value")
+		}
+	default:
+		return auto.ConfigValue{}, status.Error(codes.InvalidArgument, "invalid config value")
+	}
+	return v, nil
 }
 
 func marshalStackSummary(info auto.StackSummary) *pb.StackSummary {
