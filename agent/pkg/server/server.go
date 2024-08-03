@@ -69,7 +69,7 @@ type Options struct {
 // NewServer creates a new automation server for the given workspace.
 func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, error) {
 	// create loggers for the server methods and for capturing pulumi logs
-	log := zap.L().Named("auto.server").Sugar()
+	log := zap.L().Named("server").Sugar()
 	plog := zap.L().Named("pulumi")
 
 	//  create a context for sending SIGINT to any outstanding Pulumi operations

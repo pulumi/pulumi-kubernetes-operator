@@ -20,7 +20,9 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
@@ -31,7 +33,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
 	"google.golang.org/grpc"
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
 var (
@@ -140,7 +141,7 @@ var serveCmd = &cobra.Command{
 		}
 		log.Infow("server listening", "address", lis.Addr(), "workspace", workDir)
 
-		cancelCtx := signals.SetupSignalHandler()
+		cancelCtx := setupSignalHandler()
 		go func() {
 			<-cancelCtx.Done()
 			log.Infow("shutting down the server")
@@ -154,6 +155,24 @@ var serveCmd = &cobra.Command{
 			os.Exit(1)
 		}
 	},
+}
+
+// SetupSignalHandler registers for SIGTERM and SIGINT. A context is returned
+// which is canceled on one of these signals. If a second signal is caught, the program
+// is terminated with exit code 1.
+func setupSignalHandler() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		cancel()
+		<-c
+		os.Exit(1) // second signal. Exit directly.
+	}()
+
+	return ctx
 }
 
 func init() {
