@@ -513,8 +513,6 @@ func TestPreview(t *testing.T) {
 				g.Expect(err).ToNot(gomega.HaveOccurred())
 				g.Expect(srv.events).ToNot(gomega.BeEmpty())
 				g.Expect(srv.result).ToNot(gomega.BeNil())
-				// g.Expect(srv.result.Summary).ToNot(gomega.BeNil())
-				// g.Expect(srv.result.Summary.Result).To(gomega.Equal("succeeded"))
 			}
 		})
 	}
@@ -540,6 +538,80 @@ func (m *previewStream) Send(resp *pb.PreviewStream) error {
 	case *pb.PreviewStream_Event:
 		m.events = append(m.events, *r.Event)
 	case *pb.PreviewStream_Result:
+		m.result = r.Result
+	}
+	return nil
+}
+
+func TestDestroy(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		projectDir string
+		stacks     []string
+		req        pb.DestroyRequest
+		wantErr    any
+		want       auto.ConfigMap
+	}{
+		{
+			name:       "no active stack",
+			projectDir: "./testdata/simple",
+			stacks:     []string{},
+			req:        pb.DestroyRequest{},
+			wantErr:    status.Error(codes.FailedPrecondition, "no stack is selected"),
+		},
+		{
+			name:       "simple",
+			projectDir: "./testdata/simple",
+			stacks:     []string{TestStackName},
+			req:        pb.DestroyRequest{},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			g := gomega.NewWithT(t)
+			ctx := newContext(t)
+			tc := newTC(ctx, t, tcOptions{ProjectDir: tt.projectDir, Stacks: tt.stacks})
+
+			srv := &destroyStream{
+				ctx:    ctx,
+				events: make([]structpb.Struct, 0, 100),
+			}
+			err := tc.server.Destroy(&tt.req, srv)
+			if tt.wantErr != nil {
+				g.Expect(err).To(gomega.MatchError(tt.wantErr))
+			} else {
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+				g.Expect(srv.events).ToNot(gomega.BeEmpty())
+				g.Expect(srv.result).ToNot(gomega.BeNil())
+			}
+		})
+	}
+}
+
+type destroyStream struct {
+	grpc.ServerStream
+	ctx    context.Context
+	mu     sync.RWMutex
+	events []structpb.Struct
+	result *pb.DestroyResult
+}
+
+var _ pb.AutomationService_DestroyServer = (*destroyStream)(nil)
+
+func (m *destroyStream) Context() context.Context {
+	return m.ctx
+}
+func (m *destroyStream) Send(resp *pb.DestroyStream) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	switch r := resp.Response.(type) {
+	case *pb.DestroyStream_Event:
+		m.events = append(m.events, *r.Event)
+	case *pb.DestroyStream_Result:
 		m.result = r.Result
 	}
 	return nil
