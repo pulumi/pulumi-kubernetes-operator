@@ -68,6 +68,10 @@ type Options struct {
 
 // NewServer creates a new automation server for the given workspace.
 func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, error) {
+	if opts == nil {
+		opts = &Options{}
+	}
+
 	// create loggers for the server methods and for capturing pulumi logs
 	log := zap.L().Named("server").Sugar()
 	plog := zap.L().Named("pulumi")
@@ -99,16 +103,30 @@ func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, 
 		server.log.Infow("selected a stack", "name", stack.Name())
 	}
 
+	proj, err := ws.ProjectSettings(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to load project: %w", err)
+	}
+	log.Infow("project serving", "project", proj.Name, "runtime", proj.Runtime.Name())
+
 	return server, nil
 }
 
-func (s *Server) ensureStack() (*auto.Stack, error) {
+func (s *Server) ensureStack(ctx context.Context) (auto.Stack, error) {
 	s.stackLock.Lock()
 	defer s.stackLock.Unlock()
-	if s.stack == nil {
-		return nil, status.Error(codes.FailedPrecondition, "no stack is selected")
+
+	summary, err := s.ws.Stack(ctx)
+	if err != nil {
+		return auto.Stack{}, err
 	}
-	return s.stack, nil
+	if summary == nil {
+		return auto.Stack{}, status.Error(codes.FailedPrecondition, "no stack is selected")
+	}
+	if s.stack != nil && s.stack.Name() == summary.Name {
+		return *s.stack, nil
+	}
+	return auto.SelectStack(ctx, summary.Name, s.ws)
 }
 
 func (s *Server) clearStack() {
@@ -173,7 +191,7 @@ func (s *Server) SelectStack(ctx context.Context, in *pb.SelectStackRequest) (*p
 }
 
 func (s *Server) Info(ctx context.Context, in *pb.InfoRequest) (*pb.InfoResult, error) {
-	stack, err := s.ensureStack()
+	stack, err := s.ensureStack(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +208,7 @@ func (s *Server) Info(ctx context.Context, in *pb.InfoRequest) (*pb.InfoResult, 
 }
 
 func (s *Server) SetAllConfig(ctx context.Context, in *pb.SetAllConfigRequest) (*pb.SetAllConfigResult, error) {
-	stack, err := s.ensureStack()
+	stack, err := s.ensureStack(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +249,7 @@ func (s *Server) Install(ctx context.Context, in *pb.InstallRequest) (*pb.Instal
 	s.log.Infow("installing the project dependencies")
 	if err := s.ws.Install(ctx, opts); err != nil {
 		s.log.Errorw("install completed with an error", zap.Error(err))
-		return nil, err
+		return nil, status.Error(codes.Aborted, err.Error())
 	}
 	s.log.Infow("installation completed")
 
@@ -242,7 +260,7 @@ func (s *Server) Install(ctx context.Context, in *pb.InstallRequest) (*pb.Instal
 // Preview implements proto.AutomationServiceServer.
 func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_PreviewServer) error {
 	ctx := srv.Context()
-	stack, err := s.ensureStack()
+	stack, err := s.ensureStack(ctx)
 	if err != nil {
 		return err
 	}
@@ -334,7 +352,7 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 // Refresh implements proto.AutomationServiceServer.
 func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_RefreshServer) error {
 	ctx := srv.Context()
-	stack, err := s.ensureStack()
+	stack, err := s.ensureStack(ctx)
 	if err != nil {
 		return err
 	}
@@ -413,7 +431,7 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 // Up implements proto.AutomationServiceServer.
 func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 	ctx := srv.Context()
-	stack, err := s.ensureStack()
+	stack, err := s.ensureStack(ctx)
 	if err != nil {
 		return err
 	}
@@ -512,7 +530,7 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 // Destroy implements proto.AutomationServiceServer.
 func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_DestroyServer) error {
 	ctx := srv.Context()
-	stack, err := s.ensureStack()
+	stack, err := s.ensureStack(ctx)
 	if err != nil {
 		return err
 	}
