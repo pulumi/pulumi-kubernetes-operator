@@ -6,12 +6,14 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/types"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -389,6 +391,158 @@ func TestInstall(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUp(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		projectDir string
+		stacks     []string
+		req        pb.UpRequest
+		wantErr    any
+		want       auto.ConfigMap
+	}{
+		{
+			name:       "no active stack",
+			projectDir: "./testdata/simple",
+			stacks:     []string{},
+			req:        pb.UpRequest{},
+			wantErr:    status.Error(codes.FailedPrecondition, "no stack is selected"),
+		},
+		{
+			name:       "simple",
+			projectDir: "./testdata/simple",
+			stacks:     []string{TestStackName},
+			req:        pb.UpRequest{},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			g := gomega.NewWithT(t)
+			ctx := newContext(t)
+			tc := newTC(ctx, t, tcOptions{ProjectDir: tt.projectDir, Stacks: tt.stacks})
+
+			srv := &upStream{
+				ctx:    ctx,
+				events: make([]structpb.Struct, 0, 100),
+			}
+			err := tc.server.Up(&tt.req, srv)
+			if tt.wantErr != nil {
+				g.Expect(err).To(gomega.MatchError(tt.wantErr))
+			} else {
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+				g.Expect(srv.events).ToNot(gomega.BeEmpty())
+				g.Expect(srv.result).ToNot(gomega.BeNil())
+				g.Expect(srv.result.Summary).ToNot(gomega.BeNil())
+				g.Expect(srv.result.Summary.Result).To(gomega.Equal("succeeded"))
+			}
+		})
+	}
+}
+
+type upStream struct {
+	grpc.ServerStream
+	ctx    context.Context
+	mu     sync.RWMutex
+	events []structpb.Struct
+	result *pb.UpResult
+}
+
+var _ pb.AutomationService_UpServer = (*upStream)(nil)
+
+func (m *upStream) Context() context.Context {
+	return m.ctx
+}
+func (m *upStream) Send(resp *pb.UpStream) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	switch r := resp.Response.(type) {
+	case *pb.UpStream_Event:
+		m.events = append(m.events, *r.Event)
+	case *pb.UpStream_Result:
+		m.result = r.Result
+	}
+	return nil
+}
+
+func TestPreview(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		projectDir string
+		stacks     []string
+		req        pb.PreviewRequest
+		wantErr    any
+		want       auto.ConfigMap
+	}{
+		{
+			name:       "no active stack",
+			projectDir: "./testdata/simple",
+			stacks:     []string{},
+			req:        pb.PreviewRequest{},
+			wantErr:    status.Error(codes.FailedPrecondition, "no stack is selected"),
+		},
+		{
+			name:       "simple",
+			projectDir: "./testdata/simple",
+			stacks:     []string{TestStackName},
+			req:        pb.PreviewRequest{},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			g := gomega.NewWithT(t)
+			ctx := newContext(t)
+			tc := newTC(ctx, t, tcOptions{ProjectDir: tt.projectDir, Stacks: tt.stacks})
+
+			srv := &previewStream{
+				ctx:    ctx,
+				events: make([]structpb.Struct, 0, 100),
+			}
+			err := tc.server.Preview(&tt.req, srv)
+			if tt.wantErr != nil {
+				g.Expect(err).To(gomega.MatchError(tt.wantErr))
+			} else {
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+				g.Expect(srv.events).ToNot(gomega.BeEmpty())
+				g.Expect(srv.result).ToNot(gomega.BeNil())
+				// g.Expect(srv.result.Summary).ToNot(gomega.BeNil())
+				// g.Expect(srv.result.Summary.Result).To(gomega.Equal("succeeded"))
+			}
+		})
+	}
+}
+
+type previewStream struct {
+	grpc.ServerStream
+	ctx    context.Context
+	mu     sync.RWMutex
+	events []structpb.Struct
+	result *pb.PreviewResult
+}
+
+var _ pb.AutomationService_PreviewServer = (*previewStream)(nil)
+
+func (m *previewStream) Context() context.Context {
+	return m.ctx
+}
+func (m *previewStream) Send(resp *pb.PreviewStream) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	switch r := resp.Response.(type) {
+	case *pb.PreviewStream_Event:
+		m.events = append(m.events, *r.Event)
+	case *pb.PreviewStream_Result:
+		m.result = r.Result
+	}
+	return nil
 }
 
 func newContext(t *testing.T) context.Context {
