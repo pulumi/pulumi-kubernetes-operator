@@ -1,3 +1,5 @@
+VERSION ?= $(shell git describe --tags --always --dirty)
+
 all: protoc agent
 
 ensure:
@@ -11,10 +13,11 @@ protoc:
 agent: protoc
 	@echo "Building agent"
 	go build -o pulumi-kubernetes-agent \
+		-ldflags "-X github.com/pulumi/pulumi-kubernetes-operator/agent/version.Version=${VERSION}" \
 		github.com/pulumi/pulumi-kubernetes-operator/agent
 
 image: agent
-	docker build -t pulumi/pulumi-kubernetes-agent:latest .
+	docker build --build-arg="VERSION=$(VERSION)" -t pulumi/pulumi-kubernetes-agent:latest .
 
 .PHONY: agent protoc image
 

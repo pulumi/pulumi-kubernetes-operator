@@ -28,6 +28,7 @@ import (
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	pb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
 	"github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/server"
+	"github.com/pulumi/pulumi-kubernetes-operator/agent/version"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -57,6 +58,7 @@ var serveCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := cmd.Context()
+		log.Infow("Pulumi Kubernetes Agent", "version", version.Version)
 		log.Debugw("executing serve command", "WorkDir", WorkDir)
 
 		// open the workspace using auto api
