@@ -29,27 +29,6 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -ldflags
 # runtime image
 FROM gcr.io/distroless/static-debian12:debug-nonroot
 
-# RUN apt-get install tini
-
 # install agent binary
 WORKDIR /
 COPY --from=builder /workspace/agent agent
-# COPY init.sh /opt/pulumi-kubernetes-operator/init.sh
-
-# The image is intended as a tool
-# ENTRYPOINT ["tini", "--"]
-
-# RUN useradd -m pulumi-kubernetes-agent
-# RUN mkdir -p /home/pulumi-kubernetes-agent/.ssh \
-#     && touch /home/pulumi-kubernetes-agent/.ssh/known_hosts \
-#     && chmod 700 /home/pulumi-kubernetes-agent/.ssh \
-#     && chown -R pulumi-kubernetes-agent:pulumi-kubernetes-agent /home/pulumi-kubernetes-agent/.ssh
-
-# USER pulumi-kubernetes-agent
-
-# ENV XDG_CONFIG_HOME=/tmp/.config
-# ENV XDG_CACHE_HOME=/tmp/.cache
-# ENV XDG_CONFIG_CACHE=/tmp/.cache
-# ENV GOCACHE=/tmp/.cache/go-build
-# ENV GOPATH=/tmp/.cache/go
-
