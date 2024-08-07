@@ -70,7 +70,7 @@ message WhoAmIResult {
 }
 
 message SelectStackRequest {
-  string stackName = 1;
+  string stack_name = 1;
   optional bool create = 2;
   optional string secrets_provider = 3;
 }
@@ -100,7 +100,7 @@ message SetAllConfigRequest {
 message ConfigValue {
   oneof v {
     google.protobuf.Value value = 1;
-    ConfigValueFrom valueFrom = 2;
+    ConfigValueFrom value_from = 2;
   }
   optional bool secret = 3;
 }
