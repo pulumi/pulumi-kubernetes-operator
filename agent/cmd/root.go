@@ -52,8 +52,9 @@ to use to perform stack operations.`,
 		log = zap.L().Named("cmd").Named(cmd.Name()).Sugar()
 		return nil
 	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		return zap.L().Sync()
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		// ignore sync errors: https://github.com/uber-go/zap/pull/347
+		_ = zap.L().Sync()
 	},
 }
 
