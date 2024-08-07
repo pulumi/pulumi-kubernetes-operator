@@ -79,3 +79,26 @@ dockers:
   - "--label=org.label-schema.name={{ .ProjectName }}"
   - "--label=org.label-schema.vcs-ref={{ .ShortCommit }}"
   - "--label=org.label-schema.vcs-url='{{ .GitURL }}'"
+
+- id: pulumi-kubernetes-agent
+  # GOOS of the built binary that should be used.
+  goos: linux
+
+  # GOARCH of the built binary that should be used.
+  goarch: amd64
+
+  # Path to the Dockerfile (from the project root).
+  dockerfile: agent/Dockerfile
+
+  # Templates of the Docker image names.
+  image_templates:
+  - "pulumi/pulumi-kubernetes-agent:latest"
+  - "pulumi/pulumi-kubernetes-agent:{{ .Version }}"
+
+  build_flag_templates:
+  - "--pull"
+  - "--label=org.label-schema.build-date={{.Date}}"
+  - "--label=org.label-schema.name={{ .ProjectName }}"
+  - "--label=org.label-schema.vcs-ref={{ .ShortCommit }}"
+  - "--label=org.label-schema.vcs-url='{{ .GitURL }}'"
+
