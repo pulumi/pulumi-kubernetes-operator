@@ -6,6 +6,7 @@ on:
   pull_request:
     branches:
       - master
+      - v2
 env:
   PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -25,6 +26,36 @@ jobs:
           issue-number: ${{ github.event.client_payload.github.payload.issue.number }}
           body: |
             Please view the PR build - ${{ steps.vars.outputs.run-url }}
+
+  agent-int-tests:
+    runs-on: ubuntu-latest
+    name: Agent Integration Testing
+    if: github.event_name == 'repository_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          # The following are to allow tests to run against local commits.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      # go-git doesn't like detached state.
+      - run: git switch -C "pull-request"
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.22.x
+          cache: true
+      - name: Install Pulumi CLI
+        uses: pulumi/setup-pulumi@v2
+      - name: Tests
+        run: make -C agent test
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: agent/coverage.out
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
   operator-build:
     runs-on: ubuntu-latest
     name: Build

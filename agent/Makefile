@@ -10,6 +10,9 @@ protoc:
 	cd pkg/proto && protoc --go_out=. --go_opt=paths=source_relative \
     	--go-grpc_out=. --go-grpc_opt=paths=source_relative *.proto
 
+test: protoc
+	go test -covermode=atomic -coverprofile=coverage.out -v ./...
+	
 agent: protoc
 	@echo "Building agent"
 	go build -o pulumi-kubernetes-agent \
@@ -19,5 +22,5 @@ agent: protoc
 image: agent
 	docker build --build-arg="VERSION=$(VERSION)" -t pulumi/pulumi-kubernetes-agent:latest .
 
-.PHONY: agent protoc image
+.PHONY: agent protoc image ensure test
 
