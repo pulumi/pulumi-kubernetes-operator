@@ -27,7 +27,7 @@ jobs:
           distribution: goreleaser-pro
           # 'latest', 'nightly', or a semver
           version: '~> v2'
-          args: release --snapshot --skip-publish --rm-dist --skip-sign
+          args: release --snapshot --clean
   
   agent-integration-tests:
     runs-on: ubuntu-latest
