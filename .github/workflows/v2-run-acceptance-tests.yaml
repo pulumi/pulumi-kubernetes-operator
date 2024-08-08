@@ -27,7 +27,7 @@ jobs:
           distribution: goreleaser-pro
           # 'latest', 'nightly', or a semver
           version: '~> v2'
-          args: release --snapshot --clean
+          args: release --snapshot --clean --skip=docker
   
   agent-integration-tests:
     runs-on: ubuntu-latest
