@@ -116,6 +116,10 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// determine the source revision to use in later steps.
 	source := &sourceSpec{}
+	if force, ok := w.Annotations[autov1alpha1.ForceRequestAnnotation]; ok && force != "" {
+		source.ForceRequest = force
+	}
+
 	// if w.Spec.Git != nil {
 	// 	source.Git = &agentpb.GitSource{
 	// 		Url: w.Spec.Git.ProjectRepo,
@@ -541,6 +545,7 @@ func newService(w *autov1alpha1.Workspace) (*corev1.Service, error) {
 }
 
 type sourceSpec struct {
+	ForceRequest string
 	// Git  *gitSource
 	Flux *fluxSource
 }
