@@ -39,6 +39,7 @@ to use to perform stack operations.`,
 		// initialize the global logger
 		zc := zap.NewDevelopmentConfig()
 		zc.DisableCaller = true
+		zc.DisableStacktrace = true
 		if !verbose {
 			zc.Level.SetLevel(zap.InfoLevel)
 		}
