@@ -1,0 +1,54 @@
+---
+name: Pulumi Kubernetes Operator PR Builds
+on:
+  pull_request:
+    branches:
+      - v2
+env:
+  PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    name: Build
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22.x
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser-pro
+          # 'latest', 'nightly', or a semver
+          version: '~> v2'
+          args: release --snapshot --clean --skip=docker
+  
+  agent-integration-tests:
+    runs-on: ubuntu-latest
+    name: Integration Testing
+    if: github.event_name == 'repository_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22.x
+      - name: Install Pulumi
+        uses: pulumi/actions@v5
+      - name: Run Tests
+        run: make -C agent test
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: agent/coverage.out
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
