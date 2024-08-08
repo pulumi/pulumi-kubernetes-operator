@@ -1,0 +1,19 @@
+apiVersion: auto.pulumi.com/v1alpha1
+kind: Workspace
+metadata:
+  name: random-yaml
+spec:
+  image: pulumi/pulumi:3.128.0
+  serviceAccountName: default
+  flux:
+    sourceRef:
+      apiVersion: source.toolkit.fluxcd.io/v1
+      kind: GitRepository
+      name: pulumi-examples
+    dir: random-yaml
+  env:
+  - name: PULUMI_ACCESS_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: pulumi-api-secret
+        key: accessToken
