@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/v1alpha1"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/tools/record"
 	hashutil "k8s.io/kubernetes/pkg/util/hash"
 	"k8s.io/utils/ptr"
@@ -142,7 +144,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// make a statefulset, incorporating the source revision into the pod spec.
 	// whenever the revision changes, the statefulset will be updated.
 	// once the statefulset is updated, initialize the pod to that source revision.
-	ss, err := newStatefulSet(w, source)
+	ss, err := newStatefulSet(ctx, w, source)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -309,8 +311,9 @@ func labelsForStatefulSet(w *autov1alpha1.Workspace) map[string]string {
 	}
 }
 
-func newStatefulSet(w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.StatefulSet, error) {
+func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.StatefulSet, error) {
 	labels := labelsForStatefulSet(w)
+
 	statefulset := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "StatefulSet",
@@ -354,7 +357,8 @@ func newStatefulSet(w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.Stat
 						{
 							Name:            "pulumi",
 							Image:           w.Spec.Image,
-							ImagePullPolicy: corev1.PullIfNotPresent,
+							ImagePullPolicy: w.Spec.ImagePullPolicy,
+							Resources:       w.Spec.Resources,
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      WorkspaceShareVolumeName,
@@ -368,6 +372,7 @@ func newStatefulSet(w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.Stat
 								},
 							},
 							Env:     w.Spec.Env,
+							EnvFrom: w.Spec.EnvFrom,
 							Command: []string{"/share/agent", "serve", "--workspace", "/share/workspace"},
 						},
 					},
@@ -384,6 +389,7 @@ func newStatefulSet(w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.Stat
 		},
 	}
 
+	// apply the 'fetch' init container
 	if source.Git != nil {
 		script := `
 /share/agent init -t /share/source --git-url $GIT_URL --git-revision $GIT_REVISION &&
@@ -452,6 +458,15 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 		statefulset.Spec.Template.Spec.InitContainers = append(statefulset.Spec.Template.Spec.InitContainers, container)
 	}
 
+	// merge the user-supplied template using strategic merge patch
+	if w.Spec.PodTemplate != nil {
+		podTemplate, err := mergePodTemplateSpec(ctx, &statefulset.Spec.Template, w.Spec.PodTemplate)
+		if err != nil {
+			return nil, fmt.Errorf("failed to merge pod template: %w", err)
+		}
+		statefulset.Spec.Template = *podTemplate
+	}
+
 	return statefulset, nil
 }
 
@@ -504,4 +519,32 @@ func (s *sourceSpec) Hash() string {
 	hasher := md5.New()
 	hashutil.DeepHashObject(hasher, s)
 	return hex.EncodeToString(hasher.Sum(nil)[0:])
+}
+
+func mergePodTemplateSpec(ctx context.Context, base, patch *corev1.PodTemplateSpec) (*corev1.PodTemplateSpec, error) {
+	if patch == nil {
+		return base, nil
+	}
+
+	baseBytes, err := json.Marshal(base)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON for base %s: %w", base.Name, err)
+	}
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON for patch %s: %w", patch.Name, err)
+	}
+
+	// Calculate the patch result.
+	jsonResultBytes, err := strategicpatch.StrategicMergePatch(baseBytes, patchBytes, &corev1.PodTemplateSpec{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate merge patch for %s: %w", base.Name, err)
+	}
+
+	patchResult := &corev1.PodTemplateSpec{}
+	if err := json.Unmarshal(jsonResultBytes, patchResult); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal merged %s: %w", base.Name, err)
+	}
+
+	return patchResult, nil
 }

@@ -27,20 +27,51 @@ type WorkspaceSpec struct {
 	// +kubebuilder:default="default"
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
-	// Image is the Docker image containing the 'pulumi' and 'pulumi-kubernetes-agent' executables.
+	// Image is the Docker image containing the 'pulumi' executable.
+	// +kubebuilder:default="pulumi/pulumi:latest"
 	Image string `json:"image,omitempty"`
 
+	// Image pull policy.
+	// One of Always, Never, IfNotPresent.
+	// Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+	// +optional
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+
 	// Repo is the git source containing the Pulumi program.
+	// +optional
 	Git *GitSource `json:"git,omitempty"`
 
 	// Flux is the flux source containing the Pulumi program.
+	// +optional
 	Flux *FluxSource `json:"flux,omitempty"`
 
-	// List of environment variables to set in the workspace.
+	// List of sources to populate environment variables in the workspace.
+	// The keys defined within a source must be a C_IDENTIFIER. All invalid keys
+	// will be reported as an event when the container is starting. When a key exists in multiple
+	// sources, the value associated with the last source will take precedence.
+	// Values defined by an Env with a duplicate key will take precedence.
+	// +optional
+	// +listType=atomic
+	EnvFrom []corev1.EnvFromSource `json:"envFrom,omitempty"`
+
+	// List of environment variables to set in the container.
 	// +optional
 	// +patchMergeKey=name
 	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=name
 	Env []corev1.EnvVar `json:"env,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+
+	// Compute Resources required by this workspace.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty" protobuf:"bytes,8,opt,name=resources"`
+
+	// PodTemplate defines a PodTemplateSpec for Workspace's pods.
+	//
+	// +optional
+	PodTemplate *corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
 }
 
 // GitSource specifies how to fetch from a git repository directly.
