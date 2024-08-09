@@ -1,7 +1,7 @@
 apiVersion: auto.pulumi.com/v1alpha1
 kind: Update
 metadata:
-  generateName: random-yaml-
+  generateName: random-yaml-1e2fc47-
 spec:
-  workspaceName: random-yaml
+  workspaceName: random-yaml-1e2fc47
   stackName: dev
