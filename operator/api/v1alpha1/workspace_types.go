@@ -21,10 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	ForceRequestAnnotation = "pulumi.com/force-request"
-)
-
 // WorkspaceSpec defines the desired state of Workspace
 type WorkspaceSpec struct {
 	// ServiceAccountName is the Kubernetes service account identity of the workspace.
@@ -49,38 +45,27 @@ type WorkspaceSpec struct {
 
 // GitSource specifies how to fetch from a git repository directly.
 type GitSource struct {
-	// ProjectRepo is the git source control repository from which we fetch the project code and configuration.
-	ProjectRepo string `json:"projectRepo,omitempty"`
-	// (optional) RepoDir is the directory to work from in the project's source repository
+	// Url is the git source control repository from which we fetch the project code and configuration.
+	Url string `json:"url,omitempty"`
+	// Revision is the git revision (tag, or commit SHA) to fetch.
+	Revision string `json:"revision,omitempty"`
+	// (optional) Dir is the directory to work from in the project's source repository
 	// where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
 	// in the project source root.
-	// +optional
-	RepoDir string `json:"repoDir,omitempty"`
-	// (optional) Commit is the hash of the commit to deploy. If used, HEAD will be in detached mode. This
-	// is mutually exclusive with the Branch setting. Either value needs to be specified.
-	// +optional
-	Commit string `json:"commit,omitempty"`
-	// (optional) Branch is the branch name to deploy, either the simple or fully qualified ref name, e.g. refs/heads/master. This
-	// is mutually exclusive with the Commit setting. Either value needs to be specified.
-	// When specified, the operator will periodically poll to check if the branch has any new commits.
-	// The frequency of the polling is configurable through ResyncFrequencySeconds, defaulting to every 60 seconds.
-	// +optional
-	Branch string `json:"branch,omitempty"`
-}
-
-// FluxSource specifies how to fetch from a Flux source object
-type FluxSource struct {
-	SourceRef FluxSourceReference `json:"sourceRef"`
-	// Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
-	// interest, within the fetched source.
 	// +optional
 	Dir string `json:"dir,omitempty"`
 }
 
-type FluxSourceReference struct {
-	APIVersion string `json:"apiVersion"`
-	Kind       string `json:"kind"`
-	Name       string `json:"name"`
+// FluxSource specifies how to fetch a Fllux source artifact.
+type FluxSource struct {
+	// URL is the URL of the artifact to fetch.
+	Url string `json:"url,omitempty"`
+	// Digest is the digest of the artifact to fetch.
+	Digest string `json:"digest,omitempty"`
+	// Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
+	// interest, within the fetched artifact.
+	// +optional
+	Dir string `json:"dir,omitempty"`
 }
 
 // WorkspaceStatus defines the observed state of Workspace

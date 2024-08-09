@@ -1,16 +1,18 @@
 apiVersion: auto.pulumi.com/v1alpha1
 kind: Workspace
 metadata:
-  name: random-yaml
+  name: random-yaml-1e2fc47
 spec:
   image: pulumi/pulumi:3.128.0
   serviceAccountName: default
-  flux:
-    sourceRef:
-      apiVersion: source.toolkit.fluxcd.io/v1
-      kind: GitRepository
-      name: pulumi-examples
+  git:
+    url: https://github.com/pulumi/examples.git
+    revision: 1e2fc471709448f3c9f7a250f28f1eafcde7017b
     dir: random-yaml
+  # flux:
+  #   url: http://source-controller.flux-system.svc.cluster.local./gitrepository/default/pulumi-examples/1e2fc471709448f3c9f7a250f28f1eafcde7017b.tar.gz
+  #   digest: sha256:6560311e95689086aa195a82c0310080adc31bea2457936ce528a014d811407a
+  #   dir: random-yaml
   env:
   - name: PULUMI_ACCESS_TOKEN
     valueFrom:
