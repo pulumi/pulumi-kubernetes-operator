@@ -82,6 +82,10 @@ var serveCmd = &cobra.Command{
 		log.Infow("opened a local workspace", "workspace", workDir,
 			"project", proj.Name, "runtime", proj.Runtime.Name())
 
+		// https://github.com/pulumi/pulumi/issues/16920
+		if proj.Runtime.Name() == "yaml" {
+			SkipInstall = true
+		}
 		if !SkipInstall {
 			plog := zap.L().Named("pulumi")
 			stdout := &zapio.Writer{Log: plog, Level: zap.InfoLevel}
@@ -98,6 +102,9 @@ var serveCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			log.Infow("installation completed")
+		} else {
+			log.Infow("installation skipped",
+				"project", proj.Name, "runtime", proj.Runtime.Name())
 		}
 
 		// Create the automation service
