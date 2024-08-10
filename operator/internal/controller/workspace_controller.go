@@ -337,7 +337,12 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 					},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName:            w.Spec.ServiceAccountName,
+					ServiceAccountName: w.Spec.ServiceAccountName,
+					SecurityContext: &corev1.PodSecurityContext{
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
 					TerminationGracePeriodSeconds: ptr.To[int64](WorkspacePodTerminationGracePeriodSeconds),
 					InitContainers: []corev1.Container{
 						{
@@ -456,6 +461,38 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 			Command: []string{"sh", "-c", script},
 		}
 		statefulset.Spec.Template.Spec.InitContainers = append(statefulset.Spec.Template.Spec.InitContainers, container)
+	}
+
+	// apply the 'restricted' security profile as necessary
+	if w.Spec.SecurityProfile == autov1alpha1.SecurityProfileRestricted {
+		sc := statefulset.Spec.Template.Spec.SecurityContext
+		sc.RunAsNonRoot = ptr.To(true)
+		sc.RunAsUser = ptr.To(int64(1000))
+		sc.RunAsGroup = ptr.To(int64(1000))
+
+		initContainers := statefulset.Spec.Template.Spec.InitContainers
+		for i := range initContainers {
+			if initContainers[i].SecurityContext == nil {
+				initContainers[i].SecurityContext = &corev1.SecurityContext{}
+			}
+			initContainers[i].SecurityContext.AllowPrivilegeEscalation = ptr.To(false)
+			initContainers[i].SecurityContext.Capabilities = &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+				Add:  []corev1.Capability{"NET_BIND_SERVICE"},
+			}
+		}
+
+		containers := statefulset.Spec.Template.Spec.Containers
+		for i := range containers {
+			if containers[i].SecurityContext == nil {
+				containers[i].SecurityContext = &corev1.SecurityContext{}
+			}
+			containers[i].SecurityContext.AllowPrivilegeEscalation = ptr.To(false)
+			containers[i].SecurityContext.Capabilities = &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+				Add:  []corev1.Capability{"NET_BIND_SERVICE"},
+			}
+		}
 	}
 
 	// merge the user-supplied template using strategic merge patch

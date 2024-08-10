@@ -21,11 +21,27 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// SecurityProfile declares the security profile of the workspace, either baseline or restricted.
+// +enum
+type SecurityProfile string
+
+const (
+	// SecurityProfileBaseline applies the baseline security profile.
+	SecurityProfileBaseline SecurityProfile = "baseline"
+	// SecurityProfileBaseline applies the restricted security profile.
+	SecurityProfileRestricted SecurityProfile = "restricted"
+)
+
 // WorkspaceSpec defines the desired state of Workspace
 type WorkspaceSpec struct {
 	// ServiceAccountName is the Kubernetes service account identity of the workspace.
 	// +kubebuilder:default="default"
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// SecurityProfile applies a security profile to the workspace, 'restricted' by default.
+	// +kubebuilder:default="restricted"
+	// +optional
+	SecurityProfile SecurityProfile `json:"securityProfile,omitempty"`
 
 	// Image is the Docker image containing the 'pulumi' executable.
 	// +kubebuilder:default="pulumi/pulumi:latest"
