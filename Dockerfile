@@ -1,6 +1,8 @@
 FROM pulumi/pulumi:3.129.0
 
-RUN apt-get update && apt-get install tini && apt-get clean
+RUN apt-get update \
+    && apt-get install tini \
+    && apt-get clean
 ENTRYPOINT ["tini", "--", "/usr/local/bin/pulumi-kubernetes-operator"]
 
 # install operator binary
@@ -19,4 +21,3 @@ ENV XDG_CACHE_HOME=/tmp/.cache
 ENV XDG_CONFIG_CACHE=/tmp/.cache
 ENV GOCACHE=/tmp/.cache/go-build
 ENV GOPATH=/tmp/.cache/go
-
