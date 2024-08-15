@@ -1,6 +1,6 @@
 FROM pulumi/pulumi:3.129.0
 
-RUN apt-get install tini
+RUN apt-get update && apt-get install tini && apt-get clean
 ENTRYPOINT ["tini", "--", "/usr/local/bin/pulumi-kubernetes-operator"]
 
 # install operator binary
