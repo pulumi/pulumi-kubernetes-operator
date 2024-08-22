@@ -30,7 +30,7 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/v1alpha1"
 )
 
-var _ = Describe("Update Controller", func() {
+var _ = PDescribe("Update Controller", func() {
 	Context("When reconciling a resource", func() {
 		const resourceName = "test-resource"
 

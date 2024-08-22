@@ -44,7 +44,7 @@ import (
 
 const (
 	WorkspaceIndexerFluxSource  = "index.spec.flux.sourceRef"
-	WorkspaceConditionTypeReady = "Ready"
+	WorkspaceConditionTypeReady = autov1alpha1.WorkspaceReady
 	PodAnnotationRevisionHash   = "auto.pulumi.com/revision-hash"
 
 	// TODO: get from configuration
@@ -67,15 +67,10 @@ type WorkspaceReconciler struct {
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces/finalizers,verbs=update
-//+kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=ocirepositories,verbs=get;list;watch
-//+kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=gitrepositories,verbs=get;list;watch
-//+kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets,verbs=get;list;watch
 //+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
 func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 
@@ -129,10 +124,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	l.Info("Applying StatefulSet", "hash", sourceHash, "source", source)
 
 	// service
-	svc, err := newService(w)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	svc := newService(w)
 	if err := controllerutil.SetControllerReference(w, svc, r.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -168,97 +160,6 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		ready.Message = "Waiting for the workspace pod to be available"
 		return ctrl.Result{}, updateStatus()
 	}
-
-	// // Locate the workspace pod, to figure out whether workspace initialization is needed.
-	// // The workspace is stored in pod ephemeral storage, which has the same lifecycle as that of the pod.
-	// podName := fmt.Sprintf("%s-0", nameForStatefulSet(w))
-	// pod := &corev1.Pod{}
-	// err = r.Get(ctx, types.NamespacedName{Name: podName, Namespace: w.Namespace}, pod)
-	// if err != nil {
-	// 	return ctrl.Result{}, fmt.Errorf("unable to find the workspace pod: %w", err)
-	// }
-	// podRevision := pod.Labels["controller-revision-hash"]
-	// if podRevision != ss.Status.CurrentRevision {
-	// 	// the pod cache must be stale because the statefulset is up-to-date yet the revision is mismatched.
-	// 	l.Info("source revision mismatch; requeuing", "actual", podRevision, "expected", ss.Status.CurrentRevision)
-	// 	return ctrl.Result{Requeue: true}, nil
-	// }
-
-	// // Connect to the workspace's GRPC server
-	// addr := fmt.Sprintf("%s:%d", fqdnForService(w), WorkspaceGrpcPort)
-	// l.Info("Connecting", "addr", addr)
-	// w.Status.Address = addr
-
-	// connectCtx, connectCancel := context.WithTimeout(ctx, 10*time.Second)
-	// defer connectCancel()
-	// conn, err := connect(connectCtx, addr)
-	// if err != nil {
-	// 	l.Error(err, "unable to connect; retrying later", "addr", addr)
-	// 	ready.Status = metav1.ConditionFalse
-	// 	ready.Reason = "ConnectionFailed"
-	// 	ready.Message = err.Error()
-	// 	return ctrl.Result{RequeueAfter: 5 * time.Second}, updateStatus()
-	// }
-	// defer func() {
-	// 	_ = conn.Close()
-	// }()
-	// workspaceClient := agentpb.NewAutomationServiceClient(conn)
-
-	// initializedV, ok := pod.Annotations[PodAnnotationInitialized]
-	// initialized, _ := strconv.ParseBool(initializedV)
-	// if !ok || !initialized {
-	// 	l.Info("initializing the source", "hash", sourceHash)
-	// 	ready.Status = metav1.ConditionFalse
-	// 	ready.Reason = "Initializing"
-	// 	ready.Message = ""
-	// 	if err := updateStatus(); err != nil {
-	// 		return ctrl.Result{}, err
-	// 	}
-
-	// 	initReq := &agentpb.InitializeRequest{}
-	// 	if source.Git != nil {
-	// 		initReq.Source = &agentpb.InitializeRequest_Git{
-	// 			Git: source.Git,
-	// 		}
-	// 	}
-	// 	if source.Flux != nil {
-	// 		initReq.Source = &agentpb.InitializeRequest_Flux{
-	// 			Flux: source.Flux,
-	// 		}
-	// 	}
-
-	// 	l.Info("initializing the workspace")
-	// 	_, err = workspaceClient.Initialize(ctx, initReq)
-	// 	if err != nil {
-	// 		l.Error(err, "unable to initialize; deleting the workspace pod to retry later")
-	// 		ready.Status = metav1.ConditionFalse
-	// 		ready.Reason = "InitializationFailed"
-	// 		ready.Message = err.Error()
-
-	// 		err = r.Client.Delete(ctx, pod)
-	// 		if err != nil {
-	// 			return ctrl.Result{}, err
-	// 		}
-
-	// 		return ctrl.Result{}, updateStatus()
-	// 	}
-
-	// 	// set the "initalized" annotation
-	// 	if pod.Annotations == nil {
-	// 		pod.Annotations = make(map[string]string)
-	// 	}
-	// 	pod.Annotations[PodAnnotationInitialized] = "true"
-	// 	err = r.Update(ctx, pod, client.FieldOwner(FieldManager))
-	// 	if err != nil {
-	// 		l.Error(err, "unable to update the workspace pod; deleting the pod to retry later")
-	// 		err = r.Client.Delete(ctx, pod)
-	// 		if err != nil {
-	// 			return ctrl.Result{}, err
-	// 		}
-	// 		return ctrl.Result{}, fmt.Errorf("failed to patch the pod: %w", err)
-	// 	}
-	// 	l.Info("initialized")
-	// }
 
 	addr := fmt.Sprintf("%s:%d", fqdnForService(w), WorkspaceGrpcPort)
 	w.Status.Address = addr
@@ -507,7 +408,7 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 	return statefulset, nil
 }
 
-func newService(w *autov1alpha1.Workspace) (*corev1.Service, error) {
+func newService(w *autov1alpha1.Workspace) *corev1.Service {
 	labels := labelsForStatefulSet(w)
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -531,7 +432,7 @@ func newService(w *autov1alpha1.Workspace) (*corev1.Service, error) {
 		},
 	}
 
-	return service, nil
+	return service
 }
 
 type sourceSpec struct {
@@ -558,7 +459,7 @@ func (s *sourceSpec) Hash() string {
 	return hex.EncodeToString(hasher.Sum(nil)[0:])
 }
 
-func mergePodTemplateSpec(ctx context.Context, base, patch *corev1.PodTemplateSpec) (*corev1.PodTemplateSpec, error) {
+func mergePodTemplateSpec(_ context.Context, base, patch *corev1.PodTemplateSpec) (*corev1.PodTemplateSpec, error) {
 	if patch == nil {
 		return base, nil
 	}

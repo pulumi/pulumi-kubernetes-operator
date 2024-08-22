@@ -21,6 +21,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	WorkspaceReady = "Ready"
+)
+
 // SecurityProfile declares the security profile of the workspace, either baseline or restricted.
 // +enum
 type SecurityProfile string
