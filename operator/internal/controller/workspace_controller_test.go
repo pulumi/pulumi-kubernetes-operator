@@ -311,7 +311,7 @@ var _ = Describe("Workspace Controller", func() {
 			})
 		})
 
-		Describe(".podTemplate", func() {
+		Describe("spec.podTemplate", func() {
 			BeforeEach(func(ctx context.Context) {
 				obj.Spec.PodTemplate = &corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
