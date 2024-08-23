@@ -65,7 +65,6 @@ var _ = Describe("Workspace Controller", func() {
 	var svc *corev1.Service
 
 	BeforeEach(func(ctx context.Context) {
-		var err error
 		objName = types.NamespacedName{
 			Name:      fmt.Sprintf("workspace-%s", utilrand.String(8)),
 			Namespace: "default",
@@ -79,10 +78,6 @@ var _ = Describe("Workspace Controller", func() {
 		ready = nil
 		ss = &appsv1.StatefulSet{}
 		svc = &corev1.Service{}
-
-		//  setup the 'actual' statefulset to be observed by the reconciliation loop.
-		ss, err = newStatefulSet(ctx, obj, &sourceSpec{})
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	JustBeforeEach(func(ctx context.Context) {
@@ -90,9 +85,6 @@ var _ = Describe("Workspace Controller", func() {
 		DeferCleanup(func(ctx context.Context) {
 			_ = k8sClient.Delete(ctx, obj)
 		})
-		// Expect(controllerutil.SetControllerReference(obj, ss, k8sClient.Scheme())).To(Succeed())
-		// Expect(k8sClient.Patch(ctx, ss, client.Apply, client.FieldOwner(FieldManager))).To(Succeed())
-
 		r = &WorkspaceReconciler{
 			Client: k8sClient,
 			Scheme: k8sClient.Scheme(),
