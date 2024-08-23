@@ -47,6 +47,8 @@ const (
 	UpdateConditionTypeComplete    = "Complete"
 	UpdateConditionTypeFailed      = "Failed"
 	UpdateConditionTypeProgressing = "Progressing"
+
+	UpdateConditionReasonProgressing = "Progressing"
 )
 
 // UpdateReconciler reconciles a Update object
@@ -74,63 +76,64 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	progressing := meta.FindStatusCondition(obj.Status.Conditions, UpdateConditionTypeProgressing)
-	if progressing == nil {
-		progressing = &metav1.Condition{
+	rs := &reconcileSession{}
+	rs.progressing = meta.FindStatusCondition(obj.Status.Conditions, UpdateConditionTypeProgressing)
+	if rs.progressing == nil {
+		rs.progressing = &metav1.Condition{
 			Type:   UpdateConditionTypeProgressing,
 			Status: metav1.ConditionUnknown,
 		}
 	}
-	failed := meta.FindStatusCondition(obj.Status.Conditions, UpdateConditionTypeFailed)
-	if failed == nil {
-		failed = &metav1.Condition{
+	rs.failed = meta.FindStatusCondition(obj.Status.Conditions, UpdateConditionTypeFailed)
+	if rs.failed == nil {
+		rs.failed = &metav1.Condition{
 			Type:   UpdateConditionTypeFailed,
 			Status: metav1.ConditionUnknown,
 		}
 	}
-	complete := meta.FindStatusCondition(obj.Status.Conditions, UpdateConditionTypeComplete)
-	if complete == nil {
-		complete = &metav1.Condition{
+	rs.complete = meta.FindStatusCondition(obj.Status.Conditions, UpdateConditionTypeComplete)
+	if rs.complete == nil {
+		rs.complete = &metav1.Condition{
 			Type:   UpdateConditionTypeComplete,
 			Status: metav1.ConditionUnknown,
 		}
 	}
-	updateStatus := func() error {
+	rs.updateStatus = func() error {
 		obj.Status.ObservedGeneration = obj.Generation
-		progressing.ObservedGeneration = obj.Generation
-		meta.SetStatusCondition(&obj.Status.Conditions, *progressing)
-		failed.ObservedGeneration = obj.Generation
-		meta.SetStatusCondition(&obj.Status.Conditions, *failed)
-		complete.ObservedGeneration = obj.Generation
-		meta.SetStatusCondition(&obj.Status.Conditions, *complete)
+		rs.progressing.ObservedGeneration = obj.Generation
+		meta.SetStatusCondition(&obj.Status.Conditions, *rs.progressing)
+		rs.failed.ObservedGeneration = obj.Generation
+		meta.SetStatusCondition(&obj.Status.Conditions, *rs.failed)
+		rs.complete.ObservedGeneration = obj.Generation
+		meta.SetStatusCondition(&obj.Status.Conditions, *rs.complete)
 		return r.Status().Update(ctx, obj)
 	}
 
-	if complete.Status == metav1.ConditionTrue {
+	if rs.complete.Status == metav1.ConditionTrue {
 		l.Info("is completed")
 		return ctrl.Result{}, nil
 	}
 
 	// guard against retrying an incomplete update
-	if progressing.Status == metav1.ConditionTrue {
+	if rs.progressing.Status == metav1.ConditionTrue {
 		l.Info("was progressing; marking as failed")
-		progressing.Status = metav1.ConditionFalse
-		progressing.Reason = "Failed"
-		failed.Status = metav1.ConditionTrue
-		failed.Reason = "unknown"
-		complete.Status = metav1.ConditionTrue
-		complete.Reason = "Aborted"
-		return ctrl.Result{}, updateStatus()
+		rs.progressing.Status = metav1.ConditionFalse
+		rs.progressing.Reason = "Failed"
+		rs.failed.Status = metav1.ConditionTrue
+		rs.failed.Reason = "unknown"
+		rs.complete.Status = metav1.ConditionTrue
+		rs.complete.Reason = "Aborted"
+		return ctrl.Result{}, rs.updateStatus()
 	}
 
 	l.Info("Updating the status")
-	progressing.Status = metav1.ConditionTrue
-	progressing.Reason = "Progressing"
-	failed.Status = metav1.ConditionFalse
-	failed.Reason = "Progressing"
-	complete.Status = metav1.ConditionFalse
-	complete.Reason = "Progressing"
-	err = updateStatus()
+	rs.progressing.Status = metav1.ConditionTrue
+	rs.progressing.Reason = UpdateConditionReasonProgressing
+	rs.failed.Status = metav1.ConditionFalse
+	rs.failed.Reason = UpdateConditionReasonProgressing
+	rs.complete.Status = metav1.ConditionFalse
+	rs.complete.Reason = UpdateConditionReasonProgressing
+	err = rs.updateStatus()
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
@@ -150,13 +153,13 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	conn, err := connect(connectCtx, addr)
 	if err != nil {
 		l.Error(err, "unable to connect; retrying later", "addr", addr)
-		progressing.Status = metav1.ConditionFalse
-		progressing.Reason = "TransientFailure"
-		failed.Status = metav1.ConditionFalse
-		failed.Reason = "Progressing"
-		complete.Status = metav1.ConditionFalse
-		complete.Reason = "Progressing"
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, updateStatus()
+		rs.progressing.Status = metav1.ConditionFalse
+		rs.progressing.Reason = "TransientFailure"
+		rs.failed.Status = metav1.ConditionFalse
+		rs.failed.Reason = UpdateConditionReasonProgressing
+		rs.complete.Status = metav1.ConditionFalse
+		rs.complete.Reason = UpdateConditionReasonProgressing
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, rs.updateStatus()
 	}
 	defer func() {
 		_ = conn.Close()
@@ -172,8 +175,112 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
 
-	l.Info("Executing update operation")
-	res, err := client.Up(ctx, &agentpb.UpRequest{}, grpc.WaitForReady(true))
+	l.Info("Applying the update", "type", obj.Spec.Type)
+	switch obj.Spec.Type {
+	case autov1alpha1.PreviewType:
+		return rs.Preview(ctx, obj, client)
+	case autov1alpha1.UpType:
+		return rs.Update(ctx, obj, client)
+	case autov1alpha1.RefreshType:
+		return rs.Refresh(ctx, obj, client)
+	case autov1alpha1.DestroyType:
+		return rs.Destroy(ctx, obj, client)
+	default:
+		panic("unsupported type")
+	}
+}
+
+type reconcileSession struct {
+	progressing  *metav1.Condition
+	complete     *metav1.Condition
+	failed       *metav1.Condition
+	updateStatus func() error
+}
+
+func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update, client agentpb.AutomationServiceClient) (ctrl.Result, error) {
+	l := log.FromContext(ctx)
+
+	l.V(1).Info("Configure the preview operation")
+	autoReq := &agentpb.PreviewRequest{
+		Parallel:         obj.Spec.Parallel,
+		Message:          obj.Spec.Message,
+		ExpectNoChanges:  obj.Spec.ExpectNoChanges,
+		Replace:          obj.Spec.Replace,
+		Target:           obj.Spec.Target,
+		TargetDependents: obj.Spec.TargetDependents,
+		Refresh:          obj.Spec.Refresh,
+	}
+
+	l.Info("Executing preview operation", "request", autoReq)
+	res, err := client.Preview(ctx, autoReq, grpc.WaitForReady(true))
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
+	}
+	done := make(chan error)
+	go func() {
+		for {
+			stream, err := res.Recv()
+			if err == io.EOF {
+				close(done)
+				return
+			}
+
+			switch r := stream.Response.(type) {
+			case *agentpb.PreviewStream_Event:
+				continue
+			case *agentpb.PreviewStream_Result:
+				l.Info("Result received", "result", r.Result)
+
+				obj.Status.StartTime = metav1.NewTime(r.Result.Summary.StartTime.AsTime())
+				obj.Status.EndTime = metav1.NewTime(r.Result.Summary.EndTime.AsTime())
+				if r.Result.Permalink != nil {
+					obj.Status.Permalink = *r.Result.Permalink
+				}
+				u.progressing.Status = metav1.ConditionFalse
+				u.progressing.Reason = "Complete"
+				u.complete.Status = metav1.ConditionTrue
+				u.complete.Reason = "Updated"
+				switch r.Result.Summary.Result {
+				case "succeeded":
+					u.failed.Status = metav1.ConditionFalse
+					u.failed.Reason = r.Result.Summary.Result
+				default:
+					u.failed.Status = metav1.ConditionTrue
+					u.failed.Reason = r.Result.Summary.Result
+				}
+				err = u.updateStatus()
+				if err != nil {
+					done <- fmt.Errorf("failed to update the status: %w", err)
+					return
+				}
+			}
+		}
+	}()
+	err = <-done
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("response error: %w", err)
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update, client agentpb.AutomationServiceClient) (ctrl.Result, error) {
+	l := log.FromContext(ctx)
+
+	l.V(1).Info("Configure the up operation")
+	autoReq := &agentpb.UpRequest{
+		Parallel:         obj.Spec.Parallel,
+		Message:          obj.Spec.Message,
+		ExpectNoChanges:  obj.Spec.ExpectNoChanges,
+		Replace:          obj.Spec.Replace,
+		Target:           obj.Spec.Target,
+		TargetDependents: obj.Spec.TargetDependents,
+		Refresh:          obj.Spec.Refresh,
+		ContinueOnError:  obj.Spec.ContinueOnError,
+	}
+
+	l.Info("Executing update operation", "request", autoReq)
+	res, err := client.Up(ctx, autoReq, grpc.WaitForReady(true))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
@@ -197,19 +304,19 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				if r.Result.Permalink != nil {
 					obj.Status.Permalink = *r.Result.Permalink
 				}
-				progressing.Status = metav1.ConditionFalse
-				progressing.Reason = "Complete"
-				complete.Status = metav1.ConditionTrue
-				complete.Reason = "Updated"
+				u.progressing.Status = metav1.ConditionFalse
+				u.progressing.Reason = "Complete"
+				u.complete.Status = metav1.ConditionTrue
+				u.complete.Reason = "Updated"
 				switch r.Result.Summary.Result {
 				case "succeeded":
-					failed.Status = metav1.ConditionFalse
-					failed.Reason = r.Result.Summary.Result
+					u.failed.Status = metav1.ConditionFalse
+					u.failed.Reason = r.Result.Summary.Result
 				default:
-					failed.Status = metav1.ConditionTrue
-					failed.Reason = r.Result.Summary.Result
+					u.failed.Status = metav1.ConditionTrue
+					u.failed.Reason = r.Result.Summary.Result
 				}
-				err = updateStatus()
+				err = u.updateStatus()
 				if err != nil {
 					done <- fmt.Errorf("failed to update the status: %w", err)
 					return
@@ -222,7 +329,136 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, fmt.Errorf("response error: %w", err)
 	}
 
-	l.Info("reconciled update")
+	return ctrl.Result{}, nil
+}
+
+func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update, client agentpb.AutomationServiceClient) (ctrl.Result, error) {
+	l := log.FromContext(ctx)
+
+	l.V(1).Info("Configure the refresh operation")
+	autoReq := &agentpb.RefreshRequest{
+		Parallel:        obj.Spec.Parallel,
+		Message:         obj.Spec.Message,
+		ExpectNoChanges: obj.Spec.ExpectNoChanges,
+		Target:          obj.Spec.Target,
+	}
+
+	l.Info("Executing refresh operation", "request", autoReq)
+	res, err := client.Refresh(ctx, autoReq, grpc.WaitForReady(true))
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
+	}
+	done := make(chan error)
+	go func() {
+		for {
+			stream, err := res.Recv()
+			if err == io.EOF {
+				close(done)
+				return
+			}
+
+			switch r := stream.Response.(type) {
+			case *agentpb.RefreshStream_Event:
+				continue
+			case *agentpb.RefreshStream_Result:
+				l.Info("Result received", "result", r.Result)
+
+				obj.Status.StartTime = metav1.NewTime(r.Result.Summary.StartTime.AsTime())
+				obj.Status.EndTime = metav1.NewTime(r.Result.Summary.EndTime.AsTime())
+				if r.Result.Permalink != nil {
+					obj.Status.Permalink = *r.Result.Permalink
+				}
+				u.progressing.Status = metav1.ConditionFalse
+				u.progressing.Reason = "Complete"
+				u.complete.Status = metav1.ConditionTrue
+				u.complete.Reason = "Updated"
+				switch r.Result.Summary.Result {
+				case "succeeded":
+					u.failed.Status = metav1.ConditionFalse
+					u.failed.Reason = r.Result.Summary.Result
+				default:
+					u.failed.Status = metav1.ConditionTrue
+					u.failed.Reason = r.Result.Summary.Result
+				}
+				err = u.updateStatus()
+				if err != nil {
+					done <- fmt.Errorf("failed to update the status: %w", err)
+					return
+				}
+			}
+		}
+	}()
+	err = <-done
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("response error: %w", err)
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update, client agentpb.AutomationServiceClient) (ctrl.Result, error) {
+	l := log.FromContext(ctx)
+
+	l.V(1).Info("Configure the destroy operation")
+	autoReq := &agentpb.DestroyRequest{
+		Parallel:         obj.Spec.Parallel,
+		Message:          obj.Spec.Message,
+		Target:           obj.Spec.Target,
+		TargetDependents: obj.Spec.TargetDependents,
+		Refresh:          obj.Spec.Refresh,
+		ContinueOnError:  obj.Spec.ContinueOnError,
+		Remove:           obj.Spec.Remove,
+	}
+
+	l.Info("Executing refresh operation", "request", autoReq)
+	res, err := client.Destroy(ctx, autoReq, grpc.WaitForReady(true))
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
+	}
+	done := make(chan error)
+	go func() {
+		for {
+			stream, err := res.Recv()
+			if err == io.EOF {
+				close(done)
+				return
+			}
+
+			switch r := stream.Response.(type) {
+			case *agentpb.DestroyStream_Event:
+				continue
+			case *agentpb.DestroyStream_Result:
+				l.Info("Result received", "result", r.Result)
+
+				obj.Status.StartTime = metav1.NewTime(r.Result.Summary.StartTime.AsTime())
+				obj.Status.EndTime = metav1.NewTime(r.Result.Summary.EndTime.AsTime())
+				if r.Result.Permalink != nil {
+					obj.Status.Permalink = *r.Result.Permalink
+				}
+				u.progressing.Status = metav1.ConditionFalse
+				u.progressing.Reason = "Complete"
+				u.complete.Status = metav1.ConditionTrue
+				u.complete.Reason = "Updated"
+				switch r.Result.Summary.Result {
+				case "succeeded":
+					u.failed.Status = metav1.ConditionFalse
+					u.failed.Reason = r.Result.Summary.Result
+				default:
+					u.failed.Status = metav1.ConditionTrue
+					u.failed.Reason = r.Result.Summary.Result
+				}
+				err = u.updateStatus()
+				if err != nil {
+					done <- fmt.Errorf("failed to update the status: %w", err)
+					return
+				}
+			}
+		}
+	}()
+	err = <-done
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("response error: %w", err)
+	}
 
 	return ctrl.Result{}, nil
 }

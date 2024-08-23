@@ -20,11 +20,52 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type UpdateType string
+
+const (
+	PreviewType UpdateType = "preview"
+	UpType      UpdateType = "up"
+	DestroyType UpdateType = "destroy"
+	RefreshType UpdateType = "refresh"
+)
+
 // UpdateSpec defines the desired state of Update
 type UpdateSpec struct {
 	// WorkspaceName is the workspace to update.
 	WorkspaceName string `json:"workspaceName,omitempty"`
 	StackName     string `json:"stackName,omitempty"`
+
+	Type UpdateType `json:"type,omitempty"`
+
+	// Parallel is the number of resource operations to run in parallel at once
+	// (1 for no parallelism). Defaults to unbounded.
+	// +optional
+	Parallel *int32 `json:"parallel,omitempty"`
+	// Message (optional) to associate with the preview operation
+	// +optional
+	Message *string `json:"message,omitempty"`
+	// Return an error if any changes occur during this update
+	// +optional
+	ExpectNoChanges *bool `json:"expectNoChanges,omitempty"`
+	// Specify resources to replace
+	// +optional
+	Replace []string `json:"replace,omitempty"`
+	// Specify an exclusive list of resource URNs to update
+	// +optional
+	Target []string `json:"target,omitempty"`
+	// TargetDependents allows updating of dependent targets discovered but not
+	// specified in the Target list
+	// +optional
+	TargetDependents *bool `json:"targetDependents,omitempty"`
+	// refresh will run a refresh before the update.
+	// +optional
+	Refresh *bool `json:"refresh,omitempty"`
+	// ContinueOnError will continue to perform the update operation despite the
+	// occurrence of errors.
+	ContinueOnError *bool `json:"continueOnError,omitempty"`
+	// Remove the stack and its configuration after all resources in the stack
+	// have been deleted.
+	Remove *bool `json:"remove,omitempty"`
 }
 
 // UpdateStatus defines the observed state of Update
