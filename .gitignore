@@ -9,6 +9,7 @@ build/_test
 # -*- mode: gitignore; -*-
 *~
 \#*\#
+.DS_Store
 /.emacs.desktop
 /.emacs.desktop.lock
 *.elc

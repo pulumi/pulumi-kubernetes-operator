@@ -82,10 +82,6 @@ var serveCmd = &cobra.Command{
 		log.Infow("opened a local workspace", "workspace", workDir,
 			"project", proj.Name, "runtime", proj.Runtime.Name())
 
-		// https://github.com/pulumi/pulumi/issues/16920
-		if proj.Runtime.Name() == "yaml" {
-			SkipInstall = true
-		}
 		if !SkipInstall {
 			plog := zap.L().Named("pulumi")
 			stdout := &zapio.Writer{Log: plog, Level: zap.InfoLevel}
