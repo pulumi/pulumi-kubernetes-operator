@@ -27,8 +27,8 @@ import (
 
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
-	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/v1alpha1"
-	"github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller"
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
+	autocontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/auto"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -124,7 +124,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.WorkspaceReconciler{
+	if err = (&autocontroller.WorkspaceReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor("workspace-controller"),
@@ -132,7 +132,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Workspace")
 		os.Exit(1)
 	}
-	if err = (&controller.UpdateReconciler{
+	if err = (&autocontroller.UpdateReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
