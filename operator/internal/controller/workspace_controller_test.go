@@ -437,7 +437,7 @@ var _ = Describe("Workspace Controller", func() {
 					Expect(ready.Message).NotTo(BeEmpty())
 				})
 			})
-			When("all conditions met", func() {
+			PWhen("all conditions met", func() {
 				JustBeforeEach(func(ctx context.Context) {
 					ss.Status.ObservedGeneration = 2
 					ss.Status.Replicas = 1
