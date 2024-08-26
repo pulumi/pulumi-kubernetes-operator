@@ -11,7 +11,7 @@ kind: Workspace
 metadata:
   name: random-yaml-1e2fc47
 spec:
-  image: pulumi/pulumi:3.128.0-nonroot
+  image: pulumi/pulumi:3.130.0-nonroot
   securityProfile: restricted  
   serviceAccountName: default
   
@@ -73,7 +73,35 @@ spec:
           - name: secret-volume
             mountPath: /etc/secret-volume
             readOnly: true
+          - name: oidc-token
+            mountPath: /var/run/secrets/pulumi
       volumes:
         - name: secret-volume
           secret:
             secretName: test-secret
+        - name: oidc-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: urn:pulumi:org:ORG_NAME
+                  path: token
+                  expirationSeconds: 3600
+  stacks:
+    - name: dev
+      config:
+      - key: "pulumi:oidcToken"
+        valueFrom:
+          path: /var/run/secrets/pulumi/token
+        secret: true
+      - key: kubernetes:namespace
+        value: "default"
+      - key: data.active
+        path: true
+        value: "true"
+      - key: data.nums[0]
+        path: true
+        value: "1"
+      - key: data.nums[1]
+        path: true
+        value: "2"
+

@@ -92,6 +92,14 @@ type WorkspaceSpec struct {
 	//
 	// +optional
 	PodTemplate *corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
+
+	// List of stacks to .
+	// +optional
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=name
+	Stacks []WorkspaceStack `json:"stacks,omitempty"`
 }
 
 // GitSource specifies how to fetch from a git repository directly.
@@ -117,6 +125,50 @@ type FluxSource struct {
 	// interest, within the fetched artifact.
 	// +optional
 	Dir string `json:"dir,omitempty"`
+}
+
+type WorkspaceStack struct {
+	Name string `json:"name"`
+
+	// Create the stack if it does not exist.
+	Create *bool `json:"create,omitempty"`
+
+	// SecretsProvider is the name of the secret provider to use for the stack.
+	SecretsProvider *string `json:"secretsProvider,omitempty"`
+
+	// Config is a list of confguration values to set on the stack.
+	// +optional
+	// +patchMergeKey=key
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=key
+	Config []ConfigItem `json:"config,omitempty"`
+}
+
+// +structType=atomic
+type ConfigItem struct {
+	// Key is the configuration key or path to set.
+	Key string `json:"key"`
+	// The key contains a path to a property in a map or list to set
+	// +optional
+	Path *bool `json:"path,omitempty"`
+	// Value is the configuration value to set.
+	// +optional
+	Value *string `json:"value,omitempty"`
+	// ValueFrom is a reference to a value from the environment or from a file.
+	// +optional
+	ValueFrom *ConfigValueFrom `json:"valueFrom,omitempty"`
+	// Secret marks the configuration value as a secret.
+	Secret *bool `json:"secret,omitempty"`
+}
+
+// +structType=atomic
+type ConfigValueFrom struct {
+	// Env is an environment variable in the pulumi container to use as the value.
+	// +optional
+	Env string `json:"env,omitempty"`
+	// Path is a path to a file in the pulumi container containing the value.
+	Path string `json:"path,omitempty"`
 }
 
 // WorkspaceStatus defines the observed state of Workspace

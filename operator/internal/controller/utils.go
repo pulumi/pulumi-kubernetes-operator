@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"os"
 
+	agentpb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/v1alpha1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func connect(ctx context.Context, addr string) (*grpc.ClientConn, error) {
@@ -38,4 +41,30 @@ func connect(ctx context.Context, addr string) (*grpc.ClientConn, error) {
 			return nil, ctx.Err()
 		}
 	}
+}
+
+func marshalConfigValue(item autov1alpha1.ConfigItem) *agentpb.ConfigValue {
+	v := &agentpb.ConfigValue{
+		Secret: item.Secret,
+	}
+	if item.Value != nil {
+		v.V = &agentpb.ConfigValue_Value{
+			Value: structpb.NewStringValue(*item.Value),
+		}
+	} else if item.ValueFrom != nil {
+		f := &agentpb.ConfigValueFrom{}
+		if item.ValueFrom.Env != "" {
+			f.F = &agentpb.ConfigValueFrom_Env{
+				Env: item.ValueFrom.Env,
+			}
+		} else if item.ValueFrom.Path != "" {
+			f.F = &agentpb.ConfigValueFrom_Path{
+				Path: item.ValueFrom.Path,
+			}
+		}
+		v.V = &agentpb.ConfigValue_ValueFrom{
+			ValueFrom: f,
+		}
+	}
+	return v
 }

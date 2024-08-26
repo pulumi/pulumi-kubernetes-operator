@@ -22,7 +22,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"time"
 
+	agentpb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -30,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/tools/record"
 	hashutil "k8s.io/kubernetes/pkg/util/hash"
@@ -45,6 +49,7 @@ import (
 const (
 	WorkspaceIndexerFluxSource  = "index.spec.flux.sourceRef"
 	WorkspaceConditionTypeReady = autov1alpha1.WorkspaceReady
+	PodAnnotationInitialized    = "auto.pulumi.com/initialized"
 	PodAnnotationRevisionHash   = "auto.pulumi.com/revision-hash"
 
 	// TODO: get from configuration
@@ -105,7 +110,9 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// determine the source revision to use in later steps.
-	source := &sourceSpec{}
+	source := &sourceSpec{
+		Generation: w.Generation,
+	}
 	if w.Spec.Git != nil {
 		source.Git = &gitSource{
 			Url:      w.Spec.Git.Url,
@@ -132,6 +139,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to apply service: %w", err)
 	}
+	addr := fmt.Sprintf("%s:%d", fqdnForService(w), WorkspaceGrpcPort)
 
 	// make a statefulset, incorporating the source revision into the pod spec.
 	// whenever the revision changes, the statefulset will be updated.
@@ -152,17 +160,136 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		ready.Status = metav1.ConditionFalse
 		ready.Reason = "RollingUpdate"
 		ready.Message = "Waiting for the statefulset to be updated"
+		w.Status.Address = ""
 		return ctrl.Result{}, updateStatus()
 	}
 	if ss.Status.AvailableReplicas < 1 {
 		ready.Status = metav1.ConditionFalse
 		ready.Reason = "WaitingForReplicas"
 		ready.Message = "Waiting for the workspace pod to be available"
+		w.Status.Address = ""
 		return ctrl.Result{}, updateStatus()
 	}
 
-	addr := fmt.Sprintf("%s:%d", fqdnForService(w), WorkspaceGrpcPort)
+	// Locate the workspace pod, to figure out whether workspace initialization is needed.
+	// The workspace is stored in pod ephemeral storage, which has the same lifecycle as that of the pod.
+	podName := fmt.Sprintf("%s-0", nameForStatefulSet(w))
+	pod := &corev1.Pod{}
+	err = r.Get(ctx, types.NamespacedName{Name: podName, Namespace: w.Namespace}, pod)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("unable to find the workspace pod: %w", err)
+	}
+	podRevision := pod.Labels["controller-revision-hash"]
+	if podRevision != ss.Status.CurrentRevision {
+		// the pod cache must be stale because the statefulset is up-to-date yet the revision is mismatched.
+		l.Info("source revision mismatch; requeuing", "actual", podRevision, "expected", ss.Status.CurrentRevision)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// Connect to the workspace's GRPC server
+	l.Info("Connecting to workspace pod", "addr", addr)
+	connectCtx, connectCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer connectCancel()
+	conn, err := connect(connectCtx, addr)
+	if err != nil {
+		l.Error(err, "unable to connect; retrying later", "addr", addr)
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = "ConnectionFailed"
+		ready.Message = err.Error()
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, updateStatus()
+	}
+	defer func() {
+		_ = conn.Close()
+	}()
 	w.Status.Address = addr
+	wc := agentpb.NewAutomationServiceClient(conn)
+
+	initializedV, ok := pod.Annotations[PodAnnotationInitialized]
+	initialized, _ := strconv.ParseBool(initializedV)
+	if !ok || !initialized {
+		l.Info("Running pulumi install")
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = "Installing"
+		ready.Message = "Installing packages and plugins required by the program"
+		if err := updateStatus(); err != nil {
+			return ctrl.Result{}, err
+		}
+		_, err = wc.Install(ctx, &agentpb.InstallRequest{})
+		if err != nil {
+			l.Error(err, "unable to install; deleting the workspace pod to retry later")
+			ready.Status = metav1.ConditionFalse
+			ready.Reason = "InstallationFailed"
+			ready.Message = err.Error()
+			err = r.Client.Delete(ctx, pod)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, updateStatus()
+		}
+
+		l.Info("Creating Pulumi stack(s)")
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = "Initializing"
+		ready.Message = "Initializing and selecting a Pulumi stack"
+		if err := updateStatus(); err != nil {
+			return ctrl.Result{}, err
+		}
+		for _, stack := range w.Spec.Stacks {
+			l := l.WithValues("stackName", stack.Name)
+			err := func() error {
+				l.V(1).Info("Creating or selecting a stack",
+					"create", stack.Create, "secretsProvider", stack.SecretsProvider)
+				if _, err = wc.SelectStack(ctx, &agentpb.SelectStackRequest{
+					StackName:       stack.Name,
+					Create:          stack.Create,
+					SecretsProvider: stack.SecretsProvider,
+				}); err != nil {
+					return err
+				}
+				l.V(1).Info("Setting the stack configuration")
+				for _, item := range stack.Config {
+					v := marshalConfigValue(item)
+					if _, err = wc.SetAllConfig(ctx, &agentpb.SetAllConfigRequest{
+						Path: item.Path,
+						Config: map[string]*agentpb.ConfigValue{
+							item.Key: v,
+						},
+					}); err != nil {
+						return err
+					}
+				}
+				return nil
+			}()
+			if err != nil {
+				l.Error(err, "unable to initialize the Pulumi stack")
+				ready.Status = metav1.ConditionFalse
+				ready.Reason = "InitializationFailed"
+				ready.Message = err.Error()
+				err = r.Client.Delete(ctx, pod)
+				if err != nil {
+					return ctrl.Result{}, err
+				}
+				return ctrl.Result{}, updateStatus()
+			}
+		}
+
+		// set the "initalized" annotation
+		if pod.Annotations == nil {
+			pod.Annotations = make(map[string]string)
+		}
+		pod.Annotations[PodAnnotationInitialized] = "true"
+		err = r.Update(ctx, pod, client.FieldOwner(FieldManager))
+		if err != nil {
+			l.Error(err, "unable to update the workspace pod; deleting the pod to retry later")
+			err = r.Client.Delete(ctx, pod)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, fmt.Errorf("failed to update the pod: %w", err)
+		}
+		l.Info("workspace pod initialized")
+	}
+
 	ready.Status = metav1.ConditionTrue
 	ready.Reason = "Succeeded"
 	ready.Message = ""
@@ -214,6 +341,12 @@ func labelsForStatefulSet(w *autov1alpha1.Workspace) map[string]string {
 
 func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.StatefulSet, error) {
 	labels := labelsForStatefulSet(w)
+
+	command := []string{
+		"/share/agent", "serve",
+		"--workspace", "/share/workspace",
+		"--skip-install",
+	}
 
 	statefulset := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
@@ -279,7 +412,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 							},
 							Env:     w.Spec.Env,
 							EnvFrom: w.Spec.EnvFrom,
-							Command: []string{"/share/agent", "serve", "--workspace", "/share/workspace"},
+							Command: command,
 						},
 					},
 					Volumes: []corev1.Volume{
@@ -436,6 +569,7 @@ func newService(w *autov1alpha1.Workspace) *corev1.Service {
 }
 
 type sourceSpec struct {
+	Generation   int64
 	ForceRequest string
 	Git          *gitSource
 	Flux         *fluxSource
