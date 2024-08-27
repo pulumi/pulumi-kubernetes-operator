@@ -1,0 +1,20 @@
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: random-yaml
+spec:
+  fluxSource:
+    sourceRef:
+      apiVersion: source.toolkit.fluxcd.io/v1
+      kind: GitRepository
+      name: pulumi-examples
+    dir: random-yaml/
+  stack: dev
+  config:
+    aws:region: us-east-2
+  envRefs:
+    PULUMI_ACCESS_TOKEN:
+      type: Secret
+      secret:
+        name: pulumi-api-secret
+        key: accessToken
