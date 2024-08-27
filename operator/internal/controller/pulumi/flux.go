@@ -5,10 +5,12 @@ package pulumi
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/fluxcd/pkg/http/fetch"
+	"github.com/fluxcd/pkg/tar"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -45,7 +47,11 @@ func (sess *StackReconcilerSession) SetupWorkdirFromFluxSource(ctx context.Conte
 		return "", err
 	}
 
-	fetcher := fetch.NewArchiveFetcher(1, maxArtifactDownloadSize, maxArtifactDownloadSize*10, "")
+	fetcher := fetch.New(
+		fetch.WithRetries(1),
+		fetch.WithMaxDownloadSize(maxArtifactDownloadSize),
+		fetch.WithUntar(tar.WithMaxUntarSize(maxArtifactDownloadSize*10)),
+		fetch.WithHostnameOverwrite(os.Getenv("SOURCE_CONTROLLER_LOCALHOST")))
 	if err = fetcher.Fetch(artifactURL, digest, workspaceDir); err != nil {
 		return "", fmt.Errorf("failed to get artifact from source: %w", err)
 	}
