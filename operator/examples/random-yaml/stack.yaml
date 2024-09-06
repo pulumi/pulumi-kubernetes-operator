@@ -1,0 +1,26 @@
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: random-yaml
+spec:
+  fluxSource:
+    sourceRef:
+      apiVersion: source.toolkit.fluxcd.io/v1
+      kind: GitRepository
+      name: pulumi-examples
+    dir: stack-readme-yaml
+    # dir: random-yaml/
+  stack: dev
+  refresh: true
+  continueResyncOnCommitMatch: true
+  resyncFrequencySeconds: 60
+  destroyOnFinalize: true
+  config:
+    aws:region: us-west-1
+  envRefs:
+    PULUMI_ACCESS_TOKEN:
+      type: Secret
+      secret:
+        name: pulumi-api-secret
+        key: accessToken
+  image: pulumi/pulumi:3.130.0-nonroot

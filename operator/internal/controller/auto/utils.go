@@ -6,7 +6,7 @@ import (
 	"os"
 
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
-	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/v1alpha1"
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"

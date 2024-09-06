@@ -26,7 +26,7 @@ import (
 	"time"
 
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
-	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/v1alpha1"
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -593,29 +593,29 @@ func (s *sourceSpec) Hash() string {
 	return hex.EncodeToString(hasher.Sum(nil)[0:])
 }
 
-func mergePodTemplateSpec(_ context.Context, base, patch *corev1.PodTemplateSpec) (*corev1.PodTemplateSpec, error) {
+func mergePodTemplateSpec(_ context.Context, base *corev1.PodTemplateSpec, patch *autov1alpha1.EmbeddedPodTemplateSpec) (*corev1.PodTemplateSpec, error) {
 	if patch == nil {
 		return base, nil
 	}
 
 	baseBytes, err := json.Marshal(base)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal JSON for base %s: %w", base.Name, err)
+		return nil, fmt.Errorf("failed to marshal JSON for base: %w", err)
 	}
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal JSON for patch %s: %w", patch.Name, err)
+		return nil, fmt.Errorf("failed to marshal JSON for pod template: %w", err)
 	}
 
 	// Calculate the patch result.
 	jsonResultBytes, err := strategicpatch.StrategicMergePatch(baseBytes, patchBytes, &corev1.PodTemplateSpec{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate merge patch for %s: %w", base.Name, err)
+		return nil, fmt.Errorf("failed to generate merge patch for pod template: %w", err)
 	}
 
 	patchResult := &corev1.PodTemplateSpec{}
 	if err := json.Unmarshal(jsonResultBytes, patchResult); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal merged %s: %w", base.Name, err)
+		return nil, fmt.Errorf("failed to unmarshal merged pod template: %w", err)
 	}
 
 	return patchResult, nil

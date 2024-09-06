@@ -36,7 +36,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/v1alpha1"
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 )
 
 const (
@@ -313,8 +313,8 @@ var _ = Describe("Workspace Controller", func() {
 
 		Describe("spec.podTemplate", func() {
 			BeforeEach(func(ctx context.Context) {
-				obj.Spec.PodTemplate = &corev1.PodTemplateSpec{
-					Spec: corev1.PodSpec{
+				obj.Spec.PodTemplate = &autov1alpha1.EmbeddedPodTemplateSpec{
+					Spec: &corev1.PodSpec{
 						InitContainers: []corev1.Container{
 							{Name: "test", Image: "test/extra:latest"},
 						},

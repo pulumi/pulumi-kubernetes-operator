@@ -27,8 +27,10 @@ import (
 
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
-	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/v1alpha1"
-	"github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller"
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
+	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
+	autocontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/auto"
+	pulumicontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/pulumi"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -50,6 +52,7 @@ func init() {
 	utilruntime.Must(sourcev1.AddToScheme(scheme))
 	utilruntime.Must(sourcev1b2.AddToScheme(scheme))
 	utilruntime.Must(autov1alpha1.AddToScheme(scheme))
+	utilruntime.Must(pulumiv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -124,7 +127,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.WorkspaceReconciler{
+	if err = (&autocontroller.WorkspaceReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor("workspace-controller"),
@@ -132,11 +135,20 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Workspace")
 		os.Exit(1)
 	}
-	if err = (&controller.UpdateReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+	if err = (&autocontroller.UpdateReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("update-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Update")
+		os.Exit(1)
+	}
+	if err = (&pulumicontroller.StackReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("stack-controller"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Stack")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

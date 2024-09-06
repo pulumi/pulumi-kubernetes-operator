@@ -37,7 +37,6 @@ spec:
       cpu: 1
       memory: 512Mi
 
-
   # various extension points shown here.
   # - custom pod labels
   # - pod tolerations

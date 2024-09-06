@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package pulumi
 
 import (
 	"context"
@@ -27,10 +27,10 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/v1alpha1"
+	pulumicomv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1alpha1"
 )
 
-var _ = PDescribe("Update Controller", func() {
+var _ = Describe("Stack Controller", func() {
 	Context("When reconciling a resource", func() {
 		const resourceName = "test-resource"
 
@@ -40,13 +40,13 @@ var _ = PDescribe("Update Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		update := &autov1alpha1.Update{}
+		stack := &pulumicomv1alpha1.Stack{}
 
 		BeforeEach(func() {
-			By("creating the custom resource for the Kind Update")
-			err := k8sClient.Get(ctx, typeNamespacedName, update)
+			By("creating the custom resource for the Kind Stack")
+			err := k8sClient.Get(ctx, typeNamespacedName, stack)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &autov1alpha1.Update{
+				resource := &pulumicomv1alpha1.Stack{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -59,16 +59,16 @@ var _ = PDescribe("Update Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &autov1alpha1.Update{}
+			resource := &pulumicomv1alpha1.Stack{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Cleanup the specific resource instance Update")
+			By("Cleanup the specific resource instance Stack")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
-			controllerReconciler := &UpdateReconciler{
+			controllerReconciler := &StackReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}

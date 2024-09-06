@@ -29,6 +29,12 @@ const (
 	RefreshType UpdateType = "refresh"
 )
 
+const (
+	UpdateConditionTypeComplete    = "Complete"
+	UpdateConditionTypeFailed      = "Failed"
+	UpdateConditionTypeProgressing = "Progressing"
+)
+
 // UpdateSpec defines the desired state of Update
 type UpdateSpec struct {
 	// WorkspaceName is the workspace to update.
@@ -84,6 +90,9 @@ type UpdateStatus struct {
 	// Represents the permalink URL in the Pulumi Console for the operation. Not available for DIY backends.
 	// +optional
 	Permalink string `json:"permalink,omitempty"`
+
+	// +optional
+	Message string `json:"message,omitempty"`
 
 	// Represents the observations of an update's current state.
 	// Known .status.conditions.type are: "Complete", "Failed", and "Progressing"

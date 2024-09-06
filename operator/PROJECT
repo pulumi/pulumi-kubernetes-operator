@@ -5,6 +5,7 @@
 domain: pulumi.com
 layout:
 - go.kubebuilder.io/v4
+multigroup: true
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
@@ -18,7 +19,7 @@ resources:
   domain: pulumi.com
   group: auto
   kind: Workspace
-  path: github.com/pulumi/pulumi-kubernetes-operator/operator/api/v1alpha1
+  path: github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -27,6 +28,21 @@ resources:
   domain: pulumi.com
   group: auto
   kind: Update
-  path: github.com/pulumi/pulumi-kubernetes-operator/operator/api/v1alpha1
+  path: github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  group: pulumi.com
+  kind: Stack
+  path: github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  group: pulumi.com
+  kind: Program
+  path: github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1
+  version: v1
 version: "3"
