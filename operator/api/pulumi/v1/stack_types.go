@@ -37,6 +37,10 @@ type StackStatus struct {
 	ObservedReconcileRequest string `json:"observedReconcileRequest,omitempty"`
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// CurrentUpdate contains details of the status of the current update, if any.
+	// +optional
+	CurrentUpdate *shared.CurrentStackUpdate `json:"currentUpdate,omitempty"`
 }
 
 // The conditions form part of the API. They are used to implement a "ready protocol" which works
@@ -73,8 +77,9 @@ const (
 	NotReadyStalledReason = "NotReadyStalled"
 
 	// Reconciling because the stack is being processed
-	ReconcilingProcessingReason  = "StackProcessing"
-	ReconcilingProcessingMessage = "stack is being processed"
+	ReconcilingProcessingReason           = "StackProcessing"
+	ReconcilingProcessingWorkspaceMessage = "waiting for workspace readiness"
+	ReconcilingProcessingUpdateMessage    = "stack is being processed"
 	// Reconciling because it failed, and has been requeued
 	ReconcilingRetryReason = "RetryingAfterFailure"
 	// Reconciling because a prerequisite was not satisfied
@@ -88,6 +93,8 @@ const (
 	StalledConflictReason = "UpdateConflict"
 	// Stalled because a cross-namespace ref is used, and namespace isolation is in effect.
 	StalledCrossNamespaceRefForbiddenReason = "CrossNamespaceRefForbidden"
+	// Stalled because a prerequisite was not satisfied
+	StalledPrerequisiteNotSatisfiedReason = "PrerequisiteNotSatisfied"
 
 	// Ready because processing has completed
 	ReadyCompletedReason = "ProcessingCompleted"

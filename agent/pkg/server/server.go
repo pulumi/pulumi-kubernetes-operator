@@ -94,6 +94,9 @@ func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, 
 			return nil, fmt.Errorf("failed to select stack: %w", err)
 		}
 		if opts.SecretsProvider != "" {
+			// We must always make sure the secret provider is initialized in the workspace
+			// before we set any configs. Otherwise secret provider will mysteriously reset.
+			// https://github.com/pulumi/pulumi-kubernetes-operator/issues/135
 			err = stack.ChangeSecretsProvider(ctx, opts.SecretsProvider, &auto.ChangeSecretsProviderOptions{})
 			if err != nil {
 				return nil, fmt.Errorf("failed to set secrets provider: %w", err)

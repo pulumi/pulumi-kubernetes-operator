@@ -19,6 +19,7 @@ package pulumi
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 // Environment variable to toggle namespace behavior
@@ -36,4 +37,29 @@ func inferNamespace(namespace string) string {
 	}
 
 	return ""
+}
+
+func min(a, b time.Duration) time.Duration {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b time.Duration) time.Duration {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func exactlyOneOf(these ...bool) bool {
+	var found bool
+	for _, b := range these {
+		if found && b {
+			return false
+		}
+		found = found || b
+	}
+	return found
 }

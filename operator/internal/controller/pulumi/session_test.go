@@ -10,8 +10,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/go-logr/logr/testr"
 	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/shared"
-	"github.com/pulumi/pulumi-kubernetes-operator/operator/internal/logging"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/stretchr/testify/assert"
@@ -56,7 +56,7 @@ func TestSuite(t *testing.T) {
 
 func (suite *GitAuthTestSuite) TestSetupGitAuthWithSecrets() {
 	t := suite.T()
-	logger := logging.NewLogger(t.Name(), "Request.Test", "TestSetupGitAuthWithSecrets")
+	log := testr.New(t).WithValues("Request.Test", "TestSetupGitAuthWithSecrets")
 
 	sshPrivateKey := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -289,9 +289,9 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithSecrets() {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			session := newStackReconcilerSession(logger, shared.StackSpec{
+			session := newStackReconcilerSession(log, shared.StackSpec{
 				GitSource: &shared.GitSource{GitAuth: test.gitAuth},
-			}, client, namespace)
+			}, client, scheme.Scheme, namespace)
 			gitAuth, err := session.SetupGitAuth(context.TODO())
 			if test.err != nil {
 				require.Error(t, err)
@@ -306,7 +306,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithSecrets() {
 
 func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 	t := suite.T()
-	logger := logging.NewLogger(t.Name(), "Request.Test", "TestSetupGitAuthWithRefs")
+	log := testr.New(t).WithValues("Request.Test", "TestSetupGitAuthWithSecrets")
 
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -550,11 +550,11 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			session := newStackReconcilerSession(logger, shared.StackSpec{
+			session := newStackReconcilerSession(log, shared.StackSpec{
 				GitSource: &shared.GitSource{
 					GitAuth: test.gitAuth,
 				},
-			}, client, namespace)
+			}, client, scheme.Scheme, namespace)
 			gitAuth, err := session.SetupGitAuth(context.TODO())
 			if test.err != nil {
 				require.Error(t, err)

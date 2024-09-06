@@ -236,6 +236,7 @@ func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update
 				if r.Result.Permalink != nil {
 					obj.Status.Permalink = *r.Result.Permalink
 				}
+				obj.Status.Message = r.Result.Summary.Message
 				u.progressing.Status = metav1.ConditionFalse
 				u.progressing.Reason = "Complete"
 				u.complete.Status = metav1.ConditionTrue
@@ -304,6 +305,7 @@ func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update,
 				if r.Result.Permalink != nil {
 					obj.Status.Permalink = *r.Result.Permalink
 				}
+				obj.Status.Message = r.Result.Summary.Message
 				u.progressing.Status = metav1.ConditionFalse
 				u.progressing.Reason = "Complete"
 				u.complete.Status = metav1.ConditionTrue
@@ -368,6 +370,7 @@ func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update
 				if r.Result.Permalink != nil {
 					obj.Status.Permalink = *r.Result.Permalink
 				}
+				obj.Status.Message = r.Result.Summary.Message
 				u.progressing.Status = metav1.ConditionFalse
 				u.progressing.Reason = "Complete"
 				u.complete.Status = metav1.ConditionTrue
@@ -435,6 +438,7 @@ func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update
 				if r.Result.Permalink != nil {
 					obj.Status.Permalink = *r.Result.Permalink
 				}
+				obj.Status.Message = r.Result.Summary.Message
 				u.progressing.Status = metav1.ConditionFalse
 				u.progressing.Reason = "Complete"
 				u.complete.Status = metav1.ConditionTrue

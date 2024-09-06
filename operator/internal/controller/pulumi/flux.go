@@ -5,68 +5,36 @@ package pulumi
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
-	"github.com/fluxcd/pkg/http/fetch"
-	"github.com/fluxcd/pkg/tar"
-
-	"github.com/pulumi/pulumi/sdk/v3/go/auto"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/shared"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-const maxArtifactDownloadSize = 50 * 1024 * 1024
+func (sess *StackReconcilerSession) SetupWorkspaceFromFluxSource(ctx context.Context, source unstructured.Unstructured, fluxSource *shared.FluxSource) (string, error) {
 
-func (sess *StackReconcilerSession) SetupWorkdirFromFluxSource(ctx context.Context, source unstructured.Unstructured, fluxSource *shared.FluxSource) (string, error) {
 	// this source artifact fetching code is based closely on
 	// https://github.com/fluxcd/kustomize-controller/blob/db3c321163522259595894ca6c19ed44a876976d/controllers/kustomization_controller.go#L529
-	homeDir := sess.getPulumiHome()
-	workspaceDir := sess.getWorkspaceDir()
-	sess.logger.Debug("Setting up pulumi workspace for stack", "stack", sess.stack, "workspace", workspaceDir)
+	sess.logger.V(1).Info("Setting up pulumi workspace for stack", "stack", sess.stack, "workspace", sess.ws.Name)
 
 	artifactURL, err := getArtifactField(source, "url")
 	if err != nil {
 		return "", err
 	}
-	revision, err := getArtifactField(source, "revision")
+	digest, err := getArtifactField(source, "digest")
 	if err != nil {
 		return "", err
 	}
 
-	// Check for either the digest or checksum field. If both are present, prefer digest.
-	// Checksum was supported/deprecated by the Fluxv2 Artifact type in v1beta2, but was removed in v1.
-	// The format of digest is slightly different to checksum.
-	// When github.com/fluxcd/pkg/http/fetch is updated to v0.5.1 or higher, the function from Flux that needs checksum/digest
-	// accepts both formats. Until then, we'll need to normalize the digest.
-	// https://github.com/fluxcd/source-controller/blob/a0ff0cfa885e1e5f506a593a9de39174cf1dfeb8/api/v1beta2/artifact_types.go#L49-L57
-	digest, err := checksumOrDigest(source)
-	if err != nil {
-		return "", err
+	sess.ws.Spec.Flux = &autov1alpha1.FluxSource{
+		Url:    artifactURL,
+		Digest: digest,
+		Dir:    fluxSource.Dir,
 	}
 
-	fetcher := fetch.New(
-		fetch.WithRetries(1),
-		fetch.WithMaxDownloadSize(maxArtifactDownloadSize),
-		fetch.WithUntar(tar.WithMaxUntarSize(maxArtifactDownloadSize*10)),
-		fetch.WithHostnameOverwrite(os.Getenv("SOURCE_CONTROLLER_LOCALHOST")))
-	if err = fetcher.Fetch(artifactURL, digest, workspaceDir); err != nil {
-		return "", fmt.Errorf("failed to get artifact from source: %w", err)
-	}
-
-	secretsProvider := auto.SecretsProvider(sess.stack.SecretsProvider)
-	w, err := auto.NewLocalWorkspace(
-		ctx,
-		auto.PulumiHome(homeDir),
-		auto.WorkDir(filepath.Join(workspaceDir, fluxSource.Dir)),
-		secretsProvider)
-	if err != nil {
-		return "", fmt.Errorf("failed to create local workspace: %w", err)
-	}
-
-	return revision, sess.setupWorkspace(ctx, w)
+	return digest, sess.setupWorkspace(ctx)
 }
 
 // getArtifactField is a helper to get a specified nested field from .status.artifact.
@@ -134,4 +102,13 @@ func checkFluxSourceReady(obj unstructured.Unstructured) error {
 	}
 
 	return nil
+}
+
+func getSourceGVK(src shared.FluxSourceReference) (schema.GroupVersionKind, error) {
+	gv, err := schema.ParseGroupVersion(src.APIVersion)
+	return gv.WithKind(src.Kind), err
+}
+
+func fluxSourceKey(gvk schema.GroupVersionKind, name string) string {
+	return fmt.Sprintf("%s:%s", gvk, name)
 }

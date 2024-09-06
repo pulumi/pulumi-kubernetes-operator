@@ -1,6 +1,8 @@
 package shared
 
 import (
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -81,6 +83,9 @@ type StackSpec struct {
 	// resources mentioned will be updated.
 	Targets []string `json:"targets,omitempty"`
 
+	// TargetDependents indicates that dependent resources should be updated as well, when using Targets.
+	TargetDependents bool `json:"targetDependents,omitempty"`
+
 	// (optional) Prerequisites is a list of references to other stacks, each with a constraint on
 	// how long ago it must have succeeded. This can be used to make sure e.g., state is
 	// re-evaluated before running a stack that depends on it.
@@ -122,6 +127,17 @@ type StackSpec struct {
 	// If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency.
 	// The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.
 	ResyncFrequencySeconds int64 `json:"resyncFrequencySeconds,omitempty"`
+
+	// Workspace:
+
+	// Image is the container image to use for the Pulumi workspace.
+	// +optional
+	Image string `json:"image,omitempty"`
+
+	// Compute Resources required by this stack.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // GitSource specifies how to fetch from a git repository directly.
@@ -358,6 +374,12 @@ type StackOutputs map[string]apiextensionsv1.JSON
 
 // StackUpdateState is the status of a stack update
 type StackUpdateState struct {
+	// Generation is the stack generation associated with the update.
+	Generation int64 `json:"generation,omitempty"`
+	// Name is the name of the update object.
+	Name string `json:"name,omitempty"`
+	// Type is the type of update.
+	Type autov1alpha1.UpdateType `json:"type,omitempty"`
 	// State is the state of the stack update - one of `succeeded` or `failed`
 	State StackUpdateStateMessage `json:"state,omitempty"`
 	// Last commit attempted
@@ -400,3 +422,12 @@ const (
 
 // Permalink is the Pulumi Service URL of the stack operation.
 type Permalink string
+
+type CurrentStackUpdate struct {
+	// Generation is the stack generation associated with the update.
+	Generation int64 `json:"generation,omitempty"`
+	// Name is the name of the update object.
+	Name string `json:"name,omitempty"`
+	// Commit is the commit SHA of the planned update.
+	Commit string `json:"commit,omitempty"`
+}

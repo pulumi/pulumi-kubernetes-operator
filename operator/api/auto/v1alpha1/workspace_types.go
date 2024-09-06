@@ -86,12 +86,12 @@ type WorkspaceSpec struct {
 	// Compute Resources required by this workspace.
 	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 	// +optional
-	Resources corev1.ResourceRequirements `json:"resources,omitempty" protobuf:"bytes,8,opt,name=resources"`
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// PodTemplate defines a PodTemplateSpec for Workspace's pods.
 	//
 	// +optional
-	PodTemplate *corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
+	PodTemplate *EmbeddedPodTemplateSpec `json:"podTemplate,omitempty"`
 
 	// List of stacks to .
 	// +optional
@@ -169,6 +169,37 @@ type ConfigValueFrom struct {
 	Env string `json:"env,omitempty"`
 	// Path is a path to a file in the pulumi container containing the value.
 	Path string `json:"path,omitempty"`
+}
+
+// EmbeddedPodTemplateSpec is an embedded version of k8s.io/api/core/v1.PodTemplateSpec.
+// It contains a reduced ObjectMeta.
+type EmbeddedPodTemplateSpec struct {
+	// EmbeddedMetadata contains metadata relevant to an embedded resource.
+	// +optional
+	Metadata EmbeddedObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Specification of the desired behavior of the pod.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	// +optional
+	Spec *corev1.PodSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+}
+
+// EmbeddedObjectMeta contains a subset of the fields included in k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta
+// Only fields which are relevant to embedded resources are included.
+type EmbeddedObjectMeta struct {
+	// Map of string keys and values that can be used to organize and categorize
+	// (scope and select) objects. May match selectors of replication controllers
+	// and services.
+	// More info: http://kubernetes.io/docs/user-guide/labels
+	// +optional
+	Labels map[string]string `json:"labels,omitempty" protobuf:"bytes,11,rep,name=labels"`
+
+	// Annotations is an unstructured key value map stored with a resource that may be
+	// set by external tools to store and retrieve arbitrary metadata. They are not
+	// queryable and should be preserved when modifying objects.
+	// More info: http://kubernetes.io/docs/user-guide/annotations
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty" protobuf:"bytes,12,rep,name=annotations"`
 }
 
 // WorkspaceStatus defines the observed state of Workspace
