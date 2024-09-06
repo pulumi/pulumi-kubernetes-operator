@@ -98,6 +98,9 @@ var serveCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			log.Infow("installation completed")
+		} else {
+			log.Infow("installation skipped",
+				"project", proj.Name, "runtime", proj.Runtime.Name())
 		}
 
 		// Create the automation service

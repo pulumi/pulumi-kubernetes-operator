@@ -20,7 +20,21 @@
 			]
 		},
 		{
-			"name": "Agent",
+			"name": "Manager (v2)",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "operator/cmd",
+			"args": [
+				"--zap-encoder=console",
+				"--zap-log-level=debug"
+			],
+			"env": {
+				"WORKSPACE_LOCALHOST": "localhost:50051",
+			},
+		},
+		{
+			"name": "Agent (v2)",
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",

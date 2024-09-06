@@ -1,0 +1,107 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secret
+data:
+  username: bXktYXBw
+  password: Mzk1MjgkdmRnN0pi
+---
+apiVersion: auto.pulumi.com/v1alpha1
+kind: Workspace
+metadata:
+  name: random-yaml-1e2fc47
+spec:
+  image: pulumi/pulumi:3.130.0-nonroot
+  securityProfile: restricted  
+  serviceAccountName: default
+  
+  # git:
+  #   url: https://github.com/pulumi/examples.git
+  #   revision: 1e2fc471709448f3c9f7a250f28f1eafcde7017b
+  #   dir: random-yaml
+  flux:
+    url: http://source-controller.flux-system.svc.cluster.local./gitrepository/default/pulumi-examples/1e2fc471709448f3c9f7a250f28f1eafcde7017b.tar.gz
+    digest: sha256:6560311e95689086aa195a82c0310080adc31bea2457936ce528a014d811407a
+    dir: random-yaml
+  env:
+  - name: PULUMI_ACCESS_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: pulumi-api-secret
+        key: accessToken
+  resources:
+    requests:
+      cpu: 1
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 512Mi
+
+
+  # various extension points shown here.
+  # - custom pod labels
+  # - pod tolerations
+  # - extra init container(s)
+  # - extra volume(s) and volume mounts onto the 'pulumi' container
+  podTemplate:
+    metadata:
+      labels:
+        example.com/mylabel: bar
+    spec:
+      terminationGracePeriodSeconds: 3600
+      tolerations:
+        - key: "example.com/foo"
+          operator: "Exists"
+          effect: "NoSchedule"
+      initContainers:
+      - name: extra
+        image: busybox
+        command: ["sh", "-c", "echo 'Hello, extra init container!'"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+            drop:
+            - ALL
+        volumeMounts:
+          - name: share
+            mountPath: /share
+      containers:
+      - name: pulumi
+        volumeMounts:
+          - name: secret-volume
+            mountPath: /etc/secret-volume
+            readOnly: true
+          - name: oidc-token
+            mountPath: /var/run/secrets/pulumi
+      volumes:
+        - name: secret-volume
+          secret:
+            secretName: test-secret
+        - name: oidc-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: urn:pulumi:org:ORG_NAME
+                  path: token
+                  expirationSeconds: 3600
+  stacks:
+    - name: dev
+      config:
+      - key: "pulumi:oidcToken"
+        valueFrom:
+          path: /var/run/secrets/pulumi/token
+        secret: true
+      - key: kubernetes:namespace
+        value: "default"
+      - key: data.active
+        path: true
+        value: "true"
+      - key: data.nums[0]
+        path: true
+        value: "1"
+      - key: data.nums[1]
+        path: true
+        value: "2"
+

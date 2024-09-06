@@ -44,8 +44,10 @@ jobs:
           go-version: 1.22.x
       - name: Install Pulumi
         uses: pulumi/actions@v5
-      - name: Run Tests
+      - name: Run Tests (Agent)
         run: make -C agent test
+      - name: Run Tests (Operator)
+        run: make -C operator test
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
         with:
