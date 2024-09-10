@@ -367,8 +367,10 @@ func isStalledError(e error) bool {
 	return errors.As(e, &s)
 }
 
-var errNamespaceIsolation = newStallErrorf(`cross-namespace refs are not allowed`)
-var errOtherThanOneSourceSpecified = newStallErrorf(`exactly one source (.spec.fluxSource, .spec.projectRepo, or .spec.programRef) for the stack must be given`)
+var (
+	errNamespaceIsolation          = newStallErrorf(`cross-namespace refs are not allowed`)
+	errOtherThanOneSourceSpecified = newStallErrorf(`exactly one source (.spec.fluxSource, .spec.projectRepo, or .spec.programRef) for the stack must be given`)
+)
 
 var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
 
@@ -549,7 +551,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 	// Step 1. Set up the workspace, select the right stack and populate config if supplied.
 
-	// Check swhich kind of source we have.
+	// Check which kind of source we have.
 
 	switch {
 	case !exactlyOneOf(stack.GitSource != nil, stack.FluxSource != nil, stack.ProgramRef != nil):
@@ -557,48 +559,26 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
 		return reconcile.Result{}, nil
 
-	// case stack.GitSource != nil:
-	// 	gitSource := stack.GitSource
-	// 	// Validate that there is enough specified to be able to clone the git repo.
-	// 	if gitSource.ProjectRepo == "" || (gitSource.Commit == "" && gitSource.Branch == "") {
+	case stack.GitSource != nil:
+		auth, err := sess.resolveGitAuth(ctx, *stack.GitSource)
+		if err != nil {
+			r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
+			return reconcile.Result{}, saveStatus()
+		}
 
-	// 		msg := "Stack git source needs to specify 'projectRepo' and either 'branch' or 'commit'"
-	// 		r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), msg)
-	// 		reqLogger.Info(msg)
-	// 		r.markStackFailed(sess, instance, errors.New(msg), "", "")
-	// 		instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, msg)
-	// 		// this object won't be processable until the spec is changed, so no reason to requeue
-	// 		// explicitly
-	// 		return reconcile.Result{}, nil
-	// 	}
+		gs, err := NewGitSource(*stack.GitSource, auth)
+		if err != nil {
+			r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
+			return reconcile.Result{}, saveStatus()
+		}
 
-	// 	gitAuth, err := sess.SetupGitAuth(ctx) // TODO be more explicit about what's being fed in here
-	// 	if err != nil {
-	// 		r.emitEvent(instance, pulumiv1.StackGitAuthFailureEvent(), "Failed to setup git authentication: %v", err.Error())
-	// 		reqLogger.Error(err, "Failed to setup git authentication", "Stack.Name", stack.Stack)
-	// 		r.markStackFailed(sess, instance, err, "", "")
-	// 		instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
-	// 		return reconcile.Result{}, nil
-	// 	}
-
-	// 	if gitAuth.SSHPrivateKey != "" {
-	// 		// Add the project repo's public SSH keys to the SSH known hosts
-	// 		// to perform the necessary key checking during SSH git cloning.
-	// 		sess.addSSHKeysToKnownHosts(sess.stack.ProjectRepo)
-	// 	}
-
-	// 	if currentCommit, err = sess.SetupWorkdirFromGitSource(ctx, gitAuth, gitSource); err != nil {
-	// 		r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
-	// 		reqLogger.Error(err, "Failed to setup Pulumi workspace", "Stack.Name", stack.Stack)
-	// 		r.markStackFailed(sess, instance, err, "", "")
-	// 		if isStalledError(err) {
-	// 			instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
-	// 			return reconcile.Result{}, nil
-	// 		}
-	// 		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
-	// 		// this can fail for reasons which might go away without intervention; so, retry explicitly
-	// 		return reconcile.Result{Requeue: true}, nil
-	// 	}
+		currentCommit, err = gs.CurrentCommit(ctx)
+		if err != nil {
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
+			return reconcile.Result{}, saveStatus()
+		}
 
 	case stack.FluxSource != nil:
 		fluxSource := stack.FluxSource
@@ -1013,6 +993,51 @@ func (sess *StackReconcilerSession) resolveResourceRefAsConfigItem(ctx context.C
 		return nil, nil, errors.New("Missing secret reference in ResourceRef")
 	default:
 		return nil, nil, fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
+	}
+}
+
+// resolveResourceRef reads a referenced object and returns its value as a string.
+func (sess *StackReconcilerSession) resolveResourceRef(ctx context.Context, ref *shared.ResourceRef) (string, error) {
+	switch ref.SelectorType {
+	case shared.ResourceSelectorEnv:
+		if ref.Env != nil {
+			resolved := os.Getenv(ref.Env.Name)
+			if resolved == "" {
+				return "", fmt.Errorf("missing value for environment variable: %s", ref.Env.Name)
+			}
+			return resolved, nil
+		}
+		return "", errors.New("missing env reference in ResourceRef")
+	case shared.ResourceSelectorLiteral:
+		if ref.LiteralRef != nil {
+			return ref.LiteralRef.Value, nil
+		}
+		return "", errors.New("missing literal reference in ResourceRef")
+	case shared.ResourceSelectorFS:
+		return "", errors.New("not supported in v2")
+	case shared.ResourceSelectorSecret:
+		if ref.SecretRef != nil {
+			var config corev1.Secret
+			namespace := ref.SecretRef.Namespace
+			if namespace == "" {
+				namespace = sess.namespace
+			}
+			if namespace != sess.namespace {
+				return "", errNamespaceIsolation
+			}
+
+			if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: ref.SecretRef.Name, Namespace: namespace}, &config); err != nil {
+				return "", fmt.Errorf("Namespace=%s Name=%s: %w", ref.SecretRef.Namespace, ref.SecretRef.Name, err)
+			}
+			secretVal, ok := config.Data[ref.SecretRef.Key]
+			if !ok {
+				return "", fmt.Errorf("No key %q found in secret %s/%s", ref.SecretRef.Key, ref.SecretRef.Namespace, ref.SecretRef.Name)
+			}
+			return string(secretVal), nil
+		}
+		return "", errors.New("Missing secret reference in ResourceRef")
+	default:
+		return "", fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
 	}
 }
 
