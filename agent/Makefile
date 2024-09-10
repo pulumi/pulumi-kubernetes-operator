@@ -11,7 +11,7 @@ protoc:
     	--go-grpc_out=. --go-grpc_opt=paths=source_relative *.proto
 
 test:
-	go test -covermode=atomic -coverprofile=coverage.out -v ./...
+	go test -covermode=atomic -coverprofile=coverage.out -coverpkg=./... -v ./...
 	
 agent: protoc
 	@echo "Building agent"

@@ -45,9 +45,9 @@ const (
 
 var (
 	TestGitSource = &autov1alpha1.GitSource{
-		Url:      "https://github.com/pulumi/examples.git",
-		Revision: "1e2fc471709448f3c9f7a250f28f1eafcde7017b",
-		Dir:      "random-yaml",
+		URL: "https://github.com/pulumi/examples.git",
+		Ref: "1e2fc471709448f3c9f7a250f28f1eafcde7017b",
+		Dir: "random-yaml",
 	}
 	TestFluxSource = &autov1alpha1.FluxSource{
 		Url:    "http://source-controller.flux-system.svc.cluster.local./gitrepository/default/pulumi-examples/1e2fc471709448f3c9f7a250f28f1eafcde7017b.tar.gz",
@@ -92,7 +92,6 @@ var _ = Describe("Workspace Controller", func() {
 	})
 
 	reconcileF := func(ctx context.Context) (result reconcile.Result, err error) {
-
 		result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
 
 		// refresh the object and find its status condition(s)
@@ -284,8 +283,8 @@ var _ = Describe("Workspace Controller", func() {
 					fetch := findContainer(ss.Spec.Template.Spec.InitContainers, "fetch")
 					Expect(fetch).NotTo(BeNil())
 					Expect(fetch.Env).To(ConsistOf(
-						corev1.EnvVar{Name: "GIT_URL", Value: TestGitSource.Url},
-						corev1.EnvVar{Name: "GIT_REVISION", Value: TestGitSource.Revision},
+						corev1.EnvVar{Name: "GIT_URL", Value: TestGitSource.URL},
+						corev1.EnvVar{Name: "GIT_REVISION", Value: TestGitSource.Ref},
 						corev1.EnvVar{Name: "GIT_DIR", Value: TestGitSource.Dir},
 					))
 				})

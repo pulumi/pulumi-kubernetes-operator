@@ -32,7 +32,7 @@ type SecurityProfile string
 const (
 	// SecurityProfileBaseline applies the baseline security profile.
 	SecurityProfileBaseline SecurityProfile = "baseline"
-	// SecurityProfileBaseline applies the restricted security profile.
+	// SecurityProfileRestricted applies the restricted security profile.
 	SecurityProfileRestricted SecurityProfile = "restricted"
 )
 
@@ -58,7 +58,7 @@ type WorkspaceSpec struct {
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
-	// Repo is the git source containing the Pulumi program.
+	// Git is the git source containing the Pulumi program.
 	// +optional
 	Git *GitSource `json:"git,omitempty"`
 
@@ -93,7 +93,7 @@ type WorkspaceSpec struct {
 	// +optional
 	PodTemplate *EmbeddedPodTemplateSpec `json:"podTemplate,omitempty"`
 
-	// List of stacks to .
+	// List of stacks this workspace manages.
 	// +optional
 	// +patchMergeKey=name
 	// +patchStrategy=merge
@@ -104,15 +104,45 @@ type WorkspaceSpec struct {
 
 // GitSource specifies how to fetch from a git repository directly.
 type GitSource struct {
-	// Url is the git source control repository from which we fetch the project code and configuration.
-	Url string `json:"url,omitempty"`
-	// Revision is the git revision (tag, or commit SHA) to fetch.
-	Revision string `json:"revision,omitempty"`
-	// (optional) Dir is the directory to work from in the project's source repository
+	// URL is the git source control repository from which we fetch the project
+	// code and configuration.
+	URL string `json:"url,omitempty"`
+	// Ref is the git ref (tag, branch, or commit SHA) to fetch.
+	Ref string `json:"ref,omitempty"`
+	// Dir is the directory to work from in the project's source repository
 	// where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
 	// in the project source root.
 	// +optional
 	Dir string `json:"dir,omitempty"`
+	// Auth contains optional authentication information to use when cloning
+	// the repository.
+	// +optional
+	Auth *GitAuth `json:"auth,omitempty"`
+	// Shallow controls whether the workspace uses a shallow clone or whether
+	// all history is cloned.
+	// +optional
+	Shallow bool `json:"shallow,omitempty"`
+}
+
+// GitAuth specifies git authentication configuration options.
+// There are 3 different authentication options:
+//   - Personal access token
+//   - SSH private key (and its optional password)
+//   - Basic auth username and password
+//
+// Only 1 authentication mode is valid.
+type GitAuth struct {
+	// SSHPrivateKey should contain a private key for access to the git repo.
+	// When using `SSHPrivateKey`, the URL of the repository must be in the
+	// format git@github.com:org/repository.git.
+	SSHPrivateKey *corev1.SecretKeySelector `json:"sshPrivateKey,omitempty"`
+	// Username is the username to use when authenticating to a git repository.
+	Username *corev1.SecretKeySelector `json:"username,omitempty"`
+	// The password that pairs with a username or as part of an SSH Private Key.
+	Password *corev1.SecretKeySelector `json:"password,omitempty"`
+	// Token is a Git personal access token in replacement of
+	// your password.
+	Token *corev1.SecretKeySelector `json:"token,omitempty"`
 }
 
 // FluxSource specifies how to fetch a Fllux source artifact.

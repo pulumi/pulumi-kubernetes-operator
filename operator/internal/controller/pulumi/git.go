@@ -25,11 +25,11 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
+	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/shared"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/gitutil"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	v1 "k8s.io/api/core/v1"
 )
 
 // Source represents a source of commits.
@@ -138,88 +138,120 @@ func (gs gitSource) authMethod() (transport.AuthMethod, error) {
 // repository of the stack. If neither gitAuth or gitAuthSecret are set,
 // a pointer to a zero value of GitAuth is returned — representing
 // unauthenticated git access.
-func (sess *StackReconcilerSession) resolveGitAuth(ctx context.Context, config shared.GitSource) (*auto.GitAuth, error) {
-	var auth *auto.GitAuth
+//
+// The workspace pod is also mutated to mount these references at some
+// well-known paths.
+func (sess *StackReconcilerSession) resolveGitAuth(ctx context.Context) (*auto.GitAuth, error) {
+	if sess.stack.GitSource == nil {
+		return nil, nil
+	}
+	if sess.stack.GitAuthSecret != "" {
+		return nil, errors.New("gitAuthSecret was deprecated and is no longer supported in v2")
+	}
+	if sess.stack.GitAuth == nil {
+		return nil, nil
+	}
 
-	if config.GitAuth != nil {
-		if config.GitAuth.SSHAuth != nil {
-			privateKey, err := sess.resolveResourceRef(ctx, &config.GitAuth.SSHAuth.SSHPrivateKey)
-			if err != nil {
-				return nil, fmt.Errorf("resolving gitAuth SSH private key: %w", err)
-			}
-			auth.SSHPrivateKey = privateKey
+	auth := &auto.GitAuth{}
+	config := sess.stack.GitSource
 
-			if config.GitAuth.SSHAuth.Password != nil {
-				password, err := sess.resolveResourceRef(ctx, config.GitAuth.SSHAuth.Password)
-				if err != nil {
-					return nil, fmt.Errorf("resolving gitAuth SSH password: %w", err)
-				}
-				auth.Password = password
-			}
-
-			return auth, nil
-		}
-
-		if config.GitAuth.PersonalAccessToken != nil {
-			accessToken, err := sess.resolveResourceRef(ctx, sess.stack.GitAuth.PersonalAccessToken)
-			if err != nil {
-				return nil, fmt.Errorf("resolving gitAuth personal access token: %w", err)
-			}
-			auth.PersonalAccessToken = accessToken
-			return auth, nil
-		}
-
-		if config.GitAuth.BasicAuth == nil {
-			return nil, errors.New("gitAuth config must specify exactly one of " +
-				"'personalAccessToken', 'sshPrivateKey' or 'basicAuth'")
-		}
-
-		username, err := sess.resolveResourceRef(ctx, &sess.stack.GitAuth.BasicAuth.UserName)
+	if config.GitAuth.SSHAuth != nil {
+		privateKey, err := sess.resolveResourceRef(ctx, &config.GitAuth.SSHAuth.SSHPrivateKey)
 		if err != nil {
-			return nil, fmt.Errorf("resolving gitAuth username: %w", err)
+			return auth, fmt.Errorf("resolving gitAuth SSH private key: %w", err)
+		}
+		auth.SSHPrivateKey = privateKey
+
+		if config.GitAuth.SSHAuth.Password != nil {
+			password, err := sess.resolveResourceRef(ctx, config.GitAuth.SSHAuth.Password)
+			if err != nil {
+				return auth, fmt.Errorf("resolving gitAuth SSH password: %w", err)
+			}
+			auth.Password = password
 		}
 
-		password, err := sess.resolveResourceRef(ctx, &sess.stack.GitAuth.BasicAuth.Password)
-		if err != nil {
-			return nil, fmt.Errorf("resolving gitAuth password: %w", err)
-		}
-
-		auth.Username = username
-		auth.Password = password
 		return auth, nil
 	}
 
-	if config.GitAuthSecret != "" {
-		namespacedName := types.NamespacedName{Name: sess.stack.GitAuthSecret, Namespace: sess.namespace}
-
-		// Fetch the named secret.
-		secret := &corev1.Secret{}
-		if err := sess.kubeClient.Get(ctx, namespacedName, secret); err != nil {
-			sess.logger.Error(err, "Could not find secret for access to the git repository",
-				"Namespace", sess.namespace, "Stack.GitAuthSecret", sess.stack.GitAuthSecret)
-			return nil, err
+	if config.GitAuth.PersonalAccessToken != nil {
+		accessToken, err := sess.resolveResourceRef(ctx, sess.stack.GitAuth.PersonalAccessToken)
+		if err != nil {
+			return auth, fmt.Errorf("resolving gitAuth personal access token: %w", err)
 		}
-
-		// First check if an SSH private key has been specified.
-		if sshPrivateKey, exists := secret.Data["sshPrivateKey"]; exists {
-			auth.SSHPrivateKey = string(sshPrivateKey)
-
-			if password, exists := secret.Data["password"]; exists {
-				auth.Password = string(password)
-			}
-			// Then check if a personal access token has been specified.
-		} else if accessToken, exists := secret.Data["accessToken"]; exists {
-			auth.PersonalAccessToken = string(accessToken)
-			// Then check if basic authentication has been specified.
-		} else if username, exists := secret.Data["username"]; exists {
-			if password, exists := secret.Data["password"]; exists {
-				auth.Username = string(username)
-				auth.Password = string(password)
-			} else {
-				return nil, errors.New("creating gitAuth: missing 'password' secret entry")
-			}
-		}
+		auth.PersonalAccessToken = accessToken
+		return auth, nil
 	}
 
+	if config.GitAuth.BasicAuth == nil {
+		return auth, errors.New("gitAuth config must specify exactly one of " +
+			"'personalAccessToken', 'sshPrivateKey' or 'basicAuth'")
+	}
+
+	username, err := sess.resolveResourceRef(ctx, &sess.stack.GitAuth.BasicAuth.UserName)
+	if err != nil {
+		return auth, fmt.Errorf("resolving gitAuth username: %w", err)
+	}
+
+	password, err := sess.resolveResourceRef(ctx, &sess.stack.GitAuth.BasicAuth.Password)
+	if err != nil {
+		return auth, fmt.Errorf("resolving gitAuth password: %w", err)
+	}
+
+	auth.Username = username
+	auth.Password = password
 	return auth, nil
+}
+
+func (sess *StackReconcilerSession) setupWorkspaceFromGitSource(ctx context.Context, gs shared.GitSource, commit string) error {
+	sess.ws.Spec.Git = &v1alpha1.GitSource{
+		Ref:     commit,
+		URL:     gs.ProjectRepo,
+		Dir:     gs.RepoDir,
+		Shallow: gs.Shallow,
+	}
+
+	if gs.GitAuth != nil {
+		auth := &v1alpha1.GitAuth{}
+		if gs.GitAuth.SSHAuth != nil {
+			auth.SSHPrivateKey = &v1.SecretKeySelector{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: gs.GitAuth.SSHAuth.SSHPrivateKey.SecretRef.Name,
+				},
+				Key: gs.GitAuth.SSHAuth.SSHPrivateKey.SecretRef.Key,
+			}
+			if gs.GitAuth.SSHAuth.Password != nil {
+				auth.Password = &v1.SecretKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: gs.GitAuth.SSHAuth.Password.SecretRef.Name,
+					},
+					Key: gs.GitAuth.SSHAuth.Password.SecretRef.Key,
+				}
+			}
+		}
+		if gs.GitAuth.BasicAuth != nil {
+			auth.Username = &v1.SecretKeySelector{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: gs.GitAuth.BasicAuth.UserName.SecretRef.Name,
+				},
+				Key: gs.GitAuth.BasicAuth.UserName.SecretRef.Key,
+			}
+			auth.Password = &v1.SecretKeySelector{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: gs.GitAuth.BasicAuth.Password.SecretRef.Name,
+				},
+				Key: gs.GitAuth.BasicAuth.Password.SecretRef.Key,
+			}
+		}
+		if gs.GitAuth.PersonalAccessToken != nil {
+			auth.Token = &v1.SecretKeySelector{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: gs.GitAuth.PersonalAccessToken.SecretRef.Name,
+				},
+				Key: gs.GitAuth.PersonalAccessToken.SecretRef.Key,
+			}
+		}
+		sess.ws.Spec.Git.Auth = auth
+	}
+
+	return sess.setupWorkspace(ctx)
 }

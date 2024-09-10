@@ -16,15 +16,10 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
-	"net/url"
 	"os"
 
-	"github.com/fluxcd/pkg/git"
-	"github.com/fluxcd/pkg/git/gogit"
-	"github.com/fluxcd/pkg/git/repository"
 	"github.com/fluxcd/pkg/http/fetch"
-	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -37,7 +32,7 @@ var (
 	TargetDir   string
 	FluxUrl     string
 	FluxDigest  string
-	GitUrl      string
+	GitURL      string
 	GitRevision string
 )
 
@@ -76,61 +71,39 @@ For Flux sources:
 				os.Exit(2)
 			}
 			log.Infow("flux artifact fetched", "dir", TargetDir)
+			return
+		}
+
+		if GitURL == "" {
+			log.Errorw("need --flux-url or --git-url")
+			os.Exit(1)
+
 		}
 
 		// fetch the configured git artifact
-		if GitUrl != "" {
-			u, err := url.Parse(GitUrl)
-			if err != nil {
-				log.Errorw("fatal: unable to parse git url", zap.Error(err))
-				os.Exit(2)
-			}
-			// Configure authentication strategy to access the source
-			authData := map[string][]byte{}
-			authOpts, err := git.NewAuthOptions(*u, authData)
-			if err != nil {
-				log.Errorw("fatal: unable to parse git auth options", zap.Error(err))
-				os.Exit(2)
-			}
-			cloneOpts := repository.CloneConfig{
-				RecurseSubmodules: false,
-				ShallowClone:      true,
-			}
-			cloneOpts.Commit = GitRevision
-			log.Infow("git source fetching", "url", GitUrl, "revision", GitRevision)
-			_, err = gitCheckout(ctx, GitUrl, cloneOpts, authOpts, nil, TargetDir)
-			if err != nil {
-				log.Errorw("fatal: unable to fetch git source", zap.Error(err))
-				os.Exit(2)
-			}
-			log.Infow("git artifact fetched", "dir", TargetDir)
+		auth := &auto.GitAuth{
+			SSHPrivateKey:       os.Getenv("GIT_SSH_PRIVATE_KEY"),
+			Username:            os.Getenv("GIT_USERNAME"),
+			Password:            os.Getenv("GIT_PASSWORD"),
+			PersonalAccessToken: os.Getenv("GIT_TOKEN"),
 		}
+		repo := auto.GitRepo{
+			URL: GitURL,
+			//ProjectPath: ,
+			CommitHash: GitRevision,
+			Auth:       auth,
+			Shallow:    os.Getenv("GIT_SHALLOW") == "true",
+		}
+
+		// TODO: addSSHKeysToKnownHosts
+		_, err = auto.NewLocalWorkspace(ctx, auto.Repo(repo))
+		if err != nil {
+			log.Errorw("fatal: unable to fetch git source", zap.Error(err))
+			os.Exit(2)
+
+		}
+		log.Infow("git artifact fetched", "dir", TargetDir)
 	},
-}
-
-func gitCheckout(ctx context.Context, url string, cloneOpts repository.CloneConfig,
-	authOpts *git.AuthOptions, proxyOpts *transport.ProxyOptions, dir string) (*git.Commit, error) {
-
-	clientOpts := []gogit.ClientOption{gogit.WithDiskStorage()}
-	if authOpts.Transport == git.HTTP {
-		clientOpts = append(clientOpts, gogit.WithInsecureCredentialsOverHTTP())
-	}
-	if proxyOpts != nil {
-		clientOpts = append(clientOpts, gogit.WithProxy(*proxyOpts))
-	}
-
-	gitReader, err := gogit.NewClient(dir, authOpts, clientOpts...)
-	if err != nil {
-		return nil, err
-	}
-	defer gitReader.Close()
-
-	commit, err := gitReader.Clone(ctx, url, cloneOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	return commit, nil
 }
 
 func init() {
@@ -142,7 +115,7 @@ func init() {
 	initCmd.Flags().StringVar(&FluxDigest, "flux-digest", "", "Flux digest")
 	initCmd.MarkFlagsRequiredTogether("flux-url", "flux-digest")
 
-	initCmd.Flags().StringVar(&GitUrl, "git-url", "", "Git repository URL")
+	initCmd.Flags().StringVar(&GitURL, "git-url", "", "Git repository URL")
 	initCmd.Flags().StringVar(&GitRevision, "git-revision", "", "Git revision (tag or commit SHA)")
 	initCmd.MarkFlagsRequiredTogether("git-url", "git-revision")
 }

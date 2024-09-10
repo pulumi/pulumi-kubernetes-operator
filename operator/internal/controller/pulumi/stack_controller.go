@@ -560,7 +560,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		return reconcile.Result{}, nil
 
 	case stack.GitSource != nil:
-		auth, err := sess.resolveGitAuth(ctx, *stack.GitSource)
+		auth, err := sess.resolveGitAuth(ctx)
 		if err != nil {
 			r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
 			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
@@ -578,6 +578,12 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		if err != nil {
 			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
 			return reconcile.Result{}, saveStatus()
+		}
+
+		err = sess.setupWorkspaceFromGitSource(ctx, *stack.GitSource, currentCommit)
+		if err != nil {
+			log.Error(err, "Failed to setup Pulumi workspace")
+			return reconcile.Result{}, err
 		}
 
 	case stack.FluxSource != nil:
@@ -666,7 +672,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 				(!sess.stack.ContinueResyncOnCommitMatch || time.Since(instance.Status.LastUpdate.LastResyncTime.Time) < resyncFreq)))
 
 	if synced {
-		// transition to ready, and requeue reconcilation as necessary to detect
+		// transition to ready, and requeue reconciliation as necessary to detect
 		// branch updates and resyncs.
 		instance.Status.MarkReadyCondition()
 
@@ -999,43 +1005,27 @@ func (sess *StackReconcilerSession) resolveResourceRefAsConfigItem(ctx context.C
 // resolveResourceRef reads a referenced object and returns its value as a string.
 func (sess *StackReconcilerSession) resolveResourceRef(ctx context.Context, ref *shared.ResourceRef) (string, error) {
 	switch ref.SelectorType {
-	case shared.ResourceSelectorEnv:
-		if ref.Env != nil {
-			resolved := os.Getenv(ref.Env.Name)
-			if resolved == "" {
-				return "", fmt.Errorf("missing value for environment variable: %s", ref.Env.Name)
-			}
-			return resolved, nil
-		}
-		return "", errors.New("missing env reference in ResourceRef")
-	case shared.ResourceSelectorLiteral:
-		if ref.LiteralRef != nil {
-			return ref.LiteralRef.Value, nil
-		}
-		return "", errors.New("missing literal reference in ResourceRef")
-	case shared.ResourceSelectorFS:
-		return "", errors.New("not supported in v2")
 	case shared.ResourceSelectorSecret:
-		if ref.SecretRef != nil {
-			var config corev1.Secret
-			namespace := ref.SecretRef.Namespace
-			if namespace == "" {
-				namespace = sess.namespace
-			}
-			if namespace != sess.namespace {
-				return "", errNamespaceIsolation
-			}
-
-			if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: ref.SecretRef.Name, Namespace: namespace}, &config); err != nil {
-				return "", fmt.Errorf("Namespace=%s Name=%s: %w", ref.SecretRef.Namespace, ref.SecretRef.Name, err)
-			}
-			secretVal, ok := config.Data[ref.SecretRef.Key]
-			if !ok {
-				return "", fmt.Errorf("No key %q found in secret %s/%s", ref.SecretRef.Key, ref.SecretRef.Namespace, ref.SecretRef.Name)
-			}
-			return string(secretVal), nil
+		if ref.SecretRef == nil {
+			return "", errors.New("Missing secret reference in ResourceRef")
 		}
-		return "", errors.New("Missing secret reference in ResourceRef")
+		var config corev1.Secret
+		namespace := ref.SecretRef.Namespace
+		if namespace == "" {
+			namespace = sess.namespace
+		}
+		if namespace != sess.namespace {
+			return "", errNamespaceIsolation
+		}
+
+		if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: ref.SecretRef.Name, Namespace: namespace}, &config); err != nil {
+			return "", fmt.Errorf("Namespace=%s Name=%s: %w", ref.SecretRef.Namespace, ref.SecretRef.Name, err)
+		}
+		secretVal, ok := config.Data[ref.SecretRef.Key]
+		if !ok {
+			return "", fmt.Errorf("No key %q found in secret %s/%s", ref.SecretRef.Key, ref.SecretRef.Namespace, ref.SecretRef.Name)
+		}
+		return string(secretVal), nil
 	default:
 		return "", fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
 	}

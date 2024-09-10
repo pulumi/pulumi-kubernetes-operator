@@ -1,4 +1,16 @@
-// Copyright 2021, Pulumi Corporation.  All rights reserved.
+// Copyright 2024, Pulumi Corporation.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package pulumi
 
@@ -6,8 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/go-logr/logr/testr"
@@ -16,7 +26,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -28,34 +37,7 @@ const (
 	namespace  = "test"
 )
 
-type GitAuthTestSuite struct {
-	suite.Suite
-	f string
-}
-
-func (suite *GitAuthTestSuite) SetupTest() {
-	f, err := ioutil.TempFile("", "")
-	suite.NoError(err)
-	defer f.Close()
-	f.WriteString("super secret")
-	suite.f = f.Name()
-	os.Setenv("SECRET3", "so secret")
-}
-
-func (suite *GitAuthTestSuite) AfterTest() {
-	if suite.f != "" {
-		os.Remove(suite.f)
-	}
-	os.Unsetenv("SECRET3")
-	suite.T().Log("Cleaned up")
-}
-
-func TestSuite(t *testing.T) {
-	suite.Run(t, new(GitAuthTestSuite))
-}
-
-func (suite *GitAuthTestSuite) TestSetupGitAuthWithSecrets() {
-	t := suite.T()
+func TestSetupGitAuthWithSecrets(t *testing.T) {
 	log := testr.New(t).WithValues("Request.Test", "TestSetupGitAuthWithSecrets")
 
 	sshPrivateKey := &corev1.Secret{
@@ -292,7 +274,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithSecrets() {
 			session := newStackReconcilerSession(log, shared.StackSpec{
 				GitSource: &shared.GitSource{GitAuth: test.gitAuth},
 			}, client, scheme.Scheme, namespace)
-			gitAuth, err := session.SetupGitAuth(context.TODO())
+			gitAuth, err := session.resolveGitAuth(context.TODO())
 			if test.err != nil {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.err.Error())
@@ -304,8 +286,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithSecrets() {
 	}
 }
 
-func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
-	t := suite.T()
+func TestSetupGitAuthWithRefs(t *testing.T) {
 	log := testr.New(t).WithValues("Request.Test", "TestSetupGitAuthWithSecrets")
 
 	secret := &corev1.Secret{
@@ -337,7 +318,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 	}{
 		{
 			name:     "NilGitAuth",
-			expected: &auto.GitAuth{},
+			expected: nil,
 		},
 		{
 			name:    "EmptyGitAuth",
@@ -363,22 +344,6 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 			},
 		},
 		{
-			name: "GitAuthValidFileReference",
-			gitAuth: &shared.GitAuthConfig{
-				PersonalAccessToken: &shared.ResourceRef{
-					SelectorType: shared.ResourceSelectorFS,
-					ResourceSelector: shared.ResourceSelector{
-						FileSystem: &shared.FSSelector{
-							Path: suite.f,
-						},
-					},
-				},
-			},
-			expected: &auto.GitAuth{
-				PersonalAccessToken: "super secret",
-			},
-		},
-		{
 			name: "GitAuthInvalidFileReference",
 			gitAuth: &shared.GitAuthConfig{
 				PersonalAccessToken: &shared.ResourceRef{
@@ -390,7 +355,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 					},
 				},
 			},
-			err: fmt.Errorf("open /tmp/!@#@!#: no such file or directory"),
+			err: fmt.Errorf("Unsupported selector type: FS"),
 		},
 		{
 			name: "GitAuthValidEnvVarReference",
@@ -404,9 +369,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 					},
 				},
 			},
-			expected: &auto.GitAuth{
-				PersonalAccessToken: "so secret",
-			},
+			err: fmt.Errorf("Unsupported selector type: Env"),
 		},
 		{
 			name: "GitAuthInvalidEnvReference",
@@ -420,7 +383,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 					},
 				},
 			},
-			err: fmt.Errorf("missing value for environment variable: MISSING"),
+			err: fmt.Errorf("Unsupported selector type: Env"),
 		},
 		{
 			name: "GitAuthValidSSHAuthWithoutPassword",
@@ -555,7 +518,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 					GitAuth: test.gitAuth,
 				},
 			}, client, scheme.Scheme, namespace)
-			gitAuth, err := session.SetupGitAuth(context.TODO())
+			gitAuth, err := session.resolveGitAuth(context.TODO())
 			if test.err != nil {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.err.Error())
