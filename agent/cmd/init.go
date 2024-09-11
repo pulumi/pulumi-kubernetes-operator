@@ -136,7 +136,10 @@ func gitCheckout(ctx context.Context, url string, cloneOpts repository.CloneConf
 func init() {
 	rootCmd.AddCommand(initCmd)
 	initCmd.Flags().StringVarP(&TargetDir, "target-dir", "t", "", "The target directory to initialize")
-	initCmd.MarkFlagRequired("target-dir")
+	err := initCmd.MarkFlagRequired("target-dir")
+	if err != nil {
+		panic(err)
+	}
 
 	initCmd.Flags().StringVar(&FluxUrl, "flux-url", "", "Flux archive URL")
 	initCmd.Flags().StringVar(&FluxDigest, "flux-digest", "", "Flux digest")

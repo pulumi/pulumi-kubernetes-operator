@@ -9,9 +9,12 @@ require (
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
+	github.com/mitchellh/go-ps v1.0.0
 	github.com/onsi/gomega v1.33.1
 	github.com/pulumi/pulumi/sdk/v3 v3.127.1-0.20240801092425-22d28187db0a
 	github.com/spf13/cobra v1.8.1
+	github.com/stretchr/testify v1.9.0
+	github.com/zeebo/assert v1.1.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
@@ -70,7 +73,6 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
-	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
