@@ -21,6 +21,7 @@ import (
 
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
@@ -64,18 +65,16 @@ func newGitSource(rawURL string, ref string, auth *auto.GitAuth) (Source, error)
 	if err != nil {
 		return nil, fmt.Errorf("parsing %q: %w", rawURL, err)
 	}
-	refSpec := config.RefSpec(fmt.Sprintf("+%s:%s", ref, ref))
 
 	fs := memory.NewStorage()
 	remote := git.NewRemote(fs, &config.RemoteConfig{
-		Name:  "origin",
-		URLs:  []string{url},
-		Fetch: []config.RefSpec{refSpec},
+		Name: "origin",
+		URLs: []string{url},
 	})
 
 	return &gitSource{
 		fs:     fs,
-		ref:    refSpec,
+		ref:    ref,
 		remote: remote,
 		auth:   auth,
 	}, nil
@@ -83,15 +82,15 @@ func newGitSource(rawURL string, ref string, auth *auto.GitAuth) (Source, error)
 
 type gitSource struct {
 	fs     *memory.Storage
-	ref    config.RefSpec
+	ref    string
 	remote *git.Remote
 	auth   *auto.GitAuth
 }
 
 func (gs gitSource) CurrentCommit(ctx context.Context) (string, error) {
 	// If our ref is already a commit then use it directly.
-	if gs.ref.IsExactSHA1() {
-		return gs.ref.Src(), nil
+	if plumbing.IsHash(gs.ref) {
+		return gs.ref, nil
 	}
 
 	// Otherwise fetch the most recent commit for the ref (branch) we care
@@ -100,17 +99,20 @@ func (gs gitSource) CurrentCommit(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("getting auth methodL: %w", err)
 	}
-	err = gs.remote.FetchContext(ctx, &git.FetchOptions{
-		Depth: 1, // Don't fetch the entire history.
-		Auth:  auth,
+
+	refs, err := gs.remote.ListContext(ctx, &git.ListOptions{
+		Auth: auth,
 	})
 	if err != nil {
-		return "", fmt.Errorf("fetching: %w", err)
+		return "", fmt.Errorf("listing: %w", err)
 	}
-	for commit := range gs.fs.Commits {
-		return commit.String(), nil
+	for _, r := range refs {
+		if r.Name().String() == gs.ref || r.Name().Short() == gs.ref {
+			return r.Hash().String(), nil
+		}
 	}
-	return "", fmt.Errorf("no commits found for ref %q", gs.ref.Src())
+
+	return "", fmt.Errorf("no commits found for ref %q", gs.ref)
 }
 
 // authMethod translates auto.GitAuth into a go-git transport.AuthMethod.

@@ -73,6 +73,8 @@ func TestValidation(t *testing.T) {
 }
 
 func TestCurrentCommit(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		source  shared.GitSource
@@ -111,7 +113,7 @@ func TestCurrentCommit(t *testing.T) {
 				ProjectRepo: _pko,
 				Branch:      "doesntexist",
 			},
-			wantErr: "couldn't find remote ref",
+			wantErr: "no commits found for ref",
 		},
 	}
 
