@@ -119,10 +119,11 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 		Build()
 
 	for _, test := range []struct {
-		name     string
-		gitAuth  *shared.GitAuthConfig
-		expected *auto.GitAuth
-		err      error
+		name          string
+		gitAuth       *shared.GitAuthConfig
+		gitAuthSecret string
+		expected      *auto.GitAuth
+		err           error
 	}{
 		{
 			name: "InvalidSecretName",
@@ -140,6 +141,11 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 				},
 			},
 			err: fmt.Errorf("secrets \"MISSING\" not found"),
+		},
+		{
+			name:          "InvalidSecretName (gitAuthSecret)",
+			gitAuthSecret: "MISSING",
+			err:           fmt.Errorf("secrets \"MISSING\" not found"),
 		},
 		{
 			name: "ValidSSHPrivateKey",
@@ -193,6 +199,14 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 			},
 		},
 		{
+			name:          "ValidSSHPrivateKeyWithPassword (gitAuthSecret)",
+			gitAuthSecret: sshPrivateKeyWithPassword.Name,
+			expected: &auto.GitAuth{
+				SSHPrivateKey: "very secret key",
+				Password:      "moar secret password",
+			},
+		},
+		{
 			name: "ValidAccessToken",
 			gitAuth: &shared.GitAuthConfig{
 				PersonalAccessToken: &shared.ResourceRef{
@@ -206,6 +220,13 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 					},
 				},
 			},
+			expected: &auto.GitAuth{
+				PersonalAccessToken: "super secret access token",
+			},
+		},
+		{
+			name:          "ValidAccessToken (gitAuthSecret)",
+			gitAuthSecret: accessToken.Name,
 			expected: &auto.GitAuth{
 				PersonalAccessToken: "super secret access token",
 			},
@@ -242,6 +263,14 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 			},
 		},
 		{
+			name:          "ValidBasicAuth (gitAuthSecret)",
+			gitAuthSecret: basicAuth.Name,
+			expected: &auto.GitAuth{
+				Username: "not so secret username",
+				Password: "very secret password",
+			},
+		},
+		{
 			name: "BasicAuthWithoutPassword",
 			gitAuth: &shared.GitAuthConfig{
 				BasicAuth: &shared.BasicAuth{
@@ -269,10 +298,18 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 			},
 			err: errors.New("No key \"password\" found in secret test/basicAuthWithoutPassword"),
 		},
+		{
+			name:          "BasicAuthWithoutPassword (gitAuthSecret)",
+			gitAuthSecret: basicAuthWithoutPassword.Name,
+			err:           errors.New(`No key "password" found in secret test/basicAuthWithoutPassword`),
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			session := newStackReconcilerSession(log, shared.StackSpec{
-				GitSource: &shared.GitSource{GitAuth: test.gitAuth},
+				GitSource: &shared.GitSource{
+					GitAuth:       test.gitAuth,
+					GitAuthSecret: test.gitAuthSecret,
+				},
 			}, client, scheme.Scheme, namespace)
 			gitAuth, err := session.resolveGitAuth(context.TODO())
 			if test.err != nil {
@@ -318,7 +355,7 @@ func TestSetupGitAuthWithRefs(t *testing.T) {
 	}{
 		{
 			name:     "NilGitAuth",
-			expected: nil,
+			expected: &auto.GitAuth{},
 		},
 		{
 			name:    "EmptyGitAuth",
