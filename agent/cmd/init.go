@@ -95,7 +95,6 @@ For Flux sources:
 			Shallow:    os.Getenv("GIT_SHALLOW") == "true",
 		}
 
-		// TODO: addSSHKeysToKnownHosts
 		_, err = auto.NewLocalWorkspace(ctx, auto.Repo(repo))
 		if err != nil {
 			log.Errorw("fatal: unable to fetch git source", zap.Error(err))
