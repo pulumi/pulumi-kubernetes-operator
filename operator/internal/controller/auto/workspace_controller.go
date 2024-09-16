@@ -461,8 +461,6 @@ ln -s /share/source/$GIT_DIR /share/workspace
 				Value: "true",
 			})
 		}
-		// TODO: These are only available to the init container -- Should they
-		// also be available to the Pulumi program?
 		if source.Git.SSHPrivateKey != nil {
 			env = append(env, corev1.EnvVar{
 				Name: "GIT_SSH_PRIVATE_KEY",

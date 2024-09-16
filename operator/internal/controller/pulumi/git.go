@@ -26,7 +26,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
-	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/shared"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/gitutil"
@@ -239,7 +239,7 @@ func (sess *StackReconcilerSession) resolveGitAuth(ctx context.Context) (*auto.G
 }
 
 func (sess *StackReconcilerSession) setupWorkspaceFromGitSource(ctx context.Context, gs shared.GitSource, commit string) error {
-	sess.ws.Spec.Git = &v1alpha1.GitSource{
+	sess.ws.Spec.Git = &autov1alpha1.GitSource{
 		Ref:     commit,
 		URL:     gs.ProjectRepo,
 		Dir:     gs.RepoDir,
@@ -247,7 +247,7 @@ func (sess *StackReconcilerSession) setupWorkspaceFromGitSource(ctx context.Cont
 	}
 
 	if gs.GitAuth != nil {
-		auth := &v1alpha1.GitAuth{}
+		auth := &autov1alpha1.GitAuth{}
 		if gs.GitAuth.SSHAuth != nil {
 			auth.SSHPrivateKey = &v1.SecretKeySelector{
 				LocalObjectReference: v1.LocalObjectReference{
