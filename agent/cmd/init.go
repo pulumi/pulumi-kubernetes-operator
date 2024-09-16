@@ -49,7 +49,7 @@ For Flux sources:
 		ctx := cmd.Context()
 		log.Debugw("executing init command", "TargetDir", TargetDir)
 
-		err := os.MkdirAll(TargetDir, 0777)
+		err := os.MkdirAll(TargetDir, 0o777)
 		if err != nil {
 			log.Errorw("fatal: unable to make target directory", zap.Error(err))
 			os.Exit(1)
@@ -88,14 +88,13 @@ For Flux sources:
 			PersonalAccessToken: os.Getenv("GIT_TOKEN"),
 		}
 		repo := auto.GitRepo{
-			URL: GitURL,
-			//ProjectPath: ,
+			URL:        GitURL,
 			CommitHash: GitRevision,
 			Auth:       auth,
 			Shallow:    os.Getenv("GIT_SHALLOW") == "true",
 		}
 
-		_, err = auto.NewLocalWorkspace(ctx, auto.Repo(repo))
+		_, err = auto.NewLocalWorkspace(ctx, auto.Repo(repo), auto.WorkDir(TargetDir))
 		if err != nil {
 			log.Errorw("fatal: unable to fetch git source", zap.Error(err))
 			os.Exit(2)
