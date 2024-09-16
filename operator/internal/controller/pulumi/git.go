@@ -183,7 +183,7 @@ func (sess *StackReconcilerSession) resolveGitAuth(ctx context.Context) (*auto.G
 				auth.Username = string(username)
 				auth.Password = string(password)
 			} else {
-				return nil, fmt.Errorf(`creating gitAuth: No key "password" found in secret %s`, namespacedName)
+				return nil, fmt.Errorf(`creating gitAuth: no key "password" found in secret %s`, namespacedName)
 			}
 		}
 
@@ -192,14 +192,14 @@ func (sess *StackReconcilerSession) resolveGitAuth(ctx context.Context) (*auto.G
 
 	stackAuth := sess.stack.GitAuth
 	if stackAuth.SSHAuth != nil {
-		privateKey, err := sess.resolveResourceRef(ctx, &stackAuth.SSHAuth.SSHPrivateKey)
+		privateKey, err := sess.resolveSecretResourceRef(ctx, &stackAuth.SSHAuth.SSHPrivateKey)
 		if err != nil {
 			return auth, fmt.Errorf("resolving gitAuth SSH private key: %w", err)
 		}
 		auth.SSHPrivateKey = privateKey
 
 		if stackAuth.SSHAuth.Password != nil {
-			password, err := sess.resolveResourceRef(ctx, stackAuth.SSHAuth.Password)
+			password, err := sess.resolveSecretResourceRef(ctx, stackAuth.SSHAuth.Password)
 			if err != nil {
 				return auth, fmt.Errorf("resolving gitAuth SSH password: %w", err)
 			}
@@ -210,7 +210,7 @@ func (sess *StackReconcilerSession) resolveGitAuth(ctx context.Context) (*auto.G
 	}
 
 	if stackAuth.PersonalAccessToken != nil {
-		accessToken, err := sess.resolveResourceRef(ctx, sess.stack.GitAuth.PersonalAccessToken)
+		accessToken, err := sess.resolveSecretResourceRef(ctx, sess.stack.GitAuth.PersonalAccessToken)
 		if err != nil {
 			return auth, fmt.Errorf("resolving gitAuth personal access token: %w", err)
 		}
@@ -223,12 +223,12 @@ func (sess *StackReconcilerSession) resolveGitAuth(ctx context.Context) (*auto.G
 			"'personalAccessToken', 'sshPrivateKey' or 'basicAuth'")
 	}
 
-	username, err := sess.resolveResourceRef(ctx, &sess.stack.GitAuth.BasicAuth.UserName)
+	username, err := sess.resolveSecretResourceRef(ctx, &sess.stack.GitAuth.BasicAuth.UserName)
 	if err != nil {
 		return auth, fmt.Errorf("resolving gitAuth username: %w", err)
 	}
 
-	password, err := sess.resolveResourceRef(ctx, &sess.stack.GitAuth.BasicAuth.Password)
+	password, err := sess.resolveSecretResourceRef(ctx, &sess.stack.GitAuth.BasicAuth.Password)
 	if err != nil {
 		return auth, fmt.Errorf("resolving gitAuth password: %w", err)
 	}

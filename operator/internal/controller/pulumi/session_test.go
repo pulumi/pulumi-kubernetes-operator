@@ -296,12 +296,12 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 					},
 				},
 			},
-			err: errors.New("No key \"password\" found in secret test/basicAuthWithoutPassword"),
+			err: errors.New("no key \"password\" found in secret test/basicAuthWithoutPassword"),
 		},
 		{
 			name:          "BasicAuthWithoutPassword (gitAuthSecret)",
 			gitAuthSecret: basicAuthWithoutPassword.Name,
-			err:           errors.New(`No key "password" found in secret test/basicAuthWithoutPassword`),
+			err:           errors.New(`no key "password" found in secret test/basicAuthWithoutPassword`),
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -392,7 +392,7 @@ func TestSetupGitAuthWithRefs(t *testing.T) {
 					},
 				},
 			},
-			err: fmt.Errorf("Unsupported selector type: FS"),
+			err: fmt.Errorf("FS selectors are no longer supported in v2, please use a secret reference instead"),
 		},
 		{
 			name: "GitAuthValidEnvVarReference",
@@ -406,7 +406,7 @@ func TestSetupGitAuthWithRefs(t *testing.T) {
 					},
 				},
 			},
-			err: fmt.Errorf("Unsupported selector type: Env"),
+			err: fmt.Errorf("Env selectors are no longer supported in v2, please use a secret reference instead"),
 		},
 		{
 			name: "GitAuthInvalidEnvReference",
@@ -420,7 +420,7 @@ func TestSetupGitAuthWithRefs(t *testing.T) {
 					},
 				},
 			},
-			err: fmt.Errorf("Unsupported selector type: Env"),
+			err: fmt.Errorf("Env selectors are no longer supported in v2, please use a secret reference instead"),
 		},
 		{
 			name: "GitAuthValidSSHAuthWithoutPassword",
@@ -499,7 +499,7 @@ func TestSetupGitAuthWithRefs(t *testing.T) {
 					},
 				},
 			},
-			err: fmt.Errorf("resolving gitAuth SSH password: No key \"MISSING\" found in secret test/fake-secret"),
+			err: fmt.Errorf("resolving gitAuth SSH password: no key \"MISSING\" found in secret test/fake-secret"),
 		},
 		{
 			name: "GitAuthValidBasicAuth",
@@ -546,7 +546,7 @@ func TestSetupGitAuthWithRefs(t *testing.T) {
 					},
 				},
 			},
-			err: fmt.Errorf("resolving gitAuth personal access token: No key \"MISSING\" found in secret test/fake-secret"),
+			err: fmt.Errorf("resolving gitAuth personal access token: no key \"MISSING\" found in secret test/fake-secret"),
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {

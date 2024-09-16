@@ -1002,12 +1002,15 @@ func (sess *StackReconcilerSession) resolveResourceRefAsConfigItem(ctx context.C
 	}
 }
 
-// resolveResourceRef reads a referenced object and returns its value as a string.
-func (sess *StackReconcilerSession) resolveResourceRef(ctx context.Context, ref *shared.ResourceRef) (string, error) {
+// resolveSecretResourceRef reads a referenced object and returns its value as
+// a string. The v1 controller allowed env and filesystem references which no
+// longer make sense in the v2 agent/manager model, so only secret refs are
+// currently supported.
+func (sess *StackReconcilerSession) resolveSecretResourceRef(ctx context.Context, ref *shared.ResourceRef) (string, error) {
 	switch ref.SelectorType {
 	case shared.ResourceSelectorSecret:
 		if ref.SecretRef == nil {
-			return "", errors.New("Missing secret reference in ResourceRef")
+			return "", errors.New("missing secret reference in ResourceRef")
 		}
 		var config corev1.Secret
 		namespace := ref.SecretRef.Namespace
@@ -1019,15 +1022,15 @@ func (sess *StackReconcilerSession) resolveResourceRef(ctx context.Context, ref 
 		}
 
 		if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: ref.SecretRef.Name, Namespace: namespace}, &config); err != nil {
-			return "", fmt.Errorf("Namespace=%s Name=%s: %w", ref.SecretRef.Namespace, ref.SecretRef.Name, err)
+			return "", fmt.Errorf("namespace=%s Name=%s: %w", ref.SecretRef.Namespace, ref.SecretRef.Name, err)
 		}
 		secretVal, ok := config.Data[ref.SecretRef.Key]
 		if !ok {
-			return "", fmt.Errorf("No key %q found in secret %s/%s", ref.SecretRef.Key, ref.SecretRef.Namespace, ref.SecretRef.Name)
+			return "", fmt.Errorf("no key %q found in secret %s/%s", ref.SecretRef.Key, ref.SecretRef.Namespace, ref.SecretRef.Name)
 		}
 		return string(secretVal), nil
 	default:
-		return "", fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
+		return "", fmt.Errorf("%s selectors are no longer supported in v2, please use a secret reference instead", ref.SelectorType)
 	}
 }
 
