@@ -49,8 +49,8 @@ For Flux sources:
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := cmd.Context()
-		var f *fluxFetcher
-		var g *gitFetcher
+		var f fetchWithContexter
+		var g newLocalWorkspacer
 
 		if _gitURL != "" {
 			g = &gitFetcher{url: _gitURL, revision: _gitRevision}

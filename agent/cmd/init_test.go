@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
@@ -50,6 +51,23 @@ func TestInitGitSource(t *testing.T) {
 
 	code = runInit(context.Background(), log, dir, nil, g)
 	assert.Equal(t, 0, code)
+}
+
+func TestInitGitSourceE2E(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+	t.Parallel()
+
+	// Copy the command so we don't mutate it.
+	root := cobra.Command(*rootCmd)
+	root.SetArgs([]string{
+		"init",
+		"--git-url=https://github.com/git-fixtures/basic",
+		"--git-revision=6ecf0ef2c2dffb796033e5a02219af86ec6584e5",
+		"--target-dir=" + t.TempDir(),
+	})
+	assert.NoError(t, root.Execute())
 }
 
 func TestValidation(t *testing.T) {
