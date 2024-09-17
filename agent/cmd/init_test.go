@@ -25,8 +25,8 @@ func TestInitFluxSource(t *testing.T) {
 	f.EXPECT().Digest().Return(digest).AnyTimes()
 	f.EXPECT().FetchWithContext(gomock.Any(), url, digest, dir).Return(nil)
 
-	code := runInit(context.Background(), log, dir, f, nil)
-	assert.Equal(t, 0, code)
+	err := runInit(context.Background(), log, dir, f, nil)
+	assert.NoError(t, err)
 }
 
 func TestInitGitSource(t *testing.T) {
@@ -46,11 +46,11 @@ func TestInitGitSource(t *testing.T) {
 		g.EXPECT().NewLocalWorkspace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, git.ErrRepositoryAlreadyExists),
 	)
 
-	code := runInit(context.Background(), log, dir, nil, g)
-	assert.Equal(t, 0, code)
+	err := runInit(context.Background(), log, dir, nil, g)
+	assert.NoError(t, err)
 
-	code = runInit(context.Background(), log, dir, nil, g)
-	assert.Equal(t, 0, code)
+	err = runInit(context.Background(), log, dir, nil, g)
+	assert.NoError(t, err)
 }
 
 func TestInitGitSourceE2E(t *testing.T) {
@@ -68,10 +68,4 @@ func TestInitGitSourceE2E(t *testing.T) {
 		"--target-dir=" + t.TempDir(),
 	})
 	assert.NoError(t, root.Execute())
-}
-
-func TestValidation(t *testing.T) {
-	log := zap.L().Named(t.Name()).Sugar()
-	code := runInit(context.Background(), log, t.TempDir(), nil, nil)
-	assert.Equal(t, 1, code)
 }

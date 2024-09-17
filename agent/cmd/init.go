@@ -47,7 +47,7 @@ var initCmd = &cobra.Command{
 For Flux sources:
 	pulumi-kubernetes-agent init --flux-fetch-url URL
 `,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		var f fetchWithContexter
 		var g newLocalWorkspacer
@@ -66,8 +66,9 @@ For Flux sources:
 					fetch.WithUntar()),
 			}
 		}
-		code := runInit(ctx, log, _targetDir, f, g)
-		os.Exit(code)
+		// Don't display usage on error.
+		cmd.SilenceUsage = true
+		return runInit(ctx, log, _targetDir, f, g)
 	},
 }
 
@@ -76,31 +77,24 @@ func runInit(ctx context.Context,
 	targetDir string,
 	f fetchWithContexter,
 	g newLocalWorkspacer,
-) int {
+) error {
 	log.Debugw("executing init command", "TargetDir", targetDir)
 
 	// fetch the configured flux artifact
 	if f != nil {
 		err := os.MkdirAll(targetDir, 0o777)
 		if err != nil {
-			log.Errorw("fatal: unable to make target directory", zap.Error(err))
-			return 1
+			return fmt.Errorf("unable to make target directory: %w", err)
 		}
 		log.Debugw("target directory created", "dir", targetDir)
 
 		log.Infow("flux artifact fetching", "url", f.URL(), "digest", f.Digest())
 		err = f.FetchWithContext(ctx, f.URL(), f.Digest(), targetDir)
 		if err != nil {
-			log.Errorw("fatal: unable to fetch flux artifact", zap.Error(err))
-			return 2
+			return fmt.Errorf("unable to fetch flux artifact: %w", err)
 		}
 		log.Infow("flux artifact fetched", "dir", targetDir)
-		return 0
-	}
-
-	if g == nil {
-		log.Errorw("need --flux-url or --git-url")
-		return 1
+		return nil
 	}
 
 	// fetch the configured git artifact
@@ -129,14 +123,13 @@ func runInit(ctx context.Context,
 		// TODO(https://github.com/pulumi/pulumi/issues/17288): Automation
 		// API needs to ensure the existing checkout is valid.
 		log.Infow("repository was previously checked out", "dir", targetDir)
-		return 0
+		return nil
 	}
 	if err != nil {
-		log.Errorw("fatal: unable to fetch git source", zap.Error(err))
-		return 2
+		return fmt.Errorf("unable to fetch git source: %w", err)
 	}
 	log.Infow("git artifact fetched", "dir", targetDir)
-	return 0
+	return nil
 }
 
 type fetchWithContexter interface {
@@ -205,4 +198,7 @@ func init() {
 	initCmd.Flags().StringVar(&_gitURL, "git-url", "", "Git repository URL")
 	initCmd.Flags().StringVar(&_gitRevision, "git-revision", "", "Git revision (tag or commit SHA)")
 	initCmd.MarkFlagsRequiredTogether("git-url", "git-revision")
+
+	initCmd.MarkFlagsOneRequired("git-url", "flux-url")
+	initCmd.MarkFlagsMutuallyExclusive("git-url", "flux-url")
 }
