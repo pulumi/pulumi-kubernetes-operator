@@ -33,6 +33,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 )
 
 // Source represents a source of commits.
@@ -99,7 +100,7 @@ func (gs gitSource) CurrentCommit(ctx context.Context) (string, error) {
 	// about.
 	auth, err := gs.authMethod()
 	if err != nil {
-		return "", fmt.Errorf("getting auth methodL: %w", err)
+		return "", fmt.Errorf("getting auth method: %w", err)
 	}
 
 	refs, err := gs.remote.ListContext(ctx, &git.ListOptions{
@@ -238,16 +239,52 @@ func (sess *StackReconcilerSession) resolveGitAuth(ctx context.Context) (*auto.G
 	return auth, nil
 }
 
-func (sess *StackReconcilerSession) setupWorkspaceFromGitSource(ctx context.Context, gs shared.GitSource, commit string) error {
+func (sess *StackReconcilerSession) setupWorkspaceFromGitSource(ctx context.Context, commit string) error {
+	gs := sess.stack.GitSource
+	if gs == nil {
+		return fmt.Errorf("missing gitSource")
+	}
+
 	sess.ws.Spec.Git = &autov1alpha1.GitSource{
 		Ref:     commit,
 		URL:     gs.ProjectRepo,
 		Dir:     gs.RepoDir,
 		Shallow: gs.Shallow,
 	}
+	auth := &autov1alpha1.GitAuth{}
+
+	if sess.stack.GitAuthSecret != "" {
+		auth.SSHPrivateKey = &v1.SecretKeySelector{
+			LocalObjectReference: v1.LocalObjectReference{
+				Name: sess.stack.GitAuthSecret,
+			},
+			Key:      "sshPrivateKey",
+			Optional: ptr.To(true),
+		}
+		auth.Password = &v1.SecretKeySelector{
+			LocalObjectReference: v1.LocalObjectReference{
+				Name: sess.stack.GitAuthSecret,
+			},
+			Key:      "password",
+			Optional: ptr.To(true),
+		}
+		auth.Username = &v1.SecretKeySelector{
+			LocalObjectReference: v1.LocalObjectReference{
+				Name: sess.stack.GitAuthSecret,
+			},
+			Key:      "username",
+			Optional: ptr.To(true),
+		}
+		auth.Token = &v1.SecretKeySelector{
+			LocalObjectReference: v1.LocalObjectReference{
+				Name: sess.stack.GitAuthSecret,
+			},
+			Key:      "accessToken",
+			Optional: ptr.To(true),
+		}
+	}
 
 	if gs.GitAuth != nil {
-		auth := &autov1alpha1.GitAuth{}
 		if gs.GitAuth.SSHAuth != nil {
 			auth.SSHPrivateKey = &v1.SecretKeySelector{
 				LocalObjectReference: v1.LocalObjectReference{
@@ -286,8 +323,9 @@ func (sess *StackReconcilerSession) setupWorkspaceFromGitSource(ctx context.Cont
 				Key: gs.GitAuth.PersonalAccessToken.SecretRef.Key,
 			}
 		}
-		sess.ws.Spec.Git.Auth = auth
 	}
+
+	sess.ws.Spec.Git.Auth = auth
 
 	return sess.setupWorkspace(ctx)
 }

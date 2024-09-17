@@ -21,14 +21,18 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr/testr"
+	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/shared"
+	v1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -37,10 +41,8 @@ const (
 	namespace  = "test"
 )
 
-func TestSetupGitAuthWithSecrets(t *testing.T) {
-	log := testr.New(t).WithValues("Request.Test", "TestSetupGitAuthWithSecrets")
-
-	sshPrivateKey := &corev1.Secret{
+var (
+	_sshPrivateKey = &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "apps/v1",
@@ -54,7 +56,7 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 		},
 		Type: "Opaque",
 	}
-	sshPrivateKeyWithPassword := &corev1.Secret{
+	_sshPrivateKeyWithPassword = &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "apps/v1",
@@ -69,7 +71,7 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 		},
 		Type: "Opaque",
 	}
-	accessToken := &corev1.Secret{
+	_accessToken = &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "apps/v1",
@@ -83,7 +85,7 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 		},
 		Type: "Opaque",
 	}
-	basicAuth := &corev1.Secret{
+	_basicAuth = &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "apps/v1",
@@ -98,7 +100,7 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 		},
 		Type: "Opaque",
 	}
-	basicAuthWithoutPassword := &corev1.Secret{
+	_basicAuthWithoutPassword = &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "apps/v1",
@@ -112,10 +114,12 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 		},
 		Type: "Opaque",
 	}
+)
 
+func TestSetupGitAuthWithSecrets(t *testing.T) {
 	client := fake.NewClientBuilder().
 		WithScheme(scheme.Scheme).
-		WithObjects(sshPrivateKey, sshPrivateKeyWithPassword, accessToken, basicAuth, basicAuthWithoutPassword).
+		WithObjects(_sshPrivateKey, _sshPrivateKeyWithPassword, _accessToken, _basicAuth, _basicAuthWithoutPassword).
 		Build()
 
 	for _, test := range []struct {
@@ -156,7 +160,7 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 						ResourceSelector: shared.ResourceSelector{
 							SecretRef: &shared.SecretSelector{
 								Namespace: namespace,
-								Name:      sshPrivateKey.Name,
+								Name:      _sshPrivateKey.Name,
 								Key:       "sshPrivateKey",
 							},
 						},
@@ -176,7 +180,7 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 						ResourceSelector: shared.ResourceSelector{
 							SecretRef: &shared.SecretSelector{
 								Namespace: namespace,
-								Name:      sshPrivateKeyWithPassword.Name,
+								Name:      _sshPrivateKeyWithPassword.Name,
 								Key:       "sshPrivateKey",
 							},
 						},
@@ -186,7 +190,7 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 						ResourceSelector: shared.ResourceSelector{
 							SecretRef: &shared.SecretSelector{
 								Namespace: namespace,
-								Name:      sshPrivateKeyWithPassword.Name,
+								Name:      _sshPrivateKeyWithPassword.Name,
 								Key:       "password",
 							},
 						},
@@ -200,7 +204,7 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 		},
 		{
 			name:          "ValidSSHPrivateKeyWithPassword (gitAuthSecret)",
-			gitAuthSecret: sshPrivateKeyWithPassword.Name,
+			gitAuthSecret: _sshPrivateKeyWithPassword.Name,
 			expected: &auto.GitAuth{
 				SSHPrivateKey: "very secret key",
 				Password:      "moar secret password",
@@ -214,7 +218,7 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 					ResourceSelector: shared.ResourceSelector{
 						SecretRef: &shared.SecretSelector{
 							Namespace: namespace,
-							Name:      accessToken.Name,
+							Name:      _accessToken.Name,
 							Key:       "accessToken",
 						},
 					},
@@ -226,7 +230,7 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 		},
 		{
 			name:          "ValidAccessToken (gitAuthSecret)",
-			gitAuthSecret: accessToken.Name,
+			gitAuthSecret: _accessToken.Name,
 			expected: &auto.GitAuth{
 				PersonalAccessToken: "super secret access token",
 			},
@@ -240,7 +244,7 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 						ResourceSelector: shared.ResourceSelector{
 							SecretRef: &shared.SecretSelector{
 								Namespace: namespace,
-								Name:      basicAuth.Name,
+								Name:      _basicAuth.Name,
 								Key:       "username",
 							},
 						},
@@ -250,7 +254,7 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 						ResourceSelector: shared.ResourceSelector{
 							SecretRef: &shared.SecretSelector{
 								Namespace: namespace,
-								Name:      basicAuth.Name,
+								Name:      _basicAuth.Name,
 								Key:       "password",
 							},
 						},
@@ -264,7 +268,7 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 		},
 		{
 			name:          "ValidBasicAuth (gitAuthSecret)",
-			gitAuthSecret: basicAuth.Name,
+			gitAuthSecret: _basicAuth.Name,
 			expected: &auto.GitAuth{
 				Username: "not so secret username",
 				Password: "very secret password",
@@ -279,7 +283,7 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 						ResourceSelector: shared.ResourceSelector{
 							SecretRef: &shared.SecretSelector{
 								Namespace: namespace,
-								Name:      basicAuthWithoutPassword.Name,
+								Name:      _basicAuthWithoutPassword.Name,
 								Key:       "username",
 							},
 						},
@@ -289,7 +293,7 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 						ResourceSelector: shared.ResourceSelector{
 							SecretRef: &shared.SecretSelector{
 								Namespace: namespace,
-								Name:      basicAuthWithoutPassword.Name,
+								Name:      _basicAuthWithoutPassword.Name,
 								Key:       "password",
 							},
 						},
@@ -300,11 +304,12 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 		},
 		{
 			name:          "BasicAuthWithoutPassword (gitAuthSecret)",
-			gitAuthSecret: basicAuthWithoutPassword.Name,
+			gitAuthSecret: _basicAuthWithoutPassword.Name,
 			err:           errors.New(`no key "password" found in secret test/basicAuthWithoutPassword`),
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			log := testr.New(t).WithValues("Request.Test", t.Name())
 			session := newStackReconcilerSession(log, shared.StackSpec{
 				GitSource: &shared.GitSource{
 					GitAuth:       test.gitAuth,
@@ -319,6 +324,220 @@ func TestSetupGitAuthWithSecrets(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.Equal(t, test.expected, gitAuth)
+		})
+	}
+}
+
+func TestSetupWorkspaceFromGitSource(t *testing.T) {
+	scheme.Scheme.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "pulumi.com", Version: "v1", Kind: "Stack"},
+		&v1.Stack{},
+	)
+	client := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(_sshPrivateKey, _sshPrivateKeyWithPassword, _accessToken, _basicAuth, _basicAuthWithoutPassword).
+		Build()
+
+	for _, test := range []struct {
+		name          string
+		gitAuth       *shared.GitAuthConfig
+		gitAuthSecret string
+		expected      *v1alpha1.WorkspaceSpec
+		err           error
+	}{
+		{
+			name: "SSHPrivateKeyWithPassword",
+			gitAuth: &shared.GitAuthConfig{
+				SSHAuth: &shared.SSHAuth{
+					SSHPrivateKey: shared.ResourceRef{
+						SelectorType: "Secret",
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
+								Namespace: namespace,
+								Name:      _sshPrivateKeyWithPassword.Name,
+								Key:       "sshPrivateKey",
+							},
+						},
+					},
+					Password: &shared.ResourceRef{
+						SelectorType: "Secret",
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
+								Namespace: namespace,
+								Name:      _sshPrivateKeyWithPassword.Name,
+								Key:       "password",
+							},
+						},
+					},
+				},
+			},
+			expected: &v1alpha1.WorkspaceSpec{
+				PodTemplate: &v1alpha1.EmbeddedPodTemplateSpec{
+					Spec: &corev1.PodSpec{},
+				},
+				Git: &v1alpha1.GitSource{
+					Ref: "commit-hash",
+					Auth: &v1alpha1.GitAuth{
+						SSHPrivateKey: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: _sshPrivateKeyWithPassword.Name,
+							},
+							Key: "sshPrivateKey",
+						},
+						Password: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: _sshPrivateKeyWithPassword.Name,
+							},
+							Key: "password",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "AccessToken",
+			gitAuth: &shared.GitAuthConfig{
+				PersonalAccessToken: &shared.ResourceRef{
+					SelectorType: "Secret",
+					ResourceSelector: shared.ResourceSelector{
+						SecretRef: &shared.SecretSelector{
+							Namespace: namespace,
+							Name:      _accessToken.Name,
+							Key:       "accessToken",
+						},
+					},
+				},
+			},
+			expected: &v1alpha1.WorkspaceSpec{
+				PodTemplate: &v1alpha1.EmbeddedPodTemplateSpec{
+					Spec: &corev1.PodSpec{},
+				},
+				Git: &v1alpha1.GitSource{
+					Ref: "commit-hash",
+					Auth: &v1alpha1.GitAuth{
+						Token: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: _accessToken.Name,
+							},
+							Key: "accessToken",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "BasicAuth",
+			gitAuth: &shared.GitAuthConfig{
+				BasicAuth: &shared.BasicAuth{
+					UserName: shared.ResourceRef{
+						SelectorType: "Secret",
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
+								Namespace: namespace,
+								Name:      _basicAuth.Name,
+								Key:       "username",
+							},
+						},
+					},
+					Password: shared.ResourceRef{
+						SelectorType: "Secret",
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
+								Namespace: namespace,
+								Name:      _basicAuth.Name,
+								Key:       "password",
+							},
+						},
+					},
+				},
+			},
+			expected: &v1alpha1.WorkspaceSpec{
+				PodTemplate: &v1alpha1.EmbeddedPodTemplateSpec{
+					Spec: &corev1.PodSpec{},
+				},
+				Git: &v1alpha1.GitSource{
+					Ref: "commit-hash",
+					Auth: &v1alpha1.GitAuth{
+						Password: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: _basicAuth.Name,
+							},
+							Key: "password",
+						},
+						Username: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: _basicAuth.Name,
+							},
+							Key: "username",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:          "GitAuthSecret",
+			gitAuthSecret: _accessToken.Name,
+			expected: &v1alpha1.WorkspaceSpec{
+				PodTemplate: &v1alpha1.EmbeddedPodTemplateSpec{
+					Spec: &corev1.PodSpec{},
+				},
+				Git: &v1alpha1.GitSource{
+					Ref: "commit-hash",
+					Auth: &v1alpha1.GitAuth{
+						SSHPrivateKey: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: _accessToken.Name,
+							},
+							Key:      "sshPrivateKey",
+							Optional: ptr.To(true),
+						},
+						Password: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: _accessToken.Name,
+							},
+							Key:      "password",
+							Optional: ptr.To(true),
+						},
+						Username: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: _accessToken.Name,
+							},
+							Key:      "username",
+							Optional: ptr.To(true),
+						},
+						Token: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: _accessToken.Name,
+							},
+							Key:      "accessToken",
+							Optional: ptr.To(true),
+						},
+					},
+				},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			log := testr.New(t).WithValues("Request.Test", t.Name())
+			session := newStackReconcilerSession(log, shared.StackSpec{
+				GitSource: &shared.GitSource{
+					GitAuth:       test.gitAuth,
+					GitAuthSecret: test.gitAuthSecret,
+				},
+			}, client, scheme.Scheme, namespace)
+			require.NoError(t, session.NewWorkspace(&v1.Stack{
+				// TypeMeta: metav1.TypeMeta{Kind: "Stack", APIVersion: "pulumi.com/v1"},
+				Spec: session.stack,
+			}))
+
+			err := session.setupWorkspaceFromGitSource(context.TODO(), "commit-hash")
+			if test.err != nil {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), test.err.Error())
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, test.expected, &session.ws.Spec)
 		})
 	}
 }

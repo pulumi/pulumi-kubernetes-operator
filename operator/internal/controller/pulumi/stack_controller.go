@@ -581,7 +581,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, saveStatus()
 		}
 
-		err = sess.setupWorkspaceFromGitSource(ctx, *stack.GitSource, currentCommit)
+		err = sess.setupWorkspaceFromGitSource(ctx, currentCommit)
 		if err != nil {
 			log.Error(err, "Failed to setup Pulumi workspace")
 			return reconcile.Result{}, err
