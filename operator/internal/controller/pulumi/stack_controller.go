@@ -383,6 +383,7 @@ var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
 //+kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=ocirepositories,verbs=get;list;watch
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
