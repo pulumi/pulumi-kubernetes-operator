@@ -16,9 +16,15 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
 	"os"
 
+	"github.com/blang/semver"
 	"github.com/fluxcd/pkg/http/fetch"
+	git "github.com/go-git/go-git/v5"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -49,15 +55,15 @@ For Flux sources:
 		ctx := cmd.Context()
 		log.Debugw("executing init command", "TargetDir", TargetDir)
 
-		err := os.MkdirAll(TargetDir, 0o777)
-		if err != nil {
-			log.Errorw("fatal: unable to make target directory", zap.Error(err))
-			os.Exit(1)
-		}
-		log.Debugw("target directory created", "dir", TargetDir)
-
 		// fetch the configured flux artifact
 		if FluxUrl != "" {
+			err := os.MkdirAll(TargetDir, 0o777)
+			if err != nil {
+				log.Errorw("fatal: unable to make target directory", zap.Error(err))
+				os.Exit(1)
+			}
+			log.Debugw("target directory created", "dir", TargetDir)
+
 			// https://github.com/fluxcd/kustomize-controller/blob/a1a33f2adda783dd2a17234f5d8e84caca4e24e2/internal/controller/kustomization_controller.go#L328
 			fetcher := fetch.New(
 				fetch.WithRetries(DefaultFluxRetries),
@@ -65,7 +71,7 @@ For Flux sources:
 				fetch.WithUntar())
 
 			log.Infow("flux artifact fetching", "url", FluxUrl, "digest", FluxDigest)
-			err := fetcher.FetchWithContext(ctx, FluxUrl, FluxDigest, TargetDir)
+			err = fetcher.FetchWithContext(ctx, FluxUrl, FluxDigest, TargetDir)
 			if err != nil {
 				log.Errorw("fatal: unable to fetch flux artifact", zap.Error(err))
 				os.Exit(2)
@@ -94,14 +100,34 @@ For Flux sources:
 			Shallow:    os.Getenv("GIT_SHALLOW") == "true",
 		}
 
-		_, err = auto.NewLocalWorkspace(ctx, auto.Repo(repo), auto.WorkDir(TargetDir))
+		log.Infow("about to clone into", "TargetDir", TargetDir, "fluxURL", FluxUrl)
+
+		// This will also handle creating the TargetDir for us.
+		_, err := auto.NewLocalWorkspace(ctx,
+			auto.Repo(repo),
+			auto.WorkDir(TargetDir),
+			auto.Pulumi(noop{}),
+		)
+		if errors.Is(err, git.ErrRepositoryAlreadyExists) {
+			// TODO(https://github.com/pulumi/pulumi/issues/17288): Automation
+			// API needs to ensure the existing checkout is valid
+			log.Infow("repository was previously checked out", "dir", TargetDir)
+			return
+		}
 		if err != nil {
 			log.Errorw("fatal: unable to fetch git source", zap.Error(err))
 			os.Exit(2)
-
 		}
 		log.Infow("git artifact fetched", "dir", TargetDir)
 	},
+}
+
+type noop struct{}
+
+func (noop) Version() semver.Version { return semver.Version{} }
+
+func (noop) Run(context.Context, string, io.Reader, []io.Writer, []io.Writer, []string, ...string) (string, string, int, error) {
+	return "", "", 0, fmt.Errorf("pulumi CLI is not available during init")
 }
 
 func init() {
