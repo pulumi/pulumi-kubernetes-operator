@@ -67,9 +67,7 @@ For Flux sources:
 			}
 		}
 		code := runInit(ctx, log, _targetDir, f, g)
-		if code > 0 {
-			os.Exit(code)
-		}
+		os.Exit(code)
 	},
 }
 
