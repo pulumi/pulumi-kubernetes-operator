@@ -1,6 +1,9 @@
 ---
 name: Pulumi Kubernetes Operator PR Builds
 on:
+  push:
+    branches:
+      - v2
   pull_request:
     branches:
       - v2
@@ -8,7 +11,6 @@ env:
   PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 jobs:
-
   build:
     runs-on: ubuntu-latest
     name: Build
@@ -26,9 +28,9 @@ jobs:
         with:
           distribution: goreleaser-pro
           # 'latest', 'nightly', or a semver
-          version: '~> v2'
+          version: "~> v2"
           args: release --snapshot --clean --skip=docker
-  
+
   agent-integration-tests:
     runs-on: ubuntu-latest
     name: Integration Testing
