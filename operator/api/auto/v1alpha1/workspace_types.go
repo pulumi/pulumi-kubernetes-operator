@@ -214,6 +214,13 @@ type EmbeddedPodTemplateSpec struct {
 	Spec *corev1.PodSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 }
 
+// EmbeddedWorkspaceTemplateSpec is an embedded version of WorkspaceSpec with a
+// reduced ObjectMeta.
+type EmbeddedWorkspaceTemplateSpec struct {
+	Metadata EmbeddedObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	Spec     *WorkspaceSpec     `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+}
+
 // EmbeddedObjectMeta contains a subset of the fields included in k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta
 // Only fields which are relevant to embedded resources are included.
 type EmbeddedObjectMeta struct {
