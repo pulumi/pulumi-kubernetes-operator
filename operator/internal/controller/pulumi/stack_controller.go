@@ -18,6 +18,7 @@ package pulumi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -42,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
@@ -367,8 +369,10 @@ func isStalledError(e error) bool {
 	return errors.As(e, &s)
 }
 
-var errNamespaceIsolation = newStallErrorf(`cross-namespace refs are not allowed`)
-var errOtherThanOneSourceSpecified = newStallErrorf(`exactly one source (.spec.fluxSource, .spec.projectRepo, or .spec.programRef) for the stack must be given`)
+var (
+	errNamespaceIsolation          = newStallErrorf(`cross-namespace refs are not allowed`)
+	errOtherThanOneSourceSpecified = newStallErrorf(`exactly one source (.spec.fluxSource, .spec.projectRepo, or .spec.programRef) for the stack must be given`)
+)
 
 var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
 
@@ -1029,7 +1033,7 @@ func labelsForWorkspace(stack *metav1.ObjectMeta) map[string]string {
 	}
 }
 
-// Make a workspace for the given stack.
+// NewWorkspace makes a new workspace for the given stack.
 func (sess *StackReconcilerSession) NewWorkspace(stack *pulumiv1.Stack) error {
 	labels := labelsForWorkspace(&stack.ObjectMeta)
 	sess.ws = &autov1alpha1.Workspace{
@@ -1044,12 +1048,17 @@ func (sess *StackReconcilerSession) NewWorkspace(stack *pulumiv1.Stack) error {
 		},
 		Spec: autov1alpha1.WorkspaceSpec{
 			PodTemplate: &autov1alpha1.EmbeddedPodTemplateSpec{
-				Spec: &corev1.PodSpec{},
+				Spec: &corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "pulumi",
+						},
+					},
+				},
 			},
-			Image:     stack.Spec.Image,
-			Resources: stack.Spec.Resources,
 		},
 	}
+	sess.wspc = &sess.ws.Spec.PodTemplate.Spec.Containers[0]
 	if err := controllerutil.SetControllerReference(stack, sess.ws, sess.scheme); err != nil {
 		return err
 	}
@@ -1058,7 +1067,6 @@ func (sess *StackReconcilerSession) NewWorkspace(stack *pulumiv1.Stack) error {
 }
 
 func (sess *StackReconcilerSession) CreateWorkspace(ctx context.Context) error {
-	sess.ws.Spec.PodTemplate.Spec.Containers = append(sess.ws.Spec.PodTemplate.Spec.Containers, *sess.wspc)
 	sess.ws.Spec.Stacks = append(sess.ws.Spec.Stacks, *sess.wss)
 
 	if err := sess.kubeClient.Patch(ctx, sess.ws, client.Apply, client.FieldOwner(FieldManager)); err != nil {
@@ -1121,15 +1129,27 @@ func (sess *StackReconcilerSession) setupWorkspace(ctx context.Context) error {
 	sess.wss = wss
 	sess.logger.V(1).Info("Setting workspace stack", "stack", wss)
 
-	sess.wspc = &corev1.Container{
-		Name: "pulumi",
-	}
-
 	// Update the stack config and secret config values.
 	err = sess.UpdateConfig(ctx)
 	if err != nil {
 		sess.logger.Error(err, "failed to set stack config", "Stack.Name", sess.stack.Stack)
 		return fmt.Errorf("failed to set stack config: %w", err)
+	}
+
+	// Apply the user's workspace spec as a merge patch on top of what we've
+	// already generated.
+	if sess.stack.WorkspaceTemplate != nil {
+		patched, err := patchObject(*sess.ws, *sess.stack.WorkspaceTemplate)
+		if err != nil {
+			return fmt.Errorf("patching workspace spec: %w", err)
+		}
+		sess.ws = patched
+		for _, c := range sess.ws.Spec.PodTemplate.Spec.Containers {
+			if c.Name == "pulumi" {
+				sess.wspc = &c
+				break
+			}
+		}
 	}
 
 	return nil
@@ -1238,6 +1258,29 @@ func (sess *StackReconcilerSession) readCurrentUpdate(ctx context.Context, name 
 	}
 	sess.update = u
 	return nil
+}
+
+func patchObject[T any, V any](base T, patch V) (*T, error) {
+	baseBytes, err := json.Marshal(base)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON for base: %w", err)
+	}
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON for workspace template: %w", err)
+	}
+
+	// Calculate the patch result.
+	var result T
+	jsonResultBytes, err := strategicpatch.StrategicMergePatch(baseBytes, patchBytes, &result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate merge patch for workspace template: %w", err)
+	}
+	if err := json.Unmarshal(jsonResultBytes, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal merged workspace template: %w", err)
+	}
+
+	return &result, nil
 }
 
 // // GetStackOutputs gets the stack outputs and parses them into a map.
