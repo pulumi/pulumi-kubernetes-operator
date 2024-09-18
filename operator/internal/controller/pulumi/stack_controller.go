@@ -1257,17 +1257,17 @@ func patchObject[T any, V any](base T, patch V) (*T, error) {
 	}
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal JSON for pod template: %w", err)
+		return nil, fmt.Errorf("failed to marshal JSON for workspace template: %w", err)
 	}
 
 	// Calculate the patch result.
 	var result T
 	jsonResultBytes, err := strategicpatch.StrategicMergePatch(baseBytes, patchBytes, &result)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate merge patch for pod template: %w", err)
+		return nil, fmt.Errorf("failed to generate merge patch for workspace template: %w", err)
 	}
 	if err := json.Unmarshal(jsonResultBytes, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal merged pod template: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal merged workspace template: %w", err)
 	}
 
 	return &result, nil
