@@ -27,6 +27,7 @@ import (
 
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
+	"github.com/pulumi/pulumi-kubernetes-operator/operator/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -51,9 +52,6 @@ const (
 	WorkspaceConditionTypeReady = autov1alpha1.WorkspaceReady
 	PodAnnotationInitialized    = "auto.pulumi.com/initialized"
 	PodAnnotationRevisionHash   = "auto.pulumi.com/revision-hash"
-
-	// TODO: get from configuration
-	WorkspaceAgentImage = "pulumi/pulumi-kubernetes-agent:latest"
 
 	// Termination grace period for the workspace pod and any update running in it.
 	// Upon an update to the workspec spec or content, the statefulset will be updated,
@@ -340,6 +338,9 @@ func labelsForStatefulSet(w *autov1alpha1.Workspace) map[string]string {
 }
 
 func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.StatefulSet, error) {
+	// TODO: get from configuration
+	workspaceAgentImage := "pulumi/pulumi-kubernetes-operator-v2:" + version.Version
+
 	labels := labelsForStatefulSet(w)
 
 	command := []string{
@@ -381,7 +382,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 					InitContainers: []corev1.Container{
 						{
 							Name:            "bootstrap",
-							Image:           WorkspaceAgentImage,
+							Image:           workspaceAgentImage,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -436,7 +437,7 @@ ln -s /share/source/$GIT_DIR /share/workspace
 		`
 		container := corev1.Container{
 			Name:            "fetch",
-			Image:           WorkspaceAgentImage,
+			Image:           workspaceAgentImage,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -470,7 +471,7 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 		`
 		container := corev1.Container{
 			Name:            "fetch",
-			Image:           WorkspaceAgentImage,
+			Image:           workspaceAgentImage,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			VolumeMounts: []corev1.VolumeMount{
 				{

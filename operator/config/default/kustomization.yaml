@@ -1,0 +1,5 @@
+namespace: pulumi-kubernetes-operator
+resources:
+  - ../crd
+  - ../rbac
+  - ../manager

@@ -1,0 +1,73 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: random-yaml-nonroot
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: state
+  namespace: random-yaml-nonroot
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: pulumi-examples
+  namespace: random-yaml-nonroot
+spec:
+  interval: 10m
+  ref:
+    branch: master
+  timeout: 60s
+  url: https://github.com/pulumi/examples
+---
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: resources
+  namespace: random-yaml-nonroot
+spec:
+  fluxSource:
+    sourceRef:
+      apiVersion: source.toolkit.fluxcd.io/v1
+      kind: GitRepository
+      name: pulumi-examples
+    dir: random-yaml
+
+  stack: dev
+  refresh: false
+  continueResyncOnCommitMatch: false
+  resyncFrequencySeconds: 60
+  destroyOnFinalize: true
+
+  # Enable file state for testing.
+  envRefs:
+    PULUMI_BACKEND_URL:
+      type: Literal
+      literal:
+        value: "file:///state/"
+    PULUMI_CONFIG_PASSPHRASE:
+      type: Literal
+      literal:
+        value: "test"
+  workspaceTemplate:
+    spec:
+      image: pulumi/pulumi:3.130.0-nonroot
+      podTemplate:
+        spec:
+          containers:
+            - name: pulumi
+              volumeMounts:
+                - name: state
+                  mountPath: /state
+          volumes:
+            - name: state
+              persistentVolumeClaim:
+                claimName: state

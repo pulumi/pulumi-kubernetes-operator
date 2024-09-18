@@ -1,0 +1,152 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - auto.pulumi.com
+  resources:
+  - updates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - auto.pulumi.com
+  resources:
+  - updates/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - auto.pulumi.com
+  resources:
+  - updates/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - auto.pulumi.com
+  resources:
+  - workspaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - auto.pulumi.com
+  resources:
+  - workspaces/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - auto.pulumi.com
+  resources:
+  - workspaces/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - pulumi.com
+  resources:
+  - programs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - pulumi.com
+  resources:
+  - stacks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - pulumi.com
+  resources:
+  - stacks/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - pulumi.com
+  resources:
+  - stacks/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
+  - buckets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
+  - gitrepositories
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
+  - ocirepositories
+  verbs:
+  - get
+  - list
+  - watch
