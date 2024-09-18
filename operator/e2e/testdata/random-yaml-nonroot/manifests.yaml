@@ -42,8 +42,8 @@ spec:
     dir: random-yaml
 
   stack: dev
-  refresh: true
-  continueResyncOnCommitMatch: true
+  refresh: false
+  continueResyncOnCommitMatch: false
   resyncFrequencySeconds: 60
   destroyOnFinalize: true
 
