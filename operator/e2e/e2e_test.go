@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,6 +47,8 @@ func TestE2E(t *testing.T) {
 	require.NoError(t, run(cmd), "failed to build image")
 
 	err := loadImageToKindClusterWithName(projectimage)
+	require.NoError(t, err, "failed to load image into kind")
+	err = loadImageToKindClusterWithName("pulumi/pulumi:3.130.0-nonroot")
 	require.NoError(t, err, "failed to load image into kind")
 
 	cmd = exec.Command("make", "install")
@@ -69,14 +72,32 @@ func TestE2E(t *testing.T) {
 		{
 			name: "random-yaml-nonroot",
 			f: func(t *testing.T) {
-				err := loadImageToKindClusterWithName("pulumi/pulumi:3.130.0-nonroot")
-				require.NoError(t, err, "failed to load image into kind")
+				t.Parallel()
 
 				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/random-yaml-nonroot")
 				require.NoError(t, run(cmd))
 
 				// TODO: Wait for stack to become ready. Currently flakes due
 				// to GitHub rate limiting and "resource modified" retries.
+			},
+		},
+		{
+			name: "git-auth-nonroot",
+			f: func(t *testing.T) {
+				t.Parallel()
+				if os.Getenv("PULUMI_BOT_TOKEN") == "" {
+					t.Skip("missing PULUMI_BOT_TOKEN")
+				}
+
+				cmd := exec.Command("bash", "-c", "envsubst < e2e/testdata/git-auth-nonroot/* | kubectl apply -f -")
+				require.NoError(t, run(cmd))
+				t.Cleanup(func() {
+					_ = run(exec.Command("kubectl", "delete", "-f", "e2e/testdata/git-auth-nonroot"))
+				})
+
+				cmd = exec.Command("kubectl", "wait", "stacks/git-auth-nonroot",
+					"--for", "condition=Ready", "-n", "git-auth-nonroot", "--timeout", "300s")
+				assert.NoError(t, run(cmd), "stack didn't reconcile within 5 minutes")
 			},
 		},
 	}

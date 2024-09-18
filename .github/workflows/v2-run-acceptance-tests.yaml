@@ -10,6 +10,7 @@ on:
 env:
   PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,9 +32,9 @@ jobs:
           version: "~> v2"
           args: release --snapshot --clean --skip=docker
 
-  agent-integration-tests:
+  unit-tests:
     runs-on: ubuntu-latest
-    name: Integration Testing
+    name: Unit tests
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -55,3 +56,14 @@ jobs:
           files: agent/coverage.out,operator/coverage.out
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    name: E2E tests
+    steps:
+      - name: Setup cluster
+        uses: helm/kind-action@v1
+        with:
+          node_image: kindest/node:v1.31.1
+      - name: Run tests
+        run: make -C operator test-e2e
