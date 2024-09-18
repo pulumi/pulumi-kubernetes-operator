@@ -27,10 +27,6 @@ import (
 
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
-	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
-	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
-	autocontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/auto"
-	pulumicontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/pulumi"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -39,6 +35,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
+	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
+	autocontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/auto"
+	pulumicontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/pulumi"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -149,6 +150,13 @@ func main() {
 		Recorder: mgr.GetEventRecorderFor("stack-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Stack")
+		os.Exit(1)
+	}
+	if err = (&pulumicontroller.ProgramReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Program")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
