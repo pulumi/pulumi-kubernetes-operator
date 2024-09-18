@@ -369,8 +369,10 @@ func isStalledError(e error) bool {
 	return errors.As(e, &s)
 }
 
-var errNamespaceIsolation = newStallErrorf(`cross-namespace refs are not allowed`)
-var errOtherThanOneSourceSpecified = newStallErrorf(`exactly one source (.spec.fluxSource, .spec.projectRepo, or .spec.programRef) for the stack must be given`)
+var (
+	errNamespaceIsolation          = newStallErrorf(`cross-namespace refs are not allowed`)
+	errOtherThanOneSourceSpecified = newStallErrorf(`exactly one source (.spec.fluxSource, .spec.projectRepo, or .spec.programRef) for the stack must be given`)
+)
 
 var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
 
@@ -1031,7 +1033,7 @@ func labelsForWorkspace(stack *metav1.ObjectMeta) map[string]string {
 	}
 }
 
-// Make a workspace for the given stack.
+// NewWorkspace makes a new workspace for the given stack.
 func (sess *StackReconcilerSession) NewWorkspace(stack *pulumiv1.Stack) error {
 	labels := labelsForWorkspace(&stack.ObjectMeta)
 	sess.ws = &autov1alpha1.Workspace{
@@ -1046,10 +1048,17 @@ func (sess *StackReconcilerSession) NewWorkspace(stack *pulumiv1.Stack) error {
 		},
 		Spec: autov1alpha1.WorkspaceSpec{
 			PodTemplate: &autov1alpha1.EmbeddedPodTemplateSpec{
-				Spec: &corev1.PodSpec{},
+				Spec: &corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "pulumi",
+						},
+					},
+				},
 			},
 		},
 	}
+	sess.wspc = &sess.ws.Spec.PodTemplate.Spec.Containers[0]
 	if err := controllerutil.SetControllerReference(stack, sess.ws, sess.scheme); err != nil {
 		return err
 	}
@@ -1058,7 +1067,6 @@ func (sess *StackReconcilerSession) NewWorkspace(stack *pulumiv1.Stack) error {
 }
 
 func (sess *StackReconcilerSession) CreateWorkspace(ctx context.Context) error {
-	sess.ws.Spec.PodTemplate.Spec.Containers = append(sess.ws.Spec.PodTemplate.Spec.Containers, *sess.wspc)
 	sess.ws.Spec.Stacks = append(sess.ws.Spec.Stacks, *sess.wss)
 
 	if err := sess.kubeClient.Patch(ctx, sess.ws, client.Apply, client.FieldOwner(FieldManager)); err != nil {
@@ -1121,10 +1129,6 @@ func (sess *StackReconcilerSession) setupWorkspace(ctx context.Context) error {
 	sess.wss = wss
 	sess.logger.V(1).Info("Setting workspace stack", "stack", wss)
 
-	sess.wspc = &corev1.Container{
-		Name: "pulumi",
-	}
-
 	// Update the stack config and secret config values.
 	err = sess.UpdateConfig(ctx)
 	if err != nil {
@@ -1139,7 +1143,13 @@ func (sess *StackReconcilerSession) setupWorkspace(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("patching workspace spec: %w", err)
 		}
-		*w = *patched
+		sess.ws = patched
+		for _, c := range sess.ws.Spec.PodTemplate.Spec.Containers {
+			if c.Name == "pulumi" {
+				sess.wspc = &c
+				break
+			}
+		}
 	}
 
 	return nil

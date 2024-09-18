@@ -319,26 +319,49 @@ func TestSetupWorkspace(t *testing.T) {
 		Build()
 
 	for _, test := range []struct {
-		name      string
-		workspace *autov1alpha1.EmbeddedWorkspaceTemplateSpec
-		expected  *autov1alpha1.Workspace
-		err       error
+		name     string
+		stack    shared.StackSpec
+		expected *autov1alpha1.Workspace
+		err      error
 	}{
 		{
 			name: "MergeWorkspaceSpec",
-			workspace: &autov1alpha1.EmbeddedWorkspaceTemplateSpec{
-				Metadata: autov1alpha1.EmbeddedObjectMeta{
-					Labels: map[string]string{
-						"custom": "label",
+			stack: shared.StackSpec{
+				SecretRefs: map[string]shared.ResourceRef{
+					"boo": {
+						SelectorType: "Secret",
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
+								Name: "secret-name",
+							},
+						},
 					},
 				},
-				Spec: &autov1alpha1.WorkspaceSpec{
-					Image:              "custom-image",
-					ServiceAccountName: "custom-service-account",
-					PodTemplate: &autov1alpha1.EmbeddedPodTemplateSpec{
-						Metadata: autov1alpha1.EmbeddedObjectMeta{
-							Annotations: map[string]string{
-								"custom": "pod-annotation",
+				WorkspaceTemplate: &autov1alpha1.EmbeddedWorkspaceTemplateSpec{
+					Metadata: autov1alpha1.EmbeddedObjectMeta{
+						Labels: map[string]string{
+							"custom": "label",
+						},
+					},
+					Spec: &autov1alpha1.WorkspaceSpec{
+						Image:              "custom-image",
+						ServiceAccountName: "custom-service-account",
+						PodTemplate: &autov1alpha1.EmbeddedPodTemplateSpec{
+							Metadata: autov1alpha1.EmbeddedObjectMeta{
+								Annotations: map[string]string{
+									"custom": "pod-annotation",
+								},
+							},
+							Spec: &corev1.PodSpec{
+								Containers: []corev1.Container{
+									{
+										Name:         "pulumi",
+										VolumeMounts: []corev1.VolumeMount{{Name: "foo", MountPath: "/foo"}},
+									},
+								},
+								Volumes: []corev1.Volume{
+									{Name: "foo"},
+								},
 							},
 						},
 					},
@@ -372,7 +395,21 @@ func TestSetupWorkspace(t *testing.T) {
 								"custom": "pod-annotation",
 							},
 						},
-						Spec: &corev1.PodSpec{},
+						Spec: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "pulumi",
+									VolumeMounts: []corev1.VolumeMount{
+										{Name: "foo", MountPath: "/foo"},
+										{Name: "secret-secret-name", MountPath: "/var/run/secrets/stacks.pulumi.com/secrets/secret-name"},
+									},
+								},
+							},
+							Volumes: []corev1.Volume{
+								{Name: "foo"},
+								{Name: "secret-secret-name", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: "secret-name"}}},
+							},
+						},
 					},
 					ServiceAccountName: "custom-service-account",
 					Image:              "custom-image",
@@ -382,9 +419,7 @@ func TestSetupWorkspace(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			log := testr.New(t).WithValues("Request.Test", t.Name())
-			session := newStackReconcilerSession(log, shared.StackSpec{
-				WorkspaceTemplate: test.workspace,
-			}, client, scheme.Scheme, namespace)
+			session := newStackReconcilerSession(log, test.stack, client, scheme.Scheme, namespace)
 			require.NoError(t, session.NewWorkspace(&v1.Stack{Spec: session.stack}))
 
 			err := session.setupWorkspace(context.Background())
