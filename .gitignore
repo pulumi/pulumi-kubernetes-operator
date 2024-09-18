@@ -88,5 +88,4 @@ tags
 *.vsix
 ### IntelliJ ###
 .idea
-config/
 .envrc

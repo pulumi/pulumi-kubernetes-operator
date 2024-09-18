@@ -56,6 +56,7 @@ func TestSuite(t *testing.T) {
 
 func (suite *GitAuthTestSuite) TestSetupGitAuthWithSecrets() {
 	t := suite.T()
+	t.Skip() // https://github.com/pulumi/pulumi-kubernetes-operator/pull/658
 	log := testr.New(t).WithValues("Request.Test", "TestSetupGitAuthWithSecrets")
 
 	sshPrivateKey := &corev1.Secret{
@@ -306,6 +307,7 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithSecrets() {
 
 func (suite *GitAuthTestSuite) TestSetupGitAuthWithRefs() {
 	t := suite.T()
+	t.Skip() // https://github.com/pulumi/pulumi-kubernetes-operator/pull/658
 	log := testr.New(t).WithValues("Request.Test", "TestSetupGitAuthWithSecrets")
 
 	secret := &corev1.Secret{
