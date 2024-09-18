@@ -2,7 +2,6 @@ package shared
 
 import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -128,16 +127,12 @@ type StackSpec struct {
 	// The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.
 	ResyncFrequencySeconds int64 `json:"resyncFrequencySeconds,omitempty"`
 
-	// Workspace:
-
-	// Image is the container image to use for the Pulumi workspace.
+	// WorkspaceTemplate customizes the Workspace generated for this Stack. It
+	// is applied as a strategic merge patch on top of the underlying
+	// Workspace. Use this to customize the Workspace's image, resources,
+	// volumes, etc.
 	// +optional
-	Image string `json:"image,omitempty"`
-
-	// Compute Resources required by this stack.
-	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-	// +optional
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	WorkspaceTemplate *autov1alpha1.EmbeddedWorkspaceTemplateSpec `json:"workspaceTemplate,omitempty"`
 }
 
 // GitSource specifies how to fetch from a git repository directly.

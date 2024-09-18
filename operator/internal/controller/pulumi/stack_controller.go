@@ -18,6 +18,7 @@ package pulumi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -42,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
@@ -1046,8 +1048,6 @@ func (sess *StackReconcilerSession) NewWorkspace(stack *pulumiv1.Stack) error {
 			PodTemplate: &autov1alpha1.EmbeddedPodTemplateSpec{
 				Spec: &corev1.PodSpec{},
 			},
-			Image:     stack.Spec.Image,
-			Resources: stack.Spec.Resources,
 		},
 	}
 	if err := controllerutil.SetControllerReference(stack, sess.ws, sess.scheme); err != nil {
@@ -1130,6 +1130,16 @@ func (sess *StackReconcilerSession) setupWorkspace(ctx context.Context) error {
 	if err != nil {
 		sess.logger.Error(err, "failed to set stack config", "Stack.Name", sess.stack.Stack)
 		return fmt.Errorf("failed to set stack config: %w", err)
+	}
+
+	// Apply the user's workspace spec as a merge patch on top of what we've
+	// already generated.
+	if sess.stack.WorkspaceTemplate != nil {
+		patched, err := patchObject(*sess.ws, *sess.stack.WorkspaceTemplate)
+		if err != nil {
+			return fmt.Errorf("patching workspace spec: %w", err)
+		}
+		*w = *patched
 	}
 
 	return nil
@@ -1238,6 +1248,29 @@ func (sess *StackReconcilerSession) readCurrentUpdate(ctx context.Context, name 
 	}
 	sess.update = u
 	return nil
+}
+
+func patchObject[T any, V any](base T, patch V) (*T, error) {
+	baseBytes, err := json.Marshal(base)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON for base: %w", err)
+	}
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON for pod template: %w", err)
+	}
+
+	// Calculate the patch result.
+	var result T
+	jsonResultBytes, err := strategicpatch.StrategicMergePatch(baseBytes, patchBytes, &result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate merge patch for pod template: %w", err)
+	}
+	if err := json.Unmarshal(jsonResultBytes, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal merged pod template: %w", err)
+	}
+
+	return &result, nil
 }
 
 // // GetStackOutputs gets the stack outputs and parses them into a map.

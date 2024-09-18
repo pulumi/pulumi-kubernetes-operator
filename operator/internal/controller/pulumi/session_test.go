@@ -11,7 +11,9 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr/testr"
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/shared"
+	v1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/stretchr/testify/assert"
@@ -19,7 +21,9 @@ import (
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -301,6 +305,96 @@ func (suite *GitAuthTestSuite) TestSetupGitAuthWithSecrets() {
 			}
 			assert.NoError(t, err)
 			assert.Equal(t, test.expected, gitAuth)
+		})
+	}
+}
+
+func TestSetupWorkspace(t *testing.T) {
+	scheme.Scheme.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "pulumi.com", Version: "v1", Kind: "Stack"},
+		&v1.Stack{},
+	)
+	client := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		Build()
+
+	for _, test := range []struct {
+		name      string
+		workspace *autov1alpha1.EmbeddedWorkspaceTemplateSpec
+		expected  *autov1alpha1.Workspace
+		err       error
+	}{
+		{
+			name: "MergeWorkspaceSpec",
+			workspace: &autov1alpha1.EmbeddedWorkspaceTemplateSpec{
+				Metadata: autov1alpha1.EmbeddedObjectMeta{
+					Labels: map[string]string{
+						"custom": "label",
+					},
+				},
+				Spec: &autov1alpha1.WorkspaceSpec{
+					Image:              "custom-image",
+					ServiceAccountName: "custom-service-account",
+					PodTemplate: &autov1alpha1.EmbeddedPodTemplateSpec{
+						Metadata: autov1alpha1.EmbeddedObjectMeta{
+							Annotations: map[string]string{
+								"custom": "pod-annotation",
+							},
+						},
+					},
+				},
+			},
+			expected: &autov1alpha1.Workspace{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Workspace",
+					APIVersion: "auto.pulumi.com/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test",
+					Labels: map[string]string{
+						"app.kubernetes.io/component":  "stack",
+						"app.kubernetes.io/instance":   "",
+						"app.kubernetes.io/managed-by": "pulumi-kubernetes-operator",
+						"app.kubernetes.io/name":       "pulumi",
+						"custom":                       "label",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "pulumi.com/v1", Kind: "Stack",
+							BlockOwnerDeletion: ptr.To(true), Controller: ptr.To(true),
+						},
+					},
+				},
+				Spec: autov1alpha1.WorkspaceSpec{
+					PodTemplate: &autov1alpha1.EmbeddedPodTemplateSpec{
+						Metadata: autov1alpha1.EmbeddedObjectMeta{
+							Annotations: map[string]string{
+								"custom": "pod-annotation",
+							},
+						},
+						Spec: &corev1.PodSpec{},
+					},
+					ServiceAccountName: "custom-service-account",
+					Image:              "custom-image",
+				},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			log := testr.New(t).WithValues("Request.Test", t.Name())
+			session := newStackReconcilerSession(log, shared.StackSpec{
+				WorkspaceTemplate: test.workspace,
+			}, client, scheme.Scheme, namespace)
+			require.NoError(t, session.NewWorkspace(&v1.Stack{Spec: session.stack}))
+
+			err := session.setupWorkspace(context.Background())
+			if test.err != nil {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), test.err.Error())
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, test.expected, session.ws)
 		})
 	}
 }
