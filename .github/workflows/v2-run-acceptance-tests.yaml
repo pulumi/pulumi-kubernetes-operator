@@ -64,6 +64,6 @@ jobs:
       - name: Setup cluster
         uses: helm/kind-action@v1
         with:
-          node_image: kindest/node:v1.31.1
+          node_image: kindest/node:v1.31.0
       - name: Run tests
         run: make -C operator test-e2e
