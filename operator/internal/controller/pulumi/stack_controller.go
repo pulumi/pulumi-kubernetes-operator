@@ -385,6 +385,7 @@ var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
 //+kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=ocirepositories,verbs=get;list;watch
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
@@ -553,7 +554,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 	// Step 1. Set up the workspace, select the right stack and populate config if supplied.
 
-	// Check swhich kind of source we have.
+	// Check which kind of source we have.
 
 	switch {
 	case !exactlyOneOf(stack.GitSource != nil, stack.FluxSource != nil, stack.ProgramRef != nil):
@@ -561,48 +562,32 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
 		return reconcile.Result{}, nil
 
-	// case stack.GitSource != nil:
-	// 	gitSource := stack.GitSource
-	// 	// Validate that there is enough specified to be able to clone the git repo.
-	// 	if gitSource.ProjectRepo == "" || (gitSource.Commit == "" && gitSource.Branch == "") {
+	case stack.GitSource != nil:
+		auth, err := sess.resolveGitAuth(ctx)
+		if err != nil {
+			r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
+			return reconcile.Result{}, saveStatus()
+		}
 
-	// 		msg := "Stack git source needs to specify 'projectRepo' and either 'branch' or 'commit'"
-	// 		r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), msg)
-	// 		reqLogger.Info(msg)
-	// 		r.markStackFailed(sess, instance, errors.New(msg), "", "")
-	// 		instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, msg)
-	// 		// this object won't be processable until the spec is changed, so no reason to requeue
-	// 		// explicitly
-	// 		return reconcile.Result{}, nil
-	// 	}
+		gs, err := NewGitSource(*stack.GitSource, auth)
+		if err != nil {
+			r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
+			return reconcile.Result{}, saveStatus()
+		}
 
-	// 	gitAuth, err := sess.SetupGitAuth(ctx) // TODO be more explicit about what's being fed in here
-	// 	if err != nil {
-	// 		r.emitEvent(instance, pulumiv1.StackGitAuthFailureEvent(), "Failed to setup git authentication: %v", err.Error())
-	// 		reqLogger.Error(err, "Failed to setup git authentication", "Stack.Name", stack.Stack)
-	// 		r.markStackFailed(sess, instance, err, "", "")
-	// 		instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
-	// 		return reconcile.Result{}, nil
-	// 	}
+		currentCommit, err = gs.CurrentCommit(ctx)
+		if err != nil {
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
+			return reconcile.Result{}, saveStatus()
+		}
 
-	// 	if gitAuth.SSHPrivateKey != "" {
-	// 		// Add the project repo's public SSH keys to the SSH known hosts
-	// 		// to perform the necessary key checking during SSH git cloning.
-	// 		sess.addSSHKeysToKnownHosts(sess.stack.ProjectRepo)
-	// 	}
-
-	// 	if currentCommit, err = sess.SetupWorkdirFromGitSource(ctx, gitAuth, gitSource); err != nil {
-	// 		r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
-	// 		reqLogger.Error(err, "Failed to setup Pulumi workspace", "Stack.Name", stack.Stack)
-	// 		r.markStackFailed(sess, instance, err, "", "")
-	// 		if isStalledError(err) {
-	// 			instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
-	// 			return reconcile.Result{}, nil
-	// 		}
-	// 		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
-	// 		// this can fail for reasons which might go away without intervention; so, retry explicitly
-	// 		return reconcile.Result{Requeue: true}, nil
-	// 	}
+		err = sess.setupWorkspaceFromGitSource(ctx, currentCommit)
+		if err != nil {
+			log.Error(err, "Failed to setup Pulumi workspace")
+			return reconcile.Result{}, err
+		}
 
 	case stack.FluxSource != nil:
 		fluxSource := stack.FluxSource
@@ -690,7 +675,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 				(!sess.stack.ContinueResyncOnCommitMatch || time.Since(instance.Status.LastUpdate.LastResyncTime.Time) < resyncFreq)))
 
 	if synced {
-		// transition to ready, and requeue reconcilation as necessary to detect
+		// transition to ready, and requeue reconciliation as necessary to detect
 		// branch updates and resyncs.
 		instance.Status.MarkReadyCondition()
 
@@ -1017,6 +1002,38 @@ func (sess *StackReconcilerSession) resolveResourceRefAsConfigItem(ctx context.C
 		return nil, nil, errors.New("Missing secret reference in ResourceRef")
 	default:
 		return nil, nil, fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
+	}
+}
+
+// resolveSecretResourceRef reads a referenced object and returns its value as
+// a string. The v1 controller allowed env and filesystem references which no
+// longer make sense in the v2 agent/manager model, so only secret refs are
+// currently supported.
+func (sess *StackReconcilerSession) resolveSecretResourceRef(ctx context.Context, ref *shared.ResourceRef) (string, error) {
+	switch ref.SelectorType {
+	case shared.ResourceSelectorSecret:
+		if ref.SecretRef == nil {
+			return "", errors.New("missing secret reference in ResourceRef")
+		}
+		var config corev1.Secret
+		namespace := ref.SecretRef.Namespace
+		if namespace == "" {
+			namespace = sess.namespace
+		}
+		if namespace != sess.namespace {
+			return "", errNamespaceIsolation
+		}
+
+		if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: ref.SecretRef.Name, Namespace: namespace}, &config); err != nil {
+			return "", fmt.Errorf("namespace=%s Name=%s: %w", ref.SecretRef.Namespace, ref.SecretRef.Name, err)
+		}
+		secretVal, ok := config.Data[ref.SecretRef.Key]
+		if !ok {
+			return "", fmt.Errorf("no key %q found in secret %s/%s", ref.SecretRef.Key, ref.SecretRef.Namespace, ref.SecretRef.Name)
+		}
+		return string(secretVal), nil
+	default:
+		return "", fmt.Errorf("%s selectors are no longer supported in v2, please use a secret reference instead", ref.SelectorType)
 	}
 }
 

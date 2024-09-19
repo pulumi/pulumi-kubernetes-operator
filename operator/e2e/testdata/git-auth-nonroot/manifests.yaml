@@ -2,13 +2,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: random-yaml-nonroot
+  name: git-auth-nonroot
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: state
-  namespace: random-yaml-nonroot
+  namespace: git-auth-nonroot
 spec:
   accessModes:
     - ReadWriteOnce
@@ -16,30 +16,25 @@ spec:
     requests:
       storage: 100Mi
 ---
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: GitRepository
+apiVersion: v1
+kind: Secret
 metadata:
-  name: pulumi-examples
-  namespace: random-yaml-nonroot
-spec:
-  interval: 10m
-  ref:
-    branch: master
-  timeout: 60s
-  url: https://github.com/pulumi/examples
+  name: git-auth
+  namespace: git-auth-nonroot
+stringData:
+  accessToken: $PULUMI_BOT_TOKEN
 ---
 apiVersion: pulumi.com/v1
 kind: Stack
 metadata:
-  name: random-yaml-nonroot
-  namespace: random-yaml-nonroot
+  name: git-auth-nonroot
+  namespace: git-auth-nonroot
 spec:
-  fluxSource:
-    sourceRef:
-      apiVersion: source.toolkit.fluxcd.io/v1
-      kind: GitRepository
-      name: pulumi-examples
-    dir: random-yaml
+  projectRepo: https://github.com/pulumi/fixtures
+  branch: main
+  shallow: true
+  repoDir: resources
+  gitAuthSecret: git-auth
 
   stack: dev
   refresh: false

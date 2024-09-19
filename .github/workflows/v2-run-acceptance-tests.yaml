@@ -10,6 +10,8 @@ on:
 env:
   PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  PULUMI_BOT_TOKEN: ${{ secrets.PULUMI_BOT_TOKEN }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,9 +33,9 @@ jobs:
           version: "~> v2"
           args: release --snapshot --clean --skip=docker
 
-  agent-integration-tests:
+  unit-tests:
     runs-on: ubuntu-latest
-    name: Integration Testing
+    name: Unit tests
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -55,3 +57,27 @@ jobs:
           files: agent/coverage.out,operator/coverage.out
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    name: E2E tests
+    if: false
+    steps:
+      # Building the rootless image currently eats up all of our free disk.
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+      - name: Setup cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: kind
+          node_image: kindest/node:v1.31.0
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22.x
+      - name: Run tests
+        run: make -C operator test-e2e

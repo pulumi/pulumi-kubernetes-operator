@@ -113,9 +113,16 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 	if w.Spec.Git != nil {
 		source.Git = &gitSource{
-			Url:      w.Spec.Git.Url,
-			Dir:      w.Spec.Git.Dir,
-			Revision: w.Spec.Git.Revision,
+			URL:     w.Spec.Git.URL,
+			Dir:     w.Spec.Git.Dir,
+			Ref:     w.Spec.Git.Ref,
+			Shallow: w.Spec.Git.Shallow,
+		}
+		if w.Spec.Git.Auth != nil {
+			source.Git.Password = w.Spec.Git.Auth.Password
+			source.Git.SSHPrivateKey = w.Spec.Git.Auth.SSHPrivateKey
+			source.Git.Token = w.Spec.Git.Auth.Token
+			source.Git.Username = w.Spec.Git.Auth.Username
 		}
 	}
 	if w.Spec.Flux != nil {
@@ -271,7 +278,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 		}
 
-		// set the "initalized" annotation
+		// set the "initialized" annotation
 		if pod.Annotations == nil {
 			pod.Annotations = make(map[string]string)
 		}
@@ -435,6 +442,59 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 /share/agent init -t /share/source --git-url $GIT_URL --git-revision $GIT_REVISION &&
 ln -s /share/source/$GIT_DIR /share/workspace
 		`
+		env := []corev1.EnvVar{
+			{
+				Name:  "GIT_URL",
+				Value: source.Git.URL,
+			},
+			{
+				Name:  "GIT_REVISION",
+				Value: source.Git.Ref,
+			},
+			{
+				Name:  "GIT_DIR",
+				Value: source.Git.Dir,
+			},
+		}
+		if source.Git.Shallow {
+			env = append(env, corev1.EnvVar{
+				Name:  "GIT_SHALLOW",
+				Value: "true",
+			})
+		}
+		if source.Git.SSHPrivateKey != nil {
+			env = append(env, corev1.EnvVar{
+				Name: "GIT_SSH_PRIVATE_KEY",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: source.Git.SSHPrivateKey,
+				},
+			})
+		}
+		if source.Git.Username != nil {
+			env = append(env, corev1.EnvVar{
+				Name: "GIT_USERNAME",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: source.Git.Username,
+				},
+			})
+		}
+		if source.Git.Password != nil {
+			env = append(env, corev1.EnvVar{
+				Name: "GIT_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: source.Git.Password,
+				},
+			})
+		}
+		if source.Git.Token != nil {
+			env = append(env, corev1.EnvVar{
+				Name: "GIT_TOKEN",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: source.Git.Token,
+				},
+			})
+		}
+
 		container := corev1.Container{
 			Name:            "fetch",
 			Image:           workspaceAgentImage,
@@ -445,20 +505,7 @@ ln -s /share/source/$GIT_DIR /share/workspace
 					MountPath: WorkspaceShareMountPath,
 				},
 			},
-			Env: []corev1.EnvVar{
-				{
-					Name:  "GIT_URL",
-					Value: source.Git.Url,
-				},
-				{
-					Name:  "GIT_REVISION",
-					Value: source.Git.Revision,
-				},
-				{
-					Name:  "GIT_DIR",
-					Value: source.Git.Dir,
-				},
-			},
+			Env:     env,
 			Command: []string{"sh", "-c", script},
 		}
 		statefulset.Spec.Template.Spec.InitContainers = append(statefulset.Spec.Template.Spec.InitContainers, container)
@@ -577,9 +624,14 @@ type sourceSpec struct {
 }
 
 type gitSource struct {
-	Url      string
-	Revision string
-	Dir      string
+	URL           string
+	Ref           string
+	Dir           string
+	Shallow       bool
+	SSHPrivateKey *corev1.SecretKeySelector
+	Username      *corev1.SecretKeySelector
+	Password      *corev1.SecretKeySelector
+	Token         *corev1.SecretKeySelector
 }
 
 type fluxSource struct {

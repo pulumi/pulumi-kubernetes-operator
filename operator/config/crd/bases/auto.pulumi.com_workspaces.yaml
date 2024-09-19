@@ -247,21 +247,144 @@ spec:
                     type: string
                 type: object
               git:
-                description: Repo is the git source containing the Pulumi program.
+                description: Git is the git source containing the Pulumi program.
                 properties:
+                  auth:
+                    description: |-
+                      Auth contains optional authentication information to use when cloning
+                      the repository.
+                    properties:
+                      password:
+                        description: The password that pairs with a username or as
+                          part of an SSH Private Key.
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            default: ""
+                            description: |-
+                              Name of the referent.
+                              This field is effectively required, but due to backwards compatibility is
+                              allowed to be empty. Instances of this type with an empty value here are
+                              almost certainly wrong.
+                              TODO: Add other useful fields. apiVersion, kind, uid?
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      sshPrivateKey:
+                        description: |-
+                          SSHPrivateKey should contain a private key for access to the git repo.
+                          When using `SSHPrivateKey`, the URL of the repository must be in the
+                          format git@github.com:org/repository.git.
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            default: ""
+                            description: |-
+                              Name of the referent.
+                              This field is effectively required, but due to backwards compatibility is
+                              allowed to be empty. Instances of this type with an empty value here are
+                              almost certainly wrong.
+                              TODO: Add other useful fields. apiVersion, kind, uid?
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      token:
+                        description: |-
+                          Token is a Git personal access token in replacement of
+                          your password.
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            default: ""
+                            description: |-
+                              Name of the referent.
+                              This field is effectively required, but due to backwards compatibility is
+                              allowed to be empty. Instances of this type with an empty value here are
+                              almost certainly wrong.
+                              TODO: Add other useful fields. apiVersion, kind, uid?
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      username:
+                        description: Username is the username to use when authenticating
+                          to a git repository.
+                        properties:
+                          key:
+                            description: The key of the secret to select from.  Must
+                              be a valid secret key.
+                            type: string
+                          name:
+                            default: ""
+                            description: |-
+                              Name of the referent.
+                              This field is effectively required, but due to backwards compatibility is
+                              allowed to be empty. Instances of this type with an empty value here are
+                              almost certainly wrong.
+                              TODO: Add other useful fields. apiVersion, kind, uid?
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
+                            type: string
+                          optional:
+                            description: Specify whether the Secret or its key must
+                              be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
                   dir:
                     description: |-
-                      (optional) Dir is the directory to work from in the project's source repository
+                      Dir is the directory to work from in the project's source repository
                       where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
                       in the project source root.
                     type: string
-                  revision:
-                    description: Revision is the git revision (tag, or commit SHA)
-                      to fetch.
+                  ref:
+                    description: Ref is the git ref (tag, branch, or commit SHA) to
+                      fetch.
                     type: string
+                  shallow:
+                    description: |-
+                      Shallow controls whether the workspace uses a shallow clone or whether
+                      all history is cloned.
+                    type: boolean
                   url:
-                    description: Url is the git source control repository from which
-                      we fetch the project code and configuration.
+                    description: |-
+                      URL is the git source control repository from which we fetch the project
+                      code and configuration.
                     type: string
                 type: object
               image:
@@ -8296,7 +8419,7 @@ spec:
                   identity of the workspace.
                 type: string
               stacks:
-                description: List of stacks to .
+                description: List of stacks this workspace manages.
                 items:
                   properties:
                     config:
