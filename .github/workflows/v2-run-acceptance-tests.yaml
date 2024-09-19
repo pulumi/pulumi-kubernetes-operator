@@ -64,6 +64,7 @@ jobs:
       - name: Setup cluster
         uses: helm/kind-action@v1
         with:
+          cluster_name: kind
           node_image: kindest/node:v1.31.0
       - name: Check out code
         uses: actions/checkout@v4
