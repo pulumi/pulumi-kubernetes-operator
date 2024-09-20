@@ -18,13 +18,16 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"time"
 
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"google.golang.org/grpc"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,6 +51,8 @@ const (
 	UpdateConditionTypeFailed      = "Failed"
 	UpdateConditionTypeProgressing = "Progressing"
 
+	UpdateConditionReasonComplete    = "Complete"
+	UpdateConditionReasonUpdated     = "Updated"
 	UpdateConditionReasonProgressing = "Progressing"
 )
 
@@ -63,18 +68,20 @@ type UpdateReconciler struct {
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates/finalizers,verbs=update
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch
 
-// Reconcile
+// Reconcile manages the Update CRD and initiates Pulumi operations.
 func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 
 	obj := &autov1alpha1.Update{}
 	err := r.Get(ctx, req.NamespacedName, obj)
+	if apierrors.IsNotFound(err) {
+		return ctrl.Result{}, nil
+	}
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
 		return ctrl.Result{}, err
 	}
+
+	l.V(1).Info("Reconciling Update", "update", req.NamespacedName, "generation", obj.Generation)
 
 	rs := &reconcileSession{}
 	rs.progressing = meta.FindStatusCondition(obj.Status.Conditions, UpdateConditionTypeProgressing)
@@ -110,7 +117,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	if rs.complete.Status == metav1.ConditionTrue {
-		l.Info("is completed")
+		l.V(1).Info("Ignoring completed update", "update", obj.Name)
 		return ctrl.Result{}, nil
 	}
 
@@ -180,13 +187,13 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	case autov1alpha1.PreviewType:
 		return rs.Preview(ctx, obj, client)
 	case autov1alpha1.UpType:
-		return rs.Update(ctx, obj, client)
+		return rs.Update(ctx, obj, client, r.Client)
 	case autov1alpha1.RefreshType:
 		return rs.Refresh(ctx, obj, client)
 	case autov1alpha1.DestroyType:
 		return rs.Destroy(ctx, obj, client)
 	default:
-		panic("unsupported type")
+		return ctrl.Result{}, fmt.Errorf("unsupported update type %q", obj.Spec.Type)
 	}
 }
 
@@ -238,11 +245,11 @@ func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update
 				}
 				obj.Status.Message = r.Result.Summary.Message
 				u.progressing.Status = metav1.ConditionFalse
-				u.progressing.Reason = "Complete"
+				u.progressing.Reason = UpdateConditionReasonComplete
 				u.complete.Status = metav1.ConditionTrue
-				u.complete.Reason = "Updated"
+				u.complete.Reason = UpdateConditionReasonUpdated
 				switch r.Result.Summary.Result {
-				case "succeeded":
+				case apitype.StatusSucceeded:
 					u.failed.Status = metav1.ConditionFalse
 					u.failed.Reason = r.Result.Summary.Result
 				default:
@@ -265,7 +272,7 @@ func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update
 	return ctrl.Result{}, nil
 }
 
-func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update, client agentpb.AutomationServiceClient) (ctrl.Result, error) {
+func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update, client agentpb.AutomationServiceClient, kclient client.Client) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 
 	l.V(1).Info("Configure the up operation")
@@ -282,56 +289,67 @@ func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update,
 
 	l.Info("Executing update operation", "request", autoReq)
 	res, err := client.Up(ctx, autoReq, grpc.WaitForReady(true))
+	defer func() { _ = res.CloseSend() }()
+
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
-	done := make(chan error)
-	go func() {
-		for {
-			stream, err := res.Recv()
-			if err == io.EOF {
-				close(done)
-				return
-			}
 
-			switch r := stream.Response.(type) {
-			case *agentpb.UpStream_Event:
-				continue
-			case *agentpb.UpStream_Result:
-				l.Info("Result received", "result", r.Result)
-
-				obj.Status.StartTime = metav1.NewTime(r.Result.Summary.StartTime.AsTime())
-				obj.Status.EndTime = metav1.NewTime(r.Result.Summary.EndTime.AsTime())
-				if r.Result.Permalink != nil {
-					obj.Status.Permalink = *r.Result.Permalink
-				}
-				obj.Status.Message = r.Result.Summary.Message
-				u.progressing.Status = metav1.ConditionFalse
-				u.progressing.Reason = "Complete"
-				u.complete.Status = metav1.ConditionTrue
-				u.complete.Reason = "Updated"
-				switch r.Result.Summary.Result {
-				case "succeeded":
-					u.failed.Status = metav1.ConditionFalse
-					u.failed.Reason = r.Result.Summary.Result
-				default:
-					u.failed.Status = metav1.ConditionTrue
-					u.failed.Reason = r.Result.Summary.Result
-				}
-				err = u.updateStatus()
-				if err != nil {
-					done <- fmt.Errorf("failed to update the status: %w", err)
-					return
-				}
-			}
+	for {
+		stream, err := res.Recv()
+		if err == io.EOF {
+			break
 		}
-	}()
-	err = <-done
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("response error: %w", err)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("response error: %w", err)
+		}
+
+		result := stream.GetResult()
+		if result == nil {
+			continue
+		}
+
+		l.Info("Result received", "result", result)
+
+		// Create a secret with result.Outputs
+		if result.Outputs != nil {
+			secret, err := outputsToSecret(obj, result.Outputs)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("marshaling outputs: %w", err)
+			}
+			err = kclient.Create(ctx, secret)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("creating output secret: %w", err)
+			}
+			obj.Status.Outputs = secret.Name
+		}
+
+		obj.Status.StartTime = metav1.NewTime(result.Summary.StartTime.AsTime())
+		obj.Status.EndTime = metav1.NewTime(result.Summary.EndTime.AsTime())
+		if result.Permalink != nil {
+			obj.Status.Permalink = *result.Permalink
+		}
+		obj.Status.Message = result.Summary.Message
+		u.progressing.Status = metav1.ConditionFalse
+		u.progressing.Reason = UpdateConditionReasonComplete
+		u.complete.Status = metav1.ConditionTrue
+		u.complete.Reason = UpdateConditionReasonUpdated
+		switch result.Summary.Result {
+		case apitype.StatusSucceeded:
+			u.failed.Status = metav1.ConditionFalse
+			u.failed.Reason = result.Summary.Result
+		default:
+			u.failed.Status = metav1.ConditionTrue
+			u.failed.Reason = result.Summary.Result
+		}
+		err = u.updateStatus()
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
+		}
+		return ctrl.Result{}, nil
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, fmt.Errorf("didn't receive a result")
 }
 
 func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update, client agentpb.AutomationServiceClient) (ctrl.Result, error) {
@@ -372,11 +390,11 @@ func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update
 				}
 				obj.Status.Message = r.Result.Summary.Message
 				u.progressing.Status = metav1.ConditionFalse
-				u.progressing.Reason = "Complete"
+				u.progressing.Reason = UpdateConditionReasonComplete
 				u.complete.Status = metav1.ConditionTrue
-				u.complete.Reason = "Updated"
+				u.complete.Reason = UpdateConditionReasonUpdated
 				switch r.Result.Summary.Result {
-				case "succeeded":
+				case apitype.StatusSucceeded:
 					u.failed.Status = metav1.ConditionFalse
 					u.failed.Reason = r.Result.Summary.Result
 				default:
@@ -440,11 +458,11 @@ func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update
 				}
 				obj.Status.Message = r.Result.Summary.Message
 				u.progressing.Status = metav1.ConditionFalse
-				u.progressing.Reason = "Complete"
+				u.progressing.Reason = UpdateConditionReasonComplete
 				u.complete.Status = metav1.ConditionTrue
-				u.complete.Reason = "Updated"
+				u.complete.Reason = UpdateConditionReasonUpdated
 				switch r.Result.Summary.Result {
-				case "succeeded":
+				case apitype.StatusSucceeded:
 					u.failed.Status = metav1.ConditionFalse
 					u.failed.Reason = r.Result.Summary.Result
 				default:
@@ -469,7 +487,6 @@ func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *UpdateReconciler) SetupWithManager(mgr ctrl.Manager) error {
-
 	// index the updates by workspace
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &autov1alpha1.Update{},
 		UpdateIndexerWorkspace, indexUpdateByWorkspace); err != nil {
@@ -503,4 +520,41 @@ func (r *UpdateReconciler) mapWorkspaceToUpdate(ctx context.Context, obj client.
 		requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Name: mapped.Name, Namespace: mapped.Namespace}}
 	}
 	return requests
+}
+
+// outputsToSecret returns a Secret object whose keys are stack output names
+// and values are JSON-encoded bytes. An annotation is recorded with all secret
+// outputs overwritten with "[secret]"; this annotation is consumed by the
+// Stack API and recorded on the stack's status.
+func outputsToSecret(owner *autov1alpha1.Update, outputs map[string]*agentpb.OutputValue) (*corev1.Secret, error) {
+	s := &corev1.Secret{Immutable: ptr.To(true), Data: map[string][]byte{}}
+	s.SetName(owner.Name + "-stack-outputs")
+	s.SetNamespace(owner.Namespace)
+	s.SetOwnerReferences([]metav1.OwnerReference{{
+		APIVersion: owner.APIVersion,
+		Kind:       owner.Kind,
+		Name:       owner.Name,
+		UID:        owner.UID,
+	}})
+
+	scrubbed := make(map[string]any, len(outputs))
+	for k, v := range outputs {
+		// v.Value is already JSON-encoded bytes,
+		s.Data[k] = v.Value
+		if v.Secret {
+			scrubbed[k] = "[secret]"
+		} else {
+			scrubbed[k] = json.RawMessage(v.Value)
+		}
+	}
+
+	annotation, err := json.Marshal(scrubbed)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling scrubbed output: %w", err)
+	}
+	s.SetAnnotations(map[string]string{
+		"scrubbed": string(annotation),
+	})
+
+	return s, nil
 }

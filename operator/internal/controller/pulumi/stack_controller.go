@@ -385,28 +385,30 @@ var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
 //+kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=ocirepositories,verbs=get;list;watch
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=create;get;list;watch
+//+kubebuilder:rbac:groups="",resources=events,verbs=create;update;patch
 
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
 func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (res ctrl.Result, reterr error) {
 	log := log.FromContext(ctx)
-	log.Info("Reconciling Stack")
 
 	// Fetch the Stack instance
 	instance := &pulumiv1.Stack{}
 	err := r.Client.Get(ctx, request.NamespacedName, instance)
+	if apierrors.IsNotFound(err) {
+		// Request object not found, could have been deleted after reconcile request.
+		// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+		// Return and don't requeue
+		log.Info("Stack resource not found. Ignoring since object must be deleted.")
+		return reconcile.Result{}, nil
+	}
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			log.Info("Stack resource not found. Ignoring since object must be deleted.")
-			return reconcile.Result{}, nil
-		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+
+	log.V(1).Info("Reconciling Stack", "stack", request.NamespacedName, "generation", instance.Generation)
 
 	// Update the observed generation and "reconcile request" of the object.
 	instance.Status.ObservedGeneration = instance.GetGeneration()
@@ -477,7 +479,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			r.markStackFailed(sess, instance, instance.Status.CurrentUpdate, sess.update)
 		} else {
 			// The update succeeded.
-			r.markStackSucceeded(sess, instance, instance.Status.CurrentUpdate, sess.update)
+			err := r.markStackSucceeded(ctx, instance, instance.Status.CurrentUpdate, sess.update)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("marking stack succeeded: %w", err)
+			}
 		}
 
 		instance.Status.CurrentUpdate = nil
@@ -793,20 +798,23 @@ func (r *StackReconciler) markStackFailed(sess *StackReconcilerSession, instance
 	r.emitEvent(instance, pulumiv1.StackUpdateFailureEvent(), "Failed to update Stack: %s", update.Status.Message)
 }
 
-func (r *StackReconciler) markStackSucceeded(sess *StackReconcilerSession, instance *pulumiv1.Stack, current *shared.CurrentStackUpdate, update *autov1alpha1.Update) {
-	// // Step 5. Capture outputs onto the resulting status object.
-	// outs, err := sess.GetStackOutputs(result.Outputs)
-	// if err != nil {
-	// 	r.emitEvent(instance, pulumiv1.StackOutputRetrievalFailureEvent(), "Failed to get Stack outputs: %v.", err.Error())
-	// 	reqLogger.Error(err, "Failed to get Stack outputs", "Stack.Name", stack.Stack)
-	// 	return reconcile.Result{}, err
-	// }
-	// if outs == nil {
-	// 	reqLogger.Info("Stack outputs are empty. Skipping status update", "Stack.Name", stack.Stack)
-	// 	return reconcile.Result{}, nil
-	// }
-
-	// instance.Status.Outputs = outs
+func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulumiv1.Stack, current *shared.CurrentStackUpdate, update *autov1alpha1.Update) error {
+	// Step 5. Capture outputs onto the resulting status object.
+	if update.Status.Outputs != "" {
+		secret := corev1.Secret{}
+		err := r.Get(ctx, types.NamespacedName{Namespace: update.Namespace, Name: update.Status.Outputs}, &secret)
+		if err != nil {
+			return fmt.Errorf("getting output secret: %w", err)
+		}
+		if scrubbed, ok := secret.GetAnnotations()["scrubbed"]; ok {
+			outputs := shared.StackOutputs{}
+			err := json.Unmarshal([]byte(scrubbed), &outputs)
+			if err != nil {
+				return fmt.Errorf("unmarshaling scrubbed outputs: %w", err)
+			}
+			instance.Status.Outputs = outputs
+		}
+	}
 
 	instance.Status.LastUpdate = &shared.StackUpdateState{
 		Generation:           current.Generation,
@@ -820,6 +828,7 @@ func (r *StackReconciler) markStackSucceeded(sess *StackReconcilerSession, insta
 	}
 
 	r.emitEvent(instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack.")
+	return nil
 }
 
 type StackReconcilerSession struct {
@@ -892,7 +901,7 @@ func (sess *StackReconcilerSession) SetEnvRefsForWorkspace(ctx context.Context) 
 	return nil
 }
 
-func (sess *StackReconcilerSession) resolveResourceRefAsEnvVar(ctx context.Context, ref *shared.ResourceRef) (string, *corev1.EnvVarSource, error) {
+func (sess *StackReconcilerSession) resolveResourceRefAsEnvVar(_ context.Context, ref *shared.ResourceRef) (string, *corev1.EnvVarSource, error) {
 	switch ref.SelectorType {
 	case shared.ResourceSelectorEnv:
 		// DEPRECATED: this reads from the operator's own environment
@@ -1299,26 +1308,3 @@ func patchObject[T any, V any](base T, patch V) (*T, error) {
 
 	return &result, nil
 }
-
-// // GetStackOutputs gets the stack outputs and parses them into a map.
-// func (sess *StackReconcilerSession) GetStackOutputs(outs auto.OutputMap) (shared.StackOutputs, error) {
-// 	o := make(shared.StackOutputs)
-// 	for k, v := range outs {
-// 		var value apiextensionsv1.JSON
-// 		if v.Secret {
-// 			value = apiextensionsv1.JSON{Raw: []byte(`"[secret]"`)}
-// 		} else {
-// 			// Marshal the OutputMap value only, to use in unmarshaling to StackOutputs
-// 			valueBytes, err := json.Marshal(v.Value)
-// 			if err != nil {
-// 				return nil, fmt.Errorf("marshaling stack output value interface: %w", err)
-// 			}
-// 			if err := json.Unmarshal(valueBytes, &value); err != nil {
-// 				return nil, fmt.Errorf("unmarshaling stack output value: %w", err)
-// 			}
-// 		}
-
-// 		o[k] = value
-// 	}
-// 	return o, nil
-// }

@@ -79,12 +79,14 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	w := &autov1alpha1.Workspace{}
 	err := r.Get(ctx, req.NamespacedName, w)
+	if apierrors.IsNotFound(err) {
+		return ctrl.Result{}, nil
+	}
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
 		return ctrl.Result{}, err
 	}
+
+	l.V(1).Info("Reconciling Workspace", "workspace", req.NamespacedName, "generation", w.Generation)
 
 	ready := meta.FindStatusCondition(w.Status.Conditions, WorkspaceConditionTypeReady)
 	if ready == nil {
@@ -97,7 +99,11 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		w.Status.ObservedGeneration = w.Generation
 		ready.ObservedGeneration = w.Generation
 		meta.SetStatusCondition(&w.Status.Conditions, *ready)
-		return r.Status().Update(ctx, w)
+		err := r.Status().Update(ctx, w)
+		if err != nil {
+			l.Error(err, "updating status")
+		}
+		return err
 	}
 
 	if w.DeletionTimestamp != nil {

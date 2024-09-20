@@ -508,9 +508,15 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 
 	s.log.Infow("up completed", "summary", res.Summary)
 
+	outputs, err := marshalOutputs(res.Outputs)
+	if err != nil {
+		return fmt.Errorf("marshaling outputs: %w", err)
+	}
+
 	resp := &pb.UpResult{
 		Stdout:  res.StdOut,
 		Stderr:  res.StdErr,
+		Outputs: outputs,
 		Summary: marshalUpdateSummary(res.Summary),
 	}
 	permalink, err := res.GetPermalink()
@@ -691,11 +697,35 @@ func parseTime(s *string) *timestamppb.Timestamp {
 
 func marshalEngineEvent(evt apitype.EngineEvent) (*structpb.Struct, error) {
 	m := make(map[string]any)
-	j, _ := json.Marshal(evt)
-	_ = json.Unmarshal(j, &m)
-	data, err := structpb.NewStruct(m)
+	j, err := json.Marshal(evt)
 	if err != nil {
 		return nil, err
 	}
-	return data, nil
+	err = json.Unmarshal(j, &m)
+	if err != nil {
+		return nil, err
+	}
+	return structpb.NewStruct(m)
+}
+
+// marshalOutputs serializes outputs as a resource.PropertyMap to make
+// downstream secret handling easier.
+func marshalOutputs(outputs auto.OutputMap) (map[string]*pb.OutputValue, error) {
+	if len(outputs) == 0 {
+		return nil, nil
+	}
+
+	o := make(map[string]*pb.OutputValue, len(outputs))
+	for k, v := range outputs {
+		value, err := json.Marshal(v.Value)
+		if err != nil {
+			return nil, err
+		}
+		o[k] = &pb.OutputValue{
+			Value:  value,
+			Secret: v.Secret,
+		}
+	}
+
+	return o, nil
 }

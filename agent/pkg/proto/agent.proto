@@ -225,6 +225,12 @@ message UpResult {
   string stderr = 2;
   UpdateSummary summary = 3;
   optional string permalink = 4;
+  map<string, OutputValue> outputs = 5;
+}
+
+message OutputValue {
+  bytes value = 1;
+  bool secret = 2;
 }
 
 message UpdateSummary {
