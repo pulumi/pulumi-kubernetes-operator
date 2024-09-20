@@ -249,7 +249,7 @@ func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update
 				u.complete.Status = metav1.ConditionTrue
 				u.complete.Reason = UpdateConditionReasonUpdated
 				switch r.Result.Summary.Result {
-				case apitype.StatusSucceeded:
+				case string(apitype.StatusSucceeded):
 					u.failed.Status = metav1.ConditionFalse
 					u.failed.Reason = r.Result.Summary.Result
 				default:
@@ -335,7 +335,7 @@ func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update,
 		u.complete.Status = metav1.ConditionTrue
 		u.complete.Reason = UpdateConditionReasonUpdated
 		switch result.Summary.Result {
-		case apitype.StatusSucceeded:
+		case string(apitype.StatusSucceeded):
 			u.failed.Status = metav1.ConditionFalse
 			u.failed.Reason = result.Summary.Result
 		default:
@@ -394,7 +394,7 @@ func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update
 				u.complete.Status = metav1.ConditionTrue
 				u.complete.Reason = UpdateConditionReasonUpdated
 				switch r.Result.Summary.Result {
-				case apitype.StatusSucceeded:
+				case string(apitype.StatusSucceeded):
 					u.failed.Status = metav1.ConditionFalse
 					u.failed.Reason = r.Result.Summary.Result
 				default:
@@ -462,7 +462,7 @@ func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update
 				u.complete.Status = metav1.ConditionTrue
 				u.complete.Reason = UpdateConditionReasonUpdated
 				switch r.Result.Summary.Result {
-				case apitype.StatusSucceeded:
+				case string(apitype.StatusSucceeded):
 					u.failed.Status = metav1.ConditionFalse
 					u.failed.Reason = r.Result.Summary.Result
 				default:
