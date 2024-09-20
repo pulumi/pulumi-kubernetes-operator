@@ -61,7 +61,6 @@ jobs:
   e2e-tests:
     runs-on: ubuntu-latest
     name: E2E tests
-    if: false
     steps:
       # Building the rootless image currently eats up all of our free disk.
       - name: Free Disk Space (Ubuntu)

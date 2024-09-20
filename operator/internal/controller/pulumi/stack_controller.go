@@ -34,6 +34,7 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
+	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -882,13 +883,21 @@ func (sess *StackReconcilerSession) SetSecretEnvs(ctx context.Context, secretNam
 // the EnvRefs field in the stack specification.
 func (sess *StackReconcilerSession) SetEnvRefsForWorkspace(ctx context.Context) error {
 	envRefs := sess.stack.EnvRefs
-	for envVar, ref := range envRefs {
+
+	// envRefs is an unordered map, but we need to constrct env vars
+	// deterministically to not thrash our underlying StatefulSet.
+	keys := maps.Keys(envRefs)
+	slices.Sort(keys)
+
+	for _, key := range keys {
+		ref := envRefs[key]
+
 		value, valueFrom, err := sess.resolveResourceRefAsEnvVar(ctx, &ref)
 		if err != nil {
-			return fmt.Errorf("resolving env variable reference for %q: %w", envVar, err)
+			return fmt.Errorf("resolving env variable reference for %q: %w", key, err)
 		}
 		sess.ws.Spec.Env = append(sess.ws.Spec.Env, corev1.EnvVar{
-			Name:      envVar,
+			Name:      key,
 			Value:     value,
 			ValueFrom: valueFrom,
 		})
