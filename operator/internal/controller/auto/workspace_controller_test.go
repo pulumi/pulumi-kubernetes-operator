@@ -436,7 +436,7 @@ var _ = Describe("Workspace Controller", func() {
 					Expect(ready.Message).NotTo(BeEmpty())
 				})
 			})
-			PWhen("all conditions met", func() {
+			When("all conditions met", func() {
 				JustBeforeEach(func(ctx context.Context) {
 					ss.Status.ObservedGeneration = 2
 					ss.Status.Replicas = 1
@@ -448,7 +448,7 @@ var _ = Describe("Workspace Controller", func() {
 					ss.Status.UpdatedReplicas = 1
 					Expect(k8sClient.Status().Update(ctx, ss)).To(Succeed())
 				})
-				It("is True", func(ctx context.Context) {
+				XIt("is True", func(ctx context.Context) {
 					_, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(ready).NotTo(BeNil())

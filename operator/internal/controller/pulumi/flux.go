@@ -34,7 +34,7 @@ func (sess *StackReconcilerSession) SetupWorkspaceFromFluxSource(ctx context.Con
 		Dir:    fluxSource.Dir,
 	}
 
-	return digest, sess.setupWorkspace(ctx)
+	return digest, nil
 }
 
 // getArtifactField is a helper to get a specified nested field from .status.artifact.
