@@ -335,18 +335,20 @@ var _ = Describe("Stack Controller", func() {
 			It("reconciles", func(ctx context.Context) {
 				_, err := reconcileF(ctx)
 				Expect(err).NotTo(HaveOccurred())
+				By("not finalizing the object")
 				Expect(obj.Finalizers).To(ContainElement(pulumiFinalizer), "not remove the finalizer")
 				ByMarkingAsReconciling(pulumiv1.ReconcilingProcessingReason, Equal(pulumiv1.ReconcilingProcessingUpdateMessage))
 			})
 		})
 
-		When("the resource is ready to be finalized", func() {
+		When("there's no ongoing update", func() {
 			BeforeEach(func(ctx context.Context) {
 				obj.Status.CurrentUpdate = nil
 			})
 			It("reconciles", func(ctx context.Context) {
 				_, err := reconcileF(ctx)
 				Expect(err).NotTo(HaveOccurred())
+				By("finalizing the object")
 				Expect(obj.Finalizers).ToNot(ContainElement(pulumiFinalizer), "remove the finalizer")
 			})
 		})
@@ -354,6 +356,8 @@ var _ = Describe("Stack Controller", func() {
 		Describe("DestroyOnFinalize", func() {
 			BeforeEach(func(ctx context.Context) {
 				obj.Spec.DestroyOnFinalize = true
+
+				// make the workspace be ready for an update
 				ws.Status.ObservedGeneration = 1
 				ws.Status.Conditions = []metav1.Condition{
 					{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Succeeded", LastTransitionTime: metav1.Now()},
@@ -361,7 +365,7 @@ var _ = Describe("Stack Controller", func() {
 			})
 
 			When("the destroy op hasn't started", func() {
-				DescribeTableSubtree("given last update",
+				DescribeTableSubtree("given a last update",
 					func(lastUpdate *shared.StackUpdateState) {
 						BeforeEach(func(ctx context.Context) {
 							obj.Status.LastUpdate = lastUpdate
@@ -384,8 +388,8 @@ var _ = Describe("Stack Controller", func() {
 							Expect(obj.Status.CurrentUpdate.Commit).ToNot(BeEmpty())
 						})
 					},
-					Entry("no update", nil),
-					Entry("prior update", &shared.StackUpdateState{
+					Entry("no last update", nil),
+					Entry("a prior update", &shared.StackUpdateState{
 						Generation:           1,
 						State:                shared.SucceededStackStateMessage,
 						Name:                 "update-abcdef",
@@ -394,7 +398,7 @@ var _ = Describe("Stack Controller", func() {
 						LastAttemptedCommit:  "abcdef",
 						LastSuccessfulCommit: "abcdef",
 					}),
-					Entry("failed destroy", &shared.StackUpdateState{
+					Entry("an earlier attempt at finalization", &shared.StackUpdateState{
 						Generation:           2,
 						State:                shared.FailedStackStateMessage,
 						Name:                 "update-abcdef",
