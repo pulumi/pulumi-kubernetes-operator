@@ -207,7 +207,7 @@ func main() {
 // startProgramFileServer starts a simple file server to serve Program objects as compressed tarballs. This allows
 // children pods with restricted permissions to access the Program objects, without needing read permissions granted.
 func startProgramFileServer(programHandler *pulumi.ProgramHandler, address string) {
-	setupLog.Info("starting file server to serve Program objects", "address", programHandler.Address())
+	setupLog.Info("starting file server to serve Program objects", "address", address, "advertisedAddress", programHandler.Address())
 	mux := http.NewServeMux()
 	mux.Handle("/programs/", programHandler.HandleProgramServing())
 	err := http.ListenAndServe(address, mux)

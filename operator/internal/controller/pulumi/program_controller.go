@@ -172,8 +172,6 @@ func (p *ProgramHandler) HandleProgramServing() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/x-tar")
 		w.Header().Set("Content-Disposition", "attachment; filename=project.tar")
 		w.Write([]byte(out))
-		w.WriteHeader(http.StatusOK)
-
 	}
 }
 
