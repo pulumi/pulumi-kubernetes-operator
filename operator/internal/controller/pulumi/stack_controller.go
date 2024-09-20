@@ -651,8 +651,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
 	err = sess.setupWorkspace(ctx)
 	if err != nil {
-		if isStalledError(err) {
-			// TODO: why assume it is a cross-namespace error?
+		if errors.Is(err, errNamespaceIsolation) {
 			instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
 			return reconcile.Result{}, saveStatus()
 		}
