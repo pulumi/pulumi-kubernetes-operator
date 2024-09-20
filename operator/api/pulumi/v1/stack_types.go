@@ -56,13 +56,6 @@ type StackStatus struct {
 
 // Tooling that only understands a Ready condition (the base convention) will see that; kstatus will
 // be able to give a more precise answer using the Stalled and Reconciling conditions.
-//
-// Regarding "Reconciling" specifically: at present the controller will succeed (if it succeeds)
-// definitively _within_ an invocation of `Reconcile`, since stacks are run in the controller
-// process. But runs can be quite long-running, so it is worth showing a stack as "in progress" in
-// its status. Future designs might run stacks in Jobs or Pods, in which case, the `Reconciling`
-// status would usually span more than one invocation of `Reconcile`. If processing failed but will
-// be retried, that is considered as "in progress" (and not ready) as well.
 
 const (
 	ReadyCondition       = "Ready"
@@ -93,8 +86,6 @@ const (
 	StalledConflictReason = "UpdateConflict"
 	// Stalled because a cross-namespace ref is used, and namespace isolation is in effect.
 	StalledCrossNamespaceRefForbiddenReason = "CrossNamespaceRefForbidden"
-	// Stalled because a prerequisite was not satisfied
-	StalledPrerequisiteNotSatisfiedReason = "PrerequisiteNotSatisfied"
 
 	// Ready because processing has completed
 	ReadyCompletedReason = "ProcessingCompleted"
