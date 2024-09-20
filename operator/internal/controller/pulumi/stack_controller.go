@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"slices"
@@ -34,7 +35,6 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
-	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -886,8 +886,7 @@ func (sess *StackReconcilerSession) SetEnvRefsForWorkspace(ctx context.Context) 
 
 	// envRefs is an unordered map, but we need to constrct env vars
 	// deterministically to not thrash our underlying StatefulSet.
-	keys := maps.Keys(envRefs)
-	slices.Sort(keys)
+	keys := slices.Sorted(maps.Keys(envRefs))
 
 	for _, key := range keys {
 		ref := envRefs[key]
