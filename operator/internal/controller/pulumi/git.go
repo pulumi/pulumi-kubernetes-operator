@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -325,7 +326,9 @@ func (sess *StackReconcilerSession) setupWorkspaceFromGitSource(ctx context.Cont
 		}
 	}
 
-	sess.ws.Spec.Git.Auth = auth
+	if !reflect.DeepEqual(*auth, autov1alpha1.GitAuth{}) {
+		sess.ws.Spec.Git.Auth = auth
+	}
 
-	return sess.setupWorkspace(ctx)
+	return nil
 }
