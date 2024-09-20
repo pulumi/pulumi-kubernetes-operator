@@ -18,6 +18,9 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .status.conditions[?(@.type=="Ready")].message
+      name: Status
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -190,7 +193,36 @@ spec:
                   expressions that can be re-used.
                 type: object
             type: object
+          status:
+            description: StackStatus defines the observed state of Program.
+            properties:
+              artifact:
+                description: Artifact represents the last succesful artifact generated
+                  by program reconciliation.
+                properties:
+                  url:
+                    description: |-
+                      URL is the HTTP address of this artifact that is served by the controller. It
+                      allows other pods to access the contents of the artifact without needing the correct
+                      RBAC policies.
+                    type: string
+                required:
+                - url
+                type: object
+              lastResyncTime:
+                description: LastResyncTime contains a timestamp for the last time
+                  a resync of the stack took place.
+                format: date-time
+                type: string
+              observedGeneration:
+                description: |-
+                  ObservedGeneration is the last observed generation of the Program
+                  object.
+                format: int64
+                type: integer
+            type: object
         type: object
     served: true
     storage: true
-    subresources: {}
+    subresources:
+      status: {}

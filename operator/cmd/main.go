@@ -19,11 +19,14 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"net"
+	"net/http"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
@@ -39,6 +42,7 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
 	autocontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/auto"
+	"github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/pulumi"
 	pulumicontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/pulumi"
 	//+kubebuilder:scaffold:imports
 )
@@ -58,11 +62,18 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	var secureMetrics bool
-	var enableHTTP2 bool
+	var (
+		metricsAddr          string
+		enableLeaderElection bool
+		probeAddr            string
+		secureMetrics        bool
+		enableHTTP2          bool
+
+		// Flags for configuring the Program file server.
+		programFSAddr    string
+		programFSAdvAddr string
+	)
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -72,6 +83,10 @@ func main() {
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.StringVar(&programFSAddr, "program-fs-addr", envOrDefault("PROGRAM_FS_ADDR", ":9090"),
+		"The address the static file server binds to.")
+	flag.StringVar(&programFSAdvAddr, "program-fs-adv-addr", envOrDefault("PROGRAM_FS_ADV_ADDR", ""),
+		"The advertised address of the static file server.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -128,6 +143,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create a new ProgramHandler to handle Program objects.
+	pHandler := newProgramHandler(mgr.GetClient(), programFSAdvAddr)
+	// Start a simple file-server to serve CR files as compressed tarballs.
+	go func() {
+		// Wait until our manager is elected leader before starting the file server.
+		<-mgr.Elected()
+
+		startProgramFileServer(pHandler, programFSAddr)
+	}()
+
 	if err = (&autocontroller.WorkspaceReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
@@ -153,8 +178,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&pulumicontroller.ProgramReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Recorder:       mgr.GetEventRecorderFor(pulumicontroller.ProgramControllerName),
+		ProgramHandler: pHandler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Program")
 		os.Exit(1)
@@ -175,4 +202,56 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// startProgramFileServer starts a simple file server to serve Program objects as compressed tarballs. This allows
+// children pods with restricted permissions to access the Program objects, without needing read permissions granted.
+func startProgramFileServer(programHandler *pulumi.ProgramHandler, address string) {
+	setupLog.Info("starting file server to serve Program objects", "address", programHandler.Address())
+	mux := http.NewServeMux()
+	mux.Handle("/programs/", programHandler.HandleProgramServing())
+	err := http.ListenAndServe(address, mux)
+	if err != nil {
+		setupLog.Error(err, "Program file server error")
+	}
+}
+
+func newProgramHandler(k8sClient client.Client, advAddr string) *pulumi.ProgramHandler {
+	if advAddr == "" {
+		advAddr = determineAdvAddr(advAddr)
+	}
+
+	return pulumi.NewProgramHandler(k8sClient, advAddr)
+}
+
+func determineAdvAddr(addr string) string {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		setupLog.Error(err, "unable to parse file server address")
+		os.Exit(1)
+	}
+	switch host {
+	case "":
+		host = "localhost"
+	case "0.0.0.0":
+		host = os.Getenv("HOSTNAME")
+		if host == "" {
+			hn, err := os.Hostname()
+			if err != nil {
+				setupLog.Error(err, "0.0.0.0 specified in file server addr but hostname is invalid")
+				os.Exit(1)
+			}
+			host = hn
+		}
+	}
+	return net.JoinHostPort(host, port)
+}
+
+func envOrDefault(envName, defaultValue string) string {
+	ret := os.Getenv(envName)
+	if ret != "" {
+		return ret
+	}
+
+	return defaultValue
 }
