@@ -517,6 +517,23 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		if requireErr != nil {
 			failedPrereqNames = append(failedPrereqNames, prereq.Name)
 			failedPrereqErr = fmt.Errorf("prerequisite not satisfied for %q: %w", prereq.Name, requireErr)
+			// annotate the out of date stack so that it'll be queued. The value is arbitrary; this
+			// value gives a bit of context which might be helpful when troubleshooting.
+			v := fmt.Sprintf("update prerequisite of %s at %s", instance.Name, time.Now().Format(time.RFC3339))
+			prereqStack1 := prereqStack.DeepCopy()
+			a := prereqStack1.GetAnnotations()
+			if a == nil {
+				a = map[string]string{}
+			}
+			a[shared.ReconcileRequestAnnotation] = v
+			prereqStack1.SetAnnotations(a)
+			log.Info("requesting requeue of prerequisite", "name", prereqStack1.Name, "cause", requireErr.Error())
+			if err := r.Client.Patch(ctx, prereqStack1, client.MergeFrom(&prereqStack)); err != nil {
+				// A conflict here may mean the prerequisite has been changed, or it's just been
+				// run. In any case, requeueing this object means we'll see the new state of the
+				// world next time around.
+				return reconcile.Result{}, fmt.Errorf("annotating prerequisite to force requeue: %w", err)
+			}
 		}
 	}
 
