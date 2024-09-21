@@ -85,6 +85,8 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		return ctrl.Result{}, err
 	}
+	// Store a copy of the original workspace to create patches for status updates.
+	originalWorkspace := w.DeepCopy()
 
 	ready := meta.FindStatusCondition(w.Status.Conditions, WorkspaceConditionTypeReady)
 	if ready == nil {
@@ -97,7 +99,9 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		w.Status.ObservedGeneration = w.Generation
 		ready.ObservedGeneration = w.Generation
 		meta.SetStatusCondition(&w.Status.Conditions, *ready)
-		return r.Status().Update(ctx, w)
+		// Use .Status().Patch() instead of .Update() to avoid conflicts with sequential reconcile loops hitting a
+		// stale version of the object from the cache.
+		return r.Status().Patch(ctx, w, client.MergeFrom(originalWorkspace), client.FieldOwner(FieldManager))
 	}
 
 	if w.DeletionTimestamp != nil {
