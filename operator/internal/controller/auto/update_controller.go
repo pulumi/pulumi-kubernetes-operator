@@ -106,7 +106,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		meta.SetStatusCondition(&obj.Status.Conditions, *rs.failed)
 		rs.complete.ObservedGeneration = obj.Generation
 		meta.SetStatusCondition(&obj.Status.Conditions, *rs.complete)
-		return r.Status().Update(ctx, obj)
+		return r.Status().Update(ctx, obj, client.FieldOwner(FieldManager))
 	}
 
 	if rs.complete.Status == metav1.ConditionTrue {

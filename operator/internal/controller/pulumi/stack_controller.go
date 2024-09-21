@@ -441,7 +441,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	}
 
 	saveStatus := func() error {
-		if err := r.Status().Update(ctx, instance); err != nil {
+		if err := r.Status().Update(ctx, instance, client.FieldOwner(FieldManager)); err != nil {
 			log.Error(err, "unable to save object status")
 			return err
 		}
