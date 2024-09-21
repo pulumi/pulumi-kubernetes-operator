@@ -19,13 +19,15 @@ package pulumi
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
+	"github.com/opencontainers/go-digest"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -56,10 +58,12 @@ type ProjectFile struct {
 	Name    string `json:"name"`
 	Runtime string `json:"runtime"`
 	pulumiv1.ProgramSpec
+
+	timeModified metav1.Time // this field is not to be serialized
 }
 
 // tarProgram creates a tarball of the Pulumi project file and writes it to the provided writer.
-func tarProgram(data []byte, t time.Time) ([]byte, error) {
+func tarProgram(data []byte) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
 	defer tw.Close()
@@ -69,7 +73,6 @@ func tarProgram(data []byte, t time.Time) ([]byte, error) {
 		Name:     pulumiProjectFileName,
 		Size:     int64(len(data)),
 		Mode:     509,
-		ModTime:  t,
 		Typeflag: tar.TypeReg,
 	}
 
@@ -86,6 +89,28 @@ func tarProgram(data []byte, t time.Time) ([]byte, error) {
 	// Ensure that the number of bytes tarred is identical to the original data.
 	if num != len(data) {
 		return nil, errors.New("tarred data size mismatch")
+	}
+
+	return buf.Bytes(), nil
+}
+
+// gzipFile compresses the input data using gzip.
+func gzipFile(input []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+
+	num, err := gw.Write(input)
+	if err != nil {
+		return nil, fmt.Errorf("unable to write to gzip writer: %w", err)
+	}
+
+	if num != len(input) {
+		return nil, fmt.Errorf("gzip writer wrote %d bytes, expected %d", num, len(input))
+	}
+
+	err = gw.Close()
+	if err != nil {
+		return nil, err
 	}
 
 	return buf.Bytes(), nil
@@ -162,15 +187,22 @@ func (p *ProgramHandler) HandleProgramServing() http.HandlerFunc {
 		}
 
 		// Create a tarball of the project file and write it to the response.
-		out, err := tarProgram(data, time.Now())
+		out, err := tarProgram(data)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		// Set the appropriate headers for the response.
-		w.Header().Set("Content-Type", "application/x-tar")
-		w.Header().Set("Content-Disposition", "attachment; filename=project.tar")
+		// Compress the tarball using gzip.
+		out, err = gzipFile(out)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/gzip")
+		w.Header().Set("Content-Disposition", "attachment; filename=project.tar.gz")
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(out)))
 		w.Write([]byte(out))
 	}
 }
@@ -188,13 +220,20 @@ func getProjectFile(ctx context.Context, kubeClient client.Client, namespace, na
 		return nil, err
 	}
 
-	project := &ProjectFile{
+	project := programToProject(program)
+
+	return project, nil
+}
+
+// programToProject wraps a Program object to a ProjectFile.
+func programToProject(program *pulumiv1.Program) *ProjectFile {
+	return &ProjectFile{
 		Name:        program.Name,
 		Runtime:     "yaml",
 		ProgramSpec: program.Program,
-	}
 
-	return project, nil
+		timeModified: program.Status.LastResyncTime,
+	}
 }
 
 //+kubebuilder:rbac:groups=pulumi.com,resources=programs,verbs=get;list;watch;create;update;patch;delete
@@ -217,15 +256,39 @@ func (r *ProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		URL: r.ProgramHandler.CreateProgramURL(program.Namespace, program.Name),
 	}
 	program.Status.LastResyncTime = metav1.Now()
-	program.Status.ObservedGeneration = program.Generation
+	program.Status.ObservedGeneration = program.GetGeneration()
+
+	// Calculate and store the sha256 digest of the tarball.
+	// This is necessary for the Flux fetcher to verify the integrity of the artifact.
+	log.Info("Calculating digest hash for Program artifact")
+	project := programToProject(program)
+	data, err := yaml.Marshal(project)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("unable to marshal project file to calculate digest hash: %w", err)
+	}
+
+	tarData, err := tarProgram(data)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("unable to create tarball of project file: %w", err)
+	}
+	gzData, err := gzipFile(tarData)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("unable to compress tarball: %w", err)
+	}
+	program.Status.Artifact.Digest = calculateDigest(gzData)
 
 	// Update the status of the Program object.
+	log.Info("Updating Program status")
 	if err := r.Status().Update(ctx, program); err != nil {
 		log.Error(err, "unable to update Program status", req.NamespacedName.MarshalLog())
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func calculateDigest(data []byte) string {
+	return digest.SHA256.FromBytes(data).String()
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -200,6 +200,10 @@ spec:
                 description: Artifact represents the last succesful artifact generated
                   by program reconciliation.
                 properties:
+                  digest:
+                    description: Digest is the digest of the file in the form of '<algorithm>:<checksum>'.
+                    pattern: ^[a-z0-9]+(?:[.+_-][a-z0-9]+)*:[a-zA-Z0-9=_-]+$
+                    type: string
                   url:
                     description: |-
                       URL is the HTTP address of this artifact that is served by the controller. It

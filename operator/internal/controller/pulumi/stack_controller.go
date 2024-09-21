@@ -35,6 +35,7 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
+	v1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -629,24 +630,35 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, err
 		}
 
-		// case stack.ProgramRef != nil:
-		// 	programRef := stack.ProgramRef
-		// 	if currentCommit, err = sess.SetupWorkdirFromYAML(ctx, *programRef); err != nil {
-		// 		r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
-		// 		reqLogger.Error(err, "Failed to setup Pulumi workspace", "Stack.Name", stack.Stack)
-		// 		r.markStackFailed(sess, instance, err, "", "")
-		// 		if errors.Is(err, errProgramNotFound) {
-		// 			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
-		// 			return reconcile.Result{}, nil
-		// 		}
-		// 		if isStalledError(err) {
-		// 			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
-		// 			return reconcile.Result{}, nil
-		// 		}
-		// 		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
-		// 		// this can fail for reasons which might go away without intervention; so, retry explicitly
-		// 		return reconcile.Result{Requeue: true}, nil
-		// 	}
+	case stack.ProgramRef != nil:
+		var program unstructured.Unstructured
+		program.SetAPIVersion(v1.GroupVersion.String())
+		program.SetKind("Program")
+		if err := r.Client.Get(ctx, client.ObjectKey{
+			Name:      stack.ProgramRef.Name,
+			Namespace: request.Namespace,
+		}, &program); err != nil {
+			if apierrors.IsNotFound(err) {
+				// this is marked as stalled and not requeued; the watch mechanism will requeue it if
+				// the source it points to appears.
+				instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, errProgramNotFound.Error())
+				return reconcile.Result{}, saveStatus()
+			}
+			log.Error(err, "Failed to get Program object", "Name", stack.ProgramRef.Name)
+			return reconcile.Result{}, err
+		}
+
+		// The Program.status is setup to mimic a FluxSource, so we can use the same function to
+		// initiate the workspace.
+		currentCommit, err = sess.SetupWorkspaceFromFluxSource(ctx, program, &shared.FluxSource{})
+		if err != nil {
+			if isStalledError(err) {
+				instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
+				return reconcile.Result{}, saveStatus()
+			}
+			log.Error(err, "Failed to setup Pulumi workspace")
+			return reconcile.Result{}, err
+		}
 	}
 
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.

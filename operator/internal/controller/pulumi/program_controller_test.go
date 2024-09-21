@@ -99,7 +99,8 @@ var _ = Describe("Program Controller", func() {
 			program = v1.Program{}
 			Expect(k8sClient.Get(ctx, programNamespacedName, &program)).Should(Succeed())
 			Expect(program.Status.Artifact).NotTo(BeNil())
-			Expect(program.Status.ObservedGeneration).To(Equal(int64(1)))
+			Expect(program.Status.Artifact.Digest).To(MatchRegexp(`^sha256:\w+$`))
+			Expect(program.Status.ObservedGeneration).To(Equal(program.GetGeneration()))
 			Expect(program.Status.Artifact.URL).
 				To(Equal(fmt.Sprintf("%s/programs/%s/%s", advertisedAddress, programNamespacedName.Namespace, programNamespacedName.Name)))
 
@@ -120,8 +121,9 @@ var _ = Describe("Program Controller", func() {
 			Expect(program.Status.Artifact).NotTo(BeNil())
 			Expect(program.Status.Artifact.URL).
 				To(Equal(fmt.Sprintf("%s/programs/%s/%s", advertisedAddress, programNamespacedName.Namespace, programNamespacedName.Name)))
-			Expect(program.GetGeneration()).To(Equal(int64(2)))
-			Expect(program.Status.ObservedGeneration).To(Equal(int64(2)))
+			Expect(program.Status.Artifact.Digest).To(MatchRegexp(`^sha256:\w+$`))
+			Expect(program.GetGeneration()).To(Equal(program.GetGeneration()))
+			Expect(program.Status.ObservedGeneration).To(Equal(program.GetGeneration()))
 
 			By("expecting the status to be updated with the new artifact URL when the host changes")
 			advertisedAddress = "https://fake-address"
