@@ -17,9 +17,9 @@ package v1
 // Artifact represents the output of a Program reconciliation. This struct is
 // intended to hold information about the programs to be stored.
 type Artifact struct {
-	// URL is the HTTP address of this artifact that is served by the controller. It
-	// allows other pods to access the contents of the artifact without needing the correct
-	// RBAC policies.
+	// URL is the HTTP address of the artifact as exposed by the controller
+	// managing the source spec. It can be used to retrieve the artifact for
+	// consumption, e.g. by another controller applying the artifact contents.
 	// +required
 	URL string `json:"url"`
 

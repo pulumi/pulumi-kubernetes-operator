@@ -110,7 +110,6 @@ var _ = Describe("Program Controller", func() {
 					Type: "kubernetes:core/v1:Service",
 				},
 			}
-			program.ObjectMeta.Generation++
 			Expect(k8sClient.Update(ctx, &program)).Should(Succeed())
 
 			_, err = reconcileFn(ctx)

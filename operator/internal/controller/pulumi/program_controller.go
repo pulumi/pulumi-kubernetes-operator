@@ -245,7 +245,7 @@ func (r *ProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	log := log.FromContext(ctx)
 	log.Info("Reconciling Program")
 
-	// Feth the Program object.
+	// Fetch the Program object.
 	program := new(pulumiv1.Program)
 	if err := r.Get(ctx, req.NamespacedName, program); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -279,7 +279,7 @@ func (r *ProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Update the status of the Program object.
 	log.Info("Updating Program status")
-	if err := r.Status().Update(ctx, program); err != nil {
+	if err := r.Status().Update(ctx, program, client.FieldOwner(FieldManager)); err != nil {
 		log.Error(err, "unable to update Program status", req.NamespacedName.MarshalLog())
 		return ctrl.Result{}, err
 	}

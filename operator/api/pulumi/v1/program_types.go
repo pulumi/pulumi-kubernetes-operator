@@ -167,7 +167,7 @@ type ProgramStatus struct {
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
-	// LastResyncTime contains a timestamp for the last time a resync of the stack took place.
+	// LastResyncTime contains a timestamp for the last time a resync of the Program took place.
 	// +optional
 	LastResyncTime metav1.Time `json:"lastResyncTime,omitempty"`
 
@@ -180,7 +180,7 @@ type ProgramStatus struct {
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message",description=""
+// +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.artifact.url"
 
 // Program is the schema for the inline YAML program API.
 type Program struct {

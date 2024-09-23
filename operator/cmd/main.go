@@ -42,7 +42,6 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
 	autocontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/auto"
-	"github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/pulumi"
 	pulumicontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/pulumi"
 	//+kubebuilder:scaffold:imports
 )
@@ -206,7 +205,7 @@ func main() {
 
 // startProgramFileServer starts a simple file server to serve Program objects as compressed tarballs. This allows
 // children pods with restricted permissions to access the Program objects, without needing read permissions granted.
-func startProgramFileServer(programHandler *pulumi.ProgramHandler, address string) {
+func startProgramFileServer(programHandler *pulumicontroller.ProgramHandler, address string) {
 	setupLog.Info("starting file server to serve Program objects", "address", address, "advertisedAddress", programHandler.Address())
 	mux := http.NewServeMux()
 	mux.Handle("/programs/", programHandler.HandleProgramServing())
@@ -216,12 +215,12 @@ func startProgramFileServer(programHandler *pulumi.ProgramHandler, address strin
 	}
 }
 
-func newProgramHandler(k8sClient client.Client, advAddr string) *pulumi.ProgramHandler {
+func newProgramHandler(k8sClient client.Client, advAddr string) *pulumicontroller.ProgramHandler {
 	if advAddr == "" {
 		advAddr = determineAdvAddr(advAddr)
 	}
 
-	return pulumi.NewProgramHandler(k8sClient, advAddr)
+	return pulumicontroller.NewProgramHandler(k8sClient, advAddr)
 }
 
 func determineAdvAddr(addr string) string {
