@@ -91,9 +91,6 @@ func TestE2E(t *testing.T) {
 
 				cmd := exec.Command("bash", "-c", "envsubst < e2e/testdata/git-auth-nonroot/* | kubectl apply -f -")
 				require.NoError(t, run(cmd))
-				t.Cleanup(func() {
-					_ = run(exec.Command("kubectl", "delete", "-f", "e2e/testdata/git-auth-nonroot"))
-				})
 
 				cmd = exec.Command("kubectl", "wait", "stacks/git-auth-nonroot",
 					"--for", "condition=Ready", "-n", "git-auth-nonroot", "--timeout", "300s")
