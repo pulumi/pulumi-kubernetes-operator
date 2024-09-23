@@ -18,8 +18,8 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    - jsonPath: .status.conditions[?(@.type=="Ready")].message
-      name: Status
+    - jsonPath: .status.artifact.url
+      name: URL
       type: string
     name: v1
     schema:
@@ -206,16 +206,16 @@ spec:
                     type: string
                   url:
                     description: |-
-                      URL is the HTTP address of this artifact that is served by the controller. It
-                      allows other pods to access the contents of the artifact without needing the correct
-                      RBAC policies.
+                      URL is the HTTP address of the artifact as exposed by the controller
+                      managing the source spec. It can be used to retrieve the artifact for
+                      consumption, e.g. by another controller applying the artifact contents.
                     type: string
                 required:
                 - url
                 type: object
               lastResyncTime:
                 description: LastResyncTime contains a timestamp for the last time
-                  a resync of the stack took place.
+                  a resync of the Program took place.
                 format: date-time
                 type: string
               observedGeneration:

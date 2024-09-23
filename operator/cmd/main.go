@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"net"
@@ -142,15 +143,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create a new ProgramHandler to handle Program objects.
+	// Create a new ProgramHandler to handle Program objects. Both the ProgramReconciler and the file server need to
+	// access the ProgramHandler, so it is created here and passed to both.
 	pHandler := newProgramHandler(mgr.GetClient(), programFSAdvAddr)
-	// Start a simple file-server to serve CR files as compressed tarballs.
-	go func() {
-		// Wait until our manager is elected leader before starting the file server.
-		<-mgr.Elected()
-
-		startProgramFileServer(pHandler, programFSAddr)
-	}()
 
 	if err = (&autocontroller.WorkspaceReconciler{
 		Client:   mgr.GetClient(),
@@ -196,6 +191,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Start the file server for serving Program objects.
+	setupLog.Info("starting file server for program resource",
+		"address", programFSAddr,
+		"advertisedAddress", programFSAdvAddr,
+	)
+	if err := mgr.Add(pFileserver{pHandler, programFSAddr}); err != nil {
+		setupLog.Error(err, "unable to start file server for program resource")
+		os.Exit(1)
+	}
+
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
@@ -203,15 +208,36 @@ func main() {
 	}
 }
 
-// startProgramFileServer starts a simple file server to serve Program objects as compressed tarballs. This allows
-// children pods with restricted permissions to access the Program objects, without needing read permissions granted.
-func startProgramFileServer(programHandler *pulumicontroller.ProgramHandler, address string) {
-	setupLog.Info("starting file server to serve Program objects", "address", address, "advertisedAddress", programHandler.Address())
+// pFileserver implements the manager.Runnable interface to start a simple file server to serve Program objects as
+// compressed tarballs.
+type pFileserver struct {
+	handler *pulumicontroller.ProgramHandler
+	address string
+}
+
+// Start starts the file server to serve Program objects as compressed tarballs.
+func (fs pFileserver) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
-	mux.Handle("/programs/", programHandler.HandleProgramServing())
-	err := http.ListenAndServe(address, mux)
-	if err != nil {
-		setupLog.Error(err, "Program file server error")
+	mux.Handle("/programs/", fs.handler.HandleProgramServing())
+
+	server := &http.Server{
+		Addr:    fs.address,
+		Handler: mux,
+	}
+
+	errChan := make(chan error)
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil {
+			errChan <- err
+		}
+	}()
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-ctx.Done():
+		return server.Shutdown(ctx)
 	}
 }
 
