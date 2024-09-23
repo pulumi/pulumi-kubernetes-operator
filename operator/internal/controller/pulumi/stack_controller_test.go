@@ -18,9 +18,8 @@ package pulumi
 
 import (
 	"context"
-	"time"
-
 	"fmt"
+	"time"
 
 	fluxsourcev1 "github.com/fluxcd/source-controller/api/v1"
 	. "github.com/onsi/ginkgo/v2"
@@ -115,7 +114,6 @@ func makeUpdate(name types.NamespacedName, spec autov1alpha1.UpdateSpec) *autov1
 }
 
 var _ = Describe("Stack Controller", func() {
-
 	var r *StackReconciler
 	var objName types.NamespacedName
 	var obj *pulumiv1.Stack
@@ -220,7 +218,6 @@ var _ = Describe("Stack Controller", func() {
 	})
 
 	reconcileF := func(ctx context.Context) (result reconcile.Result, err error) {
-
 		result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
 
 		// update the object and find its status condition(s)
@@ -568,6 +565,31 @@ var _ = Describe("Stack Controller", func() {
 
 				By("emitting an event")
 				Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.StackUpdateSuccessful)))
+			})
+
+			When("the update produced outputs", func() {
+				BeforeEach(func(ctx context.Context) {
+					secret := &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "outputs", Namespace: currentUpdate.Namespace,
+							Annotations: map[string]string{
+								"pulumi.com/mask": `{"plaintext": true}`,
+							},
+						},
+						StringData: map[string]string{
+							"plaintext":          `"not-sensitive"`,
+							"should-be-scrubbed": `"sensitive"`,
+						},
+					}
+					Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+					currentUpdate.Status.Outputs = secret.Name
+				})
+				It("captures scrubbed outputs", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(obj.Status.Outputs["plaintext"]).To(Equal(`"not-sensitive"`))
+					Expect(obj.Status.Outputs["should-be-scrubbed"]).To(Equal(`"[secret]"`))
+				})
 			})
 		})
 	})

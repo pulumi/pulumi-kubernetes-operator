@@ -34,7 +34,9 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
+	auto "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/auto"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -810,14 +812,22 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 		if err != nil {
 			return fmt.Errorf("getting output secret: %w", err)
 		}
-		if scrubbed, ok := secret.GetAnnotations()["scrubbed"]; ok {
-			outputs := shared.StackOutputs{}
-			err := json.Unmarshal([]byte(scrubbed), &outputs)
+		outputs := shared.StackOutputs{}
+		mask := map[string]bool{}
+		if annotation, ok := secret.GetAnnotations()[auto.OutputMaskAnnotation]; ok {
+			err := json.Unmarshal([]byte(annotation), &mask)
 			if err != nil {
-				return fmt.Errorf("unmarshaling scrubbed outputs: %w", err)
+				return fmt.Errorf("unmarshaling output mask: %w", err)
 			}
-			instance.Status.Outputs = outputs
 		}
+		for key, value := range secret.Data {
+			if _, keep := mask[key]; keep {
+				outputs[key] = apiextensionsv1.JSON{Raw: json.RawMessage(value)}
+			} else {
+				outputs[key] = apiextensionsv1.JSON{Raw: []byte(`"[secret]"`)}
+			}
+		}
+		instance.Status.Outputs = outputs
 	}
 
 	instance.Status.LastUpdate = &shared.StackUpdateState{
