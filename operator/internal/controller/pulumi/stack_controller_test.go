@@ -587,8 +587,8 @@ var _ = Describe("Stack Controller", func() {
 				It("captures scrubbed outputs", func(ctx context.Context) {
 					_, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
-					Expect(obj.Status.Outputs["plaintext"]).To(Equal(`"not-sensitive"`))
-					Expect(obj.Status.Outputs["should-be-scrubbed"]).To(Equal(`"[secret]"`))
+					Expect(string(obj.Status.Outputs["plaintext"].Raw)).To(Equal(`"not-sensitive"`))
+					Expect(string(obj.Status.Outputs["should-be-scrubbed"].Raw)).To(Equal(`"[secret]"`))
 				})
 			})
 		})

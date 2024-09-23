@@ -11,6 +11,7 @@ require (
 	github.com/pulumi/pulumi-kubernetes-operator/agent v0.0.0-00010101000000-000000000000
 	github.com/pulumi/pulumi/sdk/v3 v3.127.1-0.20240801092425-22d28187db0a
 	github.com/stretchr/testify v1.9.0
+	go.uber.org/mock v0.4.0
 	k8s.io/api v0.30.1
 	k8s.io/apimachinery v0.30.1
 	k8s.io/client-go v0.30.1

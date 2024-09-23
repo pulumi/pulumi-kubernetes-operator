@@ -273,7 +273,22 @@ func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update
 	return ctrl.Result{}, nil
 }
 
-func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update, client agentpb.AutomationServiceClient, kclient client.Client) (ctrl.Result, error) {
+type upper interface {
+	Up(ctx context.Context, in *agentpb.UpRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[agentpb.UpStream], error)
+}
+
+type recver[T any] interface {
+	Recv() (*T, error)
+	grpc.ClientStream
+}
+
+type uprecver = recver[agentpb.UpStream]
+
+type creater interface {
+	Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error
+}
+
+func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update, client upper, kclient creater) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 
 	l.V(1).Info("Configure the up operation")
