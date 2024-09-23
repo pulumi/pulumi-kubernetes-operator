@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"slices"
@@ -901,13 +902,20 @@ func (sess *StackReconcilerSession) SetSecretEnvs(ctx context.Context, secretNam
 // the EnvRefs field in the stack specification.
 func (sess *StackReconcilerSession) SetEnvRefsForWorkspace(ctx context.Context) error {
 	envRefs := sess.stack.EnvRefs
-	for envVar, ref := range envRefs {
+
+	// envRefs is an unordered map, but we need to constrct env vars
+	// deterministically to not thrash our underlying StatefulSet.
+	keys := slices.Sorted(maps.Keys(envRefs))
+
+	for _, key := range keys {
+		ref := envRefs[key]
+
 		value, valueFrom, err := sess.resolveResourceRefAsEnvVar(ctx, &ref)
 		if err != nil {
-			return fmt.Errorf("resolving env variable reference for %q: %w", envVar, err)
+			return fmt.Errorf("resolving env variable reference for %q: %w", key, err)
 		}
 		sess.ws.Spec.Env = append(sess.ws.Spec.Env, corev1.EnvVar{
-			Name:      envVar,
+			Name:      key,
 			Value:     value,
 			ValueFrom: valueFrom,
 		})

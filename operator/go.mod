@@ -1,6 +1,6 @@
 module github.com/pulumi/pulumi-kubernetes-operator/operator
 
-go 1.22.5
+go 1.23.1
 
 require (
 	github.com/fluxcd/source-controller/api v1.3.0
