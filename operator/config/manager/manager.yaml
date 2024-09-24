@@ -31,9 +31,19 @@ spec:
       containers:
         - command:
             - /manager
+          env:
+            - name: RUNTIME_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           args:
             - --leader-elect
             - --health-probe-bind-address=:8081
+            - --program-fs-adv-addr=pulumi-kubernetes-operator.$(RUNTIME_NAMESPACE).svc.cluster.local
+          ports:
+            - containerPort: 9090
+              name: http-fileserver
+              protocol: TCP
           image: controller:latest
           imagePullPolicy: IfNotPresent
           name: manager
@@ -63,3 +73,20 @@ spec:
               memory: 64Mi
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 60
+---
+# Service is required to expose the file server for workspace pods to fetch Program objects.
+apiVersion: v1
+kind: Service
+metadata:
+  name: pulumi-kubernetes-operator
+  labels:
+    control-plane: controller-manager
+spec:
+  type: ClusterIP
+  selector:
+    control-plane: controller-manager
+  ports:
+    - name: http-fileserver
+      port: 80
+      protocol: TCP
+      targetPort: http-fileserver
