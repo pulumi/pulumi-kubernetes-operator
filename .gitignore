@@ -89,3 +89,4 @@ tags
 ### IntelliJ ###
 .idea
 .envrc
+bin/*
