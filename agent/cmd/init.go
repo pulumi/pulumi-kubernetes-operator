@@ -189,7 +189,10 @@ func (noop) Run(context.Context, string, io.Reader, []io.Writer, []io.Writer, []
 func init() {
 	rootCmd.AddCommand(initCmd)
 	initCmd.Flags().StringVarP(&_targetDir, "target-dir", "t", "", "The target directory to initialize")
-	initCmd.MarkFlagRequired("target-dir")
+	err := initCmd.MarkFlagRequired("target-dir")
+	if err != nil {
+		panic(err)
+	}
 
 	initCmd.Flags().StringVar(&_fluxURL, "flux-url", "", "Flux archive URL")
 	initCmd.Flags().StringVar(&_fluxDigest, "flux-digest", "", "Flux digest")

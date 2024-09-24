@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/mitchellh/go-ps"
 	pb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
@@ -46,13 +48,12 @@ const (
 )
 
 type Server struct {
-	log        *zap.SugaredLogger
-	plog       *zap.Logger
-	cancelCtx  context.Context
-	cancelFunc context.CancelFunc
-	ws         auto.Workspace
-	stackLock  sync.Mutex
-	stack      *auto.Stack
+	log       *zap.SugaredLogger
+	plog      *zap.Logger
+	stopping  atomic.Bool
+	ws        auto.Workspace
+	stackLock sync.Mutex
+	stack     *auto.Stack
 
 	pb.UnimplementedAutomationServiceServer
 }
@@ -76,15 +77,10 @@ func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, 
 	log := zap.L().Named("server").Sugar()
 	plog := zap.L().Named("pulumi")
 
-	//  create a context for sending SIGINT to any outstanding Pulumi operations
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-
 	server := &Server{
-		log:        log,
-		plog:       plog,
-		ws:         ws,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
+		log:  log,
+		plog: plog,
+		ws:   ws,
 	}
 
 	// select the initial stack, if provided
@@ -138,10 +134,40 @@ func (s *Server) clearStack() {
 	s.stack = nil
 }
 
-// Cancel cancels outstanding operations by sending a SIGINT to Pulumi.
-// This call is advisory and non-blocking.
+// Cancel attempts to send an interrupt to all of our outstanding Automation
+// API subprocesses -- simulating a user's ctrl-C. This call is advisory and
+// non-blocking; it is intended to be used alongside grpc.GracefulStop to allow
+// outstanding handlers to return. If a handler needs to spawn multiple
+// long-running Automation API subprocesses it should check whether the server
+// is stopping before doing so.
 func (s *Server) Cancel() {
-	s.cancelFunc()
+	if s.stopping.Load() {
+		// We've already started shutting down, nothing else to do.
+		return
+	}
+	s.stopping.Store(true)
+
+	// Optimistically send an interrupt to all of our children.
+	pid := os.Getpid()
+	procs, err := ps.Processes()
+	if err != nil {
+		s.log.Debug()
+	}
+	s.log.Debugw("problem listing processes", "err", err)
+	for _, proc := range procs {
+		if proc.PPid() != pid {
+			continue
+		}
+		child, err := os.FindProcess(proc.Pid())
+		if err != nil {
+			s.log.Debugw("problem finding child process", "err", err)
+			continue
+		}
+		err = child.Signal(os.Interrupt)
+		if err != nil {
+			s.log.Debugw("problem interrupting child", "err", err)
+		}
+	}
 }
 
 func (s *Server) WhoAmI(ctx context.Context, in *pb.WhoAmIRequest) (*pb.WhoAmIResult, error) {
