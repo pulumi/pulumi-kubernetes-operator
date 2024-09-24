@@ -27,6 +27,7 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -313,7 +314,16 @@ func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update,
 			break
 		}
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("response error: %w", err)
+			// Update failed
+			obj.Status.Message = status.Convert(err).Message()
+			u.progressing.Status = metav1.ConditionFalse
+			u.progressing.Reason = UpdateConditionReasonComplete
+			u.complete.Status = metav1.ConditionTrue
+			u.complete.Reason = UpdateConditionReasonComplete
+			u.failed.Status = metav1.ConditionTrue
+			u.failed.Reason = status.Code(err).String()
+			u.failed.Message = obj.Status.Message
+			return ctrl.Result{}, u.updateStatus()
 		}
 
 		result := stream.GetResult()
@@ -353,6 +363,7 @@ func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update,
 		default:
 			u.failed.Status = metav1.ConditionTrue
 			u.failed.Reason = result.Summary.Result
+			u.failed.Message = result.Summary.Message
 		}
 		err = u.updateStatus()
 		if err != nil {
