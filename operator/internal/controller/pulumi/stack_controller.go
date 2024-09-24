@@ -806,7 +806,7 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 	if update.Status.Outputs != "" {
 		secret := corev1.Secret{}
 		err := r.Get(ctx, types.NamespacedName{Namespace: update.Namespace, Name: update.Status.Outputs}, &secret)
-		if err != nil {
+		if client.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("getting output secret: %w", err)
 		}
 		outputs := shared.StackOutputs{}
