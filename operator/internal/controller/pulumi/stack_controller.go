@@ -35,7 +35,6 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
-	v1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -632,7 +631,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 	case stack.ProgramRef != nil:
 		var program unstructured.Unstructured
-		program.SetAPIVersion(v1.GroupVersion.String())
+		program.SetAPIVersion(pulumiv1.GroupVersion.String())
 		program.SetKind("Program")
 		if err := r.Client.Get(ctx, client.ObjectKey{
 			Name:      stack.ProgramRef.Name,
@@ -652,10 +651,6 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		// initiate the workspace.
 		currentCommit, err = sess.SetupWorkspaceFromFluxSource(ctx, program, &shared.FluxSource{})
 		if err != nil {
-			if isStalledError(err) {
-				instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
-				return reconcile.Result{}, saveStatus()
-			}
 			log.Error(err, "Failed to setup Pulumi workspace")
 			return reconcile.Result{}, err
 		}

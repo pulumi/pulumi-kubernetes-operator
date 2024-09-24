@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -62,10 +63,12 @@ type ProjectFile struct {
 	timeModified metav1.Time // this field is not to be serialized
 }
 
-// tarProgram creates a tarball of the Pulumi project file and writes it to the provided writer.
-func tarProgram(data []byte) ([]byte, error) {
-	buf := new(bytes.Buffer)
-	tw := tar.NewWriter(buf)
+// createProgramArtifact creates a compressed tarball of the Pulumi
+// project file and writes it to the provided writer.
+func createProgramArtifact(data []byte, w io.Writer) error {
+	gzw := gzip.NewWriter(w)
+	defer gzw.Close()
+	tw := tar.NewWriter(gzw)
 	defer tw.Close()
 
 	// Create tar header for the Pulumi.yaml file.
@@ -78,42 +81,20 @@ func tarProgram(data []byte) ([]byte, error) {
 
 	err := tw.WriteHeader(hdr)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("unable to write tar header for Project file: %w", err)
 	}
 
 	num, err := tw.Write(data)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("unable to write Project file to tarball: %w", err)
 	}
 
 	// Ensure that the number of bytes tarred is identical to the original data.
 	if num != len(data) {
-		return nil, errors.New("tarred data size mismatch")
+		return errors.New("tarred data size mismatch")
 	}
 
-	return buf.Bytes(), nil
-}
-
-// gzipFile compresses the input data using gzip.
-func gzipFile(input []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	gw := gzip.NewWriter(&buf)
-
-	num, err := gw.Write(input)
-	if err != nil {
-		return nil, fmt.Errorf("unable to write to gzip writer: %w", err)
-	}
-
-	if num != len(input) {
-		return nil, fmt.Errorf("gzip writer wrote %d bytes, expected %d", num, len(input))
-	}
-
-	err = gw.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
+	return nil
 }
 
 // urlPathToProgramIdentifier converts a URL path to a Program identifier.
@@ -186,24 +167,15 @@ func (p *ProgramHandler) HandleProgramServing() http.HandlerFunc {
 			return
 		}
 
-		// Create a tarball of the project file and write it to the response.
-		out, err := tarProgram(data)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Compress the tarball using gzip.
-		out, err = gzipFile(out)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
 		w.Header().Set("Content-Type", "application/gzip")
 		w.Header().Set("Content-Disposition", "attachment; filename=project.tar.gz")
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(out)))
-		w.Write([]byte(out))
+
+		// Create a tarball of the project file and write it to the response.
+		err = createProgramArtifact(data, w)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -267,15 +239,18 @@ func (r *ProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, fmt.Errorf("unable to marshal project file to calculate digest hash: %w", err)
 	}
 
-	tarData, err := tarProgram(data)
+	// Create a buffer to store the compressed tarball.
+	tarData := &bytes.Buffer{}
+	err = createProgramArtifact(data, tarData)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("unable to create tarball of project file: %w", err)
 	}
-	gzData, err := gzipFile(tarData)
+	dig, err := calculateDigest(tarData)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("unable to compress tarball: %w", err)
+		return ctrl.Result{}, fmt.Errorf("unable to calculate digest hash for Program artifact: %w", err)
 	}
-	program.Status.Artifact.Digest = calculateDigest(gzData)
+
+	program.Status.Artifact.Digest = dig
 
 	// Update the status of the Program object.
 	log.Info("Updating Program status")
@@ -287,8 +262,12 @@ func (r *ProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-func calculateDigest(data []byte) string {
-	return digest.SHA256.FromBytes(data).String()
+func calculateDigest(data io.Reader) (string, error) {
+	dig, err := digest.SHA256.FromReader(data)
+	if err != nil {
+		return "", err
+	}
+	return dig.String(), nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -308,7 +287,7 @@ func (r *ProgramReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Create a new controller and set the options. We will only reconcile on spec changes to the Program resource (new generation).
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(ProgramControllerName).
-		For(new(pulumiv1.Program)).
+		For(&pulumiv1.Program{}).
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
 }
