@@ -399,16 +399,11 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	// Fetch the Stack instance
 	instance := &pulumiv1.Stack{}
 	err := r.Client.Get(ctx, request.NamespacedName, instance)
-	if apierrors.IsNotFound(err) {
+	if err != nil {
 		// Request object not found, could have been deleted after reconcile request.
 		// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 		// Return and don't requeue
-		log.Info("Stack resource not found. Ignoring since object must be deleted.")
-		return reconcile.Result{}, nil
-	}
-	if err != nil {
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	log.V(1).Info("Reconciling Stack", "stack", request.NamespacedName, "generation", instance.Generation)
