@@ -40,8 +40,8 @@ to use to perform stack operations.`,
 		zc := zap.NewDevelopmentConfig()
 		zc.DisableCaller = true
 		zc.DisableStacktrace = true
-		if verbose {
-			zc.Level.SetLevel(zap.DebugLevel)
+		if !verbose {
+			zc.Level.SetLevel(zap.InfoLevel)
 		}
 		zapLog, err := zc.Build()
 		if err != nil {

@@ -16,10 +16,13 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/server"
 	"github.com/pulumi/pulumi-kubernetes-operator/agent/version"
@@ -70,7 +73,6 @@ var serveCmd = &cobra.Command{
 		log.Infow("opened a local workspace", "workspace", workDir,
 			"project", proj.Name, "runtime", proj.Runtime.Name())
 
-		// TODO: Do this during init?
 		if !_skipInstall {
 			plog := zap.L().Named("pulumi")
 			stdout := &zapio.Writer{Log: plog, Level: zap.InfoLevel}
@@ -113,6 +115,8 @@ var serveCmd = &cobra.Command{
 		}
 		log.Infow("server listening", "address", lis.Addr(), "workspace", workDir)
 
+		ctx, cancel := context.WithCancel(ctx)
+		setupSignalHandler(cancel)
 		if err := s.Serve(ctx, lis); err != nil {
 			log.Errorw("fatal: server failure", zap.Error(err))
 			os.Exit(1)
@@ -120,6 +124,20 @@ var serveCmd = &cobra.Command{
 
 		log.Infow("server stopped")
 	},
+}
+
+// SetupSignalHandler registers for SIGTERM and SIGINT. The fist signal invokes
+// the cancel method. If a second signal is caught, the program is terminated
+// with exit code 1.
+func setupSignalHandler(cancel func()) {
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		cancel()
+		<-c
+		os.Exit(1) // Second signal, exit directly.
+	}()
 }
 
 func init() {

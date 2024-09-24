@@ -18,9 +18,6 @@ package server
 import (
 	"context"
 	"net"
-	"os"
-	"os/signal"
-	"syscall"
 
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
@@ -29,12 +26,14 @@ import (
 	"google.golang.org/grpc"
 )
 
+// GRPC serves the automation service.
 type GRPC struct {
 	*grpc.Server
 	wrapped *Server
 	log     *zap.SugaredLogger
 }
 
+// NewGRPC constructs a new gRPC server with logging and graceful shutdown.
 func NewGRPC(server *Server, rootLogger *zap.SugaredLogger) *GRPC {
 	log := rootLogger.Named("grpc")
 	// Configure the grpc server.
@@ -62,13 +61,11 @@ func NewGRPC(server *Server, rootLogger *zap.SugaredLogger) *GRPC {
 	return &GRPC{Server: s, wrapped: server, log: log}
 }
 
-// Serve wraps the underlying gRPC server with graceful shutdown. When a
-// SIGTERM is received it is propagated to all child processes (spawned by
-// Automation API) and requests are given an opportunity to exit cleanly.
+// Serve wraps the underlying gRPC server with graceful shutdown. When the
+// given context is canceled a SIGTERM is propagated to all child processes
+// (spawned by Automation API) and requests are given an opportunity to exit
+// cleanly.
 func (s *GRPC) Serve(ctx context.Context, l net.Listener) error {
-	ctx, cancel := context.WithCancel(ctx)
-	setupSignalHandler(cancel)
-
 	go func() {
 		<-ctx.Done()
 		s.log.Infow("shutting down the server")
@@ -77,18 +74,4 @@ func (s *GRPC) Serve(ctx context.Context, l net.Listener) error {
 	}()
 
 	return s.Server.Serve(l)
-}
-
-// SetupSignalHandler registers for SIGTERM and SIGINT. The fist signal invokes
-// the cancel method. If a second signal is caught, the program is terminated
-// with exit code 1.
-func setupSignalHandler(cancel func()) {
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		cancel()
-		<-c
-		os.Exit(1) // Second signal, exit directly.
-	}()
 }

@@ -8,3 +8,4 @@ coverage:
         informational: true
 ignore:
   - "**/zz_generated.deepcopy.go"
+  - "**/*.pb.go"
