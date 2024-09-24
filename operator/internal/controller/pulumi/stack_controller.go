@@ -680,6 +680,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			(instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit &&
 				(!sess.stack.ContinueResyncOnCommitMatch || time.Since(instance.Status.LastUpdate.LastResyncTime.Time) < resyncFreq)))
 
+	requeueAfter := time.Duration(0)
 	if synced {
 		// transition to ready, and requeue reconciliation as necessary to detect
 		// branch updates and resyncs.
@@ -694,7 +695,6 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, nil
 		}
 
-		requeueAfter := time.Duration(0)
 		if sess.stack.ContinueResyncOnCommitMatch {
 			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(resyncFreq)))
 		}
@@ -771,7 +771,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		return reconcile.Result{}, fmt.Errorf("unable to create update for stack: %w", err)
 	}
 
-	return reconcile.Result{}, nil
+	// Requeue in the case of GitSource which needs to continue polling.
+	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
 func (r *StackReconciler) emitEvent(instance *pulumiv1.Stack, event pulumiv1.StackEvent, messageFmt string, args ...interface{}) {
