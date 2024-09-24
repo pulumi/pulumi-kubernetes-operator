@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"slices"
@@ -279,7 +280,7 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // returns nil if the requirement is satisfied, and an error otherwise. The requirement can be nil
 // itself, in which case the prerequisite is only that the stack succeeded on its last run.
 func isRequirementSatisfied(req *shared.RequirementSpec, stack pulumiv1.Stack) error {
-	if stack.Status.LastUpdate == nil {
+	if stack.Status.LastUpdate == nil || stack.Status.LastUpdate.Generation != stack.GetGeneration() {
 		return errRequirementNotRun
 	}
 	if stack.Status.LastUpdate.State != shared.SucceededStackStateMessage {
@@ -385,6 +386,7 @@ var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
 //+kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=ocirepositories,verbs=get;list;watch
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
@@ -418,11 +420,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	isStackMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
 	// If there's no finalizer, it's either been cleaned up, never been seen, or never gotten far
 	// enough to need cleaning up.
-	// TODO: honor the DestroyOnFinalize flag even if the stack hasn't been seen yet?
 	if isStackMarkedToBeDeleted && !slices.Contains(instance.GetFinalizers(), pulumiFinalizer) {
 		return reconcile.Result{}, nil
 	}
-	if controllerutil.AddFinalizer(instance, pulumiFinalizer) {
+	if !isStackMarkedToBeDeleted && controllerutil.AddFinalizer(instance, pulumiFinalizer) {
 		if err = r.Update(ctx, instance, client.FieldOwner(FieldManager)); err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to add finalizer: %w", err)
 		}
@@ -541,7 +542,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		failedPrereqErr = fmt.Errorf("multiple prerequisites were not satisfied %s", strings.Join(failedPrereqNames, ", "))
 	}
 	if failedPrereqErr != nil {
-		instance.Status.MarkStalledCondition(pulumiv1.StalledPrerequisiteNotSatisfiedReason, failedPrereqErr.Error())
+		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingPrerequisiteNotSatisfiedReason, failedPrereqErr.Error())
 		// Rely on the watcher watching prerequisites to requeue this, rather than requeuing
 		// explicitly.
 		return reconcile.Result{}, saveStatus()
@@ -553,56 +554,40 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 	// Step 1. Set up the workspace, select the right stack and populate config if supplied.
 
-	// Check swhich kind of source we have.
+	// Check which kind of source we have.
 
 	switch {
 	case !exactlyOneOf(stack.GitSource != nil, stack.FluxSource != nil, stack.ProgramRef != nil):
 		err := errOtherThanOneSourceSpecified
 		instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
-		return reconcile.Result{}, nil
+		return reconcile.Result{}, saveStatus()
 
-	// case stack.GitSource != nil:
-	// 	gitSource := stack.GitSource
-	// 	// Validate that there is enough specified to be able to clone the git repo.
-	// 	if gitSource.ProjectRepo == "" || (gitSource.Commit == "" && gitSource.Branch == "") {
+	case stack.GitSource != nil:
+		auth, err := sess.resolveGitAuth(ctx)
+		if err != nil {
+			r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
+			return reconcile.Result{}, saveStatus()
+		}
 
-	// 		msg := "Stack git source needs to specify 'projectRepo' and either 'branch' or 'commit'"
-	// 		r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), msg)
-	// 		reqLogger.Info(msg)
-	// 		r.markStackFailed(sess, instance, errors.New(msg), "", "")
-	// 		instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, msg)
-	// 		// this object won't be processable until the spec is changed, so no reason to requeue
-	// 		// explicitly
-	// 		return reconcile.Result{}, nil
-	// 	}
+		gs, err := NewGitSource(*stack.GitSource, auth)
+		if err != nil {
+			r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
+			return reconcile.Result{}, saveStatus()
+		}
 
-	// 	gitAuth, err := sess.SetupGitAuth(ctx) // TODO be more explicit about what's being fed in here
-	// 	if err != nil {
-	// 		r.emitEvent(instance, pulumiv1.StackGitAuthFailureEvent(), "Failed to setup git authentication: %v", err.Error())
-	// 		reqLogger.Error(err, "Failed to setup git authentication", "Stack.Name", stack.Stack)
-	// 		r.markStackFailed(sess, instance, err, "", "")
-	// 		instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
-	// 		return reconcile.Result{}, nil
-	// 	}
+		currentCommit, err = gs.CurrentCommit(ctx)
+		if err != nil {
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
+			return reconcile.Result{}, saveStatus()
+		}
 
-	// 	if gitAuth.SSHPrivateKey != "" {
-	// 		// Add the project repo's public SSH keys to the SSH known hosts
-	// 		// to perform the necessary key checking during SSH git cloning.
-	// 		sess.addSSHKeysToKnownHosts(sess.stack.ProjectRepo)
-	// 	}
-
-	// 	if currentCommit, err = sess.SetupWorkdirFromGitSource(ctx, gitAuth, gitSource); err != nil {
-	// 		r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
-	// 		reqLogger.Error(err, "Failed to setup Pulumi workspace", "Stack.Name", stack.Stack)
-	// 		r.markStackFailed(sess, instance, err, "", "")
-	// 		if isStalledError(err) {
-	// 			instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
-	// 			return reconcile.Result{}, nil
-	// 		}
-	// 		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
-	// 		// this can fail for reasons which might go away without intervention; so, retry explicitly
-	// 		return reconcile.Result{Requeue: true}, nil
-	// 	}
+		err = sess.setupWorkspaceFromGitSource(ctx, currentCommit)
+		if err != nil {
+			log.Error(err, "Failed to setup Pulumi workspace with git source")
+			return reconcile.Result{}, err
+		}
 
 	case stack.FluxSource != nil:
 		fluxSource := stack.FluxSource
@@ -634,42 +619,53 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 		if err := checkFluxSourceReady(sourceObject); err != nil {
 			// Wait until the source is ready, at which time the watch mechanism will requeue it.
-			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, reterr.Error())
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
 			return reconcile.Result{}, saveStatus()
 		}
 
 		currentCommit, err = sess.SetupWorkspaceFromFluxSource(ctx, sourceObject, fluxSource)
 		if err != nil {
-			if isStalledError(err) {
-				instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
-				return reconcile.Result{}, saveStatus()
-			}
-			log.Error(err, "Failed to setup Pulumi workspace")
+			log.Error(err, "Failed to setup Pulumi workspace with flux source")
 			return reconcile.Result{}, err
 		}
 
-		// case stack.ProgramRef != nil:
-		// 	programRef := stack.ProgramRef
-		// 	if currentCommit, err = sess.SetupWorkdirFromYAML(ctx, *programRef); err != nil {
-		// 		r.emitEvent(instance, pulumiv1.StackInitializationFailureEvent(), "Failed to initialize stack: %v", err.Error())
-		// 		reqLogger.Error(err, "Failed to setup Pulumi workspace", "Stack.Name", stack.Stack)
-		// 		r.markStackFailed(sess, instance, err, "", "")
-		// 		if errors.Is(err, errProgramNotFound) {
-		// 			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
-		// 			return reconcile.Result{}, nil
-		// 		}
-		// 		if isStalledError(err) {
-		// 			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
-		// 			return reconcile.Result{}, nil
-		// 		}
-		// 		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, err.Error())
-		// 		// this can fail for reasons which might go away without intervention; so, retry explicitly
-		// 		return reconcile.Result{Requeue: true}, nil
-		// 	}
+	case stack.ProgramRef != nil:
+		var program unstructured.Unstructured
+		program.SetAPIVersion(pulumiv1.GroupVersion.String())
+		program.SetKind("Program")
+		if err := r.Client.Get(ctx, client.ObjectKey{
+			Name:      stack.ProgramRef.Name,
+			Namespace: request.Namespace,
+		}, &program); err != nil {
+			if apierrors.IsNotFound(err) {
+				// this is marked as stalled and not requeued; the watch mechanism will requeue it if
+				// the source it points to appears.
+				instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, errProgramNotFound.Error())
+				return reconcile.Result{}, saveStatus()
+			}
+			log.Error(err, "Failed to get Program object", "Name", stack.ProgramRef.Name)
+			return reconcile.Result{}, err
+		}
+
+		// The Program.status is setup to mimic a FluxSource, so we can use the same function to
+		// initiate the workspace.
+		currentCommit, err = sess.SetupWorkspaceFromFluxSource(ctx, program, &shared.FluxSource{})
+		if err != nil {
+			log.Error(err, "Failed to setup Pulumi workspace")
+			return reconcile.Result{}, err
+		}
 	}
 
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
-
+	err = sess.setupWorkspace(ctx)
+	if err != nil {
+		if errors.Is(err, errNamespaceIsolation) {
+			instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
+			return reconcile.Result{}, saveStatus()
+		}
+		log.Error(err, "Failed to setup Pulumi workspace")
+		return reconcile.Result{}, err
+	}
 	sess.SetEnvs(ctx, stack.Envs, request.Namespace)
 	sess.SetSecretEnvs(ctx, stack.SecretEnvs, request.Namespace)
 
@@ -690,7 +686,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 				(!sess.stack.ContinueResyncOnCommitMatch || time.Since(instance.Status.LastUpdate.LastResyncTime.Time) < resyncFreq)))
 
 	if synced {
-		// transition to ready, and requeue reconcilation as necessary to detect
+		// transition to ready, and requeue reconciliation as necessary to detect
 		// branch updates and resyncs.
 		instance.Status.MarkReadyCondition()
 
@@ -737,11 +733,12 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 	if err := sess.CreateWorkspace(ctx); err != nil {
 		log.Error(err, "cannot create workspace")
-		return reconcile.Result{}, fmt.Errorf("unable to create worksdpace: %w", err)
+		return reconcile.Result{}, fmt.Errorf("unable to create workspace: %w", err)
 	}
 
 	if !sess.isWorkspaceReady() {
 		// watch the workspace for status updates
+		log.V(1).Info("waiting for workspace to be ready")
 		return reconcile.Result{}, saveStatus()
 	}
 
@@ -893,13 +890,20 @@ func (sess *StackReconcilerSession) SetSecretEnvs(ctx context.Context, secretNam
 // the EnvRefs field in the stack specification.
 func (sess *StackReconcilerSession) SetEnvRefsForWorkspace(ctx context.Context) error {
 	envRefs := sess.stack.EnvRefs
-	for envVar, ref := range envRefs {
+
+	// envRefs is an unordered map, but we need to constrct env vars
+	// deterministically to not thrash our underlying StatefulSet.
+	keys := slices.Sorted(maps.Keys(envRefs))
+
+	for _, key := range keys {
+		ref := envRefs[key]
+
 		value, valueFrom, err := sess.resolveResourceRefAsEnvVar(ctx, &ref)
 		if err != nil {
-			return fmt.Errorf("resolving env variable reference for %q: %w", envVar, err)
+			return fmt.Errorf("resolving env variable reference for %q: %w", key, err)
 		}
 		sess.ws.Spec.Env = append(sess.ws.Spec.Env, corev1.EnvVar{
-			Name:      envVar,
+			Name:      key,
 			Value:     value,
 			ValueFrom: valueFrom,
 		})
@@ -1017,6 +1021,38 @@ func (sess *StackReconcilerSession) resolveResourceRefAsConfigItem(ctx context.C
 		return nil, nil, errors.New("Missing secret reference in ResourceRef")
 	default:
 		return nil, nil, fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
+	}
+}
+
+// resolveSecretResourceRef reads a referenced object and returns its value as
+// a string. The v1 controller allowed env and filesystem references which no
+// longer make sense in the v2 agent/manager model, so only secret refs are
+// currently supported.
+func (sess *StackReconcilerSession) resolveSecretResourceRef(ctx context.Context, ref *shared.ResourceRef) (string, error) {
+	switch ref.SelectorType {
+	case shared.ResourceSelectorSecret:
+		if ref.SecretRef == nil {
+			return "", errors.New("missing secret reference in ResourceRef")
+		}
+		var config corev1.Secret
+		namespace := ref.SecretRef.Namespace
+		if namespace == "" {
+			namespace = sess.namespace
+		}
+		if namespace != sess.namespace {
+			return "", errNamespaceIsolation
+		}
+
+		if err := sess.kubeClient.Get(ctx, types.NamespacedName{Name: ref.SecretRef.Name, Namespace: namespace}, &config); err != nil {
+			return "", fmt.Errorf("unable to get secret %s/%s: %w", namespace, ref.SecretRef.Name, err)
+		}
+		secretVal, ok := config.Data[ref.SecretRef.Key]
+		if !ok {
+			return "", fmt.Errorf("no key %q found in secret %s/%s", ref.SecretRef.Key, namespace, ref.SecretRef.Name)
+		}
+		return string(secretVal), nil
+	default:
+		return "", fmt.Errorf("%s selectors are no longer supported in v2, please use a secret reference instead", ref.SelectorType)
 	}
 }
 

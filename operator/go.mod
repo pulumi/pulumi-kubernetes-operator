@@ -1,12 +1,13 @@
 module github.com/pulumi/pulumi-kubernetes-operator/operator
 
-go 1.22.5
+go 1.23.1
 
 require (
 	github.com/fluxcd/source-controller/api v1.3.0
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/onsi/ginkgo/v2 v2.17.2
 	github.com/onsi/gomega v1.33.1
+	github.com/opencontainers/go-digest v1.0.0
 	github.com/operator-framework/operator-lib v0.14.0
 	github.com/pulumi/pulumi-kubernetes-operator/agent v0.0.0-00010101000000-000000000000
 	github.com/pulumi/pulumi/sdk/v3 v3.127.1-0.20240801092425-22d28187db0a
@@ -155,5 +156,5 @@ require (
 	k8s.io/kube-openapi v0.0.0-20240411171206-dc4e619f62f3 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
-	sigs.k8s.io/yaml v1.4.0 // indirect
+	sigs.k8s.io/yaml v1.4.0
 )

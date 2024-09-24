@@ -82,9 +82,11 @@ type UpdateStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// The start time of the operation.
+	// +optional
 	StartTime metav1.Time `json:"startTime,omitempty"`
 
 	// The end time of the operation.
+	// +optional
 	EndTime metav1.Time `json:"endTime,omitempty"`
 
 	// Represents the permalink URL in the Pulumi Console for the operation. Not available for DIY backends.
