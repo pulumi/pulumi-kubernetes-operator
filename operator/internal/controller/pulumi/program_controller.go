@@ -203,8 +203,6 @@ func programToProject(program *pulumiv1.Program) *ProjectFile {
 		Name:        program.Name,
 		Runtime:     "yaml",
 		ProgramSpec: program.Program,
-
-		timeModified: program.Status.LastResyncTime,
 	}
 }
 
@@ -227,7 +225,6 @@ func (r *ProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	program.Status.Artifact = &pulumiv1.Artifact{
 		URL: r.ProgramHandler.CreateProgramURL(program.Namespace, program.Name),
 	}
-	program.Status.LastResyncTime = metav1.Now()
 	program.Status.ObservedGeneration = program.GetGeneration()
 
 	// Calculate and store the sha256 digest of the tarball.

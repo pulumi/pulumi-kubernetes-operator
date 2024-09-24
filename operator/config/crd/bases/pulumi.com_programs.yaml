@@ -213,11 +213,6 @@ spec:
                 required:
                 - url
                 type: object
-              lastResyncTime:
-                description: LastResyncTime contains a timestamp for the last time
-                  a resync of the Program took place.
-                format: date-time
-                type: string
               observedGeneration:
                 description: |-
                   ObservedGeneration is the last observed generation of the Program
