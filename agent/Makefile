@@ -17,8 +17,5 @@ agent: protoc
 		-ldflags "-X github.com/pulumi/pulumi-kubernetes-operator/agent/version.Version=${VERSION}" \
 		github.com/pulumi/pulumi-kubernetes-operator/agent
 
-image: agent
-	docker build --build-arg="VERSION=$(VERSION)" -t pulumi/pulumi-kubernetes-agent:latest .
-
-.PHONY: agent protoc image ensure test
+.PHONY: all agent protoc ensure test
 
