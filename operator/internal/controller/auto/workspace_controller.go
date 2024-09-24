@@ -75,14 +75,13 @@ type WorkspaceReconciler struct {
 
 func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
+	l.Info("Reconciling Workspace")
 
 	w := &autov1alpha1.Workspace{}
 	err := r.Get(ctx, req.NamespacedName, w)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-
-	l.V(1).Info("Reconciling Workspace", "workspace", req.NamespacedName, "generation", w.Generation)
 
 	ready := meta.FindStatusCondition(w.Status.Conditions, WorkspaceConditionTypeReady)
 	if ready == nil {

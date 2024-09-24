@@ -129,7 +129,6 @@ func waitFor[T any](name, namespace, condition string, d time.Duration) (*T, err
 		return nil, err
 	}
 
-	// Return the last seen state of the object.
 	return &obj, nil
 }
 

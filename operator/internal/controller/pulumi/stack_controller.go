@@ -388,13 +388,14 @@ var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
 //+kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=ocirepositories,verbs=get;list;watch
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups="",resources=secrets,verbs=create;get;list;watch
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;update;patch
 
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
 func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (res ctrl.Result, reterr error) {
 	log := log.FromContext(ctx)
+	log.Info("Reconciling Stack")
 
 	// Fetch the Stack instance
 	instance := &pulumiv1.Stack{}
@@ -405,8 +406,6 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		// Return and don't requeue
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
-
-	log.V(1).Info("Reconciling Stack", "stack", request.NamespacedName, "generation", instance.Generation)
 
 	// Update the observed generation and "reconcile request" of the object.
 	instance.Status.ObservedGeneration = instance.GetGeneration()
@@ -680,7 +679,6 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			(instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit &&
 				(!sess.stack.ContinueResyncOnCommitMatch || time.Since(instance.Status.LastUpdate.LastResyncTime.Time) < resyncFreq)))
 
-	requeueAfter := time.Duration(0)
 	if synced {
 		// transition to ready, and requeue reconciliation as necessary to detect
 		// branch updates and resyncs.
@@ -695,6 +693,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, nil
 		}
 
+		requeueAfter := time.Duration(0)
 		if sess.stack.ContinueResyncOnCommitMatch {
 			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(resyncFreq)))
 		}
@@ -771,8 +770,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		return reconcile.Result{}, fmt.Errorf("unable to create update for stack: %w", err)
 	}
 
-	// Requeue in the case of GitSource which needs to continue polling.
-	return reconcile.Result{RequeueAfter: requeueAfter}, nil
+	return reconcile.Result{}, nil
 }
 
 func (r *StackReconciler) emitEvent(instance *pulumiv1.Stack, event pulumiv1.StackEvent, messageFmt string, args ...interface{}) {

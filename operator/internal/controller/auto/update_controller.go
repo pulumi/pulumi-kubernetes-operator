@@ -68,18 +68,18 @@ type UpdateReconciler struct {
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates/finalizers,verbs=update
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=create
 
 // Reconcile manages the Update CRD and initiates Pulumi operations.
 func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
+	l.Info("Reconciling Update")
 
 	obj := &autov1alpha1.Update{}
 	err := r.Get(ctx, req.NamespacedName, obj)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-
-	l.V(1).Info("Reconciling Update", "update", req.NamespacedName, "generation", obj.Generation)
 
 	rs := &reconcileSession{}
 	rs.progressing = meta.FindStatusCondition(obj.Status.Conditions, UpdateConditionTypeProgressing)
@@ -115,7 +115,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	if rs.complete.Status == metav1.ConditionTrue {
-		l.V(1).Info("Ignoring completed update", "update", obj.Name)
+		l.V(1).Info("Ignoring completed update")
 		return ctrl.Result{}, nil
 	}
 
