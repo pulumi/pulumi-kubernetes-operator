@@ -3,11 +3,14 @@
 *.txt
 *.out
 *.yaml
+*.yml
 *_test.go
 .dockerignore
 .gitignore
-/bin
-/config
-/examples
+bin
+config
+examples
+deploy
+hack
 Dockerfile
 Makefile

@@ -150,11 +150,11 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
-docker-build: docker-rootless ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t ${IMG}:${VERSION} --build-context agent=../agent --build-arg VERSION=${VERSION} .
+docker-build: docker-nonroot ## Build docker image with the manager.
+	$(CONTAINER_TOOL) build -t ${IMG}:${VERSION} --build-arg VERSION=${VERSION} ..
 
-.PHONY: docker-rootless
-docker-rootless:
+.PHONY: build-nonroot
+docker-nonroot:
 	$(MAKE) -C hack/nonroot
 
 .PHONY: docker-push
