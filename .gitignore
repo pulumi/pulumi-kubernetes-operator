@@ -3,6 +3,8 @@ pulumi-kubernetes-operator
 # Temporary Build Files
 build/_output
 build/_test
+.pulumi
+Pulumi.*.yaml
 
 # Created by https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 ### Emacs ###
@@ -89,3 +91,4 @@ tags
 ### IntelliJ ###
 .idea
 .envrc
+bin/*

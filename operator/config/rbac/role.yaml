@@ -114,9 +114,27 @@ rules:
   resources:
   - programs
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
+- apiGroups:
+  - pulumi.com
+  resources:
+  - programs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - pulumi.com
+  resources:
+  - programs/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - pulumi.com
   resources:

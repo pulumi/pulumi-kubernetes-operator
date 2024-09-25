@@ -41,6 +41,7 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
+  controller: true
   group: pulumi.com
   kind: Program
   path: github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1

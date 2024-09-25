@@ -17,20 +17,20 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
+	"net"
+	"net/http"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
-	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
-	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
-	autocontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/auto"
-	pulumicontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/pulumi"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -39,6 +39,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
+	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
+	autocontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/auto"
+	pulumicontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/pulumi"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -57,11 +62,18 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	var secureMetrics bool
-	var enableHTTP2 bool
+	var (
+		metricsAddr          string
+		enableLeaderElection bool
+		probeAddr            string
+		secureMetrics        bool
+		enableHTTP2          bool
+
+		// Flags for configuring the Program file server.
+		programFSAddr    string
+		programFSAdvAddr string
+	)
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -71,6 +83,10 @@ func main() {
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.StringVar(&programFSAddr, "program-fs-addr", envOrDefault("PROGRAM_FS_ADDR", ":9090"),
+		"The address the static file server binds to.")
+	flag.StringVar(&programFSAdvAddr, "program-fs-adv-addr", envOrDefault("PROGRAM_FS_ADV_ADDR", ""),
+		"The advertised address of the static file server.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -127,6 +143,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create a new ProgramHandler to handle Program objects. Both the ProgramReconciler and the file server need to
+	// access the ProgramHandler, so it is created here and passed to both.
+	pHandler := newProgramHandler(mgr.GetClient(), programFSAdvAddr)
+
 	if err = (&autocontroller.WorkspaceReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
@@ -151,6 +171,15 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Stack")
 		os.Exit(1)
 	}
+	if err = (&pulumicontroller.ProgramReconciler{
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Recorder:       mgr.GetEventRecorderFor(pulumicontroller.ProgramControllerName),
+		ProgramHandler: pHandler,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Program")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
@@ -162,9 +191,92 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Start the file server for serving Program objects.
+	setupLog.Info("starting file server for program resource",
+		"address", programFSAddr,
+		"advertisedAddress", programFSAdvAddr,
+	)
+	if err := mgr.Add(pFileserver{pHandler, programFSAddr}); err != nil {
+		setupLog.Error(err, "unable to start file server for program resource")
+		os.Exit(1)
+	}
+
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// pFileserver implements the manager.Runnable interface to start a simple file server to serve Program objects as
+// compressed tarballs.
+type pFileserver struct {
+	handler *pulumicontroller.ProgramHandler
+	address string
+}
+
+// Start starts the file server to serve Program objects as compressed tarballs.
+func (fs pFileserver) Start(ctx context.Context) error {
+	mux := http.NewServeMux()
+	mux.Handle("/programs/", fs.handler.HandleProgramServing())
+
+	server := &http.Server{
+		Addr:    fs.address,
+		Handler: mux,
+	}
+
+	errChan := make(chan error)
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil {
+			errChan <- err
+		}
+	}()
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-ctx.Done():
+		return server.Shutdown(ctx)
+	}
+}
+
+func newProgramHandler(k8sClient client.Client, advAddr string) *pulumicontroller.ProgramHandler {
+	if advAddr == "" {
+		advAddr = determineAdvAddr(advAddr)
+	}
+
+	return pulumicontroller.NewProgramHandler(k8sClient, advAddr)
+}
+
+func determineAdvAddr(addr string) string {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		setupLog.Error(err, "unable to parse file server address")
+		os.Exit(1)
+	}
+	switch host {
+	case "":
+		host = "localhost"
+	case "0.0.0.0":
+		host = os.Getenv("HOSTNAME")
+		if host == "" {
+			hn, err := os.Hostname()
+			if err != nil {
+				setupLog.Error(err, "0.0.0.0 specified in file server addr but hostname is invalid")
+				os.Exit(1)
+			}
+			host = hn
+		}
+	}
+	return net.JoinHostPort(host, port)
+}
+
+func envOrDefault(envName, defaultValue string) string {
+	ret := os.Getenv(envName)
+	if ret != "" {
+		return ret
+	}
+
+	return defaultValue
 }
