@@ -571,9 +571,9 @@ var _ = Describe("Stack Controller", func() {
 				BeforeEach(func(ctx context.Context) {
 					secret := &corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name: "outputs", Namespace: currentUpdate.Namespace,
+							Name: "secret-output-test", Namespace: currentUpdate.Namespace,
 							Annotations: map[string]string{
-								"pulumi.com/mask": `{"plaintext": true}`,
+								"pulumi.com/secrets": `["should-be-scrubbed"]`,
 							},
 						},
 						StringData: map[string]string{

@@ -815,18 +815,18 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 			return fmt.Errorf("getting output secret: %w", err)
 		}
 		outputs := shared.StackOutputs{}
-		mask := map[string]bool{}
-		if annotation, ok := secret.GetAnnotations()[auto.OutputMaskAnnotation]; ok {
-			err := json.Unmarshal([]byte(annotation), &mask)
+		secrets := []string{}
+		if annotation, ok := secret.GetAnnotations()[auto.SecretOutputsAnnotation]; ok {
+			err := json.Unmarshal([]byte(annotation), &secrets)
 			if err != nil {
 				return fmt.Errorf("unmarshaling output mask: %w", err)
 			}
 		}
 		for key, value := range secret.Data {
-			if _, keep := mask[key]; keep {
-				outputs[key] = apiextensionsv1.JSON{Raw: json.RawMessage(value)}
-			} else {
+			if slices.Contains(secrets, key) {
 				outputs[key] = apiextensionsv1.JSON{Raw: []byte(`"[secret]"`)}
+			} else {
+				outputs[key] = apiextensionsv1.JSON{Raw: json.RawMessage(value)}
 			}
 		}
 		instance.Status.Outputs = outputs

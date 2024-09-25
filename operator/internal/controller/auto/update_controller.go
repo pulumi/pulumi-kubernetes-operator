@@ -45,8 +45,8 @@ import (
 )
 
 const (
-	OutputMaskAnnotation   = "pulumi.com/mask"
-	UpdateIndexerWorkspace = "index.spec.workspaceRef"
+	SecretOutputsAnnotation = "pulumi.com/secrets"
+	UpdateIndexerWorkspace  = "index.spec.workspaceRef"
 
 	UpdateConditionTypeComplete    = "Complete"
 	UpdateConditionTypeFailed      = "Failed"
@@ -560,21 +560,21 @@ func outputsToSecret(owner *autov1alpha1.Update, outputs map[string]*agentpb.Out
 		UID:        owner.UID,
 	}})
 
-	mask := make(map[string]bool, len(outputs))
+	secrets := []string{}
 	for k, v := range outputs {
 		// v.Value is already JSON-encoded bytes,
 		s.Data[k] = v.Value
-		if !v.Secret {
-			mask[k] = true
+		if v.Secret {
+			secrets = append(secrets, k)
 		}
 	}
 
-	annotation, err := json.Marshal(mask)
+	annotation, err := json.Marshal(secrets)
 	if err != nil {
 		return nil, fmt.Errorf("marshaling output mask: %w", err)
 	}
 	s.SetAnnotations(map[string]string{
-		OutputMaskAnnotation: string(annotation),
+		SecretOutputsAnnotation: string(annotation),
 	})
 
 	return s, nil

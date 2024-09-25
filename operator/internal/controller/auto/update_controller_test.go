@@ -138,7 +138,7 @@ func TestUpdate(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo-stack-outputs",
 						Annotations: map[string]string{
-							"pulumi.com/mask": `{"username":true}`,
+							"pulumi.com/secrets": `["password"]`,
 						},
 						OwnerReferences: []metav1.OwnerReference{{UID: "uid", Name: "foo"}},
 					},
