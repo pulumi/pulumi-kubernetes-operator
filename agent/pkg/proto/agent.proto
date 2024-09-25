@@ -3,7 +3,7 @@ syntax = "proto3";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto";
+option go_package = "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto";
 
 package agent;
 
@@ -225,6 +225,12 @@ message UpResult {
   string stderr = 2;
   UpdateSummary summary = 3;
   optional string permalink = 4;
+  map<string, OutputValue> outputs = 5;
+}
+
+message OutputValue {
+  bytes value = 1;
+  bool secret = 2;
 }
 
 message UpdateSummary {

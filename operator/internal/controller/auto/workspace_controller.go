@@ -30,7 +30,6 @@ import (
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -76,14 +75,12 @@ type WorkspaceReconciler struct {
 
 func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
+	l.Info("Reconciling Workspace")
 
 	w := &autov1alpha1.Workspace{}
 	err := r.Get(ctx, req.NamespacedName, w)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	ready := meta.FindStatusCondition(w.Status.Conditions, WorkspaceConditionTypeReady)
@@ -97,7 +94,11 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		w.Status.ObservedGeneration = w.Generation
 		ready.ObservedGeneration = w.Generation
 		meta.SetStatusCondition(&w.Status.Conditions, *ready)
-		return r.Status().Update(ctx, w)
+		err := r.Status().Update(ctx, w)
+		if err != nil {
+			l.Error(err, "updating status")
+		}
+		return err
 	}
 
 	if w.DeletionTimestamp != nil {
