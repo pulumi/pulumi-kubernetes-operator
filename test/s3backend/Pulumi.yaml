@@ -1,3 +1,0 @@
-name: s3backend
-runtime: nodejs
-description: Test to validate s3 backend support

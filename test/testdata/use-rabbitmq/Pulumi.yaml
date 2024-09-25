@@ -1,6 +1,0 @@
-name: use-rabbitmq
-runtime:
-  name: nodejs
-  options:
-    typescript: false
-description: Make an exchange in RabbitMQ
