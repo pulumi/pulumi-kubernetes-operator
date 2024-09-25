@@ -1,15 +1,13 @@
 # Troubleshooting
 
 * If a Stack is stuck due to conflicting updates from a previous failed run,
-you'll need to have the Pulumi program accessible locally, and manually cancel the stack.
+you'll need to manually unlock the stack. You can attach and use the stack's pod to run other commands.
 
   ```bash
-  pulumi stack select dev
+  kubectl exec --stdin --tty my-stack-0q4s6z9z
   pulumi cancel -y
   ```
   
-  Once cancelled, retry creating the Stack CustomResource.
-
 * If your Stack CR encounters an error and is not processed, the operator by
 will still continue to deploy reconciliation loops until a successful update is reached.
 

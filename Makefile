@@ -1,81 +1,125 @@
 SHELL := /usr/bin/env bash
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
 VERSION := $(GIT_COMMIT)
-PUBLISH_IMAGE_NAME := pulumi/pulumi-kubernetes-operator
-IMAGE_NAME := docker.io/$(shell whoami)/pulumi-kubernetes-operator
 CURRENT_RELEASE := $(shell git describe --abbrev=0 --tags)
 RELEASE ?= $(shell git describe --abbrev=0 --tags)
-TEST_NODES ?= 4
 
-default: build
+.PHONY: all
+all: build
 
-.PHONY: download-test-deps
-download-test-deps:
-	go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+##@ General
 
-install-crds:
-	kubectl apply -f deploy/crds/
+# The help target prints out all targets with their descriptions organized
+# beneath their categories. The categories are represented by '##@' and the
+# target descriptions by '##'. The awk command is responsible for reading the
+# entire set of makefiles included in this invocation, looking for lines of the
+# file as xyz: ## something, and then pretty-format the target and help. Then,
+# if there's a line with ##@ something, that gets pretty-printed as a category.
+# More info on the usage of ANSI control characters for terminal formatting:
+# https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters
+# More info on the awk command:
+# http://linuxcommand.org/lc3_adv_awk.php
 
-codegen: install-controller-gen install-crdoc generate-k8s generate-crds generate-crdocs
+.PHONY: help
+help: ## Display this help.
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-install-controller-gen:
-	@echo "Installing controller-gen to GOPATH/bin"; pushd /tmp >& /dev/null && go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.15.0 ; popd >& /dev/null
+##@ Development
 
-install-crdoc:
-	@echo "Installing crdoc to go GOPATH/bin"; pushd /tmp >& /dev/null && go install fybrik.io/crdoc@v0.5.2; popd >& /dev/null
+.PHONY: codegen
+codegen: generate-crds generate-crdocs ## Generate CRDs and documentation
 
+CRD_BASES := operator/config/crd/bases/
+CRDS := pulumi.com_stacks.yaml pulumi.com_programs.yaml auto.pulumi.com_workspaces.yaml auto.pulumi.com_updates.yaml
+.PHONY: generate-crds
 generate-crds:
-	./scripts/generate_crds.sh
+	cd operator && $(MAKE) manifests
+	cp $(addprefix $(CRD_BASES), $(CRDS)) deploy/crds/
+	cp $(addprefix $(CRD_BASES), $(CRDS)) deploy/helm/pulumi-operator/crds/
 
-generate-k8s:
-	./scripts/generate_k8s.sh
+.PHONY: generate-crdocs
+generate-crdocs: crdoc ## Generate API Reference documentation into 'docs/crds/'.
+	$(CRDOC) --resources deploy/crds/pulumi.com_stacks.yaml --output docs/stacks.md
+	$(CRDOC) --resources deploy/crds/pulumi.com_programs.yaml --output docs/programs.md
+	$(CRDOC) --resources deploy/crds/auto.pulumi.com_workspaces.yaml --output docs/workspaces.md
+	$(CRDOC) --resources deploy/crds/auto.pulumi.com_updates.yaml --output docs/updates.md
 
-generate-crdocs:
-	crdoc --resources deploy/crds/pulumi.com_stacks.yaml --output docs/stacks.md
-	crdoc --resources deploy/crds/pulumi.com_programs.yaml --output docs/programs.md
+.PHONY: test
+test:
+	cd agent && $(MAKE) test
+	cd operator && $(MAKE) test
 
-build-image: build-static
-	docker build --rm -t $(IMAGE_NAME):$(VERSION) -f Dockerfile .
+##@ Build
 
-build:
-	VERSION=$(VERSION) ./scripts/build.sh
+.PHONY: build
+build: build-agent build-operator ## Build the agent and operator binaries. 	
 
-build-static:
-	VERSION=$(VERSION) ./scripts/build.sh static
+.PHONY: build-agent
+build-agent: ## Build the agent binary.
+	@echo "Building agent"
+	cd agent && $(MAKE) all
 
-push-image:
-	docker push $(IMAGE_NAME):$(VERSION)
+.PHONY: build-operator
+build-operator: ## Build the operator manager binary.
+	@echo "Building operator"
+	cd operator && $(MAKE) all
 
-test: codegen download-test-deps
-	KUBEBUILDER_ASSETS="$(shell setup-envtest --use-env use -p path)" \
-		go run github.com/onsi/ginkgo/v2/ginkgo -nodes=${TEST_NODES} --randomize-all -v -coverprofile="coverage.txt" -coverpkg=./... ./...
+.PHONY: build-image
+build-image: ## Build the operator image.
+	@echo "Building operator image"
+	cd operator && $(MAKE) docker-build
 
-deploy:
-	kubectl apply -f deploy/yaml/service_account.yaml
-	kubectl apply -f deploy/yaml/role.yaml
-	kubectl apply -f deploy/yaml/role_binding.yaml
-	sed -e "s#<IMG_NAME>:<IMG_VERSION>#$(IMAGE_NAME):$(VERSION)#g" deploy/operator_template.yaml | kubectl apply -f -
+.PHONY: push-image
+push-image: ## Push the operator image.
+	cd operator && $(MAKE) docker-push
+
+##@ Deployment
+
+.PHONY: install-crds
+install-crds: ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+	cd operator && $(MAKE) install
+
+.PHONY: deploy
+deploy: ## Deploy controller manager to the K8s cluster specified in ~/.kube/config.
+	cd operator && $(MAKE) deploy
+
+##@ Release
 
 # Run make prep RELEASE=<next-tag> to prep next release
-prep: prep-spec prep-docs prep-code
+.PHONY: prep
+prep: prep-spec prep-docs prep-code ## Prepare the next release.
 
+.PHONY: prep-docs
 prep-docs:
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" README.md
 
 # Run make prep-spec RELEASE=<next-tag> to prep the spec
+.PHONY: prep-spec
 prep-spec:
 	sed -e "s#<IMG_NAME>:<IMG_VERSION>#$(PUBLISH_IMAGE_NAME):$(RELEASE)#g" deploy/operator_template.yaml > deploy/yaml/operator.yaml
 
+.PHONY: prep-code
 prep-code:
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" deploy/deploy-operator-ts/index.ts deploy/deploy-operator-py/__main__.py deploy/deploy-operator-go/main.go deploy/deploy-operator-cs/MyStack.cs
 
+.PHONY: version
 version:
 	@echo $(VERSION)
 
-dep-tidy:
-	go mod tidy
+##@ Build Dependencies
 
-agent:
-	cd agent && $(MAKE) agent
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
 
-.PHONY: build build-static codegen generate-crds install-crds generate-k8s test version dep-tidy build-image push-image push-image-latest deploy prep-spec agent
+## Tool Binaries
+CRDOC ?= $(LOCALBIN)/crdoc
+
+## Tool Versions
+CRDOC_VERSION ?= v0.5.2
+
+.PHONY: crdoc
+crdoc: $(CRDOC) ## Download crdoc locally if necessary. No version check.
+$(CRDOC): $(LOCALBIN)
+	GOBIN=$(LOCALBIN) go install fybrik.io/crdoc@$(CRDOC_VERSION)
