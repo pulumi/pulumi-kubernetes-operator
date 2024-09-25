@@ -45,7 +45,7 @@ func TestE2E(t *testing.T) {
 	b := make([]byte, 12)
 	_, _ = rand.Read(b) //nolint:staticcheck // Don't need crypto here.
 	tag := hex.EncodeToString(b)
-	projectimage := "pulumi/pulumi-kubernetes-operator-v2:" + tag
+	projectimage := "pulumi/pulumi-kubernetes-operator:" + tag
 
 	cmd := exec.Command("make", "docker-build", "VERSION="+tag)
 	require.NoError(t, run(cmd), "failed to build image")

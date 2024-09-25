@@ -1,5 +1,5 @@
 # Build the operator binary
-FROM --platform=${BUILDPLATFORM} golang:1.23 AS op-builder
+FROM golang:1.23 AS op-builder
 ARG TARGETOS
 ARG TARGETARCH
 
