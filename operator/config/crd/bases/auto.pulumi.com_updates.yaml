@@ -201,6 +201,10 @@ spec:
                 format: int64
                 minimum: 0
                 type: integer
+              outputs:
+                description: Outputs names a secret containing the outputs for this
+                  update.
+                type: string
               permalink:
                 description: Represents the permalink URL in the Pulumi Console for
                   the operation. Not available for DIY backends.

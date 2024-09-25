@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"math/rand"
@@ -24,9 +25,12 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
+	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 var _namespace = "pulumi-kubernetes-operator"
@@ -38,9 +42,9 @@ func TestE2E(t *testing.T) {
 
 	// Generate a random tag to ensure pods get re-created when re-running the
 	// test locally.
-	bytes := make([]byte, 12)
-	_, _ = rand.Read(bytes) //nolint:staticcheck // Don't need crypto here.
-	tag := hex.EncodeToString(bytes)
+	b := make([]byte, 12)
+	_, _ = rand.Read(b) //nolint:staticcheck // Don't need crypto here.
+	tag := hex.EncodeToString(b)
 	projectimage := "pulumi/pulumi-kubernetes-operator-v2:" + tag
 
 	cmd := exec.Command("make", "docker-build", "VERSION="+tag)
@@ -60,6 +64,7 @@ func TestE2E(t *testing.T) {
 	cmd = exec.Command("kubectl", "wait", "deployments/controller-manager",
 		"--for", "condition=Available", "-n", _namespace, "--timeout", "60s")
 	require.NoError(t, run(cmd), "controller didn't become ready after 1 minute")
+	dumpLogs(t, "pulumi-kubernetes-operator", "deployment/controller-manager")
 
 	// Install Flux
 	cmd = exec.Command("kubectl", "apply", "-f", "https://github.com/fluxcd/flux2/releases/download/v2.3.0/install.yaml")
@@ -76,9 +81,10 @@ func TestE2E(t *testing.T) {
 
 				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/random-yaml-nonroot")
 				require.NoError(t, run(cmd))
+				dumpLogs(t, "random-yaml-nonroot", "pod/random-yaml-nonroot-workspace-0")
 
-				// TODO: Wait for stack to become ready. Currently flakes due
-				// to GitHub rate limiting and "resource modified" retries.
+				// _, err := waitFor[pulumiv1.Stack]("stacks/random-yaml-nonroot", "random-yaml-nonroot", "condition=Ready", 5*time.Minute)
+				// assert.NoError(t, err) // Failing on CI
 			},
 		},
 		{
@@ -91,10 +97,13 @@ func TestE2E(t *testing.T) {
 
 				cmd := exec.Command("bash", "-c", "envsubst < e2e/testdata/git-auth-nonroot/* | kubectl apply -f -")
 				require.NoError(t, run(cmd))
+				dumpLogs(t, "git-auth-nonroot", "pod/git-auth-nonroot-workspace-0")
 
-				cmd = exec.Command("kubectl", "wait", "stacks/git-auth-nonroot",
-					"--for", "condition=Ready", "-n", "git-auth-nonroot", "--timeout", "300s")
-				assert.NoError(t, run(cmd), "stack didn't reconcile within 5 minutes")
+				stack, err := waitFor[pulumiv1.Stack]("stacks/git-auth-nonroot", "git-auth-nonroot", "condition=Ready", 5*time.Minute)
+				assert.NoError(t, err)
+
+				assert.Equal(t, `"[secret]"`, string(stack.Status.Outputs["secretOutput"].Raw))
+				assert.Equal(t, `"foo"`, string(stack.Status.Outputs["simpleOutput"].Raw))
 			},
 		},
 	}
@@ -102,6 +111,42 @@ func TestE2E(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, tt.f)
 	}
+}
+
+// dumpLogs prints logs if the test fails.
+func dumpLogs(t *testing.T, namespace, name string) {
+	t.Cleanup(func() {
+		if !t.Failed() {
+			return
+		}
+		t.Logf("=== LOGS %s %s", namespace, name)
+		cmd := exec.Command("kubectl", "logs", "--all-containers=true", "-n", namespace, name)
+		out, err := cmd.CombinedOutput()
+		assert.NoError(t, err)
+		t.Log(string(out))
+	})
+}
+
+func waitFor[T any](name, namespace, condition string, d time.Duration) (*T, error) {
+	cmd := exec.Command("kubectl", "wait", name,
+		"-n", namespace,
+		"--for", condition,
+		fmt.Sprintf("--timeout=%ds", int(d.Seconds())),
+		"--output=yaml",
+	)
+	err := run(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	buf, _ := cmd.Stdout.(*bytes.Buffer)
+	var obj T
+	err = yaml.Unmarshal(buf.Bytes(), &obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return &obj, nil
 }
 
 // run executes the provided command within this context

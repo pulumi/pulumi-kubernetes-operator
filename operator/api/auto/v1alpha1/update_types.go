@@ -96,6 +96,10 @@ type UpdateStatus struct {
 	// +optional
 	Message string `json:"message,omitempty"`
 
+	// Outputs names a secret containing the outputs for this update.
+	// +optional
+	Outputs string `json:"outputs,omitempty"`
+
 	// Represents the observations of an update's current state.
 	// Known .status.conditions.type are: "Complete", "Failed", and "Progressing"
 	// +patchMergeKey=type
