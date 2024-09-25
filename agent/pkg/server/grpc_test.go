@@ -24,8 +24,8 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
-	"github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/server"
+	pb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"

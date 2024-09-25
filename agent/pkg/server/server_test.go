@@ -18,8 +18,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	pb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
-	"github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/server"
+	pb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/server"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/fsutil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
