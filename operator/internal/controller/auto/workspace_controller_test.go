@@ -254,6 +254,25 @@ var _ = Describe("Workspace Controller", func() {
 					sc := ss.Spec.Template.Spec.SecurityContext
 					Expect(sc.RunAsNonRoot).To(BeNil())
 				})
+				It("uses the default 'pulumi/pulumi:latest` image", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					container := findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
+					Expect(container).NotTo(BeNil())
+					Expect(container.Image).To(Equal("pulumi/pulumi:latest"))
+				})
+				When("a custom image is set", func() {
+					BeforeEach(func(ctx context.Context) {
+						obj.Spec.Image = "test/pulumi:v3.42.0"
+					})
+					It("uses the specified image for the pulumi container", func(ctx context.Context) {
+						_, err := reconcileF(ctx)
+						Expect(err).NotTo(HaveOccurred())
+						container := findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
+						Expect(container).NotTo(BeNil())
+						Expect(container.Image).To(Equal("test/pulumi:v3.42.0"))
+					})
+				})
 			})
 			Describe("Restricted", func() {
 				BeforeEach(func(ctx context.Context) {
@@ -268,6 +287,25 @@ var _ = Describe("Workspace Controller", func() {
 					Expect(pulumi.SecurityContext.AllowPrivilegeEscalation).To(PointTo(BeFalse()))
 					fetch := findContainer(ss.Spec.Template.Spec.InitContainers, "fetch")
 					Expect(fetch.SecurityContext.AllowPrivilegeEscalation).To(PointTo(BeFalse()))
+				})
+				It("uses the default 'pulumi/pulumi:latest-nonroot` image", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					container := findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
+					Expect(container).NotTo(BeNil())
+					Expect(container.Image).To(Equal("pulumi/pulumi:latest-nonroot"))
+				})
+				When("a custom image is set", func() {
+					BeforeEach(func(ctx context.Context) {
+						obj.Spec.Image = "test/pulumi:v3.42.0"
+					})
+					It("uses the specified image for the pulumi container", func(ctx context.Context) {
+						_, err := reconcileF(ctx)
+						Expect(err).NotTo(HaveOccurred())
+						container := findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
+						Expect(container).NotTo(BeNil())
+						Expect(container.Image).To(Equal("test/pulumi:v3.42.0"))
+					})
 				})
 			})
 		})
