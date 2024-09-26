@@ -8,11 +8,10 @@ spec:
       apiVersion: source.toolkit.fluxcd.io/v1
       kind: GitRepository
       name: pulumi-examples
-    dir: stack-readme-yaml
-    # dir: random-yaml/
+    dir: random-yaml/
   stack: dev
   refresh: true
-  continueResyncOnCommitMatch: true
+  continueResyncOnCommitMatch: false
   resyncFrequencySeconds: 60
   destroyOnFinalize: true
   config:
@@ -23,5 +22,7 @@ spec:
       secret:
         name: pulumi-api-secret
         key: accessToken
-  image: pulumi/pulumi:3.134.1-nonroot
+  workspaceTemplate:
+    spec:
+      image: pulumi/pulumi:3.134.1-nonroot
 

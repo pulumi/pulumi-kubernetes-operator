@@ -1,3 +1,0 @@
-name: deploy-operator-cs
-runtime: dotnet
-description: Deploy Pulumi Kubernetes Operator

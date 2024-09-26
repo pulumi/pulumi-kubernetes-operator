@@ -51,7 +51,7 @@ endif
 OPERATOR_SDK_VERSION ?= v1.35.0
 
 # Image URL to use all building/pushing image targets
-IMG ?= pulumi/pulumi-kubernetes-operator
+IMG ?= pulumi/pulumi-kubernetes-operator:${VERSION}
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.28.3
 
@@ -97,8 +97,8 @@ help: ## Display this help.
 
 .PHONY: manifests
 manifests: controller-gen kustomize ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:crdVersions=v1,generateEmbeddedObjectMeta=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}:${VERSION}
+	$(CONTROLLER_GEN) rbac:roleName=pulumi-kubernetes-operator-controller-manager crd:crdVersions=v1,generateEmbeddedObjectMeta=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -152,22 +152,28 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t ${IMG}:${VERSION} --build-arg VERSION=${VERSION} ..
+	$(CONTAINER_TOOL) build -t ${IMG} --build-arg VERSION=${VERSION} ..
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
-	$(CONTAINER_TOOL) push ${IMG}:${VERSION}
+	$(CONTAINER_TOOL) push ${IMG}
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. To use this option you need to:
 # - be able to use docker buildx. More info: https://docs.docker.com/build/buildx/
 # - have enabled BuildKit. More info: https://docs.docker.com/develop/develop-images/build_enhancements/
-# - be able to push the image to your registry (to IMG:VERSION)
+# - be able to push the IMG to your registry
 # To adequately provide solutions that are compatible with multiple platforms, you should consider using this option.
 PLATFORMS ?= linux/arm64,linux/amd64
 .PHONY: docker-buildx
 docker-buildx: ## Build and push docker image for the manager for cross-platform support
-	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG}:${VERSION} --build-arg VERSION=${VERSION} ..
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG} --build-arg VERSION=${VERSION} ..
+
+.PHONY: build-installer
+build-installer: manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
+	mkdir -p dist
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default > dist/install.yaml
 
 ##@ Deployment
 

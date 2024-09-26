@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   labels:
     control-plane: controller-manager
-    app.kubernetes.io/name: project
+    app.kubernetes.io/name: pulumi-kubernetes-operator
     app.kubernetes.io/managed-by: kustomize
   name: pulumi-kubernetes-operator
 ---
@@ -14,7 +14,7 @@ metadata:
   namespace: pulumi-kubernetes-operator
   labels:
     control-plane: controller-manager
-    app.kubernetes.io/name: project
+    app.kubernetes.io/name: pulumi-kubernetes-operator
     app.kubernetes.io/managed-by: kustomize
 spec:
   selector:
