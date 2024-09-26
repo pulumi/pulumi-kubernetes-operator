@@ -34,6 +34,11 @@ const (
 	SecurityProfileBaseline SecurityProfile = "baseline"
 	// SecurityProfileRestricted applies the restricted security profile.
 	SecurityProfileRestricted SecurityProfile = "restricted"
+
+	// SecurityProfileBaselineDefaultImage is the default image used when the security profile is 'baseline'.
+	SecurityProfileBaselineDefaultImage = "pulumi/pulumi:latest"
+	// SecurityProfileRestrictedDefaultImage is the default image used when the security profile is 'restricted'.
+	SecurityProfileRestrictedDefaultImage = "pulumi/pulumi:latest-nonroot"
 )
 
 // WorkspaceSpec defines the desired state of Workspace
@@ -47,8 +52,10 @@ type WorkspaceSpec struct {
 	// +optional
 	SecurityProfile SecurityProfile `json:"securityProfile,omitempty"`
 
-	// Image is the Docker image containing the 'pulumi' executable.
-	// +kubebuilder:default="pulumi/pulumi:latest"
+	// Image is the container image containing the 'pulumi' executable. If no image is provided,
+	// the default image is used based on the securityProfile:
+	// for 'baseline', it defaults to 'pulumi/pulumi:latest';
+	// for 'restricted', it defaults to 'pulumi/pulumi:latest-nonroot'.
 	Image string `json:"image,omitempty"`
 
 	// Image pull policy.
