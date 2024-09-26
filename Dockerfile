@@ -24,7 +24,7 @@ ARG VERSION
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o /manager -ldflags="-X github.com/pulumi/pulumi-kubernetes-operator/v2/operator/version.Version=${VERSION}" ./operator/cmd/main.go
 
 # Build the agent binary
-FROM golang:1.23 AS agent-builder
+FROM --platform=${BUILDPLATFORM} golang:1.23 AS agent-builder
 ARG TARGETOS
 ARG TARGETARCH
 

@@ -346,8 +346,8 @@ func labelsForStatefulSet(w *autov1alpha1.Workspace) map[string]string {
 }
 
 func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.StatefulSet, error) {
-	// TODO: get from configuration
-	workspaceAgentImage := "pulumi/pulumi-kubernetes-operator-v2:" + version.Version
+	// TODO: get from environment
+	workspaceAgentImage := "pulumi/pulumi-kubernetes-operator:" + version.Version
 
 	labels := labelsForStatefulSet(w)
 
