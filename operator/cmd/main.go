@@ -44,6 +44,7 @@ import (
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
 	autocontroller "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/controller/auto"
 	pulumicontroller "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/controller/pulumi"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/version"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -94,6 +95,10 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	setupLog.Info("Pulumi Kubernetes Operator Manager",
+		"version", version.Version,
+	)
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will

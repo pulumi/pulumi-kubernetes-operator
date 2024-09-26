@@ -1,0 +1,10 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: pulumi-examples
+spec:
+  interval: 24h
+  ref:
+    branch: master
+  timeout: 60s
+  url: https://github.com/pulumi/examples
