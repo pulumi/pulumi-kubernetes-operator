@@ -154,12 +154,12 @@ var _ = Describe("Workspace Controller", func() {
 		})
 
 		Describe("spec.image", func() {
-			It("uses pulumi/pulumi:latest by default", func(ctx context.Context) {
+			It("uses pulumi/pulumi:latest-nonroot by default", func(ctx context.Context) {
 				_, err := reconcileF(ctx)
 				Expect(err).NotTo(HaveOccurred())
 				container := findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
 				Expect(container).NotTo(BeNil())
-				Expect(container.Image).To(Equal("pulumi/pulumi:latest"))
+				Expect(container.Image).To(Equal("pulumi/pulumi:latest-nonroot"))
 			})
 			When("image is set", func() {
 				BeforeEach(func(ctx context.Context) {

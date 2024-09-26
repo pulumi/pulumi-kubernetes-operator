@@ -388,8 +388,11 @@ spec:
                     type: string
                 type: object
               image:
-                default: pulumi/pulumi:latest
-                description: Image is the Docker image containing the 'pulumi' executable.
+                description: |-
+                  Image is the container image containing the 'pulumi' executable. If no image is provided,
+                  the default image is used based on the securityProfile:
+                  for 'baseline', it defaults to 'pulumi/pulumi:latest';
+                  for 'restricted', it defaults to 'pulumi/pulumi:latest-nonroot'.
                 type: string
               imagePullPolicy:
                 description: |-

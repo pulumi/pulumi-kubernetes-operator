@@ -47,8 +47,10 @@ type WorkspaceSpec struct {
 	// +optional
 	SecurityProfile SecurityProfile `json:"securityProfile,omitempty"`
 
-	// Image is the Docker image containing the 'pulumi' executable.
-	// +kubebuilder:default="pulumi/pulumi:latest"
+	// Image is the container image containing the 'pulumi' executable. If no image is provided,
+	// the default image is used based on the securityProfile:
+	// for 'baseline', it defaults to 'pulumi/pulumi:latest';
+	// for 'restricted', it defaults to 'pulumi/pulumi:latest-nonroot'.
 	Image string `json:"image,omitempty"`
 
 	// Image pull policy.
