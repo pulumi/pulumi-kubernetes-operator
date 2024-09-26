@@ -21,7 +21,7 @@ limitations under the License.
 package v1
 
 import (
-	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/shared"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"

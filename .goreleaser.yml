@@ -74,7 +74,7 @@ dockers:
     goarch: amd64
 
     # Path to the Dockerfile (from the project root).
-    dockerfile: operator/Dockerfile
+    dockerfile: Dockerfile
 
     # Templates of the Docker image names.
     image_templates:

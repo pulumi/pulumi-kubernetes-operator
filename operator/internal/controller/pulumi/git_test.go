@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/shared"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

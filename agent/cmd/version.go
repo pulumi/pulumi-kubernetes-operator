@@ -16,7 +16,7 @@ limitations under the License.
 package cmd
 
 import (
-	"github.com/pulumi/pulumi-kubernetes-operator/agent/version"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/version"
 	"github.com/spf13/cobra"
 )
 

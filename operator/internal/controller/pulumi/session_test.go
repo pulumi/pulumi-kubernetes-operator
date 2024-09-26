@@ -21,10 +21,10 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr/testr"
-	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
-	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
-	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/shared"
-	v1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
+	v1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/stretchr/testify/assert"

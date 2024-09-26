@@ -151,11 +151,11 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
-docker-build: docker-rootless ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t ${IMG}:${VERSION} --build-context agent=../agent --build-arg VERSION=${VERSION} .
+docker-build: docker-nonroot ## Build docker image with the manager.
+	$(CONTAINER_TOOL) build -t ${IMG}:${VERSION} --build-arg VERSION=${VERSION} ..
 
-.PHONY: docker-rootless
-docker-rootless:
+.PHONY: build-nonroot
+docker-nonroot:
 	$(MAKE) -C hack/nonroot
 
 .PHONY: docker-push
@@ -171,10 +171,7 @@ docker-push: ## Push docker image with the manager.
 PLATFORMS ?= linux/arm64,linux/amd64
 .PHONY: docker-buildx
 docker-buildx: ## Build and push docker image for the manager for cross-platform support
-	- $(CONTAINER_TOOL) buildx create --name project-v3-builder
-	$(CONTAINER_TOOL) buildx use project-v3-builder
-	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --build-context agent=../agent --tag ${IMG}:${VERSION} -f Dockerfile .
-	- $(CONTAINER_TOOL) buildx rm project-v3-builder
+	- $(CONTAINER_TOOL) buildx build --push --platform=$(PLATFORMS) --tag ${IMG}:${VERSION} --build-arg VERSION=${VERSION} ..
 
 ##@ Deployment
 

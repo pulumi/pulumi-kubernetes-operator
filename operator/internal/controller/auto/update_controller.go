@@ -23,8 +23,8 @@ import (
 	"io"
 	"time"
 
-	agentpb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
-	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
+	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"

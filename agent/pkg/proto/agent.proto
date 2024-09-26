@@ -3,7 +3,7 @@ syntax = "proto3";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto";
+option go_package = "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto";
 
 package agent;
 

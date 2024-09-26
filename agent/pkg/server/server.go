@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/mitchellh/go-ps"
-	pb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
+	pb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
 	"google.golang.org/grpc/codes"

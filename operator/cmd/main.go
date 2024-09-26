@@ -40,10 +40,10 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
-	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
-	autocontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/auto"
-	pulumicontroller "github.com/pulumi/pulumi-kubernetes-operator/operator/internal/controller/pulumi"
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
+	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	autocontroller "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/controller/auto"
+	pulumicontroller "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/controller/pulumi"
 	//+kubebuilder:scaffold:imports
 )
 
