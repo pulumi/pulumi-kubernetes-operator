@@ -21,7 +21,7 @@ import (
 
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	pb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
+	pb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )

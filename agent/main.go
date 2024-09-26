@@ -15,7 +15,7 @@ limitations under the License.
 */
 package main
 
-import "github.com/pulumi/pulumi-kubernetes-operator/agent/cmd"
+import "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/cmd"
 
 func main() {
 	cmd.Execute()

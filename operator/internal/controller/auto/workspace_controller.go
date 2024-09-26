@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"time"
 
-	agentpb "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
-	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
-	"github.com/pulumi/pulumi-kubernetes-operator/operator/version"
+	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"

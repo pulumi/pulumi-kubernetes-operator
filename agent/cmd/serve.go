@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/server"
-	"github.com/pulumi/pulumi-kubernetes-operator/agent/version"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/server"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/version"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"

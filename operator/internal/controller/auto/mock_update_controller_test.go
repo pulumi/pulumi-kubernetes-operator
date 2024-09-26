@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	proto "github.com/pulumi/pulumi-kubernetes-operator/agent/pkg/proto"
+	proto "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 	metadata "google.golang.org/grpc/metadata"

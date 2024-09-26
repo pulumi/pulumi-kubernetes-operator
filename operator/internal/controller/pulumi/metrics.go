@@ -4,8 +4,8 @@ package pulumi
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/shared"
-	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
+	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 

@@ -33,9 +33,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	fluxsourcev1 "github.com/fluxcd/source-controller/api/v1"
-	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/auto/v1alpha1"
-	pulumicomv1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1"
-	pulumicomv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/operator/api/pulumi/v1alpha1"
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
+	pulumicomv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	pulumicomv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 
