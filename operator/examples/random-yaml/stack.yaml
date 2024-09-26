@@ -23,4 +23,5 @@ spec:
       secret:
         name: pulumi-api-secret
         key: accessToken
-  image: pulumi/pulumi:3.130.0-nonroot
+  image: pulumi/pulumi:3.134.1-nonroot
+

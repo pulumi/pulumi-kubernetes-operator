@@ -52,8 +52,6 @@ func TestE2E(t *testing.T) {
 
 	err := loadImageToKindClusterWithName(projectimage)
 	require.NoError(t, err, "failed to load image into kind")
-	err = loadImageToKindClusterWithName("pulumi/pulumi:3.130.0-nonroot")
-	require.NoError(t, err, "failed to load image into kind")
 
 	cmd = exec.Command("make", "install")
 	require.NoError(t, run(cmd), "failed to install CRDs")
