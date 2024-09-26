@@ -1,50 +1,38 @@
-# Build the operator binary
-FROM --platform=${BUILDPLATFORM} golang:1.23 AS op-builder
-ARG TARGETOS
-ARG TARGETARCH
+# Build a base image with modules cached.
+FROM --platform=${BUILDPLATFORM} golang:1.23 AS base
 
-# Copy the Go Modules manifests
 COPY /go.mod go.mod
 COPY /go.sum go.sum
 
-# cache deps before building and copying source so that we don't need to re-download as much
-# and so that source changes don't invalidate our downloaded layer
-RUN go mod download
+ENV GOCACHE=/root/.cache/go-build
+ENV GOMODCACHE=/go/pkg/mod
+RUN --mount=type=cache,target=${GOMODCACHE} \
+    go mod download
 
-# Copy the go source
-COPY / .
-
-# Build
-# the GOARCH has not a default value to allow the binary be built according to the host where the command
-# was called. For example, if we call make docker-build in a local env which has the Apple Silicon M1 SO
-# the docker BUILDPLATFORM arg will be linux/arm64 when for Apple x86 it will be linux/amd64. Therefore,
-# by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
+# Build the operator.
+FROM --platform=${BUILDPLATFORM} base AS op-builder
+ARG TARGETOS
+ARG TARGETARCH
 
 ARG VERSION
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o /manager -ldflags="-X github.com/pulumi/pulumi-kubernetes-operator/v2/operator/version.Version=${VERSION}" ./operator/cmd/main.go
+RUN --mount=type=cache,target=${GOCACHE} \
+    --mount=type=cache,target=${GOMODCACHE} \
+    --mount=type=bind,source=/agent,target=./agent \
+    --mount=type=bind,source=/operator,target=./operator \
+    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
+    go build -a -o /manager -ldflags="-X github.com/pulumi/pulumi-kubernetes-operator/v2/operator/version.Version=${VERSION}" ./operator/cmd/main.go
 
-# Build the agent binary
-FROM --platform=${BUILDPLATFORM} golang:1.23 AS agent-builder
+# Build the agent.
+FROM --platform=${BUILDPLATFORM} base AS agent-builder
 ARG TARGETOS
 ARG TARGETARCH
 
-# Copy the Go Modules manifests
-COPY /go.mod go.mod
-COPY /go.sum go.sum
-
-# cache deps before building and copying source so that we don't need to re-download as much
-# and so that source changes don't invalidate our downloaded layer
-RUN go mod download
-
-# Copy the go source
-COPY / .
-
-# Build
-# the GOARCH has not a default value to allow the binary be built according to the host where the command
-# was called. For example, if we call make docker-build in a local env which has the Apple Silicon M1 SO
-# the docker BUILDPLATFORM arg will be linux/arm64 when for Apple x86 it will be linux/amd64. Therefore,
-# by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o /agent -ldflags "-X github.com/pulumi/pulumi-kubernetes-operator/v2/agent/version.Version=${VERSION}" ./agent/main.go
+ARG VERSION
+RUN --mount=type=cache,target=${GOCACHE} \
+    --mount=type=cache,target=${GOMODCACHE} \
+    --mount=type=bind,source=/agent,target=./agent \
+    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
+    go build -a -o /agent -ldflags "-X github.com/pulumi/pulumi-kubernetes-operator/v2/agent/version.Version=${VERSION}" ./agent/main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
