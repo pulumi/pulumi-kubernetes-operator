@@ -62,9 +62,6 @@ jobs:
     runs-on: ubuntu-latest
     name: E2E tests
     steps:
-      # Building the rootless image currently eats up all of our free disk.
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
       - name: Setup cluster
         uses: helm/kind-action@v1
         with:
