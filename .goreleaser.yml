@@ -78,7 +78,6 @@ dockers:
 
     # Templates of the Docker image names.
     image_templates:
-    - "pulumi/{{ .ProjectName }}:latest"
     - "pulumi/{{ .ProjectName }}:{{ .Tag }}"
 
     build_flag_templates:
