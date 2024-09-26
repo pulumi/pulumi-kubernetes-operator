@@ -403,7 +403,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 					Containers: []corev1.Container{
 						{
 							Name:            "pulumi",
-							Image:           w.Spec.Image,
+							Image:           getDefaultSSImage(w.Spec.Image, w.Spec.SecurityProfile),
 							ImagePullPolicy: w.Spec.ImagePullPolicy,
 							Resources:       w.Spec.Resources,
 							VolumeMounts: []corev1.VolumeMount{
@@ -672,4 +672,24 @@ func mergePodTemplateSpec(_ context.Context, base *corev1.PodTemplateSpec, patch
 	}
 
 	return patchResult, nil
+}
+
+// getDefaultSSImage returns the default image for the workspace container based on the security profile.
+// If the user had provided an image, then that image is returned.
+func getDefaultSSImage(image string, securityProfile autov1alpha1.SecurityProfile) string {
+	if image != "" {
+		return image
+	}
+
+	switch securityProfile {
+	case autov1alpha1.SecurityProfileRestricted:
+		return autov1alpha1.SecurityProfileRestrictedDefaultImage
+	case autov1alpha1.SecurityProfileBaseline:
+		return autov1alpha1.SecurityProfileBaselineDefaultImage
+	default:
+		// This should not happen, since the securityProfile has a default value.
+		// If for some reason it is empty, then we should default to the baseline image
+		// since we can't tell if the container can run in a restricted environment.
+		return autov1alpha1.SecurityProfileBaselineDefaultImage
+	}
 }
