@@ -3,6 +3,8 @@ kind: ClusterRole
 metadata:
   name: pulumi-kubernetes-operator-edit
   labels:
+    app.kubernetes.io/name: pulumi-kubernetes-operator
+    app.kubernetes.io/managed-by: kustomize
     rbac.authorization.k8s.io/aggregate-to-edit: "true"
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
 rules:
