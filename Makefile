@@ -92,6 +92,8 @@ prep: ## Prepare the next release (use RELEASE=<next-tag>).
 	cd operator && $(MAKE) build-installer
 	cp operator/dist/install.yaml deploy/yaml/install.yaml
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" deploy/deploy-operator-yaml/Pulumi.yaml
+	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" deploy/helm/pulumi-operator/Chart.yaml
+	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" deploy/helm/pulumi-operator/README.md
 
 .PHONY: version
 version:
