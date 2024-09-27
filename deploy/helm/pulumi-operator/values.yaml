@@ -17,36 +17,28 @@ image:
   # -- The image tag to pull, default: `Chart.appVersion`
   tag: ""
 
-controller:
-  # -- Graceful shutdown timeout duration, default: `5m`
-  gracefulShutdownTimeoutDuration: 5m
-  # -- Max concurrent reconciles, default: `10`
-  maxConcurrentReconciles: "10"
-  # -- Pulumi infer namespace, default: `1`
-  pulumiInferNamespace: "1"
-  # -- Kubernetes Cluster Domain, default: `cluster.local`
-  kubernetesClusterDomain: cluster.local
+# -- The image pull secrets
+imagePullSecrets: ""
 
-  # -- List of arguments to pass to the operator
-  args:
-    - --zap-level=error
-    - --zap-time-encoding=iso8601
+controller:
+  # -- Log Level ('debug', 'info', 'error', or any integer value > 0 which corresponds to custom debug levels of increasing verbosity)
+  logLevel: error
 
 # -- Extra Environments to be passed to the operator
 extraEnv: []
 
-# -- Create a ClusterRole resource for the node-red pod. default: false
-createClusterRole: false
-
-## -- Enable this and set the rules: to whatever custom rules you want for the Cluster Role resource.
-clusterRoleRules:
-  # -- Enable custom rules for the application controller's ClusterRole resource default: false
-  enabled: false
-  # -- List of custom rules for the application controller's ClusterRole resource default: []
-  rules: []
-
-# -- The image pull secrets
-imagePullSecrets: ""
+# RBAC settings
+rbac:
+  # -- Specifies whether RBAC resources should be created
+  create: true
+  # -- Specifies whether cluster roles and bindings should be created
+  createClusterRole: true
+  # -- Specifies whether namespaced roles and bindings should be created
+  createRole: false
+  # -- Specifies whether aggregation roles should be created to extend the built-in view and edit roles
+  createClusterAggregationRoles: true
+  # -- Specifies extra rules for the manager role, e.g. for a 3rd party Flux source
+  extraRules: []
 
 # -- Provide a name in place of pulumi-kubernetes-operator
 nameOverride: ""
@@ -71,29 +63,27 @@ podAnnotations: {}
 # -- Deployment annotations
 deploymentAnnotations: {}
 
+# -- Service annotations
+serviceAnnotations: {}
+
 # -- Pod Security Context see [values.yaml](values.yaml)
 podSecurityContext:
-  # -- pulumi-kubernetes-operator group is 1000
-  fsGroup: 1000
-  # -- pulumi-kubernetes-operator user is 1000
-  runAsUser: 1000
+  runAsNonRoot: true
+  # -- pulumi-kubernetes-operator user is 65532
+  runAsUser: 65532
+  # -- pulumi-kubernetes-operator group is 65532
+  runAsGroup: 65532
+  # fsGroup: 65532
 
 # -- Security Context see [values.yaml](values.yaml)
 securityContext:
-  privileged: false
-  runAsNonRoot: true
   allowPrivilegeEscalation: false
   # readOnlyRootFilesystem: true
-  runAsGroup: 10003
-  # runAsUser: 10003
-  seccompProfile:
-    type: RuntimeDefault
+  # seccompProfile:
+  #   type: RuntimeDefault
   capabilities:
     drop:
       - ALL
-
-# -- containers which are run before the app containers are started
-initContainers: []
 
 # -- CPU/Memory resource requests/limits
 resources:
@@ -102,10 +92,10 @@ resources:
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
   limits:
-    cpu: 500m
-    memory: 5123Mi
+    cpu: 200m
+    memory: 128Mi
   requests:
-    cpu: 100m
+    cpu: 200m
     memory: 128Mi
 
 # -- Node selector
@@ -131,10 +121,18 @@ extraVolumeMounts:
 # - name: test
 #   mountPath: /test
 
+extraPorts:
+# - containerPort: 9091
+#   name: http-extra
+#   protocol: TCP
+
 # -- Labels to add to the pulumi-kubernetes-operator pod. default: {}
 podLabels: {}
 
-# -- You can configure extra sidecars containers to run alongside the pulumi-kubernetes-operator pod. default: []
+# -- You can configure extra init containers to run within the pulumi-kubernetes-operator pod. default: []
+initContainers: []
+
+# -- You can configure extra sidecar containers to run within the pulumi-kubernetes-operator pod. default: []
 extraSidecars: []
 #  - name: sidecar-example
 #    image: busybox
@@ -143,11 +141,9 @@ extraSidecars: []
 serviceMonitor:
   # -- When set true then use a ServiceMonitor to configure scraping
   enabled: false
-  # Set the namespace the ServiceMonitor should be deployed
-  # namespace: monitoring
   # Set how frequently Prometheus should scrape
   # interval: 30s
-  # Set path to minecraft-exporter telemtery-path
+  # Set telemetry path
   # telemetryPath: /metrics
   # Set labels for the ServiceMonitor, use this to define your scrape label for Prometheus Operator
   # labels:

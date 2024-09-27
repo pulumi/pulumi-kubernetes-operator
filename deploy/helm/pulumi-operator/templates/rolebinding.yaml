@@ -1,3 +1,4 @@
+{{- if and .Values.rbac.create .Values.rbac.createRole }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -7,8 +8,9 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ include "pulumi-kubernetes-operator.fullname" . }}
+  name: {{ include "pulumi-kubernetes-operator.fullname" . }}-controller-manager
 subjects:
   - kind: ServiceAccount
     name: {{ include "pulumi-kubernetes-operator.serviceAccountName" . }}
-    namespace: '{{ .Release.Namespace }}'
+    namespace: {{ .Release.Namespace | quote }}
+{{ end }}
