@@ -1,17 +1,16 @@
-{{- if .Values.createClusterRole }}
+{{- if and .Values.rbac.create .Values.rbac.createClusterRole }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: {{ include "pulumi-kubernetes-operator.fullname" . }}
-  namespace: {{ .Release.Namespace | quote }}
   labels:
-    {{- include "pulumi-kubernetes-operator.labels" . | nindent 4 }}
+  {{- include "pulumi-kubernetes-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "pulumi-kubernetes-operator.fullname" . }}-controller-manager
 subjects:
   - kind: ServiceAccount
     name: {{ include "pulumi-kubernetes-operator.serviceAccountName" . }}
     namespace: {{ .Release.Namespace | quote }}
-roleRef:
-  kind: ClusterRole
-  name: {{ include "pulumi-kubernetes-operator.fullname" . }}
-  apiGroup: rbac.authorization.k8s.io
 {{- end }}

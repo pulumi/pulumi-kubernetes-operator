@@ -1,0 +1,21 @@
+{{- if and .Values.rbac.create .Values.rbac.createClusterAggregationRoles }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "pulumi-kubernetes-operator.fullname" . }}-view
+  labels:
+  {{- include "pulumi-kubernetes-operator.labels" . | nindent 4 }}
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+rules:
+- apiGroups:
+  - pulumi.com
+  - auto.pulumi.com
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+{{- end }}

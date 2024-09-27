@@ -9,8 +9,8 @@ icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
 
 type: application
 
-version: 0.9.0
-appVersion: 1.14.0
+version: 2.0.0
+appVersion: "v2.0-devel"
 
 keywords:
   - pulumi

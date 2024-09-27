@@ -252,7 +252,7 @@ func (r *ProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// Update the status of the Program object.
 	log.Info("Updating Program status")
 	if err := r.Status().Update(ctx, program, client.FieldOwner(FieldManager)); err != nil {
-		log.Error(err, "unable to update Program status", req.NamespacedName.MarshalLog())
+		log.Error(err, "unable to update Program status")
 		return ctrl.Result{}, err
 	}
 
