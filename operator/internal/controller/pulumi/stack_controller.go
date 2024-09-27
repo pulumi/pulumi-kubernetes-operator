@@ -1331,3 +1331,14 @@ func patchObject[T any, V any](base T, patch V) (*T, error) {
 
 	return &result, nil
 }
+
+func exactlyOneOf(these ...bool) bool {
+	var found bool
+	for _, b := range these {
+		if found && b {
+			return false
+		}
+		found = found || b
+	}
+	return found
+}
