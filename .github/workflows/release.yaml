@@ -32,24 +32,14 @@ jobs:
             pulumi/pulumi-kubernetes-operator:${{ env.VERSION }}
           build-args: |
             VERSION=${{ env.VERSION }}
-  # release:
-  #   runs-on: ubuntu-latest
-  #   name: Tag Release
-  #   steps:
-  #     - name: Check out code
-  #       uses: actions/checkout@v2
-  #     - name: Install Go
-  #       uses: actions/setup-go@v2
-  #       with:
-  #         go-version: 1.23.x
-  #     - name: Login to Docker Hub
-  #       run: |
-  #         echo "${{ secrets.DOCKER_PASSWORD }}" | docker login docker.io -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-  #     - name: Run GoReleaser
-  #       uses: goreleaser/goreleaser-action@v6
-  #       with:
-  #         distribution: goreleaser
-  #         version: '~> v2'
-  #         args: release --clean
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Create a GH release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: pulumi-kubernetes-operator-${{ env.VERSION }}
+          prerelease: ${{ contains(env.VERSION, '-') }}
+          token: ${{ secrets.GITHUB_TOKEN }}
