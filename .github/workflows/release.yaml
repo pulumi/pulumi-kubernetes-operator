@@ -9,6 +9,8 @@ env:
   PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   VERSION: ${{ github.ref_name }}
+permissions:
+  contents: write
 jobs:
   docker:
     name: Build & Push Docker Images
@@ -33,6 +35,8 @@ jobs:
           build-args: |
             VERSION=${{ env.VERSION }}
   release:
+    name: Create a GitHub Release
+    needs: docker
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
