@@ -85,22 +85,13 @@ deploy: ## Deploy controller manager to the K8s cluster specified in ~/.kube/con
 
 ##@ Release
 
-# Run make prep RELEASE=<next-tag> to prep next release
-.PHONY: prep
-prep: prep-spec prep-docs prep-code ## Prepare the next release.
-
-.PHONY: prep-docs
-prep-docs:
+.PHONY: prep 
+prep: ## Prepare the next release (use RELEASE=<next-tag>).
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" README.md
-
-# Run make prep-spec RELEASE=<next-tag> to prep the spec
-.PHONY: prep-spec
-prep-spec:
-	sed -e "s#<IMG_NAME>:<IMG_VERSION>#$(PUBLISH_IMAGE_NAME):$(RELEASE)#g" deploy/operator_template.yaml > deploy/yaml/operator.yaml
-
-.PHONY: prep-code
-prep-code:
-	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" deploy/deploy-operator-ts/index.ts deploy/deploy-operator-py/__main__.py deploy/deploy-operator-go/main.go deploy/deploy-operator-cs/MyStack.cs
+	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" operator/Makefile
+	cd operator && $(MAKE) build-installer
+	cp operator/dist/install.yaml deploy/yaml/install.yaml
+	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" deploy/deploy-operator-yaml/Pulumi.yaml
 
 .PHONY: version
 version:
