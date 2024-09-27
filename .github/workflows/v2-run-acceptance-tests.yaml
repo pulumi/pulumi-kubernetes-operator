@@ -11,7 +11,7 @@ env:
   PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   PULUMI_BOT_TOKEN: ${{ secrets.PULUMI_BOT_TOKEN }}
-
+  VERSION: v0.0-${{ github.sha }}
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -25,8 +25,23 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 1.23.x
-      - name: Make (Build)
-        run: make build
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          push: false
+          load: true
+          platforms: linux/amd64
+          tags: |
+            pulumi/pulumi-kubernetes-operator:${{ env.VERSION }}
+          build-args: |
+            VERSION=${{ env.VERSION }}
 
   unit-tests:
     runs-on: ubuntu-latest
