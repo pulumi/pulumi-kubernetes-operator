@@ -1,6 +1,6 @@
 # Pulumi Kubernetes Operator - Helm Chart
 
-![Version: 0.7.2](https://img.shields.io/badge/Version-0.7.2-informational?style=for-the-badge) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=for-the-badge) ![AppVersion: 1.14.0](https://img.shields.io/badge/AppVersion-1.14.0-informational?style=for-the-badge)
+![Version: 0.7.2](https://img.shields.io/badge/Version-0.7.2-informational?style=for-the-badge) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=for-the-badge) ![AppVersion: v2.0-devel](https://img.shields.io/badge/AppVersion-v2.0-devel-informational?style=for-the-badge)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/pulumi-kubernetes-operator&style=for-the-badge)](https://artifacthub.io/packages/search?repo=pulumi-kubernetes-operator)
 
 ## Description 📜
