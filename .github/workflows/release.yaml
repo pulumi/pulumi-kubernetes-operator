@@ -8,6 +8,7 @@ on:
 env:
   PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  VERSION: ${{ github.ref_name }}
 jobs:
   docker:
     name: Build & Push Docker Images
@@ -28,9 +29,9 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            pulumi/pulumi-kubernetes-operator:${{ github.ref }}
+            pulumi/pulumi-kubernetes-operator:${{ env.VERSION }}
           build-args: |
-            VERSION=${VERSION}
+            VERSION=${{ env.VERSION }}
   # release:
   #   runs-on: ubuntu-latest
   #   name: Tag Release
