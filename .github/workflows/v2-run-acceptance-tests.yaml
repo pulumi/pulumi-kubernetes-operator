@@ -25,13 +25,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 1.23.x
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser-pro
-          # 'latest', 'nightly', or a semver
-          version: "~> v2"
-          args: release --snapshot --clean --skip=docker
+      - name: Make (Build)
+        run: make build
 
   unit-tests:
     runs-on: ubuntu-latest

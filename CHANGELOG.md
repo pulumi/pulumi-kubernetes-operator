@@ -1,7 +1,12 @@
 CHANGELOG
 =========
 
-## HEAD (unreleased)
+## 2.0-beta.0 (2024-09-27)
+
+- New pod-based architecture
+- New installer
+  
+# 1.16.0 (2024-08-26)
 
 ### Fixed
 - Respect `serviceAccount.name` in Helm chart values. [#530](https://github.com/pulumi/pulumi-kubernetes-operator/pull/530)

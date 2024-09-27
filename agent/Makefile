@@ -2,9 +2,6 @@ VERSION ?= $(shell git describe --tags --always --dirty)
 
 all: protoc agent
 
-ensure:
-	go mod tidy
-	
 protoc:
 	cd pkg/proto && protoc --go_out=. --go_opt=paths=source_relative \
     	--go-grpc_out=. --go-grpc_opt=paths=source_relative *.proto
@@ -14,8 +11,8 @@ test:
 	
 agent: protoc
 	go build -o pulumi-kubernetes-agent \
-		-ldflags "-X github.com/pulumi/pulumi-kubernetes-operator/agent/version.Version=${VERSION}" \
-		github.com/pulumi/pulumi-kubernetes-operator/agent
+		-ldflags "-X github.com/pulumi/pulumi-kubernetes-operator/v2/agent/version.Version=${VERSION}" \
+		main.go
 
-.PHONY: all agent protoc ensure test
+.PHONY: all agent protoc test
 
