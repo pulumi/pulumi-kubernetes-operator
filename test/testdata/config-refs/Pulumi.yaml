@@ -1,0 +1,14 @@
+name: config-refs
+runtime: yaml
+description: just a simple project to test config injection
+config:
+  word:
+    type: string
+    default: default-word
+  secret-word:
+    type: string
+    default: i-am-a-secret
+    secret: true
+outputs:
+  word: ${word}
+  secret-word: ${secret-word}
