@@ -28388,14 +28388,13 @@ spec:
     spec:
       containers:
       - args:
+        - /manager
         - --leader-elect
         - --health-probe-bind-address=:8081
         - --metrics-bind-address=:8383
         - --program-fs-adv-addr=pulumi-kubernetes-operator.$(POD_NAMESPACE).svc.cluster.local
         - --zap-log-level=error
         - --zap-time-encoding=iso8601
-        command:
-        - /manager
         env:
         - name: POD_NAMESPACE
           valueFrom:

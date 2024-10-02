@@ -401,7 +401,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 									MountPath: WorkspaceShareMountPath,
 								},
 							},
-							Command: []string{"cp", "/agent", "/tini", "/share/"},
+							Args: []string{"cp", "/agent", "/tini", "/share/"},
 						},
 					},
 					Containers: []corev1.Container{
@@ -509,8 +509,8 @@ ln -s /share/source/$GIT_DIR /share/workspace
 					MountPath: WorkspaceShareMountPath,
 				},
 			},
-			Env:     env,
-			Command: []string{"sh", "-c", script},
+			Env:  env,
+			Args: []string{"sh", "-c", script},
 		}
 		statefulset.Spec.Template.Spec.InitContainers = append(statefulset.Spec.Template.Spec.InitContainers, container)
 	}
@@ -544,7 +544,7 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 					Value: source.Flux.Dir,
 				},
 			},
-			Command: []string{"sh", "-c", script},
+			Args: []string{"sh", "-c", script},
 		}
 		statefulset.Spec.Template.Spec.InitContainers = append(statefulset.Spec.Template.Spec.InitContainers, container)
 	}

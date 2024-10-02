@@ -48,4 +48,5 @@ COPY --from=op-builder /manager /manager
 COPY --from=agent-builder /agent /agent
 USER 65532:65532
 
-ENTRYPOINT ["/manager"]
+ENTRYPOINT ["/tini", "--"]
+CMD ["/manager"]
