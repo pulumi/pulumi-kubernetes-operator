@@ -422,9 +422,10 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 									ContainerPort: WorkspaceGrpcPort,
 								},
 							},
-							Env:     w.Spec.Env,
-							EnvFrom: w.Spec.EnvFrom,
-							Command: command,
+							Env:        w.Spec.Env,
+							EnvFrom:    w.Spec.EnvFrom,
+							Command:    command,
+							WorkingDir: "/share/workspace",
 						},
 					},
 					Volumes: []corev1.Volume{
