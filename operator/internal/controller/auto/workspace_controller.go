@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 
@@ -346,13 +347,15 @@ func labelsForStatefulSet(w *autov1alpha1.Workspace) map[string]string {
 }
 
 func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.StatefulSet, error) {
-	// TODO: get from environment
-	workspaceAgentImage := "pulumi/pulumi-kubernetes-operator:" + version.Version
+	image := os.Getenv("AGENT_IMAGE")
+	if image == "" {
+		image = "pulumi/pulumi-kubernetes-operator:" + version.Version
+	}
 
 	labels := labelsForStatefulSet(w)
 
 	command := []string{
-		"/share/agent", "serve",
+		"/share/tini", "/share/agent", "--", "serve",
 		"--workspace", "/share/workspace",
 		"--skip-install",
 	}
@@ -390,7 +393,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 					InitContainers: []corev1.Container{
 						{
 							Name:            "bootstrap",
-							Image:           workspaceAgentImage,
+							Image:           image,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -398,7 +401,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 									MountPath: WorkspaceShareMountPath,
 								},
 							},
-							Command: []string{"cp", "/agent", "/share/agent"},
+							Command: []string{"cp", "/agent", "/tini", "/share/"},
 						},
 					},
 					Containers: []corev1.Container{
@@ -498,7 +501,7 @@ ln -s /share/source/$GIT_DIR /share/workspace
 
 		container := corev1.Container{
 			Name:            "fetch",
-			Image:           workspaceAgentImage,
+			Image:           image,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -519,7 +522,7 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 		`
 		container := corev1.Container{
 			Name:            "fetch",
-			Image:           workspaceAgentImage,
+			Image:           image,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			VolumeMounts: []corev1.VolumeMount{
 				{

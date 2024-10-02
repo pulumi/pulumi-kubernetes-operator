@@ -1,5 +1,10 @@
 # Build a base image with modules cached.
 FROM --platform=${BUILDPLATFORM} golang:1.23 AS base
+ARG TARGETARCH
+
+# Install tini to reap zombie processes.
+ENV TINI_VERSION v0.19.0
+ADD --chmod=755 https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-${TARGETARCH} /tini
 
 COPY /go.mod go.mod
 COPY /go.sum go.sum
@@ -37,6 +42,8 @@ RUN --mount=type=cache,target=${GOCACHE} \
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/static-debian12:debug-nonroot
+
+COPY --from=base /tini /tini
 COPY --from=op-builder /manager /manager
 COPY --from=agent-builder /agent /agent
 USER 65532:65532
