@@ -23,6 +23,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/go-logr/logr"
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
@@ -218,65 +219,18 @@ func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update
 
 	l.Info("Executing preview operation", "request", autoReq)
 	res, err := client.Preview(ctx, autoReq, grpc.WaitForReady(true))
-	defer func() { _ = res.CloseSend() }()
-
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
-	for {
-		stream, err := res.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			// Preview failed
-			obj.Status.Message = status.Convert(err).Message()
-			u.progressing.Status = metav1.ConditionFalse
-			u.progressing.Reason = UpdateConditionReasonComplete // Stalled?
-			u.complete.Status = metav1.ConditionTrue
-			u.complete.Reason = UpdateConditionReasonComplete // Stalled?
-			u.failed.Status = metav1.ConditionTrue
-			u.failed.Reason = status.Code(err).String()
-			u.failed.Message = obj.Status.Message
-			return ctrl.Result{}, u.updateStatus() // Requeue after?
-		}
+	defer func() { _ = res.CloseSend() }()
 
-		result := stream.GetResult()
-		if result == nil {
-			continue
-		}
-
-		l.Info("Result received", "result", result)
-
-		obj.Status.StartTime = metav1.NewTime(result.Summary.StartTime.AsTime())
-		obj.Status.EndTime = metav1.NewTime(result.Summary.EndTime.AsTime())
-		if result.Permalink != nil {
-			obj.Status.Permalink = *result.Permalink
-		}
-		obj.Status.Message = result.Summary.Message
-		u.progressing.Status = metav1.ConditionFalse
-		u.progressing.Reason = UpdateConditionReasonComplete
-		u.complete.Status = metav1.ConditionTrue
-		u.complete.Reason = UpdateConditionReasonUpdated
-		switch result.Summary.Result {
-		case string(apitype.StatusSucceeded):
-			u.failed.Status = metav1.ConditionFalse
-			u.failed.Reason = result.Summary.Result
-			u.failed.Message = result.Summary.Message
-		default:
-			u.failed.Status = metav1.ConditionTrue
-			u.failed.Reason = result.Summary.Result
-			u.failed.Message = result.Summary.Message
-			// Requeue here?
-		}
-		err = u.updateStatus()
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
-		}
-		return ctrl.Result{}, nil
+	reader := streamReader[agentpb.PreviewStream]{receiver: res, l: l, u: u, obj: obj}
+	_, err = reader.Result()
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, fmt.Errorf("didn't receive a preview result")
+	return ctrl.Result{}, u.updateStatus()
 }
 
 type upper interface {
@@ -311,78 +265,31 @@ func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update,
 
 	l.Info("Executing update operation", "request", autoReq)
 	res, err := client.Up(ctx, autoReq, grpc.WaitForReady(true))
-	defer func() { _ = res.CloseSend() }()
-
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
+	defer func() { _ = res.CloseSend() }()
 
-	for {
-		stream, err := res.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			// Update failed
-			obj.Status.Message = status.Convert(err).Message()
-			u.progressing.Status = metav1.ConditionFalse
-			u.progressing.Reason = UpdateConditionReasonComplete
-			u.complete.Status = metav1.ConditionTrue
-			u.complete.Reason = UpdateConditionReasonComplete
-			u.failed.Status = metav1.ConditionTrue
-			u.failed.Reason = status.Code(err).String()
-			u.failed.Message = obj.Status.Message
-			return ctrl.Result{}, u.updateStatus()
-		}
-
-		result := stream.GetResult()
-		if result == nil {
-			continue
-		}
-
-		l.Info("Result received", "result", result)
-
-		// Create a secret with result.Outputs
-		if result.Outputs != nil {
-			secret, err := outputsToSecret(obj, result.Outputs)
-			if err != nil {
-				return ctrl.Result{}, fmt.Errorf("marshaling outputs: %w", err)
-			}
-			err = kclient.Create(ctx, secret)
-			if err != nil {
-				return ctrl.Result{}, fmt.Errorf("creating output secret: %w", err)
-			}
-			obj.Status.Outputs = secret.Name
-		}
-
-		obj.Status.StartTime = metav1.NewTime(result.Summary.StartTime.AsTime())
-		obj.Status.EndTime = metav1.NewTime(result.Summary.EndTime.AsTime())
-		if result.Permalink != nil {
-			obj.Status.Permalink = *result.Permalink
-		}
-		obj.Status.Message = result.Summary.Message
-		u.progressing.Status = metav1.ConditionFalse
-		u.progressing.Reason = UpdateConditionReasonComplete
-		u.complete.Status = metav1.ConditionTrue
-		u.complete.Reason = UpdateConditionReasonUpdated
-		switch result.Summary.Result {
-		case string(apitype.StatusSucceeded):
-			u.failed.Status = metav1.ConditionFalse
-			u.failed.Reason = result.Summary.Result
-			u.failed.Message = result.Summary.Message
-		default:
-			u.failed.Status = metav1.ConditionTrue
-			u.failed.Reason = result.Summary.Result
-			u.failed.Message = result.Summary.Message
-		}
-		err = u.updateStatus()
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
-		}
-		return ctrl.Result{}, nil
+	reader := streamReader[agentpb.UpStream]{receiver: res, l: l, u: u, obj: obj}
+	result, err := reader.Result()
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, fmt.Errorf("didn't receive an up result")
+	// Create a secret with result.Outputs
+	if r, ok := result.(*agentpb.UpResult); ok && r.Outputs != nil {
+		secret, err := outputsToSecret(obj, r.Outputs)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("marshaling outputs: %w", err)
+		}
+		err = kclient.Create(ctx, secret)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("creating output secret: %w", err)
+		}
+		obj.Status.Outputs = secret.Name
+	}
+
+	return ctrl.Result{}, u.updateStatus()
 }
 
 func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update, client agentpb.AutomationServiceClient) (ctrl.Result, error) {
@@ -398,55 +305,18 @@ func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update
 
 	l.Info("Executing refresh operation", "request", autoReq)
 	res, err := client.Refresh(ctx, autoReq, grpc.WaitForReady(true))
-	defer func() { _ = res.CloseSend() }()
-
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
-	for {
-		stream, err := res.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			// Refresh failed
-		}
+	defer func() { _ = res.CloseSend() }()
 
-		result := stream.GetResult()
-		if result == nil {
-			continue
-		}
-
-		l.Info("Result received", "result", result)
-
-		obj.Status.StartTime = metav1.NewTime(result.Summary.StartTime.AsTime())
-		obj.Status.EndTime = metav1.NewTime(result.Summary.EndTime.AsTime())
-		if result.Permalink != nil {
-			obj.Status.Permalink = *result.Permalink
-		}
-		obj.Status.Message = result.Summary.Message
-		u.progressing.Status = metav1.ConditionFalse
-		u.progressing.Reason = UpdateConditionReasonComplete
-		u.complete.Status = metav1.ConditionTrue
-		u.complete.Reason = UpdateConditionReasonUpdated
-		switch result.Summary.Result {
-		case string(apitype.StatusSucceeded):
-			u.failed.Status = metav1.ConditionFalse
-			u.failed.Reason = result.Summary.Result
-			u.failed.Message = result.Summary.Message
-		default:
-			u.failed.Status = metav1.ConditionTrue
-			u.failed.Reason = result.Summary.Result
-			u.failed.Message = result.Summary.Message
-		}
-		err = u.updateStatus()
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
-		}
-		return ctrl.Result{}, nil
+	reader := streamReader[agentpb.RefreshStream]{receiver: res, l: l, u: u, obj: obj}
+	_, err = reader.Result()
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, fmt.Errorf("didn't receive a refresh result")
+	return ctrl.Result{}, u.updateStatus()
 }
 
 func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update, client agentpb.AutomationServiceClient) (ctrl.Result, error) {
@@ -465,55 +335,18 @@ func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update
 
 	l.Info("Executing destroy operation", "request", autoReq)
 	res, err := client.Destroy(ctx, autoReq, grpc.WaitForReady(true))
-	defer func() { _ = res.CloseSend() }()
-
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
-	for {
-		stream, err := res.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			// Destroy failed
-		}
+	defer func() { _ = res.CloseSend() }()
 
-		result := stream.GetResult()
-		if result == nil {
-			continue
-		}
-
-		l.Info("Result received", "result", result)
-
-		obj.Status.StartTime = metav1.NewTime(result.Summary.StartTime.AsTime())
-		obj.Status.EndTime = metav1.NewTime(result.Summary.EndTime.AsTime())
-		if result.Permalink != nil {
-			obj.Status.Permalink = *result.Permalink
-		}
-		obj.Status.Message = result.Summary.Message
-		u.progressing.Status = metav1.ConditionFalse
-		u.progressing.Reason = UpdateConditionReasonComplete
-		u.complete.Status = metav1.ConditionTrue
-		u.complete.Reason = UpdateConditionReasonUpdated
-		switch result.Summary.Result {
-		case string(apitype.StatusSucceeded):
-			u.failed.Status = metav1.ConditionFalse
-			u.failed.Reason = result.Summary.Result
-			u.failed.Message = result.Summary.Message
-		default:
-			u.failed.Status = metav1.ConditionTrue
-			u.failed.Reason = result.Summary.Result
-			u.failed.Message = result.Summary.Message
-		}
-		err = u.updateStatus()
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
-		}
-		return ctrl.Result{}, nil
+	reader := streamReader[agentpb.DestroyStream]{receiver: res, l: l, u: u, obj: obj}
+	_, err = reader.Result()
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, fmt.Errorf("didn't receive a destroy result")
+	return ctrl.Result{}, u.updateStatus()
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -586,4 +419,131 @@ func outputsToSecret(owner *autov1alpha1.Update, outputs map[string]*agentpb.Out
 	})
 
 	return s, nil
+}
+
+// type summary interface{}
+
+type result interface {
+	GetSummary() *agentpb.UpdateSummary
+	GetPermalink() string
+}
+
+// type stream interface {
+// 	GetResult() result
+// }
+
+//	type stream interface {
+//		*agentpb.UpStream | *agentpb.DestroyStream
+//		GetResult() result
+//	}
+type stream interface {
+	agentpb.UpStream | agentpb.DestroyStream | agentpb.PreviewStream | agentpb.RefreshStream
+}
+
+// type streamz[T streams] interface {
+// 	grpc.ServerStreamingClient[T]
+// }
+
+// type recver2[T streams] interface {
+// 	Recv() (T, error)
+// 	grpc.ClientStream
+// }
+
+// type abc interface {
+// 	GetResult() result
+// }
+
+type streamReader[T stream] struct {
+	receiver grpc.ServerStreamingClient[T]
+	obj      *autov1alpha1.Update
+	u        *reconcileSession
+	l        logr.Logger
+}
+
+type getResulter[T stream] struct {
+	stream *T
+}
+
+func (gr getResulter[T]) GetResult() result {
+	var res result
+	switch s := any(gr.stream).(type) {
+	case *agentpb.UpStream:
+		if r := s.GetResult(); r != nil {
+			res = r
+		}
+	case *agentpb.DestroyStream:
+		if r := s.GetResult(); r != nil {
+			res = r
+		}
+	case *agentpb.PreviewStream:
+		if r := s.GetResult(); r != nil {
+			res = r
+		}
+	case *agentpb.RefreshStream:
+		if r := s.GetResult(); r != nil {
+			res = r
+		}
+	}
+	return res
+}
+
+func (s streamReader[T]) Recv() (getResulter[T], error) {
+	stream, err := s.receiver.Recv()
+	return getResulter[T]{stream}, err
+}
+
+func (s streamReader[T]) Result() (result, error) {
+	var res result
+
+	for {
+		stream, err := s.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			s.l.Error(err, "Update error")
+			// Agent should return failures as responses
+			// Update failed
+			s.obj.Status.Message = status.Convert(err).Message()
+			s.u.progressing.Status = metav1.ConditionFalse
+			s.u.progressing.Reason = UpdateConditionReasonComplete
+			s.u.complete.Status = metav1.ConditionTrue
+			s.u.complete.Reason = UpdateConditionReasonComplete
+			s.u.failed.Status = metav1.ConditionTrue
+			s.u.failed.Reason = status.Code(err).String()
+			s.u.failed.Message = s.obj.Status.Message
+			return res, nil
+		}
+
+		res = stream.GetResult()
+		if res == nil {
+			continue
+		}
+
+		s.l.Info("Result received", "result", res)
+
+		s.obj.Status.StartTime = metav1.NewTime(res.GetSummary().StartTime.AsTime())
+		s.obj.Status.EndTime = metav1.NewTime(res.GetSummary().EndTime.AsTime())
+		if link := res.GetPermalink(); link != "" {
+			s.obj.Status.Permalink = link
+		}
+		s.obj.Status.Message = res.GetSummary().Message
+		s.u.progressing.Status = metav1.ConditionFalse
+		s.u.progressing.Reason = UpdateConditionReasonComplete
+		s.u.complete.Status = metav1.ConditionTrue
+		s.u.complete.Reason = UpdateConditionReasonUpdated
+		switch res.GetSummary().Result {
+		case string(apitype.StatusSucceeded):
+			s.u.failed.Status = metav1.ConditionFalse
+			s.u.failed.Reason = res.GetSummary().Result
+			s.u.failed.Message = res.GetSummary().Message
+		default:
+			s.u.failed.Status = metav1.ConditionTrue
+			s.u.failed.Reason = res.GetSummary().Result
+			s.u.failed.Message = res.GetSummary().Message
+		}
+		return res, nil
+	}
+
+	return res, fmt.Errorf("didn't receive a result")
 }

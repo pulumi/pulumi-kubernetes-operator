@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"os"
 	"path"
 	"slices"
@@ -679,6 +680,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	if resyncFreq.Seconds() < 60 {
 		resyncFreq = time.Duration(60) * time.Second
 	}
+
+	// more conditional logic around it being failed-but-too-soon-to-retry, so it descends into the "if synced" block.
 	synced := instance.Status.LastUpdate != nil &&
 		instance.Status.LastUpdate.Generation == instance.Generation &&
 		instance.Status.LastUpdate.State == shared.SucceededStackStateMessage &&
@@ -701,6 +704,12 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		}
 
 		requeueAfter := time.Duration(0)
+
+		if instance.Status.LastUpdate.State == shared.FailedStackStateMessage {
+			requeueAfter = 5 * time.Minute // Base retry is ~5 minutes with some fuzz.
+			requeueAfter *= time.Duration(math.Exp2(float64(instance.Status.LastUpdate.Attempts)))
+			requeueAfter = min(24*time.Hour, requeueAfter)
+		}
 		if sess.stack.ContinueResyncOnCommitMatch {
 			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(resyncFreq)))
 		}
@@ -719,6 +728,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		} else if stack.ProgramRef != nil {
 			log.Info("Commit hash unchanged. Will wait for Program update or resync.")
 		}
+
 		return reconcile.Result{RequeueAfter: requeueAfter}, saveStatus()
 	}
 
@@ -798,9 +808,13 @@ func (r *StackReconciler) markStackFailed(sess *StackReconcilerSession, instance
 		LastAttemptedCommit: current.Commit,
 		Permalink:           shared.Permalink(update.Status.Permalink),
 		LastResyncTime:      metav1.Now(),
+		Attempts:            1,
 	}
 	if last != nil {
 		instance.Status.LastUpdate.LastSuccessfulCommit = last.LastSuccessfulCommit
+	}
+	if last != nil && last.LastAttemptedCommit == current.Commit {
+		instance.Status.LastUpdate.Attempts += last.Attempts
 	}
 
 	r.emitEvent(instance, pulumiv1.StackUpdateFailureEvent(), "Failed to update Stack: %s", update.Status.Message)
@@ -832,6 +846,7 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 		instance.Status.Outputs = outputs
 	}
 
+	last := instance.Status.LastUpdate
 	instance.Status.LastUpdate = &shared.StackUpdateState{
 		Generation:           current.Generation,
 		Name:                 update.Name,
@@ -841,6 +856,10 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 		LastSuccessfulCommit: current.Commit,
 		Permalink:            shared.Permalink(update.Status.Permalink),
 		LastResyncTime:       metav1.Now(),
+		Attempts:             int64(1),
+	}
+	if last != nil && last.LastAttemptedCommit == current.Commit {
+		instance.Status.LastUpdate.Attempts += last.Attempts
 	}
 
 	r.emitEvent(instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack.")
