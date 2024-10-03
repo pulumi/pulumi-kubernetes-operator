@@ -318,11 +318,11 @@ func (r *WorkspaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 const (
-	FieldManager             = "pulumi-kubernetes-operator"
-	WorkspaceContainerName   = "server"
-	WorkspaceShareVolumeName = "share"
-	WorkspaceShareMountPath  = "/share"
-	WorkspaceGrpcPort        = 50051
+	FieldManager                 = "pulumi-kubernetes-operator"
+	WorkspacePulumiContainerName = "pulumi"
+	WorkspaceShareVolumeName     = "share"
+	WorkspaceShareMountPath      = "/share"
+	WorkspaceGrpcPort            = 50051
 )
 
 func nameForStatefulSet(w *autov1alpha1.Workspace) string {
@@ -359,6 +359,20 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 		"--workspace", "/share/workspace",
 		"--skip-install",
 	}
+
+	env := w.Spec.Env
+
+	// limit the memory usage to the reserved amount
+	// https://github.com/pulumi/pulumi-kubernetes-operator/issues/698
+	env = append(env, corev1.EnvVar{
+		Name: "AGENT_MEMLIMIT",
+		ValueFrom: &corev1.EnvVarSource{
+			ResourceFieldRef: &corev1.ResourceFieldSelector{
+				ContainerName: WorkspacePulumiContainerName,
+				Resource:      "requests.memory",
+			},
+		},
+	})
 
 	statefulset := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
@@ -406,7 +420,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 					},
 					Containers: []corev1.Container{
 						{
-							Name:            "pulumi",
+							Name:            WorkspacePulumiContainerName,
 							Image:           getDefaultSSImage(w.Spec.Image, w.Spec.SecurityProfile),
 							ImagePullPolicy: w.Spec.ImagePullPolicy,
 							Resources:       w.Spec.Resources,
@@ -422,7 +436,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 									ContainerPort: WorkspaceGrpcPort,
 								},
 							},
-							Env:        w.Spec.Env,
+							Env:        env,
 							EnvFrom:    w.Spec.EnvFrom,
 							Command:    command,
 							WorkingDir: "/share/workspace",
