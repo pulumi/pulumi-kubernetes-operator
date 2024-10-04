@@ -28,6 +28,7 @@ import (
 
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
+	autov1alpha1webhook "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/webhook/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -82,6 +83,14 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	err := r.Get(ctx, req.NamespacedName, w)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// apply defaults to the workspace spec
+	// future: use a mutating webhook to apply defaults
+	defaulter := autov1alpha1webhook.WorkspaceCustomDefaulter{}
+	err = defaulter.Default(ctx, w)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
 	ready := meta.FindStatusCondition(w.Status.Conditions, WorkspaceConditionTypeReady)
@@ -362,6 +371,8 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 
 	env := w.Spec.Env
 
+	// resources := resourcesForStatefulSet(w)
+
 	// limit the memory usage to the reserved amount
 	// https://github.com/pulumi/pulumi-kubernetes-operator/issues/698
 	env = append(env, corev1.EnvVar{
@@ -421,7 +432,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 					Containers: []corev1.Container{
 						{
 							Name:            WorkspacePulumiContainerName,
-							Image:           getDefaultSSImage(w.Spec.Image, w.Spec.SecurityProfile),
+							Image:           w.Spec.Image,
 							ImagePullPolicy: w.Spec.ImagePullPolicy,
 							Resources:       w.Spec.Resources,
 							VolumeMounts: []corev1.VolumeMount{
@@ -691,24 +702,4 @@ func mergePodTemplateSpec(_ context.Context, base *corev1.PodTemplateSpec, patch
 	}
 
 	return patchResult, nil
-}
-
-// getDefaultSSImage returns the default image for the StatefulSet container based on the security profile.
-// If the user had provided an image, then that image is returned instead.
-func getDefaultSSImage(image string, securityProfile autov1alpha1.SecurityProfile) string {
-	if image != "" {
-		return image
-	}
-
-	switch securityProfile {
-	case autov1alpha1.SecurityProfileRestricted:
-		return autov1alpha1.SecurityProfileRestrictedDefaultImage
-	case autov1alpha1.SecurityProfileBaseline:
-		return autov1alpha1.SecurityProfileBaselineDefaultImage
-	default:
-		// This should not happen, since the securityProfile has a default value.
-		// If for some reason it is empty, then we should default to the baseline image
-		// since we can't tell if the container can run in a restricted environment.
-		return autov1alpha1.SecurityProfileBaselineDefaultImage
-	}
 }

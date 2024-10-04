@@ -34,11 +34,6 @@ const (
 	SecurityProfileBaseline SecurityProfile = "baseline"
 	// SecurityProfileRestricted applies the restricted security profile.
 	SecurityProfileRestricted SecurityProfile = "restricted"
-
-	// SecurityProfileBaselineDefaultImage is the default image used when the security profile is 'baseline'.
-	SecurityProfileBaselineDefaultImage = "pulumi/pulumi:latest"
-	// SecurityProfileRestrictedDefaultImage is the default image used when the security profile is 'restricted'.
-	SecurityProfileRestrictedDefaultImage = "pulumi/pulumi:latest-nonroot"
 )
 
 // WorkspaceSpec defines the desired state of Workspace
