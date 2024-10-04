@@ -22,6 +22,8 @@ The current implementation explicitly emits the following metrics:
 
 1. `stacks_active` - a `gauge` time series that reports the number of currently registered stacks managed by the system
 2. `stacks_failing` - a set of `gauge` time series, labelled by namespace, that gives the number of stacks currently failing (`stack.status.lastUpdate.state` is `failed`)
+3. `stacks_reconciling` - a set of `gauge` time series, labelled by namespace, that gives the number of stacks currently reconciling (`stack.status.conditions` contains a Condition of type `Reconciling` that is `True`)
+4. `programs_active` - a `gauge` time series that reports the number of currently registered programs managed by the system
 
 In addition, we find tracking the following metrics emitted by the controller-runtime would be useful to track:
 
