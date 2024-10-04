@@ -371,8 +371,6 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 
 	env := w.Spec.Env
 
-	// resources := resourcesForStatefulSet(w)
-
 	// limit the memory usage to the reserved amount
 	// https://github.com/pulumi/pulumi-kubernetes-operator/issues/698
 	env = append(env, corev1.EnvVar{
