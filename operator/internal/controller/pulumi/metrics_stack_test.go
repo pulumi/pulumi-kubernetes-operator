@@ -43,7 +43,6 @@ var _ = Describe("Stack Metrics", func() {
 		})
 
 		It("should increment the numStacks metric", func() {
-			// Call the newStackCallback function
 			newStackCallback(newStack)
 
 			// Check if the numStacks metric has been incremented
@@ -53,11 +52,37 @@ var _ = Describe("Stack Metrics", func() {
 		})
 
 		It("should increment the numStacks metric again if another stack is created", func() {
-			// Call the newStackCallback function
 			newStackCallback(newStack)
 
 			// Check if the numStacks metric has been incremented
 			expected := 2.0
+			actual := testutil.ToFloat64(numStacks)
+			Expect(actual).To(Equal(expected))
+		})
+
+		It("should decrement the numStacks metric if a stack is deleted", func() {
+			deleteStackCallback(newStack)
+
+			// Check if the numStacks metric has been decremented
+			expected := 1.0
+			actual := testutil.ToFloat64(numStacks)
+			Expect(actual).To(Equal(expected))
+		})
+
+		It("should decrement the numStacks metric again if another stack is deleted", func() {
+			deleteStackCallback(newStack)
+
+			// Check if the numStacks metric has been decremented
+			expected := 0.0
+			actual := testutil.ToFloat64(numStacks)
+			Expect(actual).To(Equal(expected))
+		})
+
+		It("should not decrement the numStacks metric if a stack is deleted and the metric is already at 0", func() {
+			deleteStackCallback(newStack)
+
+			// Check if the numStacks metric has been decremented
+			expected := 0.0
 			actual := testutil.ToFloat64(numStacks)
 			Expect(actual).To(Equal(expected))
 		})

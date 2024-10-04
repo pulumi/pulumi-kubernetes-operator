@@ -26,5 +26,10 @@ func newProgramCallback(_ any) {
 
 // updateProgramCallback is a callback that is called when a Program object is updated.
 func deleteProgramCallback(_ any) {
-	numStacks.Dec()
+	numPrograms.Dec()
+
+	val, err := getGaugeValue(numPrograms)
+	if err == nil && val < 0 {
+		numPrograms.Set(0)
+	}
 }

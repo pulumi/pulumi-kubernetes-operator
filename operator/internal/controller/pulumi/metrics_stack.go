@@ -81,6 +81,11 @@ func updateStackReconcilingMetrics(newStack *pulumiv1.Stack) {
 // deleteStackCallback is a callback that is called when a Stack object is deleted.
 func deleteStackCallback(oldObj any) {
 	numStacks.Dec()
+	val, err := getGaugeValue(numStacks)
+	if err == nil && val < 0 {
+		numStacks.Set(0)
+	}
+
 	oldStack, ok := oldObj.(*pulumiv1.Stack)
 	if !ok {
 		return
@@ -89,5 +94,4 @@ func deleteStackCallback(oldObj any) {
 	// Reset any gauge metrics associated with the old stack.
 	numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(0)
 	numStacksReconciling.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(0)
-
 }
