@@ -93,7 +93,9 @@ deploy: ## Deploy controller manager to the K8s cluster specified in ~/.kube/con
 .PHONY: prep 
 prep: ## Prepare the next release (use RELEASE=<next-tag>).
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" README.md
+	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" agent/version/version.go
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" operator/Makefile
+	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" operator/version/version.go
 	cd operator && $(MAKE) build-installer
 	cp operator/dist/install.yaml deploy/yaml/install.yaml
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" deploy/deploy-operator-yaml/Pulumi.yaml
