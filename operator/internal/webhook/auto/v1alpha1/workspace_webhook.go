@@ -76,7 +76,7 @@ func (d *WorkspaceCustomDefaulter) Default(ctx context.Context, obj runtime.Obje
 		}
 	}
 
-	// default resource requirements here are designed to provide a  "burst"-style workspace.
+	// default resource requirements here are designed to provide a "burstable" workspace.
 	if w.Spec.Resources.Requests == nil {
 		w.Spec.Resources.Requests = corev1.ResourceList{}
 	}

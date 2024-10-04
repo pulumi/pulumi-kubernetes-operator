@@ -3,7 +3,7 @@ FROM --platform=${BUILDPLATFORM} golang:1.23 AS base
 ARG TARGETARCH
 
 # Install tini to reap zombie processes.
-ENV TINI_VERSION v0.19.0
+ENV TINI_VERSION=v0.19.0
 ADD --chmod=755 https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-${TARGETARCH} /tini
 
 COPY /go.mod go.mod
