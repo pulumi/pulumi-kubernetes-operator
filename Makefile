@@ -52,7 +52,7 @@ test:
 ##@ Build
 
 .PHONY: build
-build: build-agent build-operator ## Build the agent and operator binaries. 	
+build: build-agent build-operator build-deploy ## Build the agent and operator binaries and deployment scripts. 	
 
 .PHONY: build-agent
 build-agent: ## Build the agent binary.
@@ -72,6 +72,11 @@ build-image: ## Build the operator image.
 .PHONY: push-image
 push-image: ## Push the operator image.
 	cd operator && $(MAKE) docker-push
+
+.PHONY: build-deploy
+build-deploy: generate-crds ## Build the deployment scripts.
+	cd operator && $(MAKE) build-installer
+	cp operator/dist/install.yaml deploy/yaml/install.yaml
 
 ##@ Deployment
 

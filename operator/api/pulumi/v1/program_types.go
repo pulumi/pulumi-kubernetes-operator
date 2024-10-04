@@ -160,7 +160,7 @@ type Getter struct {
 	State map[string]Expression `json:"state,omitempty"`
 }
 
-// StackStatus defines the observed state of Program.
+// ProgramStatus defines the observed state of Program.
 type ProgramStatus struct {
 	// ObservedGeneration is the last observed generation of the Program
 	// object.

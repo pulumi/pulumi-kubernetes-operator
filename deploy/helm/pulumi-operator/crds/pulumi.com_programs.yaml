@@ -18,6 +18,9 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .status.artifact.url
+      name: URL
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -190,7 +193,35 @@ spec:
                   expressions that can be re-used.
                 type: object
             type: object
+          status:
+            description: ProgramStatus defines the observed state of Program.
+            properties:
+              artifact:
+                description: Artifact represents the last succesful artifact generated
+                  by program reconciliation.
+                properties:
+                  digest:
+                    description: Digest is the digest of the file in the form of '<algorithm>:<checksum>'.
+                    pattern: ^[a-z0-9]+(?:[.+_-][a-z0-9]+)*:[a-zA-Z0-9=_-]+$
+                    type: string
+                  url:
+                    description: |-
+                      URL is the HTTP address of the artifact as exposed by the controller
+                      managing the source spec. It can be used to retrieve the artifact for
+                      consumption, e.g. by another controller applying the artifact contents.
+                    type: string
+                required:
+                - url
+                type: object
+              observedGeneration:
+                description: |-
+                  ObservedGeneration is the last observed generation of the Program
+                  object.
+                format: int64
+                type: integer
+            type: object
         type: object
     served: true
     storage: true
-    subresources: {}
+    subresources:
+      status: {}

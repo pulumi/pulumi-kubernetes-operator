@@ -202,7 +202,7 @@ spec:
                 type: object
             type: object
           status:
-            description: StackStatus defines the observed state of Program.
+            description: ProgramStatus defines the observed state of Program.
             properties:
               artifact:
                 description: Artifact represents the last succesful artifact generated
