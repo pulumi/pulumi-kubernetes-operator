@@ -44,47 +44,37 @@ func newStackCallback(obj any) {
 }
 
 // updateStackCallback is a callback that is called when a Stack object is updated.
-func updateStackCallback(oldObj, newObj any) {
-	oldStack, ok := oldObj.(*pulumiv1.Stack)
-	if !ok {
-		return
-	}
-
+func updateStackCallback(_, newObj any) {
 	newStack, ok := newObj.(*pulumiv1.Stack)
 	if !ok {
 		return
 	}
 
-	updateStackFailureMetrics(oldStack, newStack)
-	updateStackReconcilingMetrics(oldStack, newStack)
+	// We always set the gauge to 1 or 0, so we don't need to worry about the previous value. There should be minimal
+	// overhead in setting the gauge to the same value.
+	updateStackFailureMetrics(newStack)
+	updateStackReconcilingMetrics(newStack)
 }
 
-func updateStackFailureMetrics(oldStack, newStack *pulumiv1.Stack) {
+func updateStackFailureMetrics(newStack *pulumiv1.Stack) {
 	if newStack.Status.LastUpdate == nil {
 		return
 	}
 
 	switch newStack.Status.LastUpdate.State {
 	case shared.FailedStackStateMessage:
-		numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(1)
+		numStacksFailing.With(prometheus.Labels{"namespace": newStack.Namespace, "name": newStack.Name}).Set(1)
 	case shared.SucceededStackStateMessage:
-		numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(0)
+		numStacksFailing.With(prometheus.Labels{"namespace": newStack.Namespace, "name": newStack.Name}).Set(0)
 	}
 }
 
-func updateStackReconcilingMetrics(oldStack, newStack *pulumiv1.Stack) {
-	// Handle transition to reconciling state.
-	isReconciling := apimeta.IsStatusConditionTrue(newStack.Status.Conditions, pulumiv1.ReconcilingCondition) &&
-		apimeta.IsStatusConditionFalse(oldStack.Status.Conditions, pulumiv1.ReconcilingCondition)
-	if isReconciling {
-		numStacksReconciling.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(1)
-	}
-
-	// Handle transition to not reconciling state.
-	finishedReconciling := apimeta.IsStatusConditionFalse(newStack.Status.Conditions, pulumiv1.ReconcilingCondition) &&
-		apimeta.IsStatusConditionTrue(oldStack.Status.Conditions, pulumiv1.ReconcilingCondition)
-	if finishedReconciling {
-		numStacksReconciling.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(0)
+func updateStackReconcilingMetrics(newStack *pulumiv1.Stack) {
+	switch apimeta.IsStatusConditionTrue(newStack.Status.Conditions, pulumiv1.ReconcilingCondition) {
+	case true:
+		numStacksReconciling.With(prometheus.Labels{"namespace": newStack.Namespace, "name": newStack.Name}).Set(1)
+	case false:
+		numStacksReconciling.With(prometheus.Labels{"namespace": newStack.Namespace, "name": newStack.Name}).Set(0)
 	}
 }
 
@@ -95,8 +85,9 @@ func deleteStackCallback(oldObj any) {
 	if !ok {
 		return
 	}
-	// assume that if there was a status recorded, this gauge exists
-	if oldStack.Status.LastUpdate != nil {
-		numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(0)
-	}
+
+	// Reset any gauge metrics associated with the old stack.
+	numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(0)
+	numStacksReconciling.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(0)
+
 }
