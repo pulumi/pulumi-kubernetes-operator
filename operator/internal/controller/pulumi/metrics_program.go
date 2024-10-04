@@ -19,10 +19,12 @@ func init() {
 	metrics.Registry.MustRegister(numPrograms)
 }
 
+// newProgramCallback is a callback that is called when a new Program object is created.
 func newProgramCallback(_ any) {
 	numPrograms.Inc()
 }
 
+// updateProgramCallback is a callback that is called when a Program object is updated.
 func deleteProgramCallback(_ any) {
 	numStacks.Dec()
 }

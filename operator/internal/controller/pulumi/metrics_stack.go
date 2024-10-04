@@ -10,13 +10,6 @@ import (
 )
 
 var (
-	numStacks        prometheus.Gauge
-	numStacksFailing *prometheus.GaugeVec
-)
-
-func initMetrics() []prometheus.Collector {
-	var collectors []prometheus.Collector
-
 	numStacks = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "stacks_active",
 		Help: "Number of stacks currently tracked by the Pulumi Kubernetes Operator",
@@ -28,20 +21,19 @@ func initMetrics() []prometheus.Collector {
 		},
 		[]string{"namespace", "name"},
 	)
-
-	collectors = append(collectors, numStacks, numStacksFailing)
-	return collectors
-}
+)
 
 func init() {
 	// Register custom metrics with the global prometheus registry
-	metrics.Registry.MustRegister(initMetrics()...)
+	metrics.Registry.MustRegister(numStacks, numStacksFailing)
 }
 
+// newStackCallback is a callback that is called when a new Stack object is created.
 func newStackCallback(obj interface{}) {
 	numStacks.Inc()
 }
 
+// updateStackCallback is a callback that is called when a Stack object is updated.
 func updateStackCallback(oldObj, newObj interface{}) {
 	oldStack, ok := oldObj.(*pulumiv1.Stack)
 	if !ok {
@@ -64,6 +56,7 @@ func updateStackCallback(oldObj, newObj interface{}) {
 	}
 }
 
+// deleteStackCallback is a callback that is called when a Stack object is deleted.
 func deleteStackCallback(oldObj interface{}) {
 	numStacks.Dec()
 	oldStack, ok := oldObj.(*pulumiv1.Stack)
