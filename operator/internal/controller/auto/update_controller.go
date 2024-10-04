@@ -28,6 +28,7 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -82,38 +83,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	rs := &reconcileSession{}
-	rs.progressing = meta.FindStatusCondition(obj.Status.Conditions, UpdateConditionTypeProgressing)
-	if rs.progressing == nil {
-		rs.progressing = &metav1.Condition{
-			Type:   UpdateConditionTypeProgressing,
-			Status: metav1.ConditionUnknown,
-		}
-	}
-	rs.failed = meta.FindStatusCondition(obj.Status.Conditions, UpdateConditionTypeFailed)
-	if rs.failed == nil {
-		rs.failed = &metav1.Condition{
-			Type:   UpdateConditionTypeFailed,
-			Status: metav1.ConditionUnknown,
-		}
-	}
-	rs.complete = meta.FindStatusCondition(obj.Status.Conditions, UpdateConditionTypeComplete)
-	if rs.complete == nil {
-		rs.complete = &metav1.Condition{
-			Type:   UpdateConditionTypeComplete,
-			Status: metav1.ConditionUnknown,
-		}
-	}
-	rs.updateStatus = func() error {
-		obj.Status.ObservedGeneration = obj.Generation
-		rs.progressing.ObservedGeneration = obj.Generation
-		meta.SetStatusCondition(&obj.Status.Conditions, *rs.progressing)
-		rs.failed.ObservedGeneration = obj.Generation
-		meta.SetStatusCondition(&obj.Status.Conditions, *rs.failed)
-		rs.complete.ObservedGeneration = obj.Generation
-		meta.SetStatusCondition(&obj.Status.Conditions, *rs.complete)
-		return r.Status().Update(ctx, obj)
-	}
+	rs := newReconcileSession(r.Client, obj)
 
 	if rs.complete.Status == metav1.ConditionTrue {
 		l.V(1).Info("Ignoring completed update")
@@ -129,7 +99,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		rs.failed.Reason = "unknown"
 		rs.complete.Status = metav1.ConditionTrue
 		rs.complete.Reason = "Aborted"
-		return ctrl.Result{}, rs.updateStatus()
+		return ctrl.Result{}, rs.updateStatus(ctx, obj)
 	}
 
 	l.Info("Updating the status")
@@ -139,7 +109,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	rs.failed.Reason = UpdateConditionReasonProgressing
 	rs.complete.Status = metav1.ConditionFalse
 	rs.complete.Reason = UpdateConditionReasonProgressing
-	err = rs.updateStatus()
+	err = rs.updateStatus(ctx, obj)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
@@ -165,7 +135,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		rs.failed.Reason = UpdateConditionReasonProgressing
 		rs.complete.Status = metav1.ConditionFalse
 		rs.complete.Reason = UpdateConditionReasonProgressing
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, rs.updateStatus()
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, rs.updateStatus(ctx, obj)
 	}
 	defer func() {
 		_ = conn.Close()
@@ -197,10 +167,52 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 }
 
 type reconcileSession struct {
-	progressing  *metav1.Condition
-	complete     *metav1.Condition
-	failed       *metav1.Condition
-	updateStatus func() error
+	progressing *metav1.Condition
+	complete    *metav1.Condition
+	failed      *metav1.Condition
+	client      client.Client
+}
+
+// newReconcileSession creates a new reconcileSession.
+func newReconcileSession(client client.Client, obj *autov1alpha1.Update) *reconcileSession {
+	rs := &reconcileSession{client: client}
+	rs.progressing = meta.FindStatusCondition(obj.Status.Conditions, UpdateConditionTypeProgressing)
+	if rs.progressing == nil {
+		rs.progressing = &metav1.Condition{
+			Type:   UpdateConditionTypeProgressing,
+			Status: metav1.ConditionUnknown,
+		}
+	}
+	rs.failed = meta.FindStatusCondition(obj.Status.Conditions, UpdateConditionTypeFailed)
+	if rs.failed == nil {
+		rs.failed = &metav1.Condition{
+			Type:   UpdateConditionTypeFailed,
+			Status: metav1.ConditionUnknown,
+		}
+	}
+	rs.complete = meta.FindStatusCondition(obj.Status.Conditions, UpdateConditionTypeComplete)
+	if rs.complete == nil {
+		rs.complete = &metav1.Condition{
+			Type:   UpdateConditionTypeComplete,
+			Status: metav1.ConditionUnknown,
+		}
+	}
+	return rs
+}
+
+func (rs *reconcileSession) updateStatus(ctx context.Context, obj *autov1alpha1.Update) error {
+	obj.Status.ObservedGeneration = obj.Generation
+	rs.progressing.ObservedGeneration = obj.Generation
+	meta.SetStatusCondition(&obj.Status.Conditions, *rs.progressing)
+	rs.failed.ObservedGeneration = obj.Generation
+	meta.SetStatusCondition(&obj.Status.Conditions, *rs.failed)
+	rs.complete.ObservedGeneration = obj.Generation
+	meta.SetStatusCondition(&obj.Status.Conditions, *rs.complete)
+	err := rs.client.Status().Update(ctx, obj)
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("updating status: %w", err)
 }
 
 func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update, client agentpb.AutomationServiceClient) (ctrl.Result, error) {
@@ -230,7 +242,7 @@ func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, u.updateStatus()
+	return ctrl.Result{}, u.updateStatus(ctx, obj)
 }
 
 type upper interface {
@@ -289,7 +301,7 @@ func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update,
 		obj.Status.Outputs = secret.Name
 	}
 
-	return ctrl.Result{}, u.updateStatus()
+	return ctrl.Result{}, u.updateStatus(ctx, obj)
 }
 
 func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update, client agentpb.AutomationServiceClient) (ctrl.Result, error) {
@@ -316,7 +328,7 @@ func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, u.updateStatus()
+	return ctrl.Result{}, u.updateStatus(ctx, obj)
 }
 
 func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update, client agentpb.AutomationServiceClient) (ctrl.Result, error) {
@@ -346,7 +358,7 @@ func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, u.updateStatus()
+	return ctrl.Result{}, u.updateStatus(ctx, obj)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -421,38 +433,15 @@ func outputsToSecret(owner *autov1alpha1.Update, outputs map[string]*agentpb.Out
 	return s, nil
 }
 
-// type summary interface{}
-
-type result interface {
-	GetSummary() *agentpb.UpdateSummary
-	GetPermalink() string
-}
-
-// type stream interface {
-// 	GetResult() result
-// }
-
-//	type stream interface {
-//		*agentpb.UpStream | *agentpb.DestroyStream
-//		GetResult() result
-//	}
+// stream is an interface constraint for the response streams consumable by a
+// streamReader.
 type stream interface {
 	agentpb.UpStream | agentpb.DestroyStream | agentpb.PreviewStream | agentpb.RefreshStream
 }
 
-// type streamz[T streams] interface {
-// 	grpc.ServerStreamingClient[T]
-// }
-
-// type recver2[T streams] interface {
-// 	Recv() (T, error)
-// 	grpc.ClientStream
-// }
-
-// type abc interface {
-// 	GetResult() result
-// }
-
+// streamReader reads an update stream until a result is received. The
+// reconcile session and underlying Update object are updated to reflect the
+// result, but no changes are written back to the API server.
 type streamReader[T stream] struct {
 	receiver grpc.ServerStreamingClient[T]
 	obj      *autov1alpha1.Update
@@ -460,38 +449,18 @@ type streamReader[T stream] struct {
 	l        logr.Logger
 }
 
-type getResulter[T stream] struct {
-	stream *T
-}
-
-func (gr getResulter[T]) GetResult() result {
-	var res result
-	switch s := any(gr.stream).(type) {
-	case *agentpb.UpStream:
-		if r := s.GetResult(); r != nil {
-			res = r
-		}
-	case *agentpb.DestroyStream:
-		if r := s.GetResult(); r != nil {
-			res = r
-		}
-	case *agentpb.PreviewStream:
-		if r := s.GetResult(); r != nil {
-			res = r
-		}
-	case *agentpb.RefreshStream:
-		if r := s.GetResult(); r != nil {
-			res = r
-		}
-	}
-	return res
-}
-
+// Recv reads one message from the stream which may or may not contain a
+// result.
 func (s streamReader[T]) Recv() (getResulter[T], error) {
 	stream, err := s.receiver.Recv()
 	return getResulter[T]{stream}, err
 }
 
+// Result reads from the underlying stream until a Result is received or an
+// error is encountered. A non-nil error is returned if the stream is closed
+// prematurely or if a gRPC error is encountered. Importantly, if the
+// Automation API returns an Unknown error it is assumed that the operation
+// failed; in this case a failed Result is returned with nil error.
 func (s streamReader[T]) Result() (result, error) {
 	var res result
 
@@ -500,10 +469,13 @@ func (s streamReader[T]) Result() (result, error) {
 		if err == io.EOF {
 			break
 		}
+		if err != nil && status.Code(err) != codes.Unknown {
+			// Surface gRPC errors.
+			return nil, err
+		}
 		if err != nil {
-			s.l.Error(err, "Update error")
-			// Agent should return failures as responses
-			// Update failed
+			// For all other errors treat the operation as failed.
+			s.l.Error(err, "Update failed")
 			s.obj.Status.Message = status.Convert(err).Message()
 			s.u.progressing.Status = metav1.ConditionFalse
 			s.u.progressing.Reason = UpdateConditionReasonComplete
@@ -517,7 +489,7 @@ func (s streamReader[T]) Result() (result, error) {
 
 		res = stream.GetResult()
 		if res == nil {
-			continue
+			continue // No result yet.
 		}
 
 		s.l.Info("Result received", "result", res)
@@ -546,4 +518,41 @@ func (s streamReader[T]) Result() (result, error) {
 	}
 
 	return res, fmt.Errorf("didn't receive a result")
+}
+
+// getResulter glues our various result types to a common interface.
+type getResulter[T stream] struct {
+	stream *T
+}
+
+// result captures behavior for all of our stream results.
+type result interface {
+	GetSummary() *agentpb.UpdateSummary
+	GetPermalink() string
+}
+
+// getResult returns nil if the underlying stream doesn't yet have a result;
+// otherwise it returns a result interface wrapping the underlying type. See
+// Update for an example of how to customize result handling.
+func (gr getResulter[T]) GetResult() result {
+	var res result
+	switch s := any(gr.stream).(type) {
+	case *agentpb.UpStream:
+		if r := s.GetResult(); r != nil {
+			res = r
+		}
+	case *agentpb.DestroyStream:
+		if r := s.GetResult(); r != nil {
+			res = r
+		}
+	case *agentpb.PreviewStream:
+		if r := s.GetResult(); r != nil {
+			res = r
+		}
+	case *agentpb.RefreshStream:
+		if r := s.GetResult(); r != nil {
+			res = r
+		}
+	}
+	return res
 }

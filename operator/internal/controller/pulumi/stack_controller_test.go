@@ -526,6 +526,51 @@ var _ = Describe("Stack Controller", func() {
 				By("emitting an event")
 				Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.StackUpdateFailure)))
 			})
+
+			When("retrying", func() {
+				JustBeforeEach(func(ctx context.Context) {
+					obj.Status.LastUpdate = &shared.StackUpdateState{
+						Generation:           1,
+						State:                shared.FailedStackStateMessage,
+						Name:                 "update-retried",
+						Type:                 autov1alpha1.UpType,
+						LastAttemptedCommit:  obj.Status.CurrentUpdate.Commit,
+						LastSuccessfulCommit: "",
+						Attempts:             2,
+					}
+					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
+				})
+				It("increments attempts", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
+					Expect(obj.Status.LastUpdate.Attempts).To(Equal(int64(3)))
+				})
+			})
+
+			When("using a new commit", func() {
+				JustBeforeEach(func(ctx context.Context) {
+					obj.Status.LastUpdate = &shared.StackUpdateState{
+						Generation:           1,
+						State:                shared.FailedStackStateMessage,
+						Name:                 "update-retried-with-new-sha",
+						Type:                 autov1alpha1.UpType,
+						LastAttemptedCommit:  "new-sha",
+						LastSuccessfulCommit: "",
+						Attempts:             2,
+					}
+					Expect(obj.Status.LastUpdate.LastAttemptedCommit).NotTo(Equal(obj.Status.CurrentUpdate.Commit))
+					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
+				})
+				It("resets attempts", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
+					Expect(obj.Status.LastUpdate.Attempts).To(Equal(int64(1)))
+				})
+			})
 		})
 
 		When("the update succeeded", func() {
@@ -565,6 +610,49 @@ var _ = Describe("Stack Controller", func() {
 
 				By("emitting an event")
 				Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.StackUpdateSuccessful)))
+			})
+
+			When("retrying", func() {
+				JustBeforeEach(func(ctx context.Context) {
+					obj.Status.LastUpdate = &shared.StackUpdateState{
+						Generation:           1,
+						State:                shared.FailedStackStateMessage,
+						Name:                 "update-retried",
+						Type:                 autov1alpha1.UpType,
+						LastAttemptedCommit:  obj.Status.CurrentUpdate.Commit,
+						Attempts:             2,
+					}
+					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
+				})
+				It("increments attempts", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
+					Expect(obj.Status.LastUpdate.Attempts).To(Equal(int64(3)))
+				})
+			})
+
+			When("using a new commit", func() {
+				JustBeforeEach(func(ctx context.Context) {
+					obj.Status.LastUpdate = &shared.StackUpdateState{
+						Generation:          1,
+						State:               shared.FailedStackStateMessage,
+						Name:                "update-retried-with-new-sha",
+						Type:                autov1alpha1.UpType,
+						LastAttemptedCommit: "new-sha",
+						Attempts:            2,
+					}
+					Expect(obj.Status.LastUpdate.LastAttemptedCommit).NotTo(Equal(obj.Status.CurrentUpdate.Commit))
+					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
+				})
+				It("resets attempts", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
+					Expect(obj.Status.LastUpdate.Attempts).To(Equal(int64(1)))
+				})
 			})
 
 			When("the update produced outputs", func() {
@@ -623,12 +711,27 @@ var _ = Describe("Stack Controller", func() {
 					LastResyncTime:       metav1.Now(),
 					LastAttemptedCommit:  fluxRepo.Status.Artifact.Digest,
 					LastSuccessfulCommit: "",
+					Attempts:             2,
 				}
 			})
-			It("reconciles", func(ctx context.Context) {
-				_, err := reconcileF(ctx)
-				Expect(err).NotTo(HaveOccurred())
-				ByResyncing()
+			When("within cooldown period", func() {
+				It("backs off exponentially", func(ctx context.Context) {
+					res, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					// 5 minutes * 2^2
+					Expect(res.RequeueAfter).To(BeNumerically("~", time.Duration(20*time.Minute), time.Minute))
+					ByMarkingAsReady()
+				})
+			})
+			When("done cooling down", func() {
+				BeforeEach(func() {
+					obj.Status.LastUpdate.LastResyncTime = metav1.NewTime(time.Now().Add(-1 * time.Hour))
+				})
+				It("reconciles", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					ByResyncing()
+				})
 			})
 		})
 

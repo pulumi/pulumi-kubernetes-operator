@@ -25,13 +25,19 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -100,21 +106,18 @@ func TestUpdate(t *testing.T) {
 		client  func(*gomock.Controller) upper
 		kclient func(*gomock.Controller) creater
 
-		want autov1alpha1.UpdateStatus
+		want    autov1alpha1.UpdateStatus
+		wantErr string
 	}{
 		{
-			name: "with outputs",
-			obj: autov1alpha1.Update{
-				ObjectMeta: metav1.ObjectMeta{Name: "foo", UID: "uid"},
-				Spec:       autov1alpha1.UpdateSpec{},
-				Status:     autov1alpha1.UpdateStatus{},
-			},
+			name: "update success result with outputs",
+			obj:  autov1alpha1.Update{ObjectMeta: metav1.ObjectMeta{Name: "foo", UID: "uid"}},
 			client: func(ctrl *gomock.Controller) upper {
 				upper := NewMockupper(ctrl)
 				recver := NewMockrecver[agentpb.UpStream](ctrl)
 
 				result := &agentpb.UpStream_Result{Result: &agentpb.UpResult{
-					Summary: &agentpb.UpdateSummary{},
+					Summary: &agentpb.UpdateSummary{Result: "succeeded"},
 					Outputs: map[string]*agentpb.OutputValue{
 						"username": {Value: []byte("username")},
 						"password": {Value: []byte("hunter2"), Secret: true},
@@ -156,15 +159,63 @@ func TestUpdate(t *testing.T) {
 				Outputs:   "foo-stack-outputs",
 				StartTime: metav1.NewTime(time.Unix(0, 0).UTC()),
 				EndTime:   metav1.NewTime(time.Unix(0, 0).UTC()),
+				Conditions: []metav1.Condition{
+					{Type: "Progressing", Status: "False", Reason: "Complete"},
+					{Type: "Failed", Status: "False", Reason: "succeeded"},
+					{Type: "Complete", Status: "True", Reason: "Updated"},
+				},
 			},
 		},
 		{
-			name: "update failure",
-			obj: autov1alpha1.Update{
-				ObjectMeta: metav1.ObjectMeta{Name: "foo", UID: "uid"},
-				Spec:       autov1alpha1.UpdateSpec{},
-				Status:     autov1alpha1.UpdateStatus{},
+			// Auto API failures are currently returned as non-nil errors, but
+			// we should also be able to handle explicit "failed" results.
+			name: "update failed result",
+			obj:  autov1alpha1.Update{ObjectMeta: metav1.ObjectMeta{Name: "foo", UID: "uid"}},
+			client: func(ctrl *gomock.Controller) upper {
+				upper := NewMockupper(ctrl)
+				recver := NewMockrecver[agentpb.UpStream](ctrl)
+
+				result := &agentpb.UpStream_Result{Result: &agentpb.UpResult{
+					Summary: &agentpb.UpdateSummary{
+						Result:  "failed",
+						Message: "something went wrong",
+					},
+				}}
+
+				gomock.InOrder(
+					upper.EXPECT().
+						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}, grpc.WaitForReady(true)).
+						Return(recver, nil),
+					recver.EXPECT().
+						Recv().
+						Return(&agentpb.UpStream{Response: &agentpb.UpStream_Event{}}, nil),
+					recver.EXPECT().Recv().Return(&agentpb.UpStream{Response: result}, nil),
+					recver.EXPECT().CloseSend().Return(nil),
+				)
+				return upper
 			},
+			kclient: func(_ *gomock.Controller) creater { return nil },
+			want: autov1alpha1.UpdateStatus{
+				Message:   "something went wrong",
+				StartTime: metav1.NewTime(time.Unix(0, 0).UTC()),
+				EndTime:   metav1.NewTime(time.Unix(0, 0).UTC()),
+				Conditions: []metav1.Condition{
+					{Type: "Progressing", Status: "False", Reason: "Complete"},
+					{
+						Type:    "Failed",
+						Status:  "True",
+						Reason:  "failed",
+						Message: "something went wrong",
+					},
+					{Type: "Complete", Status: "True", Reason: "Updated"},
+				},
+			},
+		},
+		{
+			// Auto API failures are currently returned as non-nil errors,
+			// which we translate into "failed" Results.
+			name: "update failed error",
+			obj:  autov1alpha1.Update{ObjectMeta: metav1.ObjectMeta{Name: "foo", UID: "uid"}},
 			client: func(ctrl *gomock.Controller) upper {
 				upper := NewMockupper(ctrl)
 				recver := NewMockrecver[agentpb.UpStream](ctrl)
@@ -181,27 +232,94 @@ func TestUpdate(t *testing.T) {
 				return upper
 			},
 			kclient: func(*gomock.Controller) creater { return nil },
-			want:    autov1alpha1.UpdateStatus{Message: "failed to run update: exit status 255"},
+			want: autov1alpha1.UpdateStatus{
+				Message: "failed to run update: exit status 255",
+				Conditions: []metav1.Condition{
+					{Type: "Progressing", Status: "False", Reason: "Complete"},
+					{
+						Type:    "Failed",
+						Status:  "True",
+						Reason:  "Unknown",
+						Message: "failed to run update: exit status 255",
+					},
+					{Type: "Complete", Status: "True", Reason: "Complete"},
+				},
+			},
+		},
+		{
+			name: "workspace grpc failure",
+			obj:  autov1alpha1.Update{ObjectMeta: metav1.ObjectMeta{Name: "foo", UID: "uid"}},
+			client: func(ctrl *gomock.Controller) upper {
+				upper := NewMockupper(ctrl)
+
+				gomock.InOrder(
+					upper.EXPECT().
+						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}, grpc.WaitForReady(true)).
+						Return(nil, status.Error(codes.Unavailable, "transient workspace error")),
+				)
+				return upper
+			},
+			kclient: func(*gomock.Controller) creater { return nil },
+			wantErr: "transient workspace error",
+		},
+		{
+			name: "response stream grpc failure",
+			obj:  autov1alpha1.Update{ObjectMeta: metav1.ObjectMeta{Name: "foo", UID: "uid"}},
+			client: func(ctrl *gomock.Controller) upper {
+				upper := NewMockupper(ctrl)
+				recver := NewMockrecver[agentpb.UpStream](ctrl)
+
+				gomock.InOrder(
+					upper.EXPECT().
+						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}, grpc.WaitForReady(true)).
+						Return(recver, nil),
+					recver.EXPECT().
+						Recv().
+						Return(nil, status.Error(codes.Unavailable, "transient stream error")),
+					recver.EXPECT().CloseSend().Return(nil),
+				)
+				return upper
+			},
+			kclient: func(*gomock.Controller) creater { return nil },
+			wantErr: "transient stream error",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := &reconcileSession{
-				progressing:  &metav1.Condition{},
-				complete:     &metav1.Condition{},
-				failed:       &metav1.Condition{},
-				updateStatus: func() error { return nil },
-			}
+			ctx := context.Background()
+			scheme.Scheme.AddKnownTypes(
+				schema.GroupVersion{Group: "auto.pulumi.com", Version: "v1alpha1"},
+				&autov1alpha1.Update{},
+			)
+			builder := fake.NewClientBuilder().
+				WithObjects(&tt.obj).
+				WithStatusSubresource(&tt.obj)
+			rs := newReconcileSession(builder.Build(), &tt.obj)
+
 			ctrl := gomock.NewController(t)
-			_, err := u.Update(
-				context.Background(),
+			_, err := rs.Update(
+				ctx,
 				&tt.obj,
 				tt.client(ctrl),
 				tt.kclient(ctrl),
 			)
+			if tt.wantErr != "" {
+				assert.ErrorContains(t, err, tt.wantErr)
+				return
+			}
 			assert.NoError(t, err)
-			assert.Equal(t, tt.want, tt.obj.Status)
+
+			var res autov1alpha1.Update
+			require.NoError(
+				t,
+				rs.client.Get(
+					ctx,
+					types.NamespacedName{Namespace: tt.obj.Namespace, Name: tt.obj.Name},
+					&res,
+				),
+			)
+			assert.EqualExportedValues(t, tt.want, res.Status)
 		})
 	}
 }

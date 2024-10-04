@@ -681,13 +681,26 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		resyncFreq = time.Duration(60) * time.Second
 	}
 
+	// If the update failed, allow it to be retried with an exponential
+	// cooldown. We start with a 5 minute cooldown and double that for each
+	// failed attempt, up to a max of 24 hours. Failed Updates are considered
+	// synced while inside this cooldown period.
+	cooldown := time.Duration(0)
+	if instance.Status.LastUpdate != nil && instance.Status.LastUpdate.State == shared.FailedStackStateMessage {
+		cooldown = 5 * time.Minute
+		cooldown *= time.Duration(math.Exp2(float64(instance.Status.LastUpdate.Attempts)))
+		cooldown = min(24*time.Hour, cooldown)
+	}
+
 	// more conditional logic around it being failed-but-too-soon-to-retry, so it descends into the "if synced" block.
 	synced := instance.Status.LastUpdate != nil &&
 		instance.Status.LastUpdate.Generation == instance.Generation &&
-		instance.Status.LastUpdate.State == shared.SucceededStackStateMessage &&
-		(isStackMarkedToBeDeleted ||
-			(instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit &&
-				(!sess.stack.ContinueResyncOnCommitMatch || time.Since(instance.Status.LastUpdate.LastResyncTime.Time) < resyncFreq)))
+		((instance.Status.LastUpdate.State == shared.SucceededStackStateMessage &&
+			(isStackMarkedToBeDeleted ||
+				(instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit &&
+					(!sess.stack.ContinueResyncOnCommitMatch || time.Since(instance.Status.LastUpdate.LastResyncTime.Time) < resyncFreq)))) ||
+			(!isStackMarkedToBeDeleted &&
+				instance.Status.LastUpdate.State == shared.FailedStackStateMessage && time.Since(instance.Status.LastUpdate.LastResyncTime.Time) < cooldown))
 
 	if synced {
 		// transition to ready, and requeue reconciliation as necessary to detect
@@ -706,9 +719,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		requeueAfter := time.Duration(0)
 
 		if instance.Status.LastUpdate.State == shared.FailedStackStateMessage {
-			requeueAfter = 5 * time.Minute // Base retry is ~5 minutes with some fuzz.
-			requeueAfter *= time.Duration(math.Exp2(float64(instance.Status.LastUpdate.Attempts)))
-			requeueAfter = min(24*time.Hour, requeueAfter)
+			requeueAfter = time.Until(instance.Status.LastUpdate.LastResyncTime.Add(cooldown))
 		}
 		if sess.stack.ContinueResyncOnCommitMatch {
 			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(resyncFreq)))
