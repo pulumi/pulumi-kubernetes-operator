@@ -6,6 +6,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
@@ -14,10 +15,19 @@ var (
 		Name: "stacks_active",
 		Help: "Number of stacks currently tracked by the Pulumi Kubernetes Operator",
 	})
+
 	numStacksFailing = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "stacks_failing",
 			Help: "Number of stacks currently registered where the last reconcile failed",
+		},
+		[]string{"namespace", "name"},
+	)
+
+	numStacksReconciling = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "stacks_reconciling",
+			Help: "Number of stacks currently registered where the last reconcile is in progress",
 		},
 		[]string{"namespace", "name"},
 	)
@@ -29,12 +39,12 @@ func init() {
 }
 
 // newStackCallback is a callback that is called when a new Stack object is created.
-func newStackCallback(obj interface{}) {
+func newStackCallback(obj any) {
 	numStacks.Inc()
 }
 
 // updateStackCallback is a callback that is called when a Stack object is updated.
-func updateStackCallback(oldObj, newObj interface{}) {
+func updateStackCallback(oldObj, newObj any) {
 	oldStack, ok := oldObj.(*pulumiv1.Stack)
 	if !ok {
 		return
@@ -45,19 +55,41 @@ func updateStackCallback(oldObj, newObj interface{}) {
 		return
 	}
 
-	// transition to failure
-	if newStack.Status.LastUpdate != nil && newStack.Status.LastUpdate.State == shared.FailedStackStateMessage {
-		numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(1)
+	updateStackFailureMetrics(oldStack, newStack)
+	updateStackReconcilingMetrics(oldStack, newStack)
+}
+
+func updateStackFailureMetrics(oldStack, newStack *pulumiv1.Stack) {
+	if newStack.Status.LastUpdate == nil {
+		return
 	}
 
-	// transition to success from failure
-	if newStack.Status.LastUpdate != nil && newStack.Status.LastUpdate.State == shared.SucceededStackStateMessage {
+	switch newStack.Status.LastUpdate.State {
+	case shared.FailedStackStateMessage:
+		numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(1)
+	case shared.SucceededStackStateMessage:
 		numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(0)
 	}
 }
 
+func updateStackReconcilingMetrics(oldStack, newStack *pulumiv1.Stack) {
+	// Handle transition to reconciling state.
+	isReconciling := apimeta.IsStatusConditionTrue(newStack.Status.Conditions, pulumiv1.ReconcilingCondition) &&
+		apimeta.IsStatusConditionFalse(oldStack.Status.Conditions, pulumiv1.ReconcilingCondition)
+	if isReconciling {
+		numStacksReconciling.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(1)
+	}
+
+	// Handle transition to not reconciling state.
+	finishedReconciling := apimeta.IsStatusConditionFalse(newStack.Status.Conditions, pulumiv1.ReconcilingCondition) &&
+		apimeta.IsStatusConditionTrue(oldStack.Status.Conditions, pulumiv1.ReconcilingCondition)
+	if finishedReconciling {
+		numStacksReconciling.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}).Set(0)
+	}
+}
+
 // deleteStackCallback is a callback that is called when a Stack object is deleted.
-func deleteStackCallback(oldObj interface{}) {
+func deleteStackCallback(oldObj any) {
 	numStacks.Dec()
 	oldStack, ok := oldObj.(*pulumiv1.Stack)
 	if !ok {
