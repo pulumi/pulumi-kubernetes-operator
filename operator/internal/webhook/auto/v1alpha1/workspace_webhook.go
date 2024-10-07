@@ -70,7 +70,6 @@ func (d *WorkspaceCustomDefaulter) Default(ctx context.Context, obj runtime.Obje
 		switch w.Spec.SecurityProfile {
 		case autov1alpha1.SecurityProfileRestricted:
 			w.Spec.Image = SecurityProfileRestrictedDefaultImage
-		default:
 		case autov1alpha1.SecurityProfileBaseline:
 			w.Spec.Image = SecurityProfileBaselineDefaultImage
 		}
