@@ -16,24 +16,6 @@ limitations under the License.
 
 package pulumi
 
-import (
-	"time"
-)
-
-func min(a, b time.Duration) time.Duration {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b time.Duration) time.Duration {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 func exactlyOneOf(these ...bool) bool {
 	var found bool
 	for _, b := range these {
