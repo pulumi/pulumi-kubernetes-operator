@@ -33,18 +33,18 @@ spec:
         runAsUser: 65532
         runAsGroup: 65532
       containers:
-        - command:
-            - /manager
+        - name: manager
           env:
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
           args:
+            - /manager
             - --leader-elect
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=:8383
-            - --program-fs-adv-addr=pulumi-kubernetes-operator.$(POD_NAMESPACE).svc.cluster.local
+            - --program-fs-adv-addr=pulumi-kubernetes-operator.$(POD_NAMESPACE).svc.cluster.local:80
             - --zap-log-level=error
             - --zap-time-encoding=iso8601
           ports:
@@ -56,7 +56,6 @@ spec:
             protocol: TCP
           image: controller:latest
           imagePullPolicy: IfNotPresent
-          name: manager
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

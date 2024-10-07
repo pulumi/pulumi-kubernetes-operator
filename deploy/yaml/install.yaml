@@ -9569,8 +9569,12 @@ spec:
                         type: object
                       securityProfile:
                         default: restricted
-                        description: SecurityProfile applies a security profile to
-                          the workspace, 'restricted' by default.
+                        description: |-
+                          SecurityProfile applies a security profile to the workspace.
+                          The restricted profile (default) runs the pod as a non-root user and with a security context that conforms with
+                          the Restricted policy of the Pod Security Standards.
+                          The baseline profile runs the pod as the root user and with a security context that conforms with
+                          the Baseline policy of the Pod Security Standards.
                         type: string
                       serviceAccountName:
                         default: default
@@ -19106,8 +19110,12 @@ spec:
                         type: object
                       securityProfile:
                         default: restricted
-                        description: SecurityProfile applies a security profile to
-                          the workspace, 'restricted' by default.
+                        description: |-
+                          SecurityProfile applies a security profile to the workspace.
+                          The restricted profile (default) runs the pod as a non-root user and with a security context that conforms with
+                          the Restricted policy of the Pod Security Standards.
+                          The baseline profile runs the pod as the root user and with a security context that conforms with
+                          the Baseline policy of the Pod Security Standards.
                         type: string
                       serviceAccountName:
                         default: default
@@ -27868,8 +27876,12 @@ spec:
                 type: object
               securityProfile:
                 default: restricted
-                description: SecurityProfile applies a security profile to the workspace,
-                  'restricted' by default.
+                description: |-
+                  SecurityProfile applies a security profile to the workspace.
+                  The restricted profile (default) runs the pod as a non-root user and with a security context that conforms with
+                  the Restricted policy of the Pod Security Standards.
+                  The baseline profile runs the pod as the root user and with a security context that conforms with
+                  the Baseline policy of the Pod Security Standards.
                 type: string
               serviceAccountName:
                 default: default
@@ -28388,14 +28400,13 @@ spec:
     spec:
       containers:
       - args:
+        - /manager
         - --leader-elect
         - --health-probe-bind-address=:8081
         - --metrics-bind-address=:8383
-        - --program-fs-adv-addr=pulumi-kubernetes-operator.$(POD_NAMESPACE).svc.cluster.local
+        - --program-fs-adv-addr=pulumi-kubernetes-operator.$(POD_NAMESPACE).svc.cluster.local:80
         - --zap-log-level=error
         - --zap-time-encoding=iso8601
-        command:
-        - /manager
         env:
         - name: POD_NAMESPACE
           valueFrom:

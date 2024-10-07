@@ -33,13 +33,12 @@ spec:
       {{- toYaml .Values.extraSidecars  | nindent  8 }}
       {{- end}}
       - name: manager
-        command:
-        - /manager
         args:
+        - /manager
         - --leader-elect
         - --health-probe-bind-address=:8081
         - --metrics-bind-address=:8383
-        - --program-fs-adv-addr=pulumi-kubernetes-operator.$(POD_NAMESPACE).svc.cluster.local
+        - --program-fs-adv-addr=pulumi-kubernetes-operator.$(POD_NAMESPACE).svc.cluster.local:80
         - --zap-log-level={{ .Values.controller.logLevel }}
         - --zap-time-encoding=iso8601
         env:

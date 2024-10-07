@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"syscall"
 
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/server"
@@ -30,6 +31,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var (
@@ -51,6 +53,15 @@ var serveCmd = &cobra.Command{
 
 		log.Infow("Pulumi Kubernetes Agent", "version", version.Version)
 		log.Debugw("executing serve command", "WorkDir", _workDir)
+
+		// limit the agent's memory usage to the configured quantity (e.g. 64Mi)
+		if limit, ok := os.LookupEnv("AGENT_MEMLIMIT"); ok {
+			val := resource.MustParse(limit)
+			if !val.IsZero() {
+				log.Debugf("setting memory limit to %s", limit)
+				debug.SetMemoryLimit(val.Value())
+			}
+		}
 
 		// open the workspace using auto api
 		workspaceOpts := []auto.LocalWorkspaceOption{}
