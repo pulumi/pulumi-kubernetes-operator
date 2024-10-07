@@ -27,7 +27,6 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
@@ -153,7 +152,7 @@ func main() {
 	if programFSAdvAddr == "" {
 		programFSAdvAddr = determineAdvAddr(programFSAddr)
 	}
-	pHandler := newProgramHandler(mgr.GetClient(), programFSAdvAddr)
+	pHandler := pulumicontroller.NewProgramHandler(mgr.GetClient(), programFSAdvAddr)
 
 	if err = (&autocontroller.WorkspaceReconciler{
 		Client:   mgr.GetClient(),
@@ -247,14 +246,6 @@ func (fs pFileserver) Start(ctx context.Context) error {
 	case <-ctx.Done():
 		return server.Shutdown(ctx)
 	}
-}
-
-func newProgramHandler(k8sClient client.Client, advAddr string) *pulumicontroller.ProgramHandler {
-	if advAddr == "" {
-		advAddr = determineAdvAddr(advAddr)
-	}
-
-	return pulumicontroller.NewProgramHandler(k8sClient, advAddr)
 }
 
 func determineAdvAddr(addr string) string {
