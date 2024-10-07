@@ -86,7 +86,7 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.StringVar(&programFSAddr, "program-fs-addr", envOrDefault("PROGRAM_FS_ADDR", ":9090"),
 		"The address the static file server binds to.")
-	flag.StringVar(&programFSAdvAddr, "program-fs-adv-addr", envOrDefault("PROGRAM_FS_ADV_ADDR", "localhost:9090"),
+	flag.StringVar(&programFSAdvAddr, "program-fs-adv-addr", envOrDefault("PROGRAM_FS_ADV_ADDR", ""),
 		"The advertised address of the static file server.")
 	opts := zap.Options{
 		Development: true,
@@ -150,6 +150,9 @@ func main() {
 
 	// Create a new ProgramHandler to handle Program objects. Both the ProgramReconciler and the file server need to
 	// access the ProgramHandler, so it is created here and passed to both.
+	if programFSAdvAddr == "" {
+		programFSAdvAddr = determineAdvAddr(programFSAddr)
+	}
 	pHandler := newProgramHandler(mgr.GetClient(), programFSAdvAddr)
 
 	if err = (&autocontroller.WorkspaceReconciler{
