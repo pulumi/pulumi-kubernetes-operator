@@ -548,28 +548,27 @@ var _ = Describe("Stack Controller", func() {
 					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
 					Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(3)))
 				})
-			})
 
-			When("using a new commit", func() {
-				JustBeforeEach(func(ctx context.Context) {
-					obj.Status.LastUpdate = &shared.StackUpdateState{
-						Generation:           1,
-						State:                shared.FailedStackStateMessage,
-						Name:                 "update-retried-with-new-sha",
-						Type:                 autov1alpha1.UpType,
-						LastAttemptedCommit:  "new-sha",
-						LastSuccessfulCommit: "",
-						Failures:             2,
-					}
-					Expect(obj.Status.LastUpdate.LastAttemptedCommit).NotTo(Equal(obj.Status.CurrentUpdate.Commit))
-					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
-				})
-				It("resets failures", func(ctx context.Context) {
-					_, err := reconcileF(ctx)
-					Expect(err).NotTo(HaveOccurred())
+				When("with a new generation", func() {
+					JustBeforeEach(func(ctx context.Context) {
+						obj.Status.LastUpdate = &shared.StackUpdateState{
+							Generation:           2,
+							State:                shared.FailedStackStateMessage,
+							Name:                 "update-retried-with-new-sha",
+							Type:                 autov1alpha1.UpType,
+							LastAttemptedCommit:  obj.Status.CurrentUpdate.Commit,
+							LastSuccessfulCommit: "",
+							Failures:             2,
+						}
+						Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
+					})
+					It("resets failures", func(ctx context.Context) {
+						_, err := reconcileF(ctx)
+						Expect(err).NotTo(HaveOccurred())
 
-					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
-					Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(0)))
+						Expect(obj.Status.LastUpdate).To(Not(BeNil()))
+						Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(0)))
+					})
 				})
 			})
 		})
@@ -632,27 +631,26 @@ var _ = Describe("Stack Controller", func() {
 					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
 					Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(2)))
 				})
-			})
 
-			When("using a new commit", func() {
-				JustBeforeEach(func(ctx context.Context) {
-					obj.Status.LastUpdate = &shared.StackUpdateState{
-						Generation:          1,
-						State:               shared.FailedStackStateMessage,
-						Name:                "update-retried-with-new-sha",
-						Type:                autov1alpha1.UpType,
-						LastAttemptedCommit: "new-sha",
-						Failures:            2,
-					}
-					Expect(obj.Status.LastUpdate.LastAttemptedCommit).NotTo(Equal(obj.Status.CurrentUpdate.Commit))
-					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
-				})
-				It("resets failures", func(ctx context.Context) {
-					_, err := reconcileF(ctx)
-					Expect(err).NotTo(HaveOccurred())
+				When("with a new generation", func() {
+					JustBeforeEach(func(ctx context.Context) {
+						obj.Status.LastUpdate = &shared.StackUpdateState{
+							Generation:          2,
+							State:               shared.FailedStackStateMessage,
+							Name:                "update-retried-with-new-sha",
+							Type:                autov1alpha1.UpType,
+							LastAttemptedCommit: obj.Status.CurrentUpdate.Commit,
+							Failures:            2,
+						}
+						Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
+					})
+					It("resets failures", func(ctx context.Context) {
+						_, err := reconcileF(ctx)
+						Expect(err).NotTo(HaveOccurred())
 
-					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
-					Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(0)))
+						Expect(obj.Status.LastUpdate).To(Not(BeNil()))
+						Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(0)))
+					})
 				})
 			})
 

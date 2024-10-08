@@ -822,7 +822,7 @@ func (r *StackReconciler) markStackFailed(sess *StackReconcilerSession, instance
 	if last != nil {
 		instance.Status.LastUpdate.LastSuccessfulCommit = last.LastSuccessfulCommit
 	}
-	if last != nil && last.LastAttemptedCommit == current.Commit {
+	if last != nil && last.Generation == current.Generation {
 		instance.Status.LastUpdate.Failures = last.Failures + 1
 	}
 
@@ -866,7 +866,7 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 		Permalink:            shared.Permalink(update.Status.Permalink),
 		LastResyncTime:       metav1.Now(),
 	}
-	if last != nil && last.LastAttemptedCommit == current.Commit {
+	if last != nil && last.Generation == current.Generation {
 		instance.Status.LastUpdate.Failures = last.Failures
 	}
 
