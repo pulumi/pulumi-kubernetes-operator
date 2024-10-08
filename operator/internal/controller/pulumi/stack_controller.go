@@ -718,7 +718,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		requeueAfter := time.Duration(0)
 
 		if instance.Status.LastUpdate.State == shared.FailedStackStateMessage {
-			requeueAfter = time.Until(instance.Status.LastUpdate.LastResyncTime.Add(cooldown))
+			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(cooldown)))
 		}
 		if sess.stack.ContinueResyncOnCommitMatch {
 			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(resyncFreq)))
