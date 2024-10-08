@@ -147,7 +147,7 @@ func (gs gitSource) authMethod() (transport.AuthMethod, error) {
 //
 // The workspace pod is also mutated to mount these references at some
 // well-known paths.
-func (sess *StackReconcilerSession) resolveGitAuth(ctx context.Context) (*auto.GitAuth, error) {
+func (sess *stackReconcilerSession) resolveGitAuth(ctx context.Context) (*auto.GitAuth, error) {
 	auth := &auto.GitAuth{}
 
 	if sess.stack.GitSource == nil {
@@ -240,7 +240,7 @@ func (sess *StackReconcilerSession) resolveGitAuth(ctx context.Context) (*auto.G
 	return auth, nil
 }
 
-func (sess *StackReconcilerSession) setupWorkspaceFromGitSource(ctx context.Context, commit string) error {
+func (sess *stackReconcilerSession) setupWorkspaceFromGitSource(ctx context.Context, commit string) error {
 	gs := sess.stack.GitSource
 	if gs == nil {
 		return fmt.Errorf("missing gitSource")

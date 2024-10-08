@@ -30,6 +30,7 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1297,6 +1298,157 @@ func TestExactlyOneOf(t *testing.T) {
 			if result != tc.expected {
 				t.Errorf("exactlyOneOf(%v) = %v; want %v", tc.input, result, tc.expected)
 			}
+		})
+	}
+}
+
+func TestIsSynced(t *testing.T) {
+	tests := []struct {
+		name          string
+		stack         pulumiv1.Stack
+		currentCommit string
+		deleting      bool
+
+		want bool
+	}{
+		{
+			name:  "no update yet",
+			stack: pulumiv1.Stack{},
+			want:  false,
+		},
+		{
+			name: "generation mismatch",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: int64(2),
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						Generation: int64(1),
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "marked for deletion",
+			stack: pulumiv1.Stack{
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State: shared.SucceededStackStateMessage,
+					},
+				},
+			},
+			deleting: true,
+			want:     true,
+		},
+		{
+			name: "last update succeeeded but a new commit is available",
+			stack: pulumiv1.Stack{
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "old-sha",
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			want:          false,
+		},
+		{
+			name: "last update succeeeded and we don't continue on commit match",
+			stack: pulumiv1.Stack{
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "sha",
+					},
+				},
+			},
+			currentCommit: "sha",
+			want:          true,
+		},
+		{
+			name: "last update succeeeded and we continue on commit match but we're inside the resync interval",
+			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{
+					ContinueResyncOnCommitMatch: true,
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "sha",
+						LastResyncTime:       metav1.Now(),
+					},
+				},
+			},
+			currentCommit: "sha",
+			want:          true,
+		},
+		{
+			name: "last update succeeeded and we continue on commit match and we're outside the resync interval",
+			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{
+					ContinueResyncOnCommitMatch: true,
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "sha",
+						LastResyncTime:       metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+					},
+				},
+			},
+			currentCommit: "sha",
+			want:          false,
+		},
+		{
+			name: "last update failed but we're inside the cooldown interval",
+			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{
+					ContinueResyncOnCommitMatch: true,
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:          shared.FailedStackStateMessage,
+						LastResyncTime: metav1.Now(),
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "last update failed and we're outside the cooldown interval",
+			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{
+					ContinueResyncOnCommitMatch: true,
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:          shared.FailedStackStateMessage,
+						LastResyncTime: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "unrecognized state",
+			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State: "unknown",
+					},
+				},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isSynced(&tt.stack, tt.currentCommit, tt.deleting))
 		})
 	}
 }
