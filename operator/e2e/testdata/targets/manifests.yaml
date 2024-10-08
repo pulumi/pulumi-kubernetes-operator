@@ -61,7 +61,6 @@ spec:
         value: "test"
   workspaceTemplate:
     spec:
-      image: pulumi/pulumi:3.130.0-nonroot
       podTemplate:
         spec:
           containers:
