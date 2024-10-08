@@ -34,11 +34,6 @@ const (
 	SecurityProfileBaseline SecurityProfile = "baseline"
 	// SecurityProfileRestricted applies the restricted security profile.
 	SecurityProfileRestricted SecurityProfile = "restricted"
-
-	// SecurityProfileBaselineDefaultImage is the default image used when the security profile is 'baseline'.
-	SecurityProfileBaselineDefaultImage = "pulumi/pulumi:latest"
-	// SecurityProfileRestrictedDefaultImage is the default image used when the security profile is 'restricted'.
-	SecurityProfileRestrictedDefaultImage = "pulumi/pulumi:latest-nonroot"
 )
 
 // WorkspaceSpec defines the desired state of Workspace
@@ -47,7 +42,11 @@ type WorkspaceSpec struct {
 	// +kubebuilder:default="default"
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
-	// SecurityProfile applies a security profile to the workspace, 'restricted' by default.
+	// SecurityProfile applies a security profile to the workspace.
+	// The restricted profile (default) runs the pod as a non-root user and with a security context that conforms with
+	// the Restricted policy of the Pod Security Standards.
+	// The baseline profile runs the pod as the root user and with a security context that conforms with
+	// the Baseline policy of the Pod Security Standards.
 	// +kubebuilder:default="restricted"
 	// +optional
 	SecurityProfile SecurityProfile `json:"securityProfile,omitempty"`

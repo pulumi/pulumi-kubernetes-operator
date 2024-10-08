@@ -199,7 +199,7 @@ var _ = Describe("Workspace Controller", func() {
 					_, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
 					container := findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
-					Expect(container.Env).To(Equal(obj.Spec.Env))
+					Expect(container.Env).To(ContainElements(obj.Spec.Env))
 				})
 			})
 		})
@@ -215,16 +215,33 @@ var _ = Describe("Workspace Controller", func() {
 					_, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
 					container := findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
-					Expect(container.EnvFrom).To(Equal(obj.Spec.EnvFrom))
+					Expect(container.EnvFrom).To(ContainElements(obj.Spec.EnvFrom))
 				})
 			})
 		})
 
 		Describe("spec.resources", func() {
-			When("resources are set", func() {
+			When("requests are not set", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.Resources = corev1.ResourceRequirements{}
+				})
+				It("configures the resources of the pulumi container", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					container := findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
+					Expect(container.Resources).To(Equal(corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("64Mi"),
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+						},
+					}))
+				})
+			})
+
+			When("requests are set", func() {
 				BeforeEach(func(ctx context.Context) {
 					obj.Spec.Resources = corev1.ResourceRequirements{
-						Limits: corev1.ResourceList{
+						Requests: corev1.ResourceList{
 							corev1.ResourceCPU:    resource.MustParse("1"),
 							corev1.ResourceMemory: resource.MustParse("1Gi"),
 						},

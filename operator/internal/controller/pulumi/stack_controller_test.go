@@ -19,6 +19,7 @@ package pulumi
 import (
 	"context"
 	"fmt"
+	"testing"
 	"time"
 
 	fluxsourcev1 "github.com/fluxcd/source-controller/api/v1"
@@ -615,12 +616,12 @@ var _ = Describe("Stack Controller", func() {
 			When("retrying", func() {
 				JustBeforeEach(func(ctx context.Context) {
 					obj.Status.LastUpdate = &shared.StackUpdateState{
-						Generation:           1,
-						State:                shared.FailedStackStateMessage,
-						Name:                 "update-retried",
-						Type:                 autov1alpha1.UpType,
-						LastAttemptedCommit:  obj.Status.CurrentUpdate.Commit,
-						Attempts:             2,
+						Generation:          1,
+						State:               shared.FailedStackStateMessage,
+						Name:                "update-retried",
+						Type:                autov1alpha1.UpType,
+						LastAttemptedCommit: obj.Status.CurrentUpdate.Commit,
+						Attempts:            2,
 					}
 					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
 				})
@@ -1257,4 +1258,47 @@ var _ = Describe("Stack Controller", func() {
 
 func matchEvent(reason pulumiv1.StackEventReason) gtypes.GomegaMatcher {
 	return ContainSubstring(string(reason))
+}
+
+func TestExactlyOneOf(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []bool
+		expected bool
+	}{
+		{
+			name:     "No true values",
+			input:    []bool{false, false, false},
+			expected: false,
+		},
+		{
+			name:     "One true value",
+			input:    []bool{false, true, false},
+			expected: true,
+		},
+		{
+			name:     "Multiple true values",
+			input:    []bool{true, true, false},
+			expected: false,
+		},
+		{
+			name:     "All true values",
+			input:    []bool{true, true, true},
+			expected: false,
+		},
+		{
+			name:     "Empty input",
+			input:    []bool{},
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := exactlyOneOf(tc.input...)
+			if result != tc.expected {
+				t.Errorf("exactlyOneOf(%v) = %v; want %v", tc.input, result, tc.expected)
+			}
+		})
+	}
 }

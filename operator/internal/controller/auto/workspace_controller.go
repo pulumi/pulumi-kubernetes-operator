@@ -22,11 +22,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
+	autov1alpha1webhook "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/webhook/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -81,6 +83,14 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	err := r.Get(ctx, req.NamespacedName, w)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// apply defaults to the workspace spec
+	// future: use a mutating webhook to apply defaults
+	defaulter := autov1alpha1webhook.WorkspaceCustomDefaulter{}
+	err = defaulter.Default(ctx, w)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
 	ready := meta.FindStatusCondition(w.Status.Conditions, WorkspaceConditionTypeReady)
@@ -317,11 +327,11 @@ func (r *WorkspaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 const (
-	FieldManager             = "pulumi-kubernetes-operator"
-	WorkspaceContainerName   = "server"
-	WorkspaceShareVolumeName = "share"
-	WorkspaceShareMountPath  = "/share"
-	WorkspaceGrpcPort        = 50051
+	FieldManager                 = "pulumi-kubernetes-operator"
+	WorkspacePulumiContainerName = "pulumi"
+	WorkspaceShareVolumeName     = "share"
+	WorkspaceShareMountPath      = "/share"
+	WorkspaceGrpcPort            = 50051
 )
 
 func nameForStatefulSet(w *autov1alpha1.Workspace) string {
@@ -346,16 +356,32 @@ func labelsForStatefulSet(w *autov1alpha1.Workspace) map[string]string {
 }
 
 func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.StatefulSet, error) {
-	// TODO: get from environment
-	workspaceAgentImage := "pulumi/pulumi-kubernetes-operator:" + version.Version
+	image := os.Getenv("AGENT_IMAGE")
+	if image == "" {
+		image = "pulumi/pulumi-kubernetes-operator:" + version.Version
+	}
 
 	labels := labelsForStatefulSet(w)
 
 	command := []string{
-		"/share/agent", "serve",
+		"/share/tini", "/share/agent", "--", "serve",
 		"--workspace", "/share/workspace",
 		"--skip-install",
 	}
+
+	env := w.Spec.Env
+
+	// limit the memory usage to the reserved amount
+	// https://github.com/pulumi/pulumi-kubernetes-operator/issues/698
+	env = append(env, corev1.EnvVar{
+		Name: "AGENT_MEMLIMIT",
+		ValueFrom: &corev1.EnvVarSource{
+			ResourceFieldRef: &corev1.ResourceFieldSelector{
+				ContainerName: WorkspacePulumiContainerName,
+				Resource:      "requests.memory",
+			},
+		},
+	})
 
 	statefulset := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
@@ -390,7 +416,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 					InitContainers: []corev1.Container{
 						{
 							Name:            "bootstrap",
-							Image:           workspaceAgentImage,
+							Image:           image,
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -398,13 +424,13 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 									MountPath: WorkspaceShareMountPath,
 								},
 							},
-							Command: []string{"cp", "/agent", "/share/agent"},
+							Args: []string{"cp", "/agent", "/tini", "/share/"},
 						},
 					},
 					Containers: []corev1.Container{
 						{
-							Name:            "pulumi",
-							Image:           getDefaultSSImage(w.Spec.Image, w.Spec.SecurityProfile),
+							Name:            WorkspacePulumiContainerName,
+							Image:           w.Spec.Image,
 							ImagePullPolicy: w.Spec.ImagePullPolicy,
 							Resources:       w.Spec.Resources,
 							VolumeMounts: []corev1.VolumeMount{
@@ -419,9 +445,10 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 									ContainerPort: WorkspaceGrpcPort,
 								},
 							},
-							Env:     w.Spec.Env,
-							EnvFrom: w.Spec.EnvFrom,
-							Command: command,
+							Env:        env,
+							EnvFrom:    w.Spec.EnvFrom,
+							Command:    command,
+							WorkingDir: "/share/workspace",
 						},
 					},
 					Volumes: []corev1.Volume{
@@ -498,7 +525,7 @@ ln -s /share/source/$GIT_DIR /share/workspace
 
 		container := corev1.Container{
 			Name:            "fetch",
-			Image:           workspaceAgentImage,
+			Image:           image,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -506,8 +533,8 @@ ln -s /share/source/$GIT_DIR /share/workspace
 					MountPath: WorkspaceShareMountPath,
 				},
 			},
-			Env:     env,
-			Command: []string{"sh", "-c", script},
+			Env:  env,
+			Args: []string{"sh", "-c", script},
 		}
 		statefulset.Spec.Template.Spec.InitContainers = append(statefulset.Spec.Template.Spec.InitContainers, container)
 	}
@@ -519,7 +546,7 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 		`
 		container := corev1.Container{
 			Name:            "fetch",
-			Image:           workspaceAgentImage,
+			Image:           image,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -541,7 +568,7 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 					Value: source.Flux.Dir,
 				},
 			},
-			Command: []string{"sh", "-c", script},
+			Args: []string{"sh", "-c", script},
 		}
 		statefulset.Spec.Template.Spec.InitContainers = append(statefulset.Spec.Template.Spec.InitContainers, container)
 	}
@@ -673,24 +700,4 @@ func mergePodTemplateSpec(_ context.Context, base *corev1.PodTemplateSpec, patch
 	}
 
 	return patchResult, nil
-}
-
-// getDefaultSSImage returns the default image for the StatefulSet container based on the security profile.
-// If the user had provided an image, then that image is returned instead.
-func getDefaultSSImage(image string, securityProfile autov1alpha1.SecurityProfile) string {
-	if image != "" {
-		return image
-	}
-
-	switch securityProfile {
-	case autov1alpha1.SecurityProfileRestricted:
-		return autov1alpha1.SecurityProfileRestrictedDefaultImage
-	case autov1alpha1.SecurityProfileBaseline:
-		return autov1alpha1.SecurityProfileBaselineDefaultImage
-	default:
-		// This should not happen, since the securityProfile has a default value.
-		// If for some reason it is empty, then we should default to the baseline image
-		// since we can't tell if the container can run in a restricted environment.
-		return autov1alpha1.SecurityProfileBaselineDefaultImage
-	}
 }
