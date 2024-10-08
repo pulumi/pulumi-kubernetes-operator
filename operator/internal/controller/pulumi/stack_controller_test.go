@@ -401,7 +401,7 @@ var _ = Describe("Stack Controller", func() {
 						State:                shared.FailedStackStateMessage,
 						Name:                 "update-abcdef",
 						Type:                 autov1alpha1.DestroyType,
-						LastResyncTime:       metav1.Now(),
+						LastResyncTime:       metav1.NewTime(time.Now().Add(-1 * time.Hour)),
 						LastAttemptedCommit:  "abcdef",
 						LastSuccessfulCommit: "abcdef",
 					}),

@@ -699,8 +699,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			(isStackMarkedToBeDeleted ||
 				(instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit &&
 					(!sess.stack.ContinueResyncOnCommitMatch || time.Since(instance.Status.LastUpdate.LastResyncTime.Time) < resyncFreq)))) ||
-			(!isStackMarkedToBeDeleted &&
-				instance.Status.LastUpdate.State == shared.FailedStackStateMessage && time.Since(instance.Status.LastUpdate.LastResyncTime.Time) < cooldown))
+			(instance.Status.LastUpdate.State == shared.FailedStackStateMessage && time.Since(instance.Status.LastUpdate.LastResyncTime.Time) < cooldown))
 
 	if synced {
 		// transition to ready, and requeue reconciliation as necessary to detect
