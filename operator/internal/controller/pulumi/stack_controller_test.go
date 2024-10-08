@@ -537,16 +537,16 @@ var _ = Describe("Stack Controller", func() {
 						Type:                 autov1alpha1.UpType,
 						LastAttemptedCommit:  obj.Status.CurrentUpdate.Commit,
 						LastSuccessfulCommit: "",
-						Attempts:             2,
+						Failures:             2,
 					}
 					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
 				})
-				It("increments attempts", func(ctx context.Context) {
+				It("increments failures", func(ctx context.Context) {
 					_, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
-					Expect(obj.Status.LastUpdate.Attempts).To(Equal(int64(3)))
+					Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(3)))
 				})
 			})
 
@@ -559,17 +559,17 @@ var _ = Describe("Stack Controller", func() {
 						Type:                 autov1alpha1.UpType,
 						LastAttemptedCommit:  "new-sha",
 						LastSuccessfulCommit: "",
-						Attempts:             2,
+						Failures:             2,
 					}
 					Expect(obj.Status.LastUpdate.LastAttemptedCommit).NotTo(Equal(obj.Status.CurrentUpdate.Commit))
 					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
 				})
-				It("resets attempts", func(ctx context.Context) {
+				It("resets failures", func(ctx context.Context) {
 					_, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
-					Expect(obj.Status.LastUpdate.Attempts).To(Equal(int64(1)))
+					Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(0)))
 				})
 			})
 		})
@@ -621,16 +621,16 @@ var _ = Describe("Stack Controller", func() {
 						Name:                "update-retried",
 						Type:                autov1alpha1.UpType,
 						LastAttemptedCommit: obj.Status.CurrentUpdate.Commit,
-						Attempts:            2,
+						Failures:            2,
 					}
 					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
 				})
-				It("increments attempts", func(ctx context.Context) {
+				It("doesn't increment failures", func(ctx context.Context) {
 					_, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
-					Expect(obj.Status.LastUpdate.Attempts).To(Equal(int64(3)))
+					Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(2)))
 				})
 			})
 
@@ -642,17 +642,17 @@ var _ = Describe("Stack Controller", func() {
 						Name:                "update-retried-with-new-sha",
 						Type:                autov1alpha1.UpType,
 						LastAttemptedCommit: "new-sha",
-						Attempts:            2,
+						Failures:            2,
 					}
 					Expect(obj.Status.LastUpdate.LastAttemptedCommit).NotTo(Equal(obj.Status.CurrentUpdate.Commit))
 					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
 				})
-				It("resets attempts", func(ctx context.Context) {
+				It("resets failures", func(ctx context.Context) {
 					_, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
-					Expect(obj.Status.LastUpdate.Attempts).To(Equal(int64(1)))
+					Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(0)))
 				})
 			})
 
@@ -712,7 +712,7 @@ var _ = Describe("Stack Controller", func() {
 					LastResyncTime:       metav1.Now(),
 					LastAttemptedCommit:  fluxRepo.Status.Artifact.Digest,
 					LastSuccessfulCommit: "",
-					Attempts:             2,
+					Failures:             2,
 				}
 			})
 			When("within cooldown period", func() {

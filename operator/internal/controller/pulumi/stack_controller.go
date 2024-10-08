@@ -688,7 +688,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	cooldown := time.Duration(0)
 	if instance.Status.LastUpdate != nil && instance.Status.LastUpdate.State == shared.FailedStackStateMessage {
 		cooldown = 5 * time.Minute
-		cooldown *= time.Duration(math.Exp2(float64(instance.Status.LastUpdate.Attempts)))
+		cooldown *= time.Duration(math.Exp2(float64(instance.Status.LastUpdate.Failures)))
 		cooldown = min(24*time.Hour, cooldown)
 	}
 
@@ -819,13 +819,12 @@ func (r *StackReconciler) markStackFailed(sess *StackReconcilerSession, instance
 		LastAttemptedCommit: current.Commit,
 		Permalink:           shared.Permalink(update.Status.Permalink),
 		LastResyncTime:      metav1.Now(),
-		Attempts:            1,
 	}
 	if last != nil {
 		instance.Status.LastUpdate.LastSuccessfulCommit = last.LastSuccessfulCommit
 	}
 	if last != nil && last.LastAttemptedCommit == current.Commit {
-		instance.Status.LastUpdate.Attempts += last.Attempts
+		instance.Status.LastUpdate.Failures = last.Failures + 1
 	}
 
 	r.emitEvent(instance, pulumiv1.StackUpdateFailureEvent(), "Failed to update Stack: %s", update.Status.Message)
@@ -867,10 +866,9 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 		LastSuccessfulCommit: current.Commit,
 		Permalink:            shared.Permalink(update.Status.Permalink),
 		LastResyncTime:       metav1.Now(),
-		Attempts:             int64(1),
 	}
 	if last != nil && last.LastAttemptedCommit == current.Commit {
-		instance.Status.LastUpdate.Attempts += last.Attempts
+		instance.Status.LastUpdate.Failures = last.Failures
 	}
 
 	r.emitEvent(instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack.")
