@@ -22,7 +22,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// WorkspaceStatusApplyConfiguration represents a declarative configuration of the WorkspaceStatus type for use
+// WorkspaceStatusApplyConfiguration represents an declarative configuration of the WorkspaceStatus type for use
 // with apply.
 type WorkspaceStatusApplyConfiguration struct {
 	ObservedGeneration *int64                           `json:"observedGeneration,omitempty"`
@@ -30,7 +30,7 @@ type WorkspaceStatusApplyConfiguration struct {
 	Conditions         []v1.ConditionApplyConfiguration `json:"conditions,omitempty"`
 }
 
-// WorkspaceStatusApplyConfiguration constructs a declarative configuration of the WorkspaceStatus type for use with
+// WorkspaceStatusApplyConfiguration constructs an declarative configuration of the WorkspaceStatus type for use with
 // apply.
 func WorkspaceStatus() *WorkspaceStatusApplyConfiguration {
 	return &WorkspaceStatusApplyConfiguration{}

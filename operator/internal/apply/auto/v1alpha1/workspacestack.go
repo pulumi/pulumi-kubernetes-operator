@@ -18,7 +18,7 @@ limitations under the License.
 
 package v1alpha1
 
-// WorkspaceStackApplyConfiguration represents a declarative configuration of the WorkspaceStack type for use
+// WorkspaceStackApplyConfiguration represents an declarative configuration of the WorkspaceStack type for use
 // with apply.
 type WorkspaceStackApplyConfiguration struct {
 	Name            *string                        `json:"name,omitempty"`
@@ -27,7 +27,7 @@ type WorkspaceStackApplyConfiguration struct {
 	Config          []ConfigItemApplyConfiguration `json:"config,omitempty"`
 }
 
-// WorkspaceStackApplyConfiguration constructs a declarative configuration of the WorkspaceStack type for use with
+// WorkspaceStackApplyConfiguration constructs an declarative configuration of the WorkspaceStack type for use with
 // apply.
 func WorkspaceStack() *WorkspaceStackApplyConfiguration {
 	return &WorkspaceStackApplyConfiguration{}

@@ -24,7 +24,7 @@ import (
 	v1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-// WorkspaceApplyConfiguration represents a declarative configuration of the Workspace type for use
+// WorkspaceApplyConfiguration represents an declarative configuration of the Workspace type for use
 // with apply.
 type WorkspaceApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
@@ -33,7 +33,7 @@ type WorkspaceApplyConfiguration struct {
 	Status                           *WorkspaceStatusApplyConfiguration `json:"status,omitempty"`
 }
 
-// Workspace constructs a declarative configuration of the Workspace type for use with
+// Workspace constructs an declarative configuration of the Workspace type for use with
 // apply.
 func Workspace(name, namespace string) *WorkspaceApplyConfiguration {
 	b := &WorkspaceApplyConfiguration{}
@@ -216,10 +216,4 @@ func (b *WorkspaceApplyConfiguration) WithSpec(value *WorkspaceSpecApplyConfigur
 func (b *WorkspaceApplyConfiguration) WithStatus(value *WorkspaceStatusApplyConfiguration) *WorkspaceApplyConfiguration {
 	b.Status = value
 	return b
-}
-
-// GetName retrieves the value of the Name field in the declarative configuration.
-func (b *WorkspaceApplyConfiguration) GetName() *string {
-	b.ensureObjectMetaApplyConfigurationExists()
-	return b.Name
 }

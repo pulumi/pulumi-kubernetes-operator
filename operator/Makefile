@@ -97,17 +97,17 @@ help: ## Display this help.
 
 .PHONY: manifests
 manifests: controller-gen kustomize ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=pulumi-kubernetes-operator-controller-manager crd:crdVersions=v1,generateEmbeddedObjectMeta=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=pulumi-kubernetes-operator-controller-manager crd:crdVersions=v1,generateEmbeddedObjectMeta=true webhook paths="./api/..." output:crd:artifacts:config=config/crd/bases
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 
 .PHONY: generate
 generate: controller-gen applyconfiguration-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
-	rm -rf internal/apply ; $(APPLYCONFIGURATION_GEN) \
+	$(APPLYCONFIGURATION_GEN) \
 		--go-header-file hack/boilerplate.go.txt \
 		--output-dir internal/apply \
 		--output-pkg github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply \
-        github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1
+		github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -220,7 +220,7 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.2.1
 CONTROLLER_TOOLS_VERSION ?= v0.14.0
-APPLYCONFIGURATION_TOOLS_VERSION ?= v0.31.1
+APPLYCONFIGURATION_TOOLS_VERSION ?= v0.30.1
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
@@ -238,8 +238,7 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 
 .PHONY: applyconfiguration-gen
-applyconfiguration-gen: $(APPLYCONFIGURATION_GEN)
-$(APPLYCONFIGURATION_GEN): $(LOCALBIN)
+applyconfiguration-gen: $(LOCALBIN)
 	test -s $(LOCALBIN)/applyconfiguration-gen && strings $(LOCALBIN)/applyconfiguration-gen | grep -q ^$(APPLYCONFIGURATION_TOOLS_VERSION) || \
 	GOBIN=$(LOCALBIN) go install k8s.io/code-generator/cmd/applyconfiguration-gen@$(APPLYCONFIGURATION_TOOLS_VERSION)
 

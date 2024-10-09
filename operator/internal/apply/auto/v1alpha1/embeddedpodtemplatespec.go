@@ -22,14 +22,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-// EmbeddedPodTemplateSpecApplyConfiguration represents a declarative configuration of the EmbeddedPodTemplateSpec type for use
+// EmbeddedPodTemplateSpecApplyConfiguration represents an declarative configuration of the EmbeddedPodTemplateSpec type for use
 // with apply.
 type EmbeddedPodTemplateSpecApplyConfiguration struct {
 	Metadata *EmbeddedObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	Spec     *v1.PodSpec                           `json:"spec,omitempty"`
 }
 
-// EmbeddedPodTemplateSpecApplyConfiguration constructs a declarative configuration of the EmbeddedPodTemplateSpec type for use with
+// EmbeddedPodTemplateSpecApplyConfiguration constructs an declarative configuration of the EmbeddedPodTemplateSpec type for use with
 // apply.
 func EmbeddedPodTemplateSpec() *EmbeddedPodTemplateSpecApplyConfiguration {
 	return &EmbeddedPodTemplateSpecApplyConfiguration{}

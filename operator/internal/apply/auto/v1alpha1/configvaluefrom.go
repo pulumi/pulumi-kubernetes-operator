@@ -18,14 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
-// ConfigValueFromApplyConfiguration represents a declarative configuration of the ConfigValueFrom type for use
+// ConfigValueFromApplyConfiguration represents an declarative configuration of the ConfigValueFrom type for use
 // with apply.
 type ConfigValueFromApplyConfiguration struct {
 	Env  *string `json:"env,omitempty"`
 	Path *string `json:"path,omitempty"`
 }
 
-// ConfigValueFromApplyConfiguration constructs a declarative configuration of the ConfigValueFrom type for use with
+// ConfigValueFromApplyConfiguration constructs an declarative configuration of the ConfigValueFrom type for use with
 // apply.
 func ConfigValueFrom() *ConfigValueFromApplyConfiguration {
 	return &ConfigValueFromApplyConfiguration{}

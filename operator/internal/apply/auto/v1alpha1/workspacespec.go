@@ -23,7 +23,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-// WorkspaceSpecApplyConfiguration represents a declarative configuration of the WorkspaceSpec type for use
+// WorkspaceSpecApplyConfiguration represents an declarative configuration of the WorkspaceSpec type for use
 // with apply.
 type WorkspaceSpecApplyConfiguration struct {
 	ServiceAccountName *string                                    `json:"serviceAccountName,omitempty"`
@@ -39,7 +39,7 @@ type WorkspaceSpecApplyConfiguration struct {
 	Stacks             []WorkspaceStackApplyConfiguration         `json:"stacks,omitempty"`
 }
 
-// WorkspaceSpecApplyConfiguration constructs a declarative configuration of the WorkspaceSpec type for use with
+// WorkspaceSpecApplyConfiguration constructs an declarative configuration of the WorkspaceSpec type for use with
 // apply.
 func WorkspaceSpec() *WorkspaceSpecApplyConfiguration {
 	return &WorkspaceSpecApplyConfiguration{}
