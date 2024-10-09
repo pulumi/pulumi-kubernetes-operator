@@ -85,6 +85,12 @@ rules:
 - apiGroups:
   - auto.pulumi.com
   resources:
+  - workspaces/rpc
+  verbs:
+  - use
+- apiGroups:
+  - auto.pulumi.com
+  resources:
   - workspaces/status
   verbs:
   - get

@@ -71,6 +71,7 @@ type UpdateReconciler struct {
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates/finalizers,verbs=update
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch
+//+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces/rpc,verbs=use
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=create
 
 // Reconcile manages the Update CRD and initiates Pulumi operations.
