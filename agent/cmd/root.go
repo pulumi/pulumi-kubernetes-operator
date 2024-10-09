@@ -18,11 +18,18 @@ package cmd
 import (
 	"os"
 
+	goflag "flag"
+
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-var verbose bool
+var (
+	verbose     bool
+	kubeContext string
+)
 
 // a command-specific logger
 var log *zap.SugaredLogger
@@ -70,4 +77,14 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
+
+	// register the Kubernetes flags (e.g. for serve command when using Kubernetes RBAC for authorization)
+	fs := goflag.NewFlagSet("kubernetes", goflag.ExitOnError)
+	config.RegisterFlags(fs)
+	rootCmd.PersistentFlags().AddGoFlagSet(fs)
+	rootCmd.PersistentFlags().StringVar(&kubeContext, "context", "", "Kubernetes context override")
+}
+
+func GetKubeConfig() (*rest.Config, error) {
+	return config.GetConfigWithContext(kubeContext)
 }

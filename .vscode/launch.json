@@ -49,6 +49,25 @@
 			"env": {
 				"AWS_REGION": "us-west-1",
 			}
+		},
+		{
+			"name": "Agent (kubernetes)",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "agent",
+			"args": [
+				"serve",
+				"-v=true",
+				"--workspace=${input:workdir}",
+				"-s=dev",
+				"--auth=kube",
+				"--kube-workspace-namespace=default",
+				"--kube-workspace-name=random-yaml"
+			],
+			"env": {
+				"AWS_REGION": "us-west-1",
+			}
 		}
 	],
 	"inputs": [

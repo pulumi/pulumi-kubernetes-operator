@@ -1,0 +1,27 @@
+# Apply this manifest file to create a token with which to authenticate to the agent.
+# To get the token, run the following command: kubectl describe secret/dev-token
+# To test: kubectl auth can-i use workspaces/random-yaml --subresource rpc --as system:serviceaccount:default:dev
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dev
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dev-token
+  annotations:
+    kubernetes.io/service-account.name: dev
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dev:cluster-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: dev

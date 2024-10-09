@@ -25,6 +25,7 @@ import (
 	"runtime/debug"
 	"syscall"
 
+	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/server"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/version"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -32,6 +33,12 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
+)
+
+const (
+	AuthModeNone       = "none"
+	AuthModeKubernetes = "kube"
 )
 
 var (
@@ -40,6 +47,10 @@ var (
 	_stack       string
 	_host        string
 	_port        int
+
+	_authMode           string
+	_workspaceNamespace string
+	_workspaceName      string
 )
 
 // serveCmd represents the serve command
@@ -48,6 +59,20 @@ var serveCmd = &cobra.Command{
 	Short: "Serve the agent RPC service",
 	Long: `Start the agent gRPC server.
 `,
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		if _authMode != AuthModeNone && _authMode != AuthModeKubernetes {
+			return fmt.Errorf("unsupported auth mode: %s", _authMode)
+		}
+		if _authMode == AuthModeKubernetes {
+			if _workspaceNamespace == "" {
+				return fmt.Errorf("--workspace-namespace is required when auth mode is kubernetes")
+			}
+			if _workspaceName == "" {
+				return fmt.Errorf("--workspace-name is required when auth mode is kubernetes")
+			}
+		}
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := cmd.Context()
 
@@ -61,6 +86,30 @@ var serveCmd = &cobra.Command{
 				log.Debugf("setting memory limit to %s", limit)
 				debug.SetMemoryLimit(val.Value())
 			}
+		}
+
+		// Prepare the authorizer function
+		var authFunc grpc_auth.AuthFunc
+		switch _authMode {
+		case AuthModeKubernetes:
+			kubeConfig, err := GetKubeConfig()
+			if err != nil {
+				log.Fatalw("unable to load the kubeconfig", zap.Error(err))
+				os.Exit(1)
+			}
+
+			authFunc, err = server.NewKubeAuth(log.Desugar(), kubeConfig, server.KubeAuthOptions{
+				WorkspaceName: types.NamespacedName{
+					Namespace: _workspaceNamespace,
+					Name:      _workspaceName,
+				},
+			})
+			if err != nil {
+				log.Fatalw("unable to initialize the Kubernetes authorizer", zap.Error(err))
+				os.Exit(1)
+			}
+			log.Infow("activated the Kubernetes authorization mode",
+				zap.String("workspace.namespace", _workspaceNamespace), zap.String("workspace.name", _workspaceName))
 		}
 
 		// open the workspace using auto api
@@ -116,7 +165,7 @@ var serveCmd = &cobra.Command{
 		address := fmt.Sprintf("%s:%d", _host, _port)
 		log.Infow("starting the RPC server", "address", address)
 
-		s := server.NewGRPC(autoServer, log)
+		s := server.NewGRPC(log, autoServer, authFunc)
 
 		// Start the grpc server
 		lis, err := net.Listen("tcp", address)
@@ -166,4 +215,8 @@ func init() {
 
 	serveCmd.Flags().StringVar(&_host, "host", "0.0.0.0", "Server bind address (default: 0.0.0.0)")
 	serveCmd.Flags().IntVar(&_port, "port", 50051, "Server port (default: 50051)")
+
+	serveCmd.Flags().StringVar(&_authMode, "auth", AuthModeNone, "Authorization mode (none, kube)")
+	serveCmd.Flags().StringVar(&_workspaceNamespace, "kube-workspace-namespace", os.Getenv("WORKSPACE_NAMESPACE"), "The Workspace object namespace (for kubernetes auth mode)")
+	serveCmd.Flags().StringVar(&_workspaceName, "kube-workspace-name", os.Getenv("WORKSPACE_NAME"), "The Workspace object name (for kubernetes auth mode)")
 }
