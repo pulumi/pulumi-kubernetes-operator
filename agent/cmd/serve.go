@@ -65,10 +65,10 @@ var serveCmd = &cobra.Command{
 		}
 		if _authMode == AuthModeKubernetes {
 			if _workspaceNamespace == "" {
-				return fmt.Errorf("--workspace-namespace is required when auth mode is kubernetes")
+				return fmt.Errorf("--kube-workspace-namespace is required when auth mode is kubernetes")
 			}
 			if _workspaceName == "" {
-				return fmt.Errorf("--workspace-name is required when auth mode is kubernetes")
+				return fmt.Errorf("--kube-workspace-name is required when auth mode is kubernetes")
 			}
 		}
 		return nil
@@ -216,7 +216,7 @@ func init() {
 	serveCmd.Flags().StringVar(&_host, "host", "0.0.0.0", "Server bind address (default: 0.0.0.0)")
 	serveCmd.Flags().IntVar(&_port, "port", 50051, "Server port (default: 50051)")
 
-	serveCmd.Flags().StringVar(&_authMode, "auth", AuthModeNone, "Authorization mode (none, kube)")
+	serveCmd.Flags().StringVar(&_authMode, "auth-mode", AuthModeNone, "Authorization mode (none, kube)")
 	serveCmd.Flags().StringVar(&_workspaceNamespace, "kube-workspace-namespace", os.Getenv("WORKSPACE_NAMESPACE"), "The Workspace object namespace (for kubernetes auth mode)")
 	serveCmd.Flags().StringVar(&_workspaceName, "kube-workspace-name", os.Getenv("WORKSPACE_NAME"), "The Workspace object name (for kubernetes auth mode)")
 }

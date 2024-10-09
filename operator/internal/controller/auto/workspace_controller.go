@@ -218,6 +218,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	defer func() {
 		_ = conn.Close()
 	}()
+	l.Info("Connected to workspace pod", "addr", addr)
 	w.Status.Address = addr
 	wc := agentpb.NewAutomationServiceClient(conn)
 
@@ -369,7 +370,6 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 		"--workspace", "/share/workspace",
 		"--skip-install",
 	}
-
 	env := w.Spec.Env
 
 	// limit the memory usage to the reserved amount
@@ -383,6 +383,12 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 			},
 		},
 	})
+
+	// enable workspace endpoint protection
+	command = append(command,
+		"--auth-mode", "kube",
+		"--kube-workspace-namespace", w.Namespace,
+		"--kube-workspace-name", w.Name)
 
 	statefulset := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
