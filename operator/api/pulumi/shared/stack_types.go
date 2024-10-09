@@ -1,6 +1,8 @@
 package shared
 
 import (
+	"encoding/json"
+
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	autov1alpha1apply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -133,7 +135,7 @@ type StackSpec struct {
 	// Workspace. Use this to customize the Workspace's image, resources,
 	// volumes, etc.
 	// +optional
-	WorkspaceTemplate *autov1alpha1apply.WorkspaceApplyConfiguration `json:"workspaceTemplate,omitempty"`
+	WorkspaceTemplate *WorkspaceApplyConfiguration `json:"workspaceTemplate,omitempty"`
 }
 
 // GitSource specifies how to fetch from a git repository directly.
@@ -429,4 +431,16 @@ type CurrentStackUpdate struct {
 	Name string `json:"name,omitempty"`
 	// Commit is the commit SHA of the planned update.
 	Commit string `json:"commit,omitempty"`
+}
+
+// WorkspaceApplyConfiguration defines DeepCopy on the underlying applyconfiguration.
+// TODO(https://github.com/kubernetes-sigs/kubebuilder/issues/3692)
+type WorkspaceApplyConfiguration autov1alpha1apply.WorkspaceApplyConfiguration
+
+// DeepCopy round-trips the object.
+func (ac *WorkspaceApplyConfiguration) DeepCopy() *WorkspaceApplyConfiguration {
+	out := new(WorkspaceApplyConfiguration)
+	bytes, _ := json.Marshal(ac)
+	_ = json.Unmarshal(bytes, out)
+	return out
 }

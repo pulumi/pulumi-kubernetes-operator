@@ -25,6 +25,8 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	v1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	apply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
+	metav1apply "k8s.io/client-go/applyconfigurations/meta/v1"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/stretchr/testify/assert"
@@ -357,17 +359,17 @@ func TestSetupWorkspace(t *testing.T) {
 						},
 					},
 				},
-				WorkspaceTemplate: &autov1alpha1.EmbeddedWorkspaceTemplateSpec{
-					Metadata: autov1alpha1.EmbeddedObjectMeta{
+				WorkspaceTemplate: &shared.WorkspaceApplyConfiguration{
+					ObjectMetaApplyConfiguration: &metav1apply.ObjectMetaApplyConfiguration{
 						Labels: map[string]string{
 							"custom": "label",
 						},
 					},
-					Spec: &autov1alpha1.WorkspaceSpec{
-						Image:              "custom-image",
-						ServiceAccountName: "custom-service-account",
-						PodTemplate: &autov1alpha1.EmbeddedPodTemplateSpec{
-							Metadata: autov1alpha1.EmbeddedObjectMeta{
+					Spec: &apply.WorkspaceSpecApplyConfiguration{
+						Image:              ptr.To("custom-image"),
+						ServiceAccountName: ptr.To("custom-service-account"),
+						PodTemplate: &apply.EmbeddedPodTemplateSpecApplyConfiguration{
+							Metadata: &apply.EmbeddedObjectMetaApplyConfiguration{
 								Annotations: map[string]string{
 									"custom": "pod-annotation",
 								},
