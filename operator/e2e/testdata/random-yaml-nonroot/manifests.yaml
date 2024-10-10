@@ -1,3 +1,4 @@
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -17,6 +18,8 @@ spec:
               kubernetes.io/metadata.name: random-yaml-nonroot
         - podSelector:
             matchLabels:
+              app.kubernetes.io/managed-by: pulumi-kubernetes-operator
+              app.kubernetes.io/name: pulumi
               app.kubernetes.io/component: workspace
   policyTypes:
     - Ingress
@@ -25,6 +28,25 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: random-yaml-nonroot
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: random-yaml-nonroot
+  namespace: random-yaml-nonroot
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: random-yaml-nonroot:system:auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: random-yaml-nonroot
+  namespace: random-yaml-nonroot
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -49,26 +71,6 @@ spec:
     branch: master
   timeout: 60s
   url: https://github.com/pulumi/examples
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: random-yaml-nonroot
-  namespace: random-yaml-nonroot
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: random-yaml-nonroot:system:auth-delegator
-  namespace: random-yaml-nonroot
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: system:auth-delegator
-subjects:
-- kind: ServiceAccount
-  name: random-yaml-nonroot
-  namespace: random-yaml-nonroot
 ---
 apiVersion: pulumi.com/v1
 kind: Stack

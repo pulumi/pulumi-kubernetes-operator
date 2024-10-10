@@ -28052,6 +28052,12 @@ metadata:
   name: controller-manager
   namespace: pulumi-kubernetes-operator
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pulumi
+  namespace: pulumi-kubernetes-operator
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -28092,6 +28098,34 @@ rules:
   verbs:
   - create
   - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: metrics-auth-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -28171,6 +28205,12 @@ rules:
   - workspaces/finalizers
   verbs:
   - update
+- apiGroups:
+  - auto.pulumi.com
+  resources:
+  - workspaces/rpc
+  verbs:
+  - use
 - apiGroups:
   - auto.pulumi.com
   resources:
@@ -28343,6 +28383,32 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  name: default:pulumi:system:auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: pulumi
+  namespace: pulumi-kubernetes-operator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: metrics-auth-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: controller-manager
+  namespace: system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: pulumi-kubernetes-operator
@@ -28355,6 +28421,22 @@ subjects:
 - kind: ServiceAccount
   name: controller-manager
   namespace: pulumi-kubernetes-operator
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: controller-manager-metrics-service
+  namespace: pulumi-kubernetes-operator
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    control-plane: controller-manager
 ---
 apiVersion: v1
 kind: Service
@@ -28401,9 +28483,9 @@ spec:
       containers:
       - args:
         - /manager
+        - --metrics-bind-address=:8443
         - --leader-elect
         - --health-probe-bind-address=:8081
-        - --metrics-bind-address=:8383
         - --program-fs-adv-addr=pulumi-kubernetes-operator.$(POD_NAMESPACE).svc.cluster.local:80
         - --zap-log-level=error
         - --zap-time-encoding=iso8601

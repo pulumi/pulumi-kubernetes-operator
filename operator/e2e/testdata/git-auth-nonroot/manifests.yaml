@@ -5,6 +5,25 @@ metadata:
   name: git-auth-nonroot
 ---
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: git-auth-nonroot
+  namespace: git-auth-nonroot
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: git-auth-nonroot:system:auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: git-auth-nonroot
+  namespace: git-auth-nonroot
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: state
@@ -23,26 +42,6 @@ metadata:
   namespace: git-auth-nonroot
 stringData:
   accessToken: $PULUMI_BOT_TOKEN
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: git-auth-nonroot
-  namespace: git-auth-nonroot
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: git-auth-nonroot:system:auth-delegator
-  namespace: git-auth-nonroot
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: system:auth-delegator
-subjects:
-- kind: ServiceAccount
-  name: git-auth-nonroot
-  namespace: git-auth-nonroot
 ---
 apiVersion: pulumi.com/v1
 kind: Stack
