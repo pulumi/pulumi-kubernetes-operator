@@ -28409,6 +28409,19 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  name: default:pulumi:system:auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: pulumi
+  namespace: pulumi-kubernetes-operator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: pulumi-kubernetes-operator
