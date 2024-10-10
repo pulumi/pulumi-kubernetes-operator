@@ -16,6 +16,11 @@ limitations under the License.
 
 package pulumi
 
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
+)
+
 func exactlyOneOf(these ...bool) bool {
 	var found bool
 	for _, b := range these {
@@ -25,4 +30,14 @@ func exactlyOneOf(these ...bool) bool {
 		found = found || b
 	}
 	return found
+}
+
+// getGaugeValue returns the value of a gauge metric. This is useful to check that a gauge
+// does not go into negative values.
+func getGaugeValue(metric prometheus.Gauge) (float64, error) {
+	var m = &dto.Metric{}
+	if err := metric.Write(m); err != nil {
+		return 0, err
+	}
+	return m.Gauge.GetValue(), nil
 }
