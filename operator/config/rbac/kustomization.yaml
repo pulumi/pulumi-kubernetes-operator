@@ -6,4 +6,6 @@ resources:
   - leader_election_role_binding.yaml
   - edit.yaml
   - view.yaml
-  
+  - metrics_auth_role.yaml
+  - metrics_auth_role_binding.yaml
+  - metrics_reader_role.yaml

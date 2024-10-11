@@ -104,6 +104,22 @@ func TestE2E(t *testing.T) {
 				assert.Equal(t, `"foo"`, string(stack.Status.Outputs["simpleOutput"].Raw))
 			},
 		},
+		{
+			name: "targets",
+			f: func(t *testing.T) {
+				t.Parallel()
+
+				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/targets")
+				require.NoError(t, run(cmd))
+				dumpLogs(t, "targets", "pod/targets-workspace-0")
+
+				stack, err := waitFor[pulumiv1.Stack]("stacks/targets", "targets", "condition=Ready", 5*time.Minute)
+				assert.NoError(t, err)
+
+				assert.Contains(t, stack.Status.Outputs, "targeted")
+				assert.NotContains(t, stack.Status.Outputs, "notTargeted")
+			},
+		},
 	}
 
 	for _, tt := range tests {
