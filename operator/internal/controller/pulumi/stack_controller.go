@@ -673,12 +673,12 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 	// Step 3: Evaluate whether an update is needed. If not, we transition to Ready.
 	if isSynced(instance, currentCommit) {
-		// We mark the stack as stalled if its update failed so downstream
+		// We don't mark the stack as read if its update failed so downstream
 		// Stack dependencies aren't triggered.
 		if instance.Status.LastUpdate.State == shared.SucceededStackStateMessage {
 			instance.Status.MarkReadyCondition()
 		} else {
-			instance.Status.MarkStalledCondition(pulumiv1.StalledFailureReason, fmt.Sprintf("%d update failure(s)", instance.Status.LastUpdate.Failures))
+			instance.Status.MarkReconcilingCondition(pulumiv1.StalledFailureReason, fmt.Sprintf("%d update failure(s)", instance.Status.LastUpdate.Failures))
 		}
 
 		if isStackMarkedToBeDeleted {
