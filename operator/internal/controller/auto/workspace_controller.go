@@ -372,6 +372,24 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 	}
 	env := w.Spec.Env
 
+	// provide some pod information to the agent for informational purposes
+	env = append(env, corev1.EnvVar{
+		Name: "POD_NAMESPACE",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				FieldPath: "metadata.namespace",
+			},
+		},
+	})
+	env = append(env, corev1.EnvVar{
+		Name: "POD_SA_NAME",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				FieldPath: "spec.serviceAccountName",
+			},
+		},
+	})
+
 	// limit the memory usage to the reserved amount
 	// https://github.com/pulumi/pulumi-kubernetes-operator/issues/698
 	env = append(env, corev1.EnvVar{

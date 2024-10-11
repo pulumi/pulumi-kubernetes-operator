@@ -61,11 +61,13 @@
 				"-v=true",
 				"--workspace=${input:workdir}",
 				"-s=dev",
-				"--auth=kube",
+				"--auth-mode=kube",
 				"--kube-workspace-namespace=default",
 				"--kube-workspace-name=random-yaml"
 			],
 			"env": {
+				"POD_NAMESPACE": "default",
+				"POD_SA_NAME": "fake",
 				"AWS_REGION": "us-west-1",
 			}
 		}

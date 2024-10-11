@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
@@ -27,6 +28,8 @@ import (
 	"go.uber.org/zap"
 	grpc_codes "google.golang.org/grpc/codes"
 	grpc_status "google.golang.org/grpc/status"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -37,6 +40,44 @@ import (
 func TestKubernetes(t *testing.T) {
 	t.Parallel()
 	log := zap.L().Named("TestKubernetes").Sugar()
+
+	unavailable := func() authenticator.TokenFunc {
+		return func(ctx context.Context, token string) (*authenticator.Response, bool, error) {
+			return nil, false, apierrors.NewForbidden(schema.GroupResource{}, "", errors.New("testing"))
+		}
+	}
+
+	authenticate := func(knownToken string, knownUser user.DefaultInfo) authenticator.TokenFunc {
+		return func(ctx context.Context, token string) (*authenticator.Response, bool, error) {
+			switch token {
+			case "":
+				return nil, false, errors.New("Request unauthenticated with Bearer")
+			case "b4d":
+				return nil, false, errors.New("invalid bearer token")
+			case knownToken:
+				return &authenticator.Response{
+					User: &knownUser,
+				}, true, nil
+			default:
+				return nil, false, nil
+			}
+		}
+	}
+
+	authorize := func(knownUser user.DefaultInfo, knownWorkspace types.NamespacedName) authorizer.AuthorizerFunc {
+		return func(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
+			if !(a.GetUser() != nil && a.GetUser().GetName() == knownUser.Name) {
+				return authorizer.DecisionDeny, "", nil
+			}
+			if !(a.GetVerb() == "use" && a.GetResource() == "workspaces" && a.GetSubresource() == "rpc") {
+				return authorizer.DecisionDeny, "", nil
+			}
+			if !(a.GetNamespace() == knownWorkspace.Namespace && a.GetName() == knownWorkspace.Name) {
+				return authorizer.DecisionDeny, "", nil
+			}
+			return authorizer.DecisionAllow, "", nil
+		}
+	}
 
 	testWorkspace := types.NamespacedName{
 		Namespace: "default",
@@ -55,32 +96,6 @@ func TestKubernetes(t *testing.T) {
 		UID:  "71be050c-9ad4-4708-9a52-413064700747",
 	}
 
-	authenticate := func(knownToken string, knownUser user.DefaultInfo) authenticator.TokenFunc {
-		return func(ctx context.Context, token string) (*authenticator.Response, bool, error) {
-			if token == knownToken {
-				return &authenticator.Response{
-					User: &knownUser,
-				}, true, nil
-			}
-			return nil, false, nil
-		}
-	}
-
-	authorize := func(knownUser user.DefaultInfo, knownWorkspace types.NamespacedName) authorizer.AuthorizerFunc {
-		return func(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
-			if !(a.GetUser() != nil && a.GetUser().GetName() == knownUser.Name) {
-				return authorizer.DecisionDeny, "", nil
-			}
-			if !(a.GetVerb() == "use" && a.GetResource() == "workspaces" && a.GetSubresource() == "rpc") {
-				return authorizer.DecisionDeny, "", nil
-			}
-			if !(a.GetNamespace() == testWorkspace.Namespace && a.GetName() == knownWorkspace.Name) {
-				return authorizer.DecisionDeny, "", nil
-			}
-			return authorizer.DecisionAllow, "", nil
-		}
-	}
-
 	tests := []struct {
 		name            string
 		resourceName    types.NamespacedName
@@ -92,9 +107,19 @@ func TestKubernetes(t *testing.T) {
 		wantTags        gstruct.Keys
 	}{
 		{
+			name:            "Unavailable (AuthN)",
+			resourceName:    testWorkspace,
+			authHeaderValue: ptr.To("Bearer g00d"),
+			authn:           unavailable(),
+			wantStatus:      grpc_status.New(grpc_codes.Unauthenticated, "TokenReview API is unavailable"),
+			wantTags: gstruct.Keys{
+				"auth.mode": gomega.Equal("kubernetes"),
+			},
+		},
+		{
 			name:         "NoToken",
 			resourceName: testWorkspace,
-			wantStatus:   grpc_status.New(grpc_codes.Unauthenticated, "Request unauthenticated with bearer"),
+			wantStatus:   grpc_status.New(grpc_codes.Unauthenticated, "Request unauthenticated with Bearer"),
 			wantTags: gstruct.Keys{
 				"auth.mode": gomega.Equal("kubernetes"),
 			},
@@ -103,7 +128,17 @@ func TestKubernetes(t *testing.T) {
 			name:            "NotBearerToken",
 			resourceName:    testWorkspace,
 			authHeaderValue: ptr.To("basic dXNlcm5hbWU6cGFzc3dvcmQ="),
-			wantStatus:      grpc_status.New(grpc_codes.Unauthenticated, "Request unauthenticated with bearer"),
+			wantStatus:      grpc_status.New(grpc_codes.Unauthenticated, "Request unauthenticated with Bearer"),
+			wantTags: gstruct.Keys{
+				"auth.mode": gomega.Equal("kubernetes"),
+			},
+		},
+		{
+			name:            "InvalidToken",
+			resourceName:    testWorkspace,
+			authHeaderValue: ptr.To("Bearer b4d"),
+			authn:           authenticate("g00d", testUser),
+			wantStatus:      grpc_status.New(grpc_codes.Unauthenticated, "invalid bearer token"),
 			wantTags: gstruct.Keys{
 				"auth.mode": gomega.Equal("kubernetes"),
 			},
@@ -111,9 +146,9 @@ func TestKubernetes(t *testing.T) {
 		{
 			name:            "AuthenticationFailure",
 			resourceName:    testWorkspace,
-			authHeaderValue: ptr.To("bearer b4d"),
+			authHeaderValue: ptr.To("Bearer 0ther"),
 			authn:           authenticate("g00d", testUser),
-			wantStatus:      grpc_status.New(grpc_codes.Unauthenticated, "Request authentication failure"),
+			wantStatus:      grpc_status.New(grpc_codes.Unauthenticated, "unauthenticated"),
 			wantTags: gstruct.Keys{
 				"auth.mode": gomega.Equal("kubernetes"),
 			},
@@ -121,10 +156,10 @@ func TestKubernetes(t *testing.T) {
 		{
 			name:            "Denied_User",
 			resourceName:    testWorkspace,
-			authHeaderValue: ptr.To("bearer g00d"),
+			authHeaderValue: ptr.To("Bearer g00d"),
 			authn:           authenticate("g00d", testUser),
 			authz:           authorize(otherUser, testWorkspace),
-			wantStatus:      grpc_status.New(grpc_codes.PermissionDenied, "RBAC: forbidden"),
+			wantStatus:      grpc_status.New(grpc_codes.PermissionDenied, "forbidden"),
 			wantTags: gstruct.Keys{
 				"auth.mode": gomega.Equal("kubernetes"),
 				"user.id":   gomega.Equal(testUser.UID),
@@ -134,10 +169,10 @@ func TestKubernetes(t *testing.T) {
 		{
 			name:            "Denied_ResourceName",
 			resourceName:    testWorkspace,
-			authHeaderValue: ptr.To("bearer g00d"),
+			authHeaderValue: ptr.To("Bearer g00d"),
 			authn:           authenticate("g00d", testUser),
 			authz:           authorize(testUser, otherWorkspace),
-			wantStatus:      grpc_status.New(grpc_codes.PermissionDenied, "RBAC: forbidden"),
+			wantStatus:      grpc_status.New(grpc_codes.PermissionDenied, "forbidden"),
 			wantTags: gstruct.Keys{
 				"auth.mode": gomega.Equal("kubernetes"),
 				"user.id":   gomega.Equal(testUser.UID),
@@ -147,7 +182,7 @@ func TestKubernetes(t *testing.T) {
 		{
 			name:            "Allowed",
 			resourceName:    testWorkspace,
-			authHeaderValue: ptr.To("bearer g00d"),
+			authHeaderValue: ptr.To("Bearer g00d"),
 			authn:           authenticate("g00d", testUser),
 			authz:           authorize(testUser, testWorkspace),
 			wantTags: gstruct.Keys{
