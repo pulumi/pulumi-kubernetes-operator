@@ -19,6 +19,7 @@ package pulumi
 import (
 	"context"
 	"fmt"
+	"testing"
 	"time"
 
 	fluxsourcev1 "github.com/fluxcd/source-controller/api/v1"
@@ -29,6 +30,7 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -400,7 +402,7 @@ var _ = Describe("Stack Controller", func() {
 						State:                shared.FailedStackStateMessage,
 						Name:                 "update-abcdef",
 						Type:                 autov1alpha1.DestroyType,
-						LastResyncTime:       metav1.Now(),
+						LastResyncTime:       metav1.NewTime(time.Now().Add(-1 * time.Hour)),
 						LastAttemptedCommit:  "abcdef",
 						LastSuccessfulCommit: "abcdef",
 					}),
@@ -526,6 +528,50 @@ var _ = Describe("Stack Controller", func() {
 				By("emitting an event")
 				Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.StackUpdateFailure)))
 			})
+
+			When("retrying", func() {
+				JustBeforeEach(func(ctx context.Context) {
+					obj.Status.LastUpdate = &shared.StackUpdateState{
+						Generation:           1,
+						State:                shared.FailedStackStateMessage,
+						Name:                 "update-retried",
+						Type:                 autov1alpha1.UpType,
+						LastAttemptedCommit:  obj.Status.CurrentUpdate.Commit,
+						LastSuccessfulCommit: "",
+						Failures:             2,
+					}
+					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
+				})
+				It("increments failures", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
+					Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(3)))
+				})
+
+				When("with a new generation", func() {
+					JustBeforeEach(func(ctx context.Context) {
+						obj.Status.LastUpdate = &shared.StackUpdateState{
+							Generation:           2,
+							State:                shared.FailedStackStateMessage,
+							Name:                 "update-retried-with-new-sha",
+							Type:                 autov1alpha1.UpType,
+							LastAttemptedCommit:  obj.Status.CurrentUpdate.Commit,
+							LastSuccessfulCommit: "",
+							Failures:             2,
+						}
+						Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
+					})
+					It("resets failures", func(ctx context.Context) {
+						_, err := reconcileF(ctx)
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(obj.Status.LastUpdate).To(Not(BeNil()))
+						Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(0)))
+					})
+				})
+			})
 		})
 
 		When("the update succeeded", func() {
@@ -565,6 +611,48 @@ var _ = Describe("Stack Controller", func() {
 
 				By("emitting an event")
 				Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.StackUpdateSuccessful)))
+			})
+
+			When("after retrying", func() {
+				JustBeforeEach(func(ctx context.Context) {
+					obj.Status.LastUpdate = &shared.StackUpdateState{
+						Generation:          1,
+						State:               shared.FailedStackStateMessage,
+						Name:                "update-retried",
+						Type:                autov1alpha1.UpType,
+						LastAttemptedCommit: obj.Status.CurrentUpdate.Commit,
+						Failures:            2,
+					}
+					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
+				})
+				It("resets failures", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
+					Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(0)))
+				})
+
+				When("with a new generation", func() {
+					JustBeforeEach(func(ctx context.Context) {
+						obj.Status.LastUpdate = &shared.StackUpdateState{
+							Generation:          2,
+							State:               shared.FailedStackStateMessage,
+							Name:                "update-retried-with-new-sha",
+							Type:                autov1alpha1.UpType,
+							LastAttemptedCommit: obj.Status.CurrentUpdate.Commit,
+							Failures:            2,
+						}
+						Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
+					})
+					It("resets failures", func(ctx context.Context) {
+						_, err := reconcileF(ctx)
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(obj.Status.LastUpdate).To(Not(BeNil()))
+						Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(0)))
+					})
+				})
 			})
 
 			When("the update produced outputs", func() {
@@ -623,12 +711,27 @@ var _ = Describe("Stack Controller", func() {
 					LastResyncTime:       metav1.Now(),
 					LastAttemptedCommit:  fluxRepo.Status.Artifact.Digest,
 					LastSuccessfulCommit: "",
+					Failures:             3,
 				}
 			})
-			It("reconciles", func(ctx context.Context) {
-				_, err := reconcileF(ctx)
-				Expect(err).NotTo(HaveOccurred())
-				ByResyncing()
+			When("within cooldown period", func() {
+				It("backs off exponentially", func(ctx context.Context) {
+					res, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					// 1 minute * 2^3
+					Expect(res.RequeueAfter).To(BeNumerically("~", time.Duration(8*time.Minute), time.Minute))
+					ByMarkingAsReconciling(pulumiv1.ReconcilingRetryReason, Equal("3 update failure(s)"))
+				})
+			})
+			When("done cooling down", func() {
+				BeforeEach(func() {
+					obj.Status.LastUpdate.LastResyncTime = metav1.NewTime(time.Now().Add(-1 * time.Hour))
+				})
+				It("reconciles", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					ByResyncing()
+				})
 			})
 		})
 
@@ -1154,4 +1257,198 @@ var _ = Describe("Stack Controller", func() {
 
 func matchEvent(reason pulumiv1.StackEventReason) gtypes.GomegaMatcher {
 	return ContainSubstring(string(reason))
+}
+
+func TestExactlyOneOf(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []bool
+		expected bool
+	}{
+		{
+			name:     "No true values",
+			input:    []bool{false, false, false},
+			expected: false,
+		},
+		{
+			name:     "One true value",
+			input:    []bool{false, true, false},
+			expected: true,
+		},
+		{
+			name:     "Multiple true values",
+			input:    []bool{true, true, false},
+			expected: false,
+		},
+		{
+			name:     "All true values",
+			input:    []bool{true, true, true},
+			expected: false,
+		},
+		{
+			name:     "Empty input",
+			input:    []bool{},
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := exactlyOneOf(tc.input...)
+			if result != tc.expected {
+				t.Errorf("exactlyOneOf(%v) = %v; want %v", tc.input, result, tc.expected)
+			}
+		})
+	}
+}
+
+func TestIsSynced(t *testing.T) {
+	tests := []struct {
+		name          string
+		stack         pulumiv1.Stack
+		currentCommit string
+
+		want bool
+	}{
+		{
+			name:  "no update yet",
+			stack: pulumiv1.Stack{},
+			want:  false,
+		},
+		{
+			name: "generation mismatch",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: int64(2),
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						Generation: int64(1),
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "marked for deletion",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "something-else",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "last update succeeeded but a new commit is available",
+			stack: pulumiv1.Stack{
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "old-sha",
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			want:          false,
+		},
+		{
+			name: "last update succeeeded and we don't continue on commit match",
+			stack: pulumiv1.Stack{
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "sha",
+					},
+				},
+			},
+			currentCommit: "sha",
+			want:          true,
+		},
+		{
+			name: "last update succeeeded and we continue on commit match but we're inside the resync interval",
+			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{
+					ContinueResyncOnCommitMatch: true,
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "sha",
+						LastResyncTime:       metav1.Now(),
+					},
+				},
+			},
+			currentCommit: "sha",
+			want:          true,
+		},
+		{
+			name: "last update succeeeded and we continue on commit match and we're outside the resync interval",
+			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{
+					ContinueResyncOnCommitMatch: true,
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "sha",
+						LastResyncTime:       metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+					},
+				},
+			},
+			currentCommit: "sha",
+			want:          false,
+		},
+		{
+			name: "last update failed but we're inside the cooldown interval",
+			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{
+					ContinueResyncOnCommitMatch: true,
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:          shared.FailedStackStateMessage,
+						LastResyncTime: metav1.Now(),
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "last update failed and we're outside the cooldown interval",
+			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{
+					ContinueResyncOnCommitMatch: true,
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:          shared.FailedStackStateMessage,
+						LastResyncTime: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "unrecognized state",
+			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State: "unknown",
+					},
+				},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isSynced(&tt.stack, tt.currentCommit))
+		})
+	}
 }

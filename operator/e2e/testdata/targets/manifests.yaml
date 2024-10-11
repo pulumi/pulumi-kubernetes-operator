@@ -2,13 +2,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: git-auth-nonroot
+  name: targets
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: state
-  namespace: git-auth-nonroot
+  namespace: targets
 spec:
   accessModes:
     - ReadWriteOnce
@@ -16,31 +16,38 @@ spec:
     requests:
       storage: 100Mi
 ---
-apiVersion: v1
-kind: Secret
+apiVersion: pulumi.com/v1
+kind: Program
 metadata:
-  name: git-auth
-  namespace: git-auth-nonroot
-stringData:
-  accessToken: $PULUMI_BOT_TOKEN
+  name: targets
+  namespace: targets
+program:
+  resources:
+    notTargeted:
+      type: random:RandomInteger
+      properties:
+        min: 1
+        max: 100
+    targeted:
+      type: random:RandomInteger
+      properties:
+        min: 1
+        max: 100
+  outputs:
+    targeted: ${targeted.result}
+    notTargeted: ${notTargeted.result} # Should be absent
 ---
 apiVersion: pulumi.com/v1
 kind: Stack
 metadata:
-  name: git-auth-nonroot
-  namespace: git-auth-nonroot
+  name: targets
+  namespace: targets
 spec:
-  projectRepo: https://github.com/pulumi/fixtures
-  branch: main
-  shallow: true
-  repoDir: resources
-  gitAuthSecret: git-auth
-
   stack: dev
-  refresh: false
-  continueResyncOnCommitMatch: false
-  resyncFrequencySeconds: 60
-  destroyOnFinalize: true
+  programRef:
+    name: targets
+  targets:
+    - urn:pulumi:dev::targets::random:index/randomInteger:RandomInteger::targeted
 
   # Enable file state for testing.
   envRefs:

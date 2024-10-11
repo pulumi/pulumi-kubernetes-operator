@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"os"
 	"path"
 	"slices"
@@ -671,25 +672,14 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	sess.SetSecretEnvs(ctx, stack.SecretEnvs, request.Namespace)
 
 	// Step 3: Evaluate whether an update is needed. If not, we transition to Ready.
-
-	// determine whether the stack is in sync with respect to the specification.
-	// i.e. the current spec generation has been applied, the update was successful,
-	// the latest commit has been applied, and (if resync is enabled) has been resynced recently.
-	resyncFreq := time.Duration(sess.stack.ResyncFrequencySeconds) * time.Second
-	if resyncFreq.Seconds() < 60 {
-		resyncFreq = time.Duration(60) * time.Second
-	}
-	synced := instance.Status.LastUpdate != nil &&
-		instance.Status.LastUpdate.Generation == instance.Generation &&
-		instance.Status.LastUpdate.State == shared.SucceededStackStateMessage &&
-		(isStackMarkedToBeDeleted ||
-			(instance.Status.LastUpdate.LastSuccessfulCommit == currentCommit &&
-				(!sess.stack.ContinueResyncOnCommitMatch || time.Since(instance.Status.LastUpdate.LastResyncTime.Time) < resyncFreq)))
-
-	if synced {
-		// transition to ready, and requeue reconciliation as necessary to detect
-		// branch updates and resyncs.
-		instance.Status.MarkReadyCondition()
+	if isSynced(instance, currentCommit) {
+		// We don't mark the stack as read if its update failed so downstream
+		// Stack dependencies aren't triggered.
+		if instance.Status.LastUpdate.State == shared.SucceededStackStateMessage {
+			instance.Status.MarkReadyCondition()
+		} else {
+			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, fmt.Sprintf("%d update failure(s)", instance.Status.LastUpdate.Failures))
+		}
 
 		if isStackMarkedToBeDeleted {
 			log.Info("Stack was destroyed; finalizing now.")
@@ -700,15 +690,22 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, nil
 		}
 
+		// Requeue reconciliation as necessary to detect branch updates and
+		// resyncs.
+
 		requeueAfter := time.Duration(0)
+
+		if instance.Status.LastUpdate.State == shared.FailedStackStateMessage {
+			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(cooldown(instance))))
+		}
 		if sess.stack.ContinueResyncOnCommitMatch {
-			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(resyncFreq)))
+			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(resyncFreq(instance))))
 		}
 		if stack.GitSource != nil {
 			trackBranch := len(stack.GitSource.Branch) > 0
 			if trackBranch {
 				// Reconcile every resyncFreq to check for new commits to the branch.
-				pollFreq := resyncFreq
+				pollFreq := resyncFreq(instance)
 				log.Info("Commit hash unchanged. Will poll for new commits.", "pollFrequency", pollFreq)
 				requeueAfter = min(requeueAfter, pollFreq)
 			} else {
@@ -719,6 +716,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		} else if stack.ProgramRef != nil {
 			log.Info("Commit hash unchanged. Will wait for Program update or resync.")
 		}
+
 		return reconcile.Result{RequeueAfter: requeueAfter}, saveStatus()
 	}
 
@@ -785,7 +783,7 @@ func (r *StackReconciler) emitEvent(instance *pulumiv1.Stack, event pulumiv1.Sta
 }
 
 // markStackFailed updates the status of the Stack object `instance` locally, to reflect a failure to process the stack.
-func (r *StackReconciler) markStackFailed(sess *StackReconcilerSession, instance *pulumiv1.Stack, current *shared.CurrentStackUpdate, update *autov1alpha1.Update) {
+func (r *StackReconciler) markStackFailed(sess *stackReconcilerSession, instance *pulumiv1.Stack, current *shared.CurrentStackUpdate, update *autov1alpha1.Update) {
 	sess.logger.Info("Failed to update Stack", "Stack.Name", sess.stack.Stack, "Message", update.Status.Message)
 
 	// Update Stack status with failed state
@@ -801,6 +799,9 @@ func (r *StackReconciler) markStackFailed(sess *StackReconcilerSession, instance
 	}
 	if last != nil {
 		instance.Status.LastUpdate.LastSuccessfulCommit = last.LastSuccessfulCommit
+	}
+	if last != nil && last.Generation == current.Generation {
+		instance.Status.LastUpdate.Failures = last.Failures + 1
 	}
 
 	r.emitEvent(instance, pulumiv1.StackUpdateFailureEvent(), "Failed to update Stack: %s", update.Status.Message)
@@ -841,13 +842,14 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 		LastSuccessfulCommit: current.Commit,
 		Permalink:            shared.Permalink(update.Status.Permalink),
 		LastResyncTime:       metav1.Now(),
+		Failures:             0,
 	}
 
 	r.emitEvent(instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack.")
 	return nil
 }
 
-type StackReconcilerSession struct {
+type stackReconcilerSession struct {
 	logger     logr.Logger
 	kubeClient client.Client
 	scheme     *runtime.Scheme
@@ -865,8 +867,8 @@ func newStackReconcilerSession(
 	kubeClient client.Client,
 	scheme *runtime.Scheme,
 	namespace string,
-) *StackReconcilerSession {
-	return &StackReconcilerSession{
+) *stackReconcilerSession {
+	return &stackReconcilerSession{
 		logger:     logger,
 		kubeClient: kubeClient,
 		scheme:     scheme,
@@ -875,9 +877,72 @@ func newStackReconcilerSession(
 	}
 }
 
+// isSynced determines whether the stack is in sync with respect to the
+// specification. i.e. the current spec generation has been applied, the update
+// was successful, the latest commit has been applied, and (if resync is
+// enabled) has been resynced recently.
+func isSynced(stack *pulumiv1.Stack, currentCommit string) bool {
+	if stack.Status.LastUpdate == nil {
+		return false
+	}
+
+	if stack.Status.LastUpdate.Generation != stack.Generation {
+		return false
+	}
+
+	if stack.Status.LastUpdate.State == shared.SucceededStackStateMessage {
+		if stack.DeletionTimestamp != nil { // Marked for deletion.
+			return true
+		}
+		if stack.Status.LastUpdate.LastSuccessfulCommit != currentCommit {
+			return false
+		}
+		if !stack.Spec.ContinueResyncOnCommitMatch {
+			return true
+		}
+		return time.Since(stack.Status.LastUpdate.LastResyncTime.Time) < resyncFreq(stack)
+	}
+
+	if stack.Status.LastUpdate.State == shared.FailedStackStateMessage {
+		return time.Since(stack.Status.LastUpdate.LastResyncTime.Time) < cooldown(stack)
+	}
+
+	// We should never get here; if we do the Update is in an unknown state so
+	// don't trigger work for it.
+	return true
+}
+
+// cooldown returns the amount of time to wait before a failed Update should be
+// retried. We start with a 1-minute cooldown and double that for each failed
+// attempt, up to a max of 24 hours. Failed Updates are considered synced while
+// inside this cooldown period. A zero-value duration is returned if the update
+// succeeded.
+func cooldown(stack *pulumiv1.Stack) time.Duration {
+	cooldown := time.Duration(0)
+	if stack.Status.LastUpdate == nil {
+		return cooldown
+	}
+	if stack.Status.LastUpdate.State == shared.FailedStackStateMessage {
+		cooldown = 1 * time.Minute
+		cooldown *= time.Duration(math.Exp2(float64(stack.Status.LastUpdate.Failures)))
+		cooldown = min(24*time.Hour, cooldown)
+	}
+	return cooldown
+}
+
+// resyncFreq determines how often a stack should be re-synced, for example to
+// poll for new commits.
+func resyncFreq(stack *pulumiv1.Stack) time.Duration {
+	resyncFreq := time.Duration(stack.Spec.ResyncFrequencySeconds) * time.Second
+	if resyncFreq.Seconds() < 60 {
+		resyncFreq = time.Duration(60) * time.Second
+	}
+	return resyncFreq
+}
+
 // SetEnvs populates the environment the stack run with values
 // from an array of Kubernetes ConfigMaps in a Namespace.
-func (sess *StackReconcilerSession) SetEnvs(ctx context.Context, configMapNames []string, _ string) {
+func (sess *stackReconcilerSession) SetEnvs(ctx context.Context, configMapNames []string, _ string) {
 	for _, name := range configMapNames {
 		sess.ws.Spec.EnvFrom = append(sess.ws.Spec.EnvFrom, corev1.EnvFromSource{
 			ConfigMapRef: &corev1.ConfigMapEnvSource{
@@ -889,7 +954,7 @@ func (sess *StackReconcilerSession) SetEnvs(ctx context.Context, configMapNames 
 
 // SetSecretEnvs populates the environment of the stack run with values
 // from an array of Kubernetes Secrets in a Namespace.
-func (sess *StackReconcilerSession) SetSecretEnvs(ctx context.Context, secretNames []string, _ string) {
+func (sess *stackReconcilerSession) SetSecretEnvs(ctx context.Context, secretNames []string, _ string) {
 	for _, name := range secretNames {
 		sess.ws.Spec.EnvFrom = append(sess.ws.Spec.EnvFrom, corev1.EnvFromSource{
 			SecretRef: &corev1.SecretEnvSource{
@@ -901,7 +966,7 @@ func (sess *StackReconcilerSession) SetSecretEnvs(ctx context.Context, secretNam
 
 // SetEnvRefsForWorkspace populates environment variables for workspace using items in
 // the EnvRefs field in the stack specification.
-func (sess *StackReconcilerSession) SetEnvRefsForWorkspace(ctx context.Context) error {
+func (sess *stackReconcilerSession) SetEnvRefsForWorkspace(ctx context.Context) error {
 	envRefs := sess.stack.EnvRefs
 
 	// envRefs is an unordered map, but we need to constrct env vars
@@ -924,7 +989,7 @@ func (sess *StackReconcilerSession) SetEnvRefsForWorkspace(ctx context.Context) 
 	return nil
 }
 
-func (sess *StackReconcilerSession) resolveResourceRefAsEnvVar(_ context.Context, ref *shared.ResourceRef) (string, *corev1.EnvVarSource, error) {
+func (sess *stackReconcilerSession) resolveResourceRefAsEnvVar(_ context.Context, ref *shared.ResourceRef) (string, *corev1.EnvVarSource, error) {
 	switch ref.SelectorType {
 	case shared.ResourceSelectorEnv:
 		// DEPRECATED: this reads from the operator's own environment
@@ -974,7 +1039,7 @@ func makeSecretRefMountPath(secretRef *shared.SecretSelector) string {
 	return "/var/run/secrets/stacks.pulumi.com/secrets/" + secretRef.Name
 }
 
-func (sess *StackReconcilerSession) resolveResourceRefAsConfigItem(ctx context.Context, ref *shared.ResourceRef) (*string, *autov1alpha1.ConfigValueFrom, error) {
+func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(ctx context.Context, ref *shared.ResourceRef) (*string, *autov1alpha1.ConfigValueFrom, error) {
 	switch ref.SelectorType {
 	case shared.ResourceSelectorEnv:
 		// DEPRECATED: this reads from the operator's own environment
@@ -1041,7 +1106,7 @@ func (sess *StackReconcilerSession) resolveResourceRefAsConfigItem(ctx context.C
 // a string. The v1 controller allowed env and filesystem references which no
 // longer make sense in the v2 agent/manager model, so only secret refs are
 // currently supported.
-func (sess *StackReconcilerSession) resolveSecretResourceRef(ctx context.Context, ref *shared.ResourceRef) (string, error) {
+func (sess *stackReconcilerSession) resolveSecretResourceRef(ctx context.Context, ref *shared.ResourceRef) (string, error) {
 	switch ref.SelectorType {
 	case shared.ResourceSelectorSecret:
 		if ref.SecretRef == nil {
@@ -1083,7 +1148,7 @@ func labelsForWorkspace(stack *metav1.ObjectMeta) map[string]string {
 }
 
 // NewWorkspace makes a new workspace for the given stack.
-func (sess *StackReconcilerSession) NewWorkspace(stack *pulumiv1.Stack) error {
+func (sess *stackReconcilerSession) NewWorkspace(stack *pulumiv1.Stack) error {
 	labels := labelsForWorkspace(&stack.ObjectMeta)
 	sess.ws = &autov1alpha1.Workspace{
 		TypeMeta: metav1.TypeMeta{
@@ -1115,7 +1180,7 @@ func (sess *StackReconcilerSession) NewWorkspace(stack *pulumiv1.Stack) error {
 	return nil
 }
 
-func (sess *StackReconcilerSession) CreateWorkspace(ctx context.Context) error {
+func (sess *stackReconcilerSession) CreateWorkspace(ctx context.Context) error {
 	sess.ws.Spec.Stacks = append(sess.ws.Spec.Stacks, *sess.wss)
 
 	if err := sess.kubeClient.Patch(ctx, sess.ws, client.Apply, client.FieldOwner(FieldManager)); err != nil {
@@ -1125,7 +1190,7 @@ func (sess *StackReconcilerSession) CreateWorkspace(ctx context.Context) error {
 	return nil
 }
 
-func (sess *StackReconcilerSession) isWorkspaceReady() bool {
+func (sess *stackReconcilerSession) isWorkspaceReady() bool {
 	if sess.ws == nil {
 		return false
 	}
@@ -1137,7 +1202,7 @@ func (sess *StackReconcilerSession) isWorkspaceReady() bool {
 
 // setupWorkspace sets all the extra configuration specified by the Stack object, after you have
 // constructed a workspace from a source.
-func (sess *StackReconcilerSession) setupWorkspace(ctx context.Context) error {
+func (sess *stackReconcilerSession) setupWorkspace(ctx context.Context) error {
 	w := sess.ws
 	if sess.stack.Backend != "" {
 		w.Spec.Env = append(w.Spec.Env, corev1.EnvVar{
@@ -1204,7 +1269,7 @@ func (sess *StackReconcilerSession) setupWorkspace(ctx context.Context) error {
 	return nil
 }
 
-func (sess *StackReconcilerSession) UpdateConfig(ctx context.Context) error {
+func (sess *stackReconcilerSession) UpdateConfig(ctx context.Context) error {
 	ws := sess.wss
 
 	// m := make(auto.ConfigMap)
@@ -1241,7 +1306,7 @@ func (sess *StackReconcilerSession) UpdateConfig(ctx context.Context) error {
 }
 
 // newUp runs `pulumi up` on the stack.
-func (sess *StackReconcilerSession) newUp(ctx context.Context, o *pulumiv1.Stack, message string) (*autov1alpha1.Update, error) {
+func (sess *stackReconcilerSession) newUp(ctx context.Context, o *pulumiv1.Stack, message string) (*autov1alpha1.Update, error) {
 	update := &autov1alpha1.Update{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: autov1alpha1.GroupVersion.String(),
@@ -1271,7 +1336,7 @@ func (sess *StackReconcilerSession) newUp(ctx context.Context, o *pulumiv1.Stack
 }
 
 // newUp runs `pulumi destroy` on the stack.
-func (sess *StackReconcilerSession) newDestroy(ctx context.Context, o *pulumiv1.Stack, message string) (*autov1alpha1.Update, error) {
+func (sess *stackReconcilerSession) newDestroy(ctx context.Context, o *pulumiv1.Stack, message string) (*autov1alpha1.Update, error) {
 	update := &autov1alpha1.Update{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: autov1alpha1.GroupVersion.String(),
@@ -1300,7 +1365,7 @@ func makeUpdateName(o *pulumiv1.Stack) string {
 	return fmt.Sprintf("%s-%s", o.Name, utilrand.String(8))
 }
 
-func (sess *StackReconcilerSession) readCurrentUpdate(ctx context.Context, name types.NamespacedName) error {
+func (sess *stackReconcilerSession) readCurrentUpdate(ctx context.Context, name types.NamespacedName) error {
 	u := &autov1alpha1.Update{}
 	if err := sess.kubeClient.Get(ctx, name, u); err != nil {
 		return err

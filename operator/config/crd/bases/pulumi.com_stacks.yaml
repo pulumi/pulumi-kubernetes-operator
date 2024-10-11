@@ -9511,6 +9511,13 @@ spec:
                 description: LastUpdate contains details of the status of the last
                   update.
                 properties:
+                  failures:
+                    description: |-
+                      Failures records how many times the update has been attempted and
+                      failed. Failed updates are periodically retried with exponential backoff
+                      in case the failure was due to transient conditions.
+                    format: int64
+                    type: integer
                   generation:
                     description: Generation is the stack generation associated with
                       the update.
@@ -9541,6 +9548,8 @@ spec:
                   type:
                     description: Type is the type of update.
                     type: string
+                required:
+                - failures
                 type: object
               observedGeneration:
                 description: ObservedGeneration records the value of .meta.generation
@@ -18972,6 +18981,13 @@ spec:
                 description: LastUpdate contains details of the status of the last
                   update.
                 properties:
+                  failures:
+                    description: |-
+                      Failures records how many times the update has been attempted and
+                      failed. Failed updates are periodically retried with exponential backoff
+                      in case the failure was due to transient conditions.
+                    format: int64
+                    type: integer
                   generation:
                     description: Generation is the stack generation associated with
                       the update.
@@ -19002,6 +19018,8 @@ spec:
                   type:
                     description: Type is the type of update.
                     type: string
+                required:
+                - failures
                 type: object
               outputs:
                 additionalProperties:
