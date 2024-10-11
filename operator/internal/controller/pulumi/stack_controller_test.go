@@ -720,7 +720,7 @@ var _ = Describe("Stack Controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					// 1 minute * 2^3
 					Expect(res.RequeueAfter).To(BeNumerically("~", time.Duration(8*time.Minute), time.Minute))
-					ByMarkingAsReconciling(pulumiv1.StalledFailureReason, Equal("3 update failure(s)"))
+					ByMarkingAsReconciling(pulumiv1.ReconcilingRetryReason, Equal("3 update failure(s)"))
 				})
 			})
 			When("done cooling down", func() {

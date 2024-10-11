@@ -678,7 +678,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		if instance.Status.LastUpdate.State == shared.SucceededStackStateMessage {
 			instance.Status.MarkReadyCondition()
 		} else {
-			instance.Status.MarkReconcilingCondition(pulumiv1.StalledFailureReason, fmt.Sprintf("%d update failure(s)", instance.Status.LastUpdate.Failures))
+			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, fmt.Sprintf("%d update failure(s)", instance.Status.LastUpdate.Failures))
 		}
 
 		if isStackMarkedToBeDeleted {
