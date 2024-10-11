@@ -388,6 +388,10 @@ type StackUpdateState struct {
 	Permalink Permalink `json:"permalink,omitempty"`
 	// LastResyncTime contains a timestamp for the last time a resync of the stack took place.
 	LastResyncTime metav1.Time `json:"lastResyncTime,omitempty"`
+	// Failures records how many times the update has been attempted and
+	// failed. Failed updates are periodically retried with exponential backoff
+	// in case the failure was due to transient conditions.
+	Failures int64 `json:"failures"`
 }
 
 // StackUpdateStatus is the status code for the result of a Stack Update run.
