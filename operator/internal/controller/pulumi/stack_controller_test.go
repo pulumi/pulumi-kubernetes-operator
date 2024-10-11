@@ -711,15 +711,15 @@ var _ = Describe("Stack Controller", func() {
 					LastResyncTime:       metav1.Now(),
 					LastAttemptedCommit:  fluxRepo.Status.Artifact.Digest,
 					LastSuccessfulCommit: "",
-					Failures:             2,
+					Failures:             3,
 				}
 			})
 			When("within cooldown period", func() {
 				It("backs off exponentially", func(ctx context.Context) {
 					res, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
-					// 5 minutes * 2^2
-					Expect(res.RequeueAfter).To(BeNumerically("~", time.Duration(20*time.Minute), time.Minute))
+					// 1 minute * 2^3
+					Expect(res.RequeueAfter).To(BeNumerically("~", time.Duration(8*time.Minute), time.Minute))
 					ByMarkingAsReady()
 				})
 			})

@@ -909,7 +909,7 @@ func isSynced(stack *pulumiv1.Stack, currentCommit string, isStackMarkedToBeDele
 }
 
 // cooldown returns the amount of time to wait before a failed Update should be
-// retried. We start with a 5-minute cooldown and double that for each failed
+// retried. We start with a 1-minute cooldown and double that for each failed
 // attempt, up to a max of 24 hours. Failed Updates are considered synced while
 // inside this cooldown period. A zero-value duration is returned if the update
 // succeeded.
@@ -919,7 +919,7 @@ func cooldown(stack *pulumiv1.Stack) time.Duration {
 		return cooldown
 	}
 	if stack.Status.LastUpdate.State == shared.FailedStackStateMessage {
-		cooldown = 5 * time.Minute
+		cooldown = 1 * time.Minute
 		cooldown *= time.Duration(math.Exp2(float64(stack.Status.LastUpdate.Failures)))
 		cooldown = min(24*time.Hour, cooldown)
 	}
