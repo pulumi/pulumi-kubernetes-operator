@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -469,8 +470,8 @@ func (s streamReader[T]) Result() (result, error) {
 		if err == io.EOF {
 			break
 		}
-		if err != nil && status.Code(err) != codes.Unknown {
-			// Surface gRPC errors.
+		if transient(err) {
+			// Surface transient errors to trigger another reconcile.
 			return nil, err
 		}
 		if err != nil {
@@ -518,6 +519,26 @@ func (s streamReader[T]) Result() (result, error) {
 	}
 
 	return res, fmt.Errorf("didn't receive a result")
+}
+
+// transient returns false when the given error is nil, or when the error
+// represents a condition that is not likely to resolve quickly. This is used
+// to determine whether to retry immediately or much more slowly.
+func transient(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return true
+	}
+
+	code := status.Code(err)
+	switch code {
+	case codes.Unknown, codes.Unauthenticated, codes.PermissionDenied, codes.InvalidArgument:
+		return false
+	default:
+		return true
+	}
 }
 
 // getResulter glues our various result types to a common interface.
