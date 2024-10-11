@@ -1,0 +1,4 @@
+resources:
+  - ../default
+  - service_account.yaml
+  - rbac.yaml

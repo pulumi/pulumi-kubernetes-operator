@@ -4,8 +4,6 @@ resources:
   - ../rbac
   - ../manager
   - metrics_service.yaml
-  - service_account.yaml
-  - rbac.yaml
 
 patches:
 - path: manager_metrics_patch.yaml
