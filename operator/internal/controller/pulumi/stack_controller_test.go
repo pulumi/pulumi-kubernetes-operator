@@ -720,7 +720,7 @@ var _ = Describe("Stack Controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					// 1 minute * 2^3
 					Expect(res.RequeueAfter).To(BeNumerically("~", time.Duration(8*time.Minute), time.Minute))
-					ByMarkingAsReady()
+					ByMarkingAsStalled(pulumiv1.StalledFailureReason, Equal("3 update failure(s)"))
 				})
 			})
 			When("done cooling down", func() {
@@ -1307,7 +1307,6 @@ func TestIsSynced(t *testing.T) {
 		name          string
 		stack         pulumiv1.Stack
 		currentCommit string
-		deleting      bool
 
 		want bool
 	}{
@@ -1333,14 +1332,15 @@ func TestIsSynced(t *testing.T) {
 		{
 			name: "marked for deletion",
 			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},
 				Status: pulumiv1.StackStatus{
 					LastUpdate: &shared.StackUpdateState{
-						State: shared.SucceededStackStateMessage,
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "something-else",
 					},
 				},
 			},
-			deleting: true,
-			want:     true,
+			want: true,
 		},
 		{
 			name: "last update succeeeded but a new commit is available",
@@ -1448,7 +1448,7 @@ func TestIsSynced(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, isSynced(&tt.stack, tt.currentCommit, tt.deleting))
+			assert.Equal(t, tt.want, isSynced(&tt.stack, tt.currentCommit))
 		})
 	}
 }

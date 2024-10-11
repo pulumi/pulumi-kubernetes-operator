@@ -672,10 +672,14 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	sess.SetSecretEnvs(ctx, stack.SecretEnvs, request.Namespace)
 
 	// Step 3: Evaluate whether an update is needed. If not, we transition to Ready.
-	if isSynced(instance, currentCommit, isStackMarkedToBeDeleted) {
-		// transition to ready, and requeue reconciliation as necessary to detect
-		// branch updates and resyncs.
-		instance.Status.MarkReadyCondition()
+	if isSynced(instance, currentCommit) {
+		// We mark the stack as stalled if its update failed so downstream
+		// Stack dependencies aren't triggered.
+		if instance.Status.LastUpdate.State == shared.SucceededStackStateMessage {
+			instance.Status.MarkReadyCondition()
+		} else {
+			instance.Status.MarkStalledCondition(pulumiv1.StalledFailureReason, fmt.Sprintf("%d update failure(s)", instance.Status.LastUpdate.Failures))
+		}
 
 		if isStackMarkedToBeDeleted {
 			log.Info("Stack was destroyed; finalizing now.")
@@ -685,6 +689,9 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			}
 			return reconcile.Result{}, nil
 		}
+
+		// Requeue reconciliation as necessary to detect branch updates and
+		// resyncs.
 
 		requeueAfter := time.Duration(0)
 
@@ -877,7 +884,7 @@ func newStackReconcilerSession(
 // specification. i.e. the current spec generation has been applied, the update
 // was successful, the latest commit has been applied, and (if resync is
 // enabled) has been resynced recently.
-func isSynced(stack *pulumiv1.Stack, currentCommit string, isStackMarkedToBeDeleted bool) bool {
+func isSynced(stack *pulumiv1.Stack, currentCommit string) bool {
 	if stack.Status.LastUpdate == nil {
 		return false
 	}
@@ -887,7 +894,7 @@ func isSynced(stack *pulumiv1.Stack, currentCommit string, isStackMarkedToBeDele
 	}
 
 	if stack.Status.LastUpdate.State == shared.SucceededStackStateMessage {
-		if isStackMarkedToBeDeleted {
+		if stack.DeletionTimestamp != nil { // Marked for deletion.
 			return true
 		}
 		if stack.Status.LastUpdate.LastSuccessfulCommit != currentCommit {
