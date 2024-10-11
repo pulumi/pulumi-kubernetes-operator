@@ -14,10 +14,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-const (
-	ServiceAccountTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-)
-
 func connect(ctx context.Context, addr string) (*grpc.ClientConn, error) {
 	if os.Getenv("WORKSPACE_LOCALHOST") != "" {
 		addr = os.Getenv("WORKSPACE_LOCALHOST")
@@ -27,7 +23,7 @@ func connect(ctx context.Context, addr string) (*grpc.ClientConn, error) {
 	tokenFile := os.Getenv("WORKSPACE_TOKEN_FILE")
 	if token == "" && tokenFile == "" {
 		// use in-cluster configuration using the operator's service account token
-		tokenFile = ServiceAccountTokenFile
+		tokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 	}
 	creds, err := agentclient.NewTokenCredentials(token, tokenFile)
 	if err != nil {

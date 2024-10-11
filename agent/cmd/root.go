@@ -58,6 +58,7 @@ to use to perform stack operations.`,
 
 		// initialize a command-specific logger
 		log = zap.L().Named("cmd").Named(cmd.Name()).Sugar()
+		cmd.SilenceErrors = true
 		return nil
 	},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
@@ -71,6 +72,9 @@ to use to perform stack operations.`,
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
+		if log != nil {
+			log.Error(err.Error())
+		}
 		os.Exit(1)
 	}
 }

@@ -71,9 +71,10 @@ var serveCmd = &cobra.Command{
 				return fmt.Errorf("--kube-workspace-name is required when auth mode is kubernetes")
 			}
 		}
+		cmd.SilenceUsage = true
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 
 		log.Infow("Pulumi Kubernetes Agent", "version", version.Version)
@@ -94,8 +95,7 @@ var serveCmd = &cobra.Command{
 		case AuthModeKubernetes:
 			kubeConfig, err := GetKubeConfig()
 			if err != nil {
-				log.Fatalw("unable to load the kubeconfig", zap.Error(err))
-				os.Exit(1)
+				return fmt.Errorf("unable to load the kubeconfig: %w", err)
 			}
 
 			authFunc, err = server.NewKubeAuth(log.Desugar(), kubeConfig, server.KubeAuthOptions{
@@ -105,8 +105,7 @@ var serveCmd = &cobra.Command{
 				},
 			})
 			if err != nil {
-				log.Fatalw("unable to initialize the Kubernetes authorizer", zap.Error(err))
-				os.Exit(1)
+				return fmt.Errorf("unable to initialize the Kubernetes authorizer: %w", err)
 			}
 			log.Infow("activated the Kubernetes authorization mode",
 				zap.String("workspace.namespace", _workspaceNamespace), zap.String("workspace.name", _workspaceName))
@@ -116,19 +115,16 @@ var serveCmd = &cobra.Command{
 		workspaceOpts := []auto.LocalWorkspaceOption{}
 		workDir, err := filepath.EvalSymlinks(_workDir) // resolve the true location of the workspace
 		if err != nil {
-			log.Fatalw("unable to resolve the workspace directory", zap.Error(err))
-			os.Exit(1)
+			return fmt.Errorf("unable to resolve the workspace directory: %w", err)
 		}
 		workspaceOpts = append(workspaceOpts, auto.WorkDir(workDir))
 		workspace, err := auto.NewLocalWorkspace(ctx, workspaceOpts...)
 		if err != nil {
-			log.Fatalw("unable to open the workspace", zap.Error(err))
-			os.Exit(1)
+			return fmt.Errorf("unable to open the workspace: %w", err)
 		}
 		proj, err := workspace.ProjectSettings(ctx)
 		if err != nil {
-			log.Fatalw("unable to get the project settings", zap.Error(err))
-			os.Exit(1)
+			return fmt.Errorf("unable to get the project settings: %w", err)
 		}
 		log.Infow("opened a local workspace", "workspace", workDir,
 			"project", proj.Name, "runtime", proj.Runtime.Name())
@@ -145,8 +141,7 @@ var serveCmd = &cobra.Command{
 			}
 			log.Infow("installing project dependencies")
 			if err := workspace.Install(ctx, opts); err != nil {
-				log.Fatalw("installation failed", zap.Error(err))
-				os.Exit(1)
+				return fmt.Errorf("unable to install project dependencies: %w", err)
 			}
 			log.Infow("installation completed")
 		} else {
@@ -159,8 +154,7 @@ var serveCmd = &cobra.Command{
 			StackName: _stack,
 		})
 		if err != nil {
-			log.Fatalw("unable to make an automation server", zap.Error(err))
-			os.Exit(1)
+			return fmt.Errorf("unable to make an automation server: %w", err)
 		}
 		address := fmt.Sprintf("%s:%d", _host, _port)
 		log.Infow("starting the RPC server", "address", address)
@@ -170,19 +164,18 @@ var serveCmd = &cobra.Command{
 		// Start the grpc server
 		lis, err := net.Listen("tcp", address)
 		if err != nil {
-			log.Errorw("fatal: unable to start the RPC server", zap.Error(err))
-			os.Exit(1)
+			return fmt.Errorf("unable to listen on %s: %w", address, err)
 		}
 		log.Infow("server listening", "address", lis.Addr(), "workspace", workDir)
 
 		ctx, cancel := context.WithCancel(ctx)
 		setupSignalHandler(cancel)
 		if err := s.Serve(ctx, lis); err != nil {
-			log.Errorw("fatal: server failure", zap.Error(err))
-			os.Exit(1)
+			return fmt.Errorf("unexpected serve error: %w", err)
 		}
 
 		log.Infow("server stopped")
+		return nil
 	},
 }
 

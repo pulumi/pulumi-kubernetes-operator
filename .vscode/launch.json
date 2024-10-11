@@ -45,10 +45,7 @@
 				"-v=false",
 				"--workspace=${input:workdir}",
 				"-s=dev"
-			],
-			"env": {
-				"AWS_REGION": "us-west-1",
-			}
+			]
 		},
 		{
 			"name": "Agent (kubernetes)",
@@ -67,8 +64,7 @@
 			],
 			"env": {
 				"POD_NAMESPACE": "default",
-				"POD_SA_NAME": "fake",
-				"AWS_REGION": "us-west-1",
+				"POD_SA_NAME": "fake"
 			}
 		}
 	],

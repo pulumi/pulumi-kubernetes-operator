@@ -70,11 +70,6 @@ func formattedServiceAccountPermissionsErrorMessage() string {
 	return fmt.Sprintf(ServiceAccountPermissionsErrorMessage, saName.Namespace, saName.Name, saName.Namespace, saName.Name)
 }
 
-type AuthClient interface {
-	authenticationv1.AuthenticationV1Interface
-	authorizationv1.AuthorizationV1Interface
-}
-
 type KubeAuthOptions struct {
 	WorkspaceName types.NamespacedName
 }

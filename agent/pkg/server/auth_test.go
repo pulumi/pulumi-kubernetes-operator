@@ -102,7 +102,6 @@ func TestKubernetes(t *testing.T) {
 		authHeaderValue *string
 		authn           authenticator.TokenFunc
 		authz           authorizer.AuthorizerFunc
-		wantErr         any
 		wantStatus      *grpc_status.Status
 		wantTags        gstruct.Keys
 	}{
@@ -201,13 +200,13 @@ func TestKubernetes(t *testing.T) {
 
 			if tt.authn == nil {
 				tt.authn = func(ctx context.Context, token string) (*authenticator.Response, bool, error) {
-					g.Fail("unexpected call to AuthenticateToken")
+					t.Error("unexpected call to AuthenticateToken")
 					return nil, false, nil
 				}
 			}
 			if tt.authz == nil {
 				tt.authz = func(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
-					g.Fail("unexpected call to Authorize")
+					t.Error("unexpected call to Authorize")
 					return authorizer.DecisionNoOpinion, "", nil
 				}
 			}
@@ -230,10 +229,6 @@ func TestKubernetes(t *testing.T) {
 
 			// execute the auth function
 			ctx, err := kubeAuth.Authenticate(ctx)
-			if tt.wantErr != nil {
-				g.Expect(err).To(gomega.MatchError(tt.wantErr))
-				return
-			}
 
 			// validate the tags, some of which are set even if the function fails
 			if tt.wantTags != nil {
