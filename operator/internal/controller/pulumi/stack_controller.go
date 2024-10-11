@@ -833,7 +833,6 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 		instance.Status.Outputs = outputs
 	}
 
-	last := instance.Status.LastUpdate
 	instance.Status.LastUpdate = &shared.StackUpdateState{
 		Generation:           current.Generation,
 		Name:                 update.Name,
@@ -843,9 +842,7 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 		LastSuccessfulCommit: current.Commit,
 		Permalink:            shared.Permalink(update.Status.Permalink),
 		LastResyncTime:       metav1.Now(),
-	}
-	if last != nil && last.Generation == current.Generation {
-		instance.Status.LastUpdate.Failures = last.Failures
+		Failures:             0,
 	}
 
 	r.emitEvent(instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack.")

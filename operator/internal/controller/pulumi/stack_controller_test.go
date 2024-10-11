@@ -613,7 +613,7 @@ var _ = Describe("Stack Controller", func() {
 				Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.StackUpdateSuccessful)))
 			})
 
-			When("retrying", func() {
+			When("after retrying", func() {
 				JustBeforeEach(func(ctx context.Context) {
 					obj.Status.LastUpdate = &shared.StackUpdateState{
 						Generation:          1,
@@ -625,12 +625,12 @@ var _ = Describe("Stack Controller", func() {
 					}
 					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
 				})
-				It("doesn't increment failures", func(ctx context.Context) {
+				It("resets failures", func(ctx context.Context) {
 					_, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
-					Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(2)))
+					Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(0)))
 				})
 
 				When("with a new generation", func() {
