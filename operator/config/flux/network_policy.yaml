@@ -1,0 +1,26 @@
+# A network policy to allow Pulumi workspaces in the `default` namespace to
+# fetch Flux artifacts from the source-controller in the `flux-system` namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-pulumi-fetch-flux-artifacts
+  namespace: flux-system
+spec:
+  podSelector:
+    matchLabels:
+      app: source-controller
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: http
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: default
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/managed-by: pulumi-kubernetes-operator
+              app.kubernetes.io/name: pulumi
+              app.kubernetes.io/component: workspace
+  policyTypes:
+    - Ingress

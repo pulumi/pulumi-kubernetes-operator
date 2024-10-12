@@ -71,6 +71,7 @@ type WorkspaceReconciler struct {
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces/finalizers,verbs=update
+//+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces/rpc,verbs=use
 //+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
@@ -217,6 +218,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	defer func() {
 		_ = conn.Close()
 	}()
+	l.Info("Connected to workspace pod", "addr", addr)
 	w.Status.Address = addr
 	wc := agentpb.NewAutomationServiceClient(conn)
 
@@ -368,8 +370,25 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 		"--workspace", "/share/workspace",
 		"--skip-install",
 	}
-
 	env := w.Spec.Env
+
+	// provide some pod information to the agent for informational purposes
+	env = append(env, corev1.EnvVar{
+		Name: "POD_NAMESPACE",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				FieldPath: "metadata.namespace",
+			},
+		},
+	})
+	env = append(env, corev1.EnvVar{
+		Name: "POD_SA_NAME",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				FieldPath: "spec.serviceAccountName",
+			},
+		},
+	})
 
 	// limit the memory usage to the reserved amount
 	// https://github.com/pulumi/pulumi-kubernetes-operator/issues/698
@@ -382,6 +401,12 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 			},
 		},
 	})
+
+	// enable workspace endpoint protection
+	command = append(command,
+		"--auth-mode", "kube",
+		"--kube-workspace-namespace", w.Namespace,
+		"--kube-workspace-name", w.Name)
 
 	statefulset := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{

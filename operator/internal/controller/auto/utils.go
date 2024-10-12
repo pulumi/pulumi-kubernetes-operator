@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	agentclient "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/client"
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"google.golang.org/grpc"
@@ -17,7 +18,22 @@ func connect(ctx context.Context, addr string) (*grpc.ClientConn, error) {
 	if os.Getenv("WORKSPACE_LOCALHOST") != "" {
 		addr = os.Getenv("WORKSPACE_LOCALHOST")
 	}
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	token := os.Getenv("WORKSPACE_TOKEN")
+	tokenFile := os.Getenv("WORKSPACE_TOKEN_FILE")
+	if token == "" && tokenFile == "" {
+		// use in-cluster configuration using the operator's service account token
+		tokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	}
+	creds, err := agentclient.NewTokenCredentials(token, tokenFile)
+	if err != nil {
+		return nil, fmt.Errorf("unable to use token credentials: %w", err)
+	}
+
+	conn, err := grpc.NewClient(
+		addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithPerRPCCredentials(creds))
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to workspace: %w", err)
 	}
