@@ -18,7 +18,7 @@ package cmd
 import (
 	"os"
 
-	goflag "flag"
+	"flag"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -83,7 +83,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
 
 	// register the Kubernetes flags (e.g. for serve command when using Kubernetes RBAC for authorization)
-	fs := goflag.NewFlagSet("kubernetes", goflag.ExitOnError)
+	fs := flag.NewFlagSet("kubernetes", flag.ExitOnError)
 	config.RegisterFlags(fs)
 	rootCmd.PersistentFlags().AddGoFlagSet(fs)
 	rootCmd.PersistentFlags().StringVar(&kubeContext, "context", "", "Kubernetes context override")
