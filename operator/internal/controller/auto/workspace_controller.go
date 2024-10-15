@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
@@ -78,13 +79,14 @@ type WorkspaceReconciler struct {
 
 func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
-	l.Info("Reconciling Workspace")
 
 	w := &autov1alpha1.Workspace{}
 	err := r.Get(ctx, req.NamespacedName, w)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	l = l.WithValues("revision", w.ResourceVersion)
+	l.Info("Reconciling Workspace")
 
 	// apply defaults to the workspace spec
 	// future: use a mutating webhook to apply defaults
@@ -108,7 +110,11 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		err := r.Status().Update(ctx, w)
 		if err != nil {
 			l.Error(err, "updating status")
+		} else {
+			l = log.FromContext(ctx).WithValues("revision", w.ResourceVersion)
+			l.V(1).Info("Status updated")
 		}
+
 		return err
 	}
 
@@ -319,13 +325,40 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 // SetupWithManager sets up the controller with the Manager.
 func (r *WorkspaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("workspace-controller").
 		For(&autov1alpha1.Workspace{},
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Owns(&corev1.Service{},
-			builder.WithPredicates(&predicate.ResourceVersionChangedPredicate{})).
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}, &DebugPredicate{Controller: "workspace-controller"})).
 		Owns(&appsv1.StatefulSet{},
-			builder.WithPredicates(&predicate.ResourceVersionChangedPredicate{})).
+			builder.WithPredicates(&statefulSetReadyPredicate{}, &DebugPredicate{Controller: "workspace-controller"})).
 		Complete(r)
+}
+
+type statefulSetReadyPredicate struct {
+	predicate.Funcs
+}
+
+func (statefulSetReadyPredicate) Create(e event.CreateEvent) bool {
+	return false
+}
+
+func (statefulSetReadyPredicate) Delete(e event.DeleteEvent) bool {
+	return false
+}
+
+func (statefulSetReadyPredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+	ready := func(ss *appsv1.StatefulSet) bool {
+		if ss.Status.ObservedGeneration != ss.Generation || ss.Status.UpdateRevision != ss.Status.CurrentRevision {
+			return false
+		}
+		if ss.Status.AvailableReplicas < 1 {
+			return false
+		}
+		return true
+	}
+	return !ready(e.ObjectOld.(*appsv1.StatefulSet)) && ready(e.ObjectNew.(*appsv1.StatefulSet))
 }
 
 const (

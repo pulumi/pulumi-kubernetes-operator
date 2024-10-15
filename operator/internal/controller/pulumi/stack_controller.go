@@ -194,13 +194,16 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		enqueueStacksForSourceFunc(programRefIndexFieldName,
 			func(obj client.Object) string {
 				return obj.GetName()
-			})))
+			})),
+		builder.WithPredicates(&auto.DebugPredicate{Controller: "stack-controller"}))
 
 	// Watch the stack's workspace and update objects
-	blder = blder.Watches(&autov1alpha1.Workspace{}, ctrlhandler.EnqueueRequestForOwner(
-		mgr.GetScheme(), mgr.GetRESTMapper(), &pulumiv1.Stack{}))
-	blder = blder.Watches(&autov1alpha1.Update{}, ctrlhandler.EnqueueRequestForOwner(
-		mgr.GetScheme(), mgr.GetRESTMapper(), &pulumiv1.Stack{}))
+	blder = blder.Watches(&autov1alpha1.Workspace{},
+		ctrlhandler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &pulumiv1.Stack{}),
+		builder.WithPredicates(&workspaceReadyPredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
+	blder = blder.Watches(&autov1alpha1.Update{},
+		ctrlhandler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &pulumiv1.Stack{}),
+		builder.WithPredicates(&updateCompletePredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
 
 	c, err := blder.WithOptions(opts).Build(r)
 	if err != nil {
@@ -264,7 +267,7 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					enqueueStacksForSourceFunc(fluxSourceIndexFieldName, func(obj client.Object) string {
 						gvk := obj.GetObjectKind().GroupVersionKind()
 						return fluxSourceKey(gvk, obj.GetName())
-					}))))
+					})), &auto.DebugPredicate{Controller: "stack-controller"}))
 			if err != nil {
 				watchedMu.Lock()
 				delete(watched, gvk)
@@ -342,6 +345,56 @@ func (p ReconcileRequestedPredicate) Update(e event.UpdateEvent) bool {
 		return true // new object has it, old one doesn't
 	}
 	return false // either removed, or present in neither object
+}
+
+type workspaceReadyPredicate struct {
+	predicate.Funcs
+}
+
+func (workspaceReadyPredicate) Create(e event.CreateEvent) bool {
+	return false
+}
+
+func (workspaceReadyPredicate) Delete(e event.DeleteEvent) bool {
+	return false
+}
+
+func (workspaceReadyPredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+	ready := func(ws *autov1alpha1.Workspace) bool {
+		if ws.Generation != ws.Status.ObservedGeneration {
+			return false
+		}
+		return meta.IsStatusConditionTrue(ws.Status.Conditions, autov1alpha1.WorkspaceReady)
+	}
+	return !ready(e.ObjectOld.(*autov1alpha1.Workspace)) && ready(e.ObjectNew.(*autov1alpha1.Workspace))
+}
+
+type updateCompletePredicate struct {
+	predicate.Funcs
+}
+
+func (updateCompletePredicate) Create(e event.CreateEvent) bool {
+	return false
+}
+
+func (updateCompletePredicate) Delete(e event.DeleteEvent) bool {
+	return false
+}
+
+func (updateCompletePredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+	ready := func(update *autov1alpha1.Update) bool {
+		if update.Generation != update.Status.ObservedGeneration {
+			return false
+		}
+		return meta.IsStatusConditionTrue(update.Status.Conditions, autov1alpha1.UpdateConditionTypeComplete)
+	}
+	return !ready(e.ObjectOld.(*autov1alpha1.Update)) && ready(e.ObjectNew.(*autov1alpha1.Update))
 }
 
 // StackReconciler reconciles a Stack object
@@ -463,7 +516,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, fmt.Errorf("get current update: %w", err)
 		}
 
-		completed := meta.IsStatusConditionTrue(sess.update.Status.Conditions, autov1alpha1.UpdateConditionTypeComplete)
+		completed := sess.update.Generation == sess.update.Status.ObservedGeneration &&
+			meta.IsStatusConditionTrue(sess.update.Status.Conditions, autov1alpha1.UpdateConditionTypeComplete)
 		if !completed {
 			// wait for the update to complete
 			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingProcessingReason, pulumiv1.ReconcilingProcessingUpdateMessage)
