@@ -19,6 +19,9 @@ package pulumi
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 func exactlyOneOf(these ...bool) bool {
@@ -40,4 +43,30 @@ func getGaugeValue(metric prometheus.Gauge) (float64, error) {
 		return 0, err
 	}
 	return m.Gauge.GetValue(), nil
+}
+
+// FinalizerAddedPredicate detects when a finalizer is added to an object.
+// It is used to suppress reconciliation when the stack controller adds its finalizer, which causes
+// a generation change that would otherwise trigger reconciliation.
+type FinalizerAddedPredicate struct {
+	predicate.Funcs
+}
+
+func (p *FinalizerAddedPredicate) Create(e event.CreateEvent) bool {
+	return false
+}
+
+func (p *FinalizerAddedPredicate) Delete(e event.DeleteEvent) bool {
+	return false
+}
+
+func (p *FinalizerAddedPredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+	return !controllerutil.ContainsFinalizer(e.ObjectOld, pulumiFinalizer) && controllerutil.ContainsFinalizer(e.ObjectNew, pulumiFinalizer)
+}
+
+func (p *FinalizerAddedPredicate) Generic(e event.GenericEvent) bool {
+	return false
 }

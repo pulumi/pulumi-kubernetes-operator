@@ -361,6 +361,10 @@ func (statefulSetReadyPredicate) Update(e event.UpdateEvent) bool {
 	return !ready(e.ObjectOld.(*appsv1.StatefulSet)) && ready(e.ObjectNew.(*appsv1.StatefulSet))
 }
 
+func (statefulSetReadyPredicate) Generic(e event.GenericEvent) bool {
+	return false
+}
+
 const (
 	FieldManager                 = "pulumi-kubernetes-operator"
 	WorkspacePulumiContainerName = "pulumi"

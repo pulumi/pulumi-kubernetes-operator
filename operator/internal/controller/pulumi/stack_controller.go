@@ -58,7 +58,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	ctrlhandler "sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -101,7 +101,9 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Filter for update events where an object's metadata.generation is changed (no spec change!),
 	// or the "force reconcile" annotation is used (and not marked as handled).
 	predicates := []predicate.Predicate{
-		predicate.Or(predicate.GenerationChangedPredicate{}, ReconcileRequestedPredicate{}),
+		predicate.Or(
+			predicate.And(predicate.GenerationChangedPredicate{}, predicate.Not(&FinalizerAddedPredicate{})),
+			ReconcileRequestedPredicate{}),
 	}
 
 	// Track metrics about stacks.
@@ -257,9 +259,7 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		}
 		watchedMu.Unlock()
 		if !ok {
-			// Using PartialObjectMetadata means we don't need the actual types registered in the
-			// schema.
-			var sourceKind metav1.PartialObjectMetadata
+			var sourceKind unstructured.Unstructured
 			sourceKind.SetGroupVersionKind(gvk)
 			mgr.GetLogger().Info("installing watcher for newly seen source kind", "GroupVersionKind", gvk)
 			err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &sourceKind,
@@ -267,7 +267,7 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					enqueueStacksForSourceFunc(fluxSourceIndexFieldName, func(obj client.Object) string {
 						gvk := obj.GetObjectKind().GroupVersionKind()
 						return fluxSourceKey(gvk, obj.GetName())
-					})), &auto.DebugPredicate{Controller: "stack-controller"}))
+					})), &fluxSourceReadyPredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
 			if err != nil {
 				watchedMu.Lock()
 				delete(watched, gvk)
@@ -372,6 +372,10 @@ func (workspaceReadyPredicate) Update(e event.UpdateEvent) bool {
 	return !ready(e.ObjectOld.(*autov1alpha1.Workspace)) && ready(e.ObjectNew.(*autov1alpha1.Workspace))
 }
 
+func (workspaceReadyPredicate) Generic(e event.GenericEvent) bool {
+	return false
+}
+
 type updateCompletePredicate struct {
 	predicate.Funcs
 }
@@ -395,6 +399,10 @@ func (updateCompletePredicate) Update(e event.UpdateEvent) bool {
 		return meta.IsStatusConditionTrue(update.Status.Conditions, autov1alpha1.UpdateConditionTypeComplete)
 	}
 	return !ready(e.ObjectOld.(*autov1alpha1.Update)) && ready(e.ObjectNew.(*autov1alpha1.Update))
+}
+
+func (updateCompletePredicate) Generic(e event.GenericEvent) bool {
+	return false
 }
 
 // StackReconciler reconciles a Stack object
@@ -448,8 +456,7 @@ var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
 func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (res ctrl.Result, reterr error) {
-	log := log.FromContext(ctx)
-	log.Info("Reconciling Stack")
+	log := ctrllog.FromContext(ctx)
 
 	// Fetch the Stack instance
 	instance := &pulumiv1.Stack{}
@@ -460,6 +467,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		// Return and don't requeue
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
+	log = log.WithValues("revision", instance.ResourceVersion)
+	log.Info("Reconciling Stack")
 
 	// Update the observed generation and "reconcile request" of the object.
 	instance.Status.ObservedGeneration = instance.GetGeneration()
@@ -498,6 +507,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			log.Error(err, "unable to save object status")
 			return err
 		}
+		log = ctrllog.FromContext(ctx).WithValues("revision", instance.ResourceVersion)
+		log.V(1).Info("Status updated")
 		return nil
 	}
 
@@ -673,9 +684,9 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, err
 		}
 
-		if err := checkFluxSourceReady(sourceObject); err != nil {
+		if !checkFluxSourceReady(&sourceObject) {
 			// Wait until the source is ready, at which time the watch mechanism will requeue it.
-			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, "Flux source not ready")
 			return reconcile.Result{}, saveStatus()
 		}
 
