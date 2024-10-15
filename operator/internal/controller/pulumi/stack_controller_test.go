@@ -1155,7 +1155,7 @@ var _ = Describe("Stack Controller", func() {
 						{Type: "Ready", Status: metav1.ConditionFalse, Reason: "Unknown", LastTransitionTime: metav1.Now()},
 					}
 				})
-				beStalled(pulumiv1.StalledSourceUnavailableReason, ContainSubstring("source Ready condition does not have status True"))
+				beStalled(pulumiv1.StalledSourceUnavailableReason, ContainSubstring("Flux source not ready"))
 			})
 
 			When("the flux source is ready", func() {
