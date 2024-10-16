@@ -347,12 +347,19 @@ func (p ReconcileRequestedPredicate) Update(e event.UpdateEvent) bool {
 	return false // either removed, or present in neither object
 }
 
+func isWorkspaceReady(ws *autov1alpha1.Workspace) bool {
+	if ws == nil || ws.Generation != ws.Status.ObservedGeneration {
+		return false
+	}
+	return meta.IsStatusConditionTrue(ws.Status.Conditions, autov1alpha1.WorkspaceReady)
+}
+
 type workspaceReadyPredicate struct {
 	predicate.Funcs
 }
 
 func (workspaceReadyPredicate) Create(e event.CreateEvent) bool {
-	return false
+	return isWorkspaceReady(e.Object.(*autov1alpha1.Workspace))
 }
 
 func (workspaceReadyPredicate) Delete(e event.DeleteEvent) bool {
@@ -363,17 +370,18 @@ func (workspaceReadyPredicate) Update(e event.UpdateEvent) bool {
 	if e.ObjectOld == nil || e.ObjectNew == nil {
 		return false
 	}
-	ready := func(ws *autov1alpha1.Workspace) bool {
-		if ws.Generation != ws.Status.ObservedGeneration {
-			return false
-		}
-		return meta.IsStatusConditionTrue(ws.Status.Conditions, autov1alpha1.WorkspaceReady)
-	}
-	return !ready(e.ObjectOld.(*autov1alpha1.Workspace)) && ready(e.ObjectNew.(*autov1alpha1.Workspace))
+	return !isWorkspaceReady(e.ObjectOld.(*autov1alpha1.Workspace)) && isWorkspaceReady(e.ObjectNew.(*autov1alpha1.Workspace))
 }
 
 func (workspaceReadyPredicate) Generic(e event.GenericEvent) bool {
 	return false
+}
+
+func isUpdateComplete(update *autov1alpha1.Update) bool {
+	if update == nil || update.Generation != update.Status.ObservedGeneration {
+		return false
+	}
+	return meta.IsStatusConditionTrue(update.Status.Conditions, autov1alpha1.UpdateConditionTypeComplete)
 }
 
 type updateCompletePredicate struct {
@@ -381,7 +389,7 @@ type updateCompletePredicate struct {
 }
 
 func (updateCompletePredicate) Create(e event.CreateEvent) bool {
-	return false
+	return isUpdateComplete(e.Object.(*autov1alpha1.Update))
 }
 
 func (updateCompletePredicate) Delete(e event.DeleteEvent) bool {
@@ -392,13 +400,7 @@ func (updateCompletePredicate) Update(e event.UpdateEvent) bool {
 	if e.ObjectOld == nil || e.ObjectNew == nil {
 		return false
 	}
-	ready := func(update *autov1alpha1.Update) bool {
-		if update.Generation != update.Status.ObservedGeneration {
-			return false
-		}
-		return meta.IsStatusConditionTrue(update.Status.Conditions, autov1alpha1.UpdateConditionTypeComplete)
-	}
-	return !ready(e.ObjectOld.(*autov1alpha1.Update)) && ready(e.ObjectNew.(*autov1alpha1.Update))
+	return !isUpdateComplete(e.ObjectOld.(*autov1alpha1.Update)) && isUpdateComplete(e.ObjectNew.(*autov1alpha1.Update))
 }
 
 func (updateCompletePredicate) Generic(e event.GenericEvent) bool {
@@ -800,7 +802,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		return reconcile.Result{}, fmt.Errorf("unable to create workspace: %w", err)
 	}
 
-	if !sess.isWorkspaceReady() {
+	if !isWorkspaceReady(sess.ws) {
 		// watch the workspace for status updates
 		log.V(1).Info("waiting for workspace to be ready")
 		return reconcile.Result{}, saveStatus()
@@ -1253,16 +1255,6 @@ func (sess *stackReconcilerSession) CreateWorkspace(ctx context.Context) error {
 		return err
 	}
 	return nil
-}
-
-func (sess *stackReconcilerSession) isWorkspaceReady() bool {
-	if sess.ws == nil {
-		return false
-	}
-	if sess.ws.Generation != sess.ws.Status.ObservedGeneration {
-		return false
-	}
-	return meta.IsStatusConditionTrue(sess.ws.Status.Conditions, autov1alpha1.WorkspaceReady)
 }
 
 // setupWorkspace sets all the extra configuration specified by the Stack object, after you have

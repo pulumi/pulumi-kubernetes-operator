@@ -110,7 +110,7 @@ type fluxSourceReadyPredicate struct {
 }
 
 func (fluxSourceReadyPredicate) Create(e event.CreateEvent) bool {
-	return false
+	return checkFluxSourceReady(e.Object.(*unstructured.Unstructured))
 }
 
 func (fluxSourceReadyPredicate) Delete(e event.DeleteEvent) bool {
