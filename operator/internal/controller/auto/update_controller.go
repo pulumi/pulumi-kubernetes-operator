@@ -86,6 +86,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	l = l.WithValues("revision", obj.ResourceVersion)
+	ctx = log.IntoContext(ctx, l)
 	l.Info("Reconciling Update")
 
 	rs := newReconcileSession(r.Client, obj)
@@ -552,7 +553,7 @@ func (s streamReader[T]) Result() (result, error) {
 			continue // No result yet.
 		}
 
-		s.l.Info("Result received", "result", res)
+		s.l.Info("Update complete", "result", res)
 
 		s.obj.Status.StartTime = metav1.NewTime(res.GetSummary().StartTime.AsTime())
 		s.obj.Status.EndTime = metav1.NewTime(res.GetSummary().EndTime.AsTime())
