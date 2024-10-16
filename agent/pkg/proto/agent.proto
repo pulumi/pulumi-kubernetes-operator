@@ -91,24 +91,23 @@ message StackSummary {
 }
 
 message SetAllConfigRequest {
-  optional bool path =
-      1; // Parse the keys as paths in a map or list rather than raw strings
-  map<string, ConfigValue> config =
-      2; // a map of ConfigValue used by Pulumi programs
+  repeated ConfigItem config = 1;
 }
 
-message ConfigValue {
+message ConfigItem {
+  string key = 1; // The config's key.
+  optional bool path = 2; // Parse the key as a paths in a map or list rather than as a raw string.
   oneof v {
-    google.protobuf.Value value = 1;
-    ConfigValueFrom value_from = 2;
+    google.protobuf.Value value = 3; // A literal value.
+    ConfigValueFrom value_from = 4; // A value read from the environment or local disk.
   }
-  optional bool secret = 3;
+  optional bool secret = 5; // Whether the config is a secret.
 }
 
 message ConfigValueFrom {
   oneof f {
-    string env = 1;  // the name of an environment variable to read
-    string path = 2; // the path to a file to read
+    string env = 1;  // The name of an environment variable to read>
+    string path = 2; // The path to a file to read.
   }
 }
 

@@ -13,9 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package server_test
-
-// TODO: Why are we using a black box test package?
+package server
 
 import (
 	"context"
@@ -25,7 +23,6 @@ import (
 	"time"
 
 	pb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
-	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -45,7 +42,7 @@ func TestGracefulShutdown(t *testing.T) {
 	tc := newTC(ctx, t, tcOptions{ProjectDir: "./testdata/hang", Stacks: []string{"test"}})
 	log := zap.L().Named("test").Sugar()
 	lis := bufconn.Listen(1024)
-	s := server.NewGRPC(log, tc.server, nil)
+	s := NewGRPC(log, tc.server, nil)
 	go func() {
 		// This should exit cleanly if we shut down gracefully.
 		if err := s.Serve(ctx, lis); err != nil {

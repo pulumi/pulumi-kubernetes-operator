@@ -1,4 +1,4 @@
-package server_test
+package server
 
 import (
 	"context"
@@ -13,13 +13,16 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
+	"k8s.io/utils/ptr"
 
 	pb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
-	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/server"
+
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/fsutil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
@@ -35,7 +38,7 @@ func TestNewServer(t *testing.T) {
 	tests := []struct {
 		name       string
 		projectDir string
-		opts       *server.Options
+		opts       *Options
 		wantErr    any
 	}{
 		{
@@ -54,7 +57,7 @@ func TestNewServer(t *testing.T) {
 		{
 			name:       "new stack",
 			projectDir: "./testdata/simple",
-			opts:       &server.Options{StackName: "new"},
+			opts:       &Options{StackName: "new"},
 		},
 	}
 	for _, tt := range tests {
@@ -66,7 +69,7 @@ func TestNewServer(t *testing.T) {
 			ctx := newContext(t)
 			ws := newWorkspace(ctx, t, tt.projectDir)
 
-			_, err := server.NewServer(ctx, ws, tt.opts)
+			_, err := NewServer(ctx, ws, tt.opts)
 			if tt.wantErr != nil {
 				g.Expect(err).To(gomega.MatchError(tt.wantErr))
 			} else {
@@ -162,7 +165,7 @@ func TestSelectStack(t *testing.T) {
 			name: "non-existent stack with create",
 			req: pb.SelectStackRequest{
 				StackName: "one",
-				Create:    Pointer(true),
+				Create:    ptr.To(true),
 			},
 		},
 	}
@@ -246,23 +249,24 @@ func TestSetAllConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		stacks  []string
-		req     pb.SetAllConfigRequest
-		wantErr any
+		req     *pb.SetAllConfigRequest
+		wantErr error
 		want    auto.ConfigMap
 	}{
 		{
 			name:    "no active stack",
 			stacks:  []string{},
-			req:     pb.SetAllConfigRequest{},
+			req:     &pb.SetAllConfigRequest{},
 			wantErr: status.Error(codes.FailedPrecondition, "no stack is selected"),
 		},
 		{
 			name:   "literal",
 			stacks: []string{TestStackName},
-			req: pb.SetAllConfigRequest{
-				Config: map[string]*pb.ConfigValue{
-					"foo": {V: &pb.ConfigValue_Value{Value: strVal}},
-				},
+			req: &pb.SetAllConfigRequest{
+				Config: []*pb.ConfigItem{{
+					Key: "foo",
+					V:   &pb.ConfigItem_Value{Value: strVal},
+				}},
 			},
 			want: auto.ConfigMap{
 				"simple:foo": {Value: "bar"},
@@ -271,11 +275,12 @@ func TestSetAllConfig(t *testing.T) {
 		{
 			name:   "env",
 			stacks: []string{TestStackName},
-			req: pb.SetAllConfigRequest{
+			req: &pb.SetAllConfigRequest{
 				// note that TestMain sets the FOO environment variable to a test value
-				Config: map[string]*pb.ConfigValue{
-					"foo": {V: &pb.ConfigValue_ValueFrom{ValueFrom: &pb.ConfigValueFrom{F: &pb.ConfigValueFrom_Env{Env: "FOO"}}}},
-				},
+				Config: []*pb.ConfigItem{{
+					Key: "foo",
+					V:   &pb.ConfigItem_ValueFrom{ValueFrom: &pb.ConfigValueFrom{F: &pb.ConfigValueFrom_Env{Env: "FOO"}}},
+				}},
 			},
 			want: auto.ConfigMap{
 				"simple:foo": {Value: "bar"},
@@ -284,11 +289,12 @@ func TestSetAllConfig(t *testing.T) {
 		{
 			name:   "file",
 			stacks: []string{TestStackName},
-			req: pb.SetAllConfigRequest{
+			req: &pb.SetAllConfigRequest{
 				// note that TestMain sets the FOO environment variable to a test value
-				Config: map[string]*pb.ConfigValue{
-					"foo": {V: &pb.ConfigValue_ValueFrom{ValueFrom: &pb.ConfigValueFrom{F: &pb.ConfigValueFrom_Path{Path: "./testdata/foo.txt"}}}},
-				},
+				Config: []*pb.ConfigItem{{
+					Key: "foo",
+					V:   &pb.ConfigItem_ValueFrom{ValueFrom: &pb.ConfigValueFrom{F: &pb.ConfigValueFrom_Path{Path: "./testdata/foo.txt"}}},
+				}},
 			},
 			want: auto.ConfigMap{
 				"simple:foo": {Value: "bar"},
@@ -297,10 +303,13 @@ func TestSetAllConfig(t *testing.T) {
 		{
 			name:   "path-based",
 			stacks: []string{TestStackName},
-			req: pb.SetAllConfigRequest{
-				Path: Pointer(true),
-				Config: map[string]*pb.ConfigValue{
-					"a.b": {V: &pb.ConfigValue_Value{Value: strVal}},
+			req: &pb.SetAllConfigRequest{
+				Config: []*pb.ConfigItem{
+					{
+						Key:  "a.b",
+						Path: ptr.To(true),
+						V:    &pb.ConfigItem_Value{Value: strVal},
+					},
 				},
 			},
 			want: auto.ConfigMap{
@@ -308,12 +317,74 @@ func TestSetAllConfig(t *testing.T) {
 			},
 		},
 		{
+			name:   "path-like",
+			stacks: []string{TestStackName},
+			req: &pb.SetAllConfigRequest{
+				Config: []*pb.ConfigItem{
+					{
+						Key:  "a.b",
+						Path: ptr.To(false),
+						V:    &pb.ConfigItem_Value{Value: strVal},
+					}, {
+						Key:  `"quoted[key]"`,
+						Path: ptr.To(false),
+						V:    &pb.ConfigItem_Value{Value: strVal},
+					}, {
+						Key:  `["already.escaped"]`,
+						Path: ptr.To(false),
+						V:    &pb.ConfigItem_Value{Value: strVal},
+					},
+				},
+			},
+			want: auto.ConfigMap{
+				"simple:a.b":             {Value: "bar"},
+				`simple:"quoted[key]"`:   {Value: "bar"},
+				`simple:already.escaped`: {Value: "bar"},
+			},
+		},
+		{
+			name:   "path-overlay",
+			stacks: []string{"nested"},
+			req: &pb.SetAllConfigRequest{
+				Config: []*pb.ConfigItem{
+					{
+						Key:  "myList[0]",
+						Path: ptr.To(true),
+						V:    &pb.ConfigItem_Value{Value: structpb.NewStringValue("1")},
+					},
+					{
+						Key:  "myList[1]",
+						Path: ptr.To(true),
+						V:    &pb.ConfigItem_Value{Value: structpb.NewStringValue("2")},
+					},
+					{
+						Key:  "myList[3]",
+						Path: ptr.To(true),
+						V:    &pb.ConfigItem_Value{Value: structpb.NewStringValue("four")},
+					},
+					{
+						Key:  "outer.more.inner",
+						Path: ptr.To(true),
+						V:    &pb.ConfigItem_Value{Value: structpb.NewStringValue("wrapped")},
+					},
+				},
+			},
+			want: auto.ConfigMap{
+				"aws:region":    {Value: `us-west-2`},
+				"simple:foo":    {Value: `aha`},
+				"simple:bar":    {Value: `1234`},
+				"simple:myList": {Value: `[1,2,"three","four"]`},
+				"simple:outer":  {Value: `{"inner":"my_value","more":{"inner":"wrapped"},"other":"something_else"}`},
+			},
+		},
+		{
 			name:   "secret",
 			stacks: []string{TestStackName},
-			req: pb.SetAllConfigRequest{
-				Config: map[string]*pb.ConfigValue{
-					"foo": {V: &pb.ConfigValue_Value{Value: strVal}, Secret: Pointer(true)},
-				},
+			req: &pb.SetAllConfigRequest{
+				Config: []*pb.ConfigItem{{
+					Key: "foo",
+					V:   &pb.ConfigItem_Value{Value: strVal}, Secret: ptr.To(true),
+				}},
 			},
 			want: auto.ConfigMap{
 				"simple:foo": {Value: "bar", Secret: true},
@@ -322,10 +393,11 @@ func TestSetAllConfig(t *testing.T) {
 		{
 			name:   "typed",
 			stacks: []string{TestStackName},
-			req: pb.SetAllConfigRequest{
-				Config: map[string]*pb.ConfigValue{
-					"enabled": {V: &pb.ConfigValue_Value{Value: boolVal}},
-				},
+			req: &pb.SetAllConfigRequest{
+				Config: []*pb.ConfigItem{{
+					Key: "enabled",
+					V:   &pb.ConfigItem_Value{Value: boolVal},
+				}},
 			},
 			want: auto.ConfigMap{
 				"simple:enabled": {Value: "true"},
@@ -333,22 +405,20 @@ func TestSetAllConfig(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			g := gomega.NewWithT(t)
 			ctx := newContext(t)
 			tc := newTC(ctx, t, tcOptions{ProjectDir: "./testdata/simple", Stacks: tt.stacks})
-			_, err := tc.server.SetAllConfig(ctx, &tt.req)
+			_, err := tc.server.SetAllConfig(ctx, tt.req)
 			if tt.wantErr != nil {
-				g.Expect(err).To(gomega.MatchError(tt.wantErr))
-			} else {
-				g.Expect(err).ToNot(gomega.HaveOccurred())
-
-				actual, err := tc.ws.GetAllConfig(ctx, tc.stack.Name())
-				g.Expect(err).ToNot(gomega.HaveOccurred())
-				g.Expect(actual).To(gomega.Equal(tt.want))
+				assert.ErrorIs(t, err, tt.wantErr)
+				return
 			}
+			require.NoError(t, err)
+
+			actual, err := tc.ws.GetAllConfig(ctx, tc.stack.Name())
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, actual)
 		})
 	}
 }
@@ -457,6 +527,7 @@ var _ pb.AutomationService_UpServer = (*upStream)(nil)
 func (m *upStream) Context() context.Context {
 	return m.ctx
 }
+
 func (m *upStream) Send(resp *pb.UpStream) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -531,6 +602,7 @@ var _ pb.AutomationService_PreviewServer = (*previewStream)(nil)
 func (m *previewStream) Context() context.Context {
 	return m.ctx
 }
+
 func (m *previewStream) Send(resp *pb.PreviewStream) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -607,6 +679,7 @@ var _ pb.AutomationService_RefreshServer = (*refreshStream)(nil)
 func (m *refreshStream) Context() context.Context {
 	return m.ctx
 }
+
 func (m *refreshStream) Send(resp *pb.RefreshStream) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -683,6 +756,7 @@ var _ pb.AutomationService_DestroyServer = (*destroyStream)(nil)
 func (m *destroyStream) Context() context.Context {
 	return m.ctx
 }
+
 func (m *destroyStream) Send(resp *pb.DestroyStream) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -711,7 +785,7 @@ func newWorkspace(ctx context.Context, t *testing.T, templateDir string) auto.Wo
 	// generate a project based on the template, with a file backend
 	tempDir := t.TempDir()
 	if templateDir != "" {
-		err := os.MkdirAll(filepath.Join(tempDir, ".pulumi"), 0755)
+		err := os.MkdirAll(filepath.Join(tempDir, ".pulumi"), 0o755)
 		if err != nil {
 			t.Fatalf("failed to create state backend directory: %v", err)
 		}
@@ -741,10 +815,6 @@ func newWorkspace(ctx context.Context, t *testing.T, templateDir string) auto.Wo
 	return ws
 }
 
-func Pointer[T any](d T) *T {
-	return &d
-}
-
 func HasStatusCode(code codes.Code, msg types.GomegaMatcher) types.GomegaMatcher {
 	return gomega.WithTransform(func(err error) status.Status {
 		s, _ := status.FromError(err)
@@ -758,21 +828,21 @@ func HasStatusCode(code codes.Code, msg types.GomegaMatcher) types.GomegaMatcher
 type testContext struct {
 	ws     auto.Workspace
 	stack  *auto.Stack
-	server *server.Server
+	server *Server
 }
 
 type tcOptions struct {
 	ProjectDir string
 	Stacks     []string // pre-create some stacks; last one will be selected
-	ServerOpts *server.Options
+	ServerOpts *Options
 }
 
 func newTC(ctx context.Context, t *testing.T, opts tcOptions) *testContext {
 	ws := newWorkspace(ctx, t, opts.ProjectDir)
 	if opts.ServerOpts == nil {
-		opts.ServerOpts = &server.Options{}
+		opts.ServerOpts = &Options{}
 	}
-	server, err := server.NewServer(ctx, ws, opts.ServerOpts)
+	server, err := NewServer(ctx, ws, opts.ServerOpts)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}

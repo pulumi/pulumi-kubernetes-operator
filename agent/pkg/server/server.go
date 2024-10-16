@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -41,6 +42,8 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optrefresh"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/resource/config"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 )
 
 const (
@@ -242,27 +245,67 @@ func (s *Server) SetAllConfig(ctx context.Context, in *pb.SetAllConfigRequest) (
 		return nil, err
 	}
 
-	config := make(map[string]auto.ConfigValue)
-	for k, inv := range in.GetConfig() {
-		if k == "" {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid config key: %s", k)
-		}
-		v, err := unmarshalConfigValue(inv)
-		if err != nil {
-			return nil, err
-		}
-		config[k] = v
+	p, err := stack.Workspace().ProjectSettings(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting project settings: %w", err)
 	}
+
+	config, err := unmarshalConfigItems(p.Name.String(), in.Config)
+	if err != nil {
+		return nil, fmt.Errorf("config items: %w", err)
+	}
+
 	s.log.Debugw("setting all config", "config", config)
 
-	err = stack.SetAllConfigWithOptions(ctx, config, &auto.ConfigOptions{
-		Path: in.GetPath(),
-	})
+	err = stack.SetAllConfigWithOptions(ctx, config, &auto.ConfigOptions{Path: true})
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	return &pb.SetAllConfigResult{}, nil
+}
+
+// unmarshalConfigItems maps proto ConfigItems to an auto.ConfigMap whose
+// structure is appropriate for invoking with `pulumi config set-all --path`
+// for efficiency. Config items whose keys are not meant to be treated as paths
+// are escaped so they are treated as verbatim property paths.
+func unmarshalConfigItems(project string, items []*pb.ConfigItem) (auto.ConfigMap, error) {
+	out := auto.ConfigMap{}
+
+	for _, item := range items {
+		v, err := unmarshalConfigItem(item) // Resolves valueFrom.
+		if err != nil {
+			return nil, fmt.Errorf("unmarshalling %q config: %w", item.Key, err)
+		}
+
+		// ParseKey requires all keys to be explicitly namespaced, so scope any
+		// implicit keys to our project.
+		key := item.Key
+		if !strings.Contains(key, tokens.TokenDelimiter) {
+			key = project + ":" + key
+		}
+		k, err := config.ParseKey(key)
+		if err != nil {
+			return nil, fmt.Errorf("parsing %q key: %w", key, err)
+		}
+
+		// Keys which are not meant to be interpreted as paths as escaped so
+		// subsequent path parsing treats them as-is. In particular "foo"
+		// becomes `["<foo>"]`. Items which are already escaped in this way are
+		// untouched. See
+		// https://github.com/pulumi/pulumi/blob/4424d69177c47385ea4a01d8ad1b0b825d394f63/sdk/go/common/resource/properties_path.go#L32-L64
+		path := false
+		if item.Path != nil {
+			path = *item.Path
+		}
+		if !path && !(strings.HasPrefix(k.Name(), `["`) && strings.HasSuffix(k.Name(), `"]`)) {
+			k = config.MustMakeKey(k.Namespace(), fmt.Sprintf("[%q]", k.Name()))
+		}
+
+		out[k.String()] = v
+	}
+
+	return out, nil
 }
 
 func (s *Server) Install(ctx context.Context, in *pb.InstallRequest) (*pb.InstallResult, error) {
@@ -656,15 +699,15 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 	return nil
 }
 
-func unmarshalConfigValue(inv *pb.ConfigValue) (auto.ConfigValue, error) {
+func unmarshalConfigItem(inv *pb.ConfigItem) (auto.ConfigValue, error) {
 	v := auto.ConfigValue{
 		Secret: inv.GetSecret(),
 	}
 	switch vv := inv.V.(type) {
-	case *pb.ConfigValue_Value:
+	case *pb.ConfigItem_Value:
 		// FUTURE: use JSON values
 		v.Value = fmt.Sprintf("%v", vv.Value.AsInterface())
-	case *pb.ConfigValue_ValueFrom:
+	case *pb.ConfigItem_ValueFrom:
 		switch from := vv.ValueFrom.F.(type) {
 		case *pb.ConfigValueFrom_Env:
 			data, ok := os.LookupEnv(from.Env)

@@ -59,15 +59,18 @@ func connect(ctx context.Context, addr string) (*grpc.ClientConn, error) {
 	}
 }
 
-func marshalConfigValue(item autov1alpha1.ConfigItem) *agentpb.ConfigValue {
-	v := &agentpb.ConfigValue{
+func marshalConfigItem(item autov1alpha1.ConfigItem) *agentpb.ConfigItem {
+	v := &agentpb.ConfigItem{
+		Key:    item.Key,
+		Path:   item.Path,
 		Secret: item.Secret,
 	}
 	if item.Value != nil {
-		v.V = &agentpb.ConfigValue_Value{
+		v.V = &agentpb.ConfigItem_Value{
 			Value: structpb.NewStringValue(*item.Value),
 		}
-	} else if item.ValueFrom != nil {
+	}
+	if item.ValueFrom != nil {
 		f := &agentpb.ConfigValueFrom{}
 		if item.ValueFrom.Env != "" {
 			f.F = &agentpb.ConfigValueFrom_Env{
@@ -78,7 +81,7 @@ func marshalConfigValue(item autov1alpha1.ConfigItem) *agentpb.ConfigValue {
 				Path: item.ValueFrom.Path,
 			}
 		}
-		v.V = &agentpb.ConfigValue_ValueFrom{
+		v.V = &agentpb.ConfigItem_ValueFrom{
 			ValueFrom: f,
 		}
 	}
