@@ -91,9 +91,10 @@ func marshalConfigValue(item autov1alpha1.ConfigItem) *agentpb.ConfigValue {
 var l = log.Log.WithName("predicate").WithName("debug")
 
 type DebugPredicate struct {
-	predicate.Funcs
 	Controller string
 }
+
+var _ predicate.Predicate = &DebugPredicate{}
 
 func (p *DebugPredicate) Create(e event.CreateEvent) bool {
 	l.V(1).Info("Create", "controller", p.Controller, "type", fmt.Sprintf("%T", e.Object), "name", e.Object.GetName(), "revision", e.Object.GetResourceVersion())

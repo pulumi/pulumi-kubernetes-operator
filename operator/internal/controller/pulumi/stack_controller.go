@@ -102,7 +102,7 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// or the "force reconcile" annotation is used (and not marked as handled).
 	predicates := []predicate.Predicate{
 		predicate.Or(
-			predicate.And(predicate.GenerationChangedPredicate{}, predicate.Not(&FinalizerAddedPredicate{})),
+			predicate.And(predicate.GenerationChangedPredicate{}, predicate.Not(&finalizerAddedPredicate{})),
 			ReconcileRequestedPredicate{}),
 	}
 
@@ -354,15 +354,15 @@ func isWorkspaceReady(ws *autov1alpha1.Workspace) bool {
 	return meta.IsStatusConditionTrue(ws.Status.Conditions, autov1alpha1.WorkspaceReady)
 }
 
-type workspaceReadyPredicate struct {
-	predicate.Funcs
-}
+type workspaceReadyPredicate struct{}
+
+var _ predicate.Predicate = &workspaceReadyPredicate{}
 
 func (workspaceReadyPredicate) Create(e event.CreateEvent) bool {
 	return isWorkspaceReady(e.Object.(*autov1alpha1.Workspace))
 }
 
-func (workspaceReadyPredicate) Delete(e event.DeleteEvent) bool {
+func (workspaceReadyPredicate) Delete(_ event.DeleteEvent) bool {
 	return false
 }
 
@@ -373,7 +373,7 @@ func (workspaceReadyPredicate) Update(e event.UpdateEvent) bool {
 	return !isWorkspaceReady(e.ObjectOld.(*autov1alpha1.Workspace)) && isWorkspaceReady(e.ObjectNew.(*autov1alpha1.Workspace))
 }
 
-func (workspaceReadyPredicate) Generic(e event.GenericEvent) bool {
+func (workspaceReadyPredicate) Generic(_ event.GenericEvent) bool {
 	return false
 }
 
@@ -384,9 +384,9 @@ func isUpdateComplete(update *autov1alpha1.Update) bool {
 	return meta.IsStatusConditionTrue(update.Status.Conditions, autov1alpha1.UpdateConditionTypeComplete)
 }
 
-type updateCompletePredicate struct {
-	predicate.Funcs
-}
+type updateCompletePredicate struct{}
+
+var _ predicate.Predicate = &updateCompletePredicate{}
 
 func (updateCompletePredicate) Create(e event.CreateEvent) bool {
 	return isUpdateComplete(e.Object.(*autov1alpha1.Update))
@@ -1452,4 +1452,30 @@ func patchObject[T any, V any](base T, patch V) (*T, error) {
 	}
 
 	return &result, nil
+}
+
+// finalizerAddedPredicate detects when a finalizer is added to an object.
+// It is used to suppress reconciliation when the stack controller adds its finalizer, which causes
+// a generation change that would otherwise trigger reconciliation.
+type finalizerAddedPredicate struct{}
+
+var _ predicate.Predicate = &finalizerAddedPredicate{}
+
+func (p *finalizerAddedPredicate) Create(_ event.CreateEvent) bool {
+	return false
+}
+
+func (p *finalizerAddedPredicate) Delete(_ event.DeleteEvent) bool {
+	return false
+}
+
+func (p *finalizerAddedPredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+	return !controllerutil.ContainsFinalizer(e.ObjectOld, pulumiFinalizer) && controllerutil.ContainsFinalizer(e.ObjectNew, pulumiFinalizer)
+}
+
+func (p *finalizerAddedPredicate) Generic(_ event.GenericEvent) bool {
+	return false
 }

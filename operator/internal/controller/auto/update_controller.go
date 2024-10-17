@@ -199,15 +199,15 @@ func isWorkspaceReady(ws *autov1alpha1.Workspace) bool {
 	return meta.IsStatusConditionTrue(ws.Status.Conditions, autov1alpha1.WorkspaceReady)
 }
 
-type workspaceReadyPredicate struct {
-	predicate.Funcs
-}
+type workspaceReadyPredicate struct{}
+
+var _ predicate.Predicate = &workspaceReadyPredicate{}
 
 func (workspaceReadyPredicate) Create(e event.CreateEvent) bool {
 	return isWorkspaceReady(e.Object.(*autov1alpha1.Workspace))
 }
 
-func (workspaceReadyPredicate) Delete(e event.DeleteEvent) bool {
+func (workspaceReadyPredicate) Delete(_ event.DeleteEvent) bool {
 	return false
 }
 
@@ -218,7 +218,7 @@ func (workspaceReadyPredicate) Update(e event.UpdateEvent) bool {
 	return !isWorkspaceReady(e.ObjectOld.(*autov1alpha1.Workspace)) && isWorkspaceReady(e.ObjectNew.(*autov1alpha1.Workspace))
 }
 
-func (workspaceReadyPredicate) Generic(e event.GenericEvent) bool {
+func (workspaceReadyPredicate) Generic(_ event.GenericEvent) bool {
 	return false
 }
 

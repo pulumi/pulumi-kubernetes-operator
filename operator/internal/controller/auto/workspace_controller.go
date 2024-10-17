@@ -333,15 +333,25 @@ func (r *WorkspaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-type statefulSetReadyPredicate struct {
-	predicate.Funcs
+type statefulSetReadyPredicate struct{}
+
+var _ predicate.Predicate = &statefulSetReadyPredicate{}
+
+func isStatefulSetReady(ss *appsv1.StatefulSet) bool {
+	if ss.Status.ObservedGeneration != ss.Generation || ss.Status.UpdateRevision != ss.Status.CurrentRevision {
+		return false
+	}
+	if ss.Status.AvailableReplicas < 1 {
+		return false
+	}
+	return true
 }
 
 func (statefulSetReadyPredicate) Create(e event.CreateEvent) bool {
-	return false
+	return isStatefulSetReady(e.Object.(*appsv1.StatefulSet))
 }
 
-func (statefulSetReadyPredicate) Delete(e event.DeleteEvent) bool {
+func (statefulSetReadyPredicate) Delete(_ event.DeleteEvent) bool {
 	return false
 }
 
@@ -349,19 +359,10 @@ func (statefulSetReadyPredicate) Update(e event.UpdateEvent) bool {
 	if e.ObjectOld == nil || e.ObjectNew == nil {
 		return false
 	}
-	ready := func(ss *appsv1.StatefulSet) bool {
-		if ss.Status.ObservedGeneration != ss.Generation || ss.Status.UpdateRevision != ss.Status.CurrentRevision {
-			return false
-		}
-		if ss.Status.AvailableReplicas < 1 {
-			return false
-		}
-		return true
-	}
-	return !ready(e.ObjectOld.(*appsv1.StatefulSet)) && ready(e.ObjectNew.(*appsv1.StatefulSet))
+	return !isStatefulSetReady(e.ObjectOld.(*appsv1.StatefulSet)) && isStatefulSetReady(e.ObjectNew.(*appsv1.StatefulSet))
 }
 
-func (statefulSetReadyPredicate) Generic(e event.GenericEvent) bool {
+func (statefulSetReadyPredicate) Generic(_ event.GenericEvent) bool {
 	return false
 }
 

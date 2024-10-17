@@ -105,15 +105,15 @@ func fluxSourceKey(gvk schema.GroupVersionKind, name string) string {
 	return fmt.Sprintf("%s:%s", gvk, name)
 }
 
-type fluxSourceReadyPredicate struct {
-	predicate.Funcs
-}
+type fluxSourceReadyPredicate struct{}
+
+var _ predicate.Predicate = &fluxSourceReadyPredicate{}
 
 func (fluxSourceReadyPredicate) Create(e event.CreateEvent) bool {
 	return checkFluxSourceReady(e.Object.(*unstructured.Unstructured))
 }
 
-func (fluxSourceReadyPredicate) Delete(e event.DeleteEvent) bool {
+func (fluxSourceReadyPredicate) Delete(_ event.DeleteEvent) bool {
 	return false
 }
 
@@ -124,6 +124,6 @@ func (fluxSourceReadyPredicate) Update(e event.UpdateEvent) bool {
 	return !checkFluxSourceReady(e.ObjectOld.(*unstructured.Unstructured)) && checkFluxSourceReady(e.ObjectNew.(*unstructured.Unstructured))
 }
 
-func (fluxSourceReadyPredicate) Generic(e event.GenericEvent) bool {
+func (fluxSourceReadyPredicate) Generic(_ event.GenericEvent) bool {
 	return false
 }
