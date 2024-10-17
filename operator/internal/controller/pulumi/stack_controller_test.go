@@ -1254,7 +1254,7 @@ var _ = Describe("Stack Controller", func() {
 		})
 	})
 
-	FDescribe("Workspace Customization", func() {
+	Describe("Workspace Customization", func() {
 		useFluxSource()
 
 		When("a service account is specified", func() {
