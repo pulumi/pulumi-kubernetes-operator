@@ -25,11 +25,15 @@ import (
 )
 
 var (
-	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "auto.pulumi.com", Version: "v1alpha1"}
+	// SchemeGroupVersion is group version used to register these objects
+	SchemeGroupVersion = schema.GroupVersion{Group: "auto.pulumi.com", Version: "v1alpha1"}
+
+	// GroupVersion is for kubebuilder<->applyconfiguration-gen compatibility.
+	// TODO(https://github.com/kubernetes-sigs/kubebuilder/issues/3692)
+	GroupVersion = SchemeGroupVersion
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
-	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
+	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
 
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
