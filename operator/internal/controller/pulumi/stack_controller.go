@@ -46,7 +46,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -1419,7 +1418,7 @@ func (sess *stackReconcilerSession) newDestroy(ctx context.Context, o *pulumiv1.
 }
 
 func makeUpdateName(o *pulumiv1.Stack) string {
-	return fmt.Sprintf("%s-%s", o.Name, utilrand.String(8))
+	return fmt.Sprintf("%s-%x", o.Name, time.Now().UnixMilli())
 }
 
 func (sess *stackReconcilerSession) readCurrentUpdate(ctx context.Context, name types.NamespacedName) error {

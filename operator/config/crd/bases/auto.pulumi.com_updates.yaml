@@ -18,6 +18,10 @@ spec:
     - jsonPath: .spec.workspaceName
       name: Workspace
       type: string
+    - jsonPath: .spec.type
+      name: Type
+      priority: 10
+      type: string
     - jsonPath: .status.startTime
       name: Start Time
       priority: 10
