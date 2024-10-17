@@ -719,6 +719,10 @@ spec:
                   (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef.
                   If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
                 type: object
+              serviceAccountName:
+                description: ServiceAccountName is the Kubernetes service account
+                  identity of the stack's workspace.
+                type: string
               shallow:
                 description: |-
                   Shallow controls whether the workspace uses a shallow checkout or
@@ -752,35 +756,84 @@ spec:
                   Workspace. Use this to customize the Workspace's image, resources,
                   volumes, etc.
                 properties:
+                  apiVersion:
+                    type: string
+                  kind:
+                    type: string
                   metadata:
                     description: |-
-                      EmbeddedObjectMeta contains a subset of the fields included in k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta
-                      Only fields which are relevant to embedded resources are included.
+                      ObjectMetaApplyConfiguration represents an declarative configuration of the ObjectMeta type for use
+                      with apply.
                     properties:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: |-
-                          Annotations is an unstructured key value map stored with a resource that may be
-                          set by external tools to store and retrieve arbitrary metadata. They are not
-                          queryable and should be preserved when modifying objects.
-                          More info: http://kubernetes.io/docs/user-guide/annotations
                         type: object
+                      creationTimestamp:
+                        format: date-time
+                        type: string
+                      deletionGracePeriodSeconds:
+                        format: int64
+                        type: integer
+                      deletionTimestamp:
+                        format: date-time
+                        type: string
+                      finalizers:
+                        items:
+                          type: string
+                        type: array
+                      generateName:
+                        type: string
+                      generation:
+                        format: int64
+                        type: integer
                       labels:
                         additionalProperties:
                           type: string
-                        description: |-
-                          Map of string keys and values that can be used to organize and categorize
-                          (scope and select) objects. May match selectors of replication controllers
-                          and services.
-                          More info: http://kubernetes.io/docs/user-guide/labels
                         type: object
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      ownerReferences:
+                        items:
+                          description: |-
+                            OwnerReferenceApplyConfiguration represents an declarative configuration of the OwnerReference type for use
+                            with apply.
+                          properties:
+                            apiVersion:
+                              type: string
+                            blockOwnerDeletion:
+                              type: boolean
+                            controller:
+                              type: boolean
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            uid:
+                              description: |-
+                                UID is a type that holds unique ID values, including UUIDs.  Because we
+                                don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                                intent and helps make sure that UIDs and names do not get conflated.
+                              type: string
+                          type: object
+                        type: array
+                      resourceVersion:
+                        type: string
+                      uid:
+                        description: |-
+                          UID is a type that holds unique ID values, including UUIDs.  Because we
+                          don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                          intent and helps make sure that UIDs and names do not get conflated.
+                        type: string
                     type: object
                   spec:
-                    description: WorkspaceSpec defines the desired state of Workspace
+                    description: |-
+                      WorkspaceSpecApplyConfiguration represents an declarative configuration of the WorkspaceSpec type for use
+                      with apply.
                     properties:
                       env:
-                        description: List of environment variables to set in the container.
                         items:
                           description: EnvVar represents an environment variable present
                             in a Container.
@@ -903,16 +956,7 @@ spec:
                           - name
                           type: object
                         type: array
-                        x-kubernetes-list-map-keys:
-                        - name
-                        x-kubernetes-list-type: map
                       envFrom:
-                        description: |-
-                          List of sources to populate environment variables in the workspace.
-                          The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-                          will be reported as an event when the container is starting. When a key exists in multiple
-                          sources, the value associated with the last source will take precedence.
-                          Values defined by an Env with a duplicate key will take precedence.
                         items:
                           description: EnvFromSource represents the source of a set
                             of ConfigMaps
@@ -963,34 +1007,31 @@ spec:
                               x-kubernetes-map-type: atomic
                           type: object
                         type: array
-                        x-kubernetes-list-type: atomic
                       flux:
-                        description: Flux is the flux source containing the Pulumi
-                          program.
+                        description: |-
+                          FluxSourceApplyConfiguration represents an declarative configuration of the FluxSource type for use
+                          with apply.
                         properties:
                           digest:
-                            description: Digest is the digest of the artifact to fetch.
                             type: string
                           dir:
-                            description: |-
-                              Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
-                              interest, within the fetched artifact.
                             type: string
                           url:
-                            description: URL is the URL of the artifact to fetch.
                             type: string
                         type: object
                       git:
-                        description: Git is the git source containing the Pulumi program.
+                        description: |-
+                          GitSourceApplyConfiguration represents an declarative configuration of the GitSource type for use
+                          with apply.
                         properties:
                           auth:
                             description: |-
-                              Auth contains optional authentication information to use when cloning
-                              the repository.
+                              GitAuthApplyConfiguration represents an declarative configuration of the GitAuth type for use
+                              with apply.
                             properties:
                               password:
-                                description: The password that pairs with a username
-                                  or as part of an SSH Private Key.
+                                description: SecretKeySelector selects a key of a
+                                  Secret.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -1016,10 +1057,8 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               sshPrivateKey:
-                                description: |-
-                                  SSHPrivateKey should contain a private key for access to the git repo.
-                                  When using `SSHPrivateKey`, the URL of the repository must be in the
-                                  format git@github.com:org/repository.git.
+                                description: SecretKeySelector selects a key of a
+                                  Secret.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -1045,9 +1084,8 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               token:
-                                description: |-
-                                  Token is a Git personal access token in replacement of
-                                  your password.
+                                description: SecretKeySelector selects a key of a
+                                  Secret.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -1073,8 +1111,8 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               username:
-                                description: Username is the username to use when
-                                  authenticating to a git repository.
+                                description: SecretKeySelector selects a key of a
+                                  Secret.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -1101,71 +1139,41 @@ spec:
                                 x-kubernetes-map-type: atomic
                             type: object
                           dir:
-                            description: |-
-                              Dir is the directory to work from in the project's source repository
-                              where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
-                              in the project source root.
                             type: string
                           ref:
-                            description: Ref is the git ref (tag, branch, or commit
-                              SHA) to fetch.
                             type: string
                           shallow:
-                            description: |-
-                              Shallow controls whether the workspace uses a shallow clone or whether
-                              all history is cloned.
                             type: boolean
                           url:
-                            description: |-
-                              URL is the git source control repository from which we fetch the project
-                              code and configuration.
                             type: string
                         type: object
                       image:
-                        description: |-
-                          Image is the container image containing the 'pulumi' executable. If no image is provided,
-                          the default image is used based on the securityProfile:
-                          for 'baseline', it defaults to 'pulumi/pulumi:latest';
-                          for 'restricted', it defaults to 'pulumi/pulumi:latest-nonroot'.
                         type: string
                       imagePullPolicy:
-                        description: |-
-                          Image pull policy.
-                          One of Always, Never, IfNotPresent.
-                          Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
-                          More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
                         type: string
                       podTemplate:
-                        description: PodTemplate defines a PodTemplateSpec for Workspace's
-                          pods.
+                        description: |-
+                          EmbeddedPodTemplateSpecApplyConfiguration represents an declarative configuration of the EmbeddedPodTemplateSpec type for use
+                          with apply.
                         properties:
                           metadata:
-                            description: EmbeddedMetadata contains metadata relevant
-                              to an embedded resource.
+                            description: |-
+                              EmbeddedObjectMetaApplyConfiguration represents an declarative configuration of the EmbeddedObjectMeta type for use
+                              with apply.
                             properties:
                               annotations:
                                 additionalProperties:
                                   type: string
-                                description: |-
-                                  Annotations is an unstructured key value map stored with a resource that may be
-                                  set by external tools to store and retrieve arbitrary metadata. They are not
-                                  queryable and should be preserved when modifying objects.
-                                  More info: http://kubernetes.io/docs/user-guide/annotations
                                 type: object
                               labels:
                                 additionalProperties:
                                   type: string
-                                description: |-
-                                  Map of string keys and values that can be used to organize and categorize
-                                  (scope and select) objects. May match selectors of replication controllers
-                                  and services.
-                                  More info: http://kubernetes.io/docs/user-guide/labels
                                 type: object
                             type: object
                           spec:
-                            description: |-
-                              Specification of the desired behavior of the pod.
-                              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+                            description: PodSpec is a description of a pod.
                             properties:
                               activeDeadlineSeconds:
                                 description: |-
@@ -9276,9 +9284,8 @@ spec:
                             type: object
                         type: object
                       resources:
-                        description: |-
-                          Compute Resources required by this workspace.
-                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        description: ResourceRequirements describes the compute resource
+                          requirements.
                         properties:
                           claims:
                             description: |-
@@ -9333,82 +9340,84 @@ spec:
                             type: object
                         type: object
                       securityProfile:
-                        default: restricted
-                        description: |-
-                          SecurityProfile applies a security profile to the workspace.
-                          The restricted profile (default) runs the pod as a non-root user and with a security context that conforms with
-                          the Restricted policy of the Pod Security Standards.
-                          The baseline profile runs the pod as the root user and with a security context that conforms with
-                          the Baseline policy of the Pod Security Standards.
+                        description: SecurityProfile declares the security profile
+                          of the workspace, either baseline or restricted.
                         type: string
                       serviceAccountName:
-                        default: default
-                        description: ServiceAccountName is the Kubernetes service
-                          account identity of the workspace.
                         type: string
                       stacks:
-                        description: List of stacks this workspace manages.
                         items:
+                          description: |-
+                            WorkspaceStackApplyConfiguration represents an declarative configuration of the WorkspaceStack type for use
+                            with apply.
                           properties:
                             config:
-                              description: Config is a list of confguration values
-                                to set on the stack.
                               items:
+                                description: |-
+                                  ConfigItemApplyConfiguration represents an declarative configuration of the ConfigItem type for use
+                                  with apply.
                                 properties:
                                   key:
-                                    description: Key is the configuration key or path
-                                      to set.
                                     type: string
                                   path:
-                                    description: The key contains a path to a property
-                                      in a map or list to set
                                     type: boolean
                                   secret:
-                                    description: Secret marks the configuration value
-                                      as a secret.
                                     type: boolean
                                   value:
-                                    description: Value is the configuration value
-                                      to set.
                                     type: string
                                   valueFrom:
-                                    description: ValueFrom is a reference to a value
-                                      from the environment or from a file.
+                                    description: |-
+                                      ConfigValueFromApplyConfiguration represents an declarative configuration of the ConfigValueFrom type for use
+                                      with apply.
                                     properties:
                                       env:
-                                        description: Env is an environment variable
-                                          in the pulumi container to use as the value.
                                         type: string
                                       path:
-                                        description: Path is a path to a file in the
-                                          pulumi container containing the value.
                                         type: string
                                     type: object
-                                    x-kubernetes-map-type: atomic
-                                required:
-                                - key
                                 type: object
-                                x-kubernetes-map-type: atomic
                               type: array
-                              x-kubernetes-list-map-keys:
-                              - key
-                              x-kubernetes-list-type: map
                             create:
-                              description: Create the stack if it does not exist.
                               type: boolean
                             name:
                               type: string
                             secretsProvider:
-                              description: SecretsProvider is the name of the secret
-                                provider to use for the stack.
                               type: string
-                          required:
-                          - name
                           type: object
                         type: array
-                        x-kubernetes-list-map-keys:
-                        - name
-                        x-kubernetes-list-type: map
+                    type: object
+                  status:
+                    description: |-
+                      WorkspaceStatusApplyConfiguration represents an declarative configuration of the WorkspaceStatus type for use
+                      with apply.
+                    properties:
+                      address:
+                        type: string
+                      conditions:
+                        items:
+                          description: |-
+                            ConditionApplyConfiguration represents an declarative configuration of the Condition type for use
+                            with apply.
+                          properties:
+                            lastTransitionTime:
+                              format: date-time
+                              type: string
+                            message:
+                              type: string
+                            observedGeneration:
+                              format: int64
+                              type: integer
+                            reason:
+                              type: string
+                            status:
+                              type: string
+                            type:
+                              type: string
+                          type: object
+                        type: array
+                      observedGeneration:
+                        format: int64
+                        type: integer
                     type: object
                 type: object
             required:
@@ -9506,6 +9515,13 @@ spec:
                 description: LastUpdate contains details of the status of the last
                   update.
                 properties:
+                  failures:
+                    description: |-
+                      Failures records how many times the update has been attempted and
+                      failed. Failed updates are periodically retried with exponential backoff
+                      in case the failure was due to transient conditions.
+                    format: int64
+                    type: integer
                   generation:
                     description: Generation is the stack generation associated with
                       the update.
@@ -9536,6 +9552,8 @@ spec:
                   type:
                     description: Type is the type of update.
                     type: string
+                required:
+                - failures
                 type: object
               observedGeneration:
                 description: ObservedGeneration records the value of .meta.generation
@@ -10260,6 +10278,10 @@ spec:
                   (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef.
                   If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
                 type: object
+              serviceAccountName:
+                description: ServiceAccountName is the Kubernetes service account
+                  identity of the stack's workspace.
+                type: string
               shallow:
                 description: |-
                   Shallow controls whether the workspace uses a shallow checkout or
@@ -10293,35 +10315,84 @@ spec:
                   Workspace. Use this to customize the Workspace's image, resources,
                   volumes, etc.
                 properties:
+                  apiVersion:
+                    type: string
+                  kind:
+                    type: string
                   metadata:
                     description: |-
-                      EmbeddedObjectMeta contains a subset of the fields included in k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta
-                      Only fields which are relevant to embedded resources are included.
+                      ObjectMetaApplyConfiguration represents an declarative configuration of the ObjectMeta type for use
+                      with apply.
                     properties:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: |-
-                          Annotations is an unstructured key value map stored with a resource that may be
-                          set by external tools to store and retrieve arbitrary metadata. They are not
-                          queryable and should be preserved when modifying objects.
-                          More info: http://kubernetes.io/docs/user-guide/annotations
                         type: object
+                      creationTimestamp:
+                        format: date-time
+                        type: string
+                      deletionGracePeriodSeconds:
+                        format: int64
+                        type: integer
+                      deletionTimestamp:
+                        format: date-time
+                        type: string
+                      finalizers:
+                        items:
+                          type: string
+                        type: array
+                      generateName:
+                        type: string
+                      generation:
+                        format: int64
+                        type: integer
                       labels:
                         additionalProperties:
                           type: string
-                        description: |-
-                          Map of string keys and values that can be used to organize and categorize
-                          (scope and select) objects. May match selectors of replication controllers
-                          and services.
-                          More info: http://kubernetes.io/docs/user-guide/labels
                         type: object
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      ownerReferences:
+                        items:
+                          description: |-
+                            OwnerReferenceApplyConfiguration represents an declarative configuration of the OwnerReference type for use
+                            with apply.
+                          properties:
+                            apiVersion:
+                              type: string
+                            blockOwnerDeletion:
+                              type: boolean
+                            controller:
+                              type: boolean
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            uid:
+                              description: |-
+                                UID is a type that holds unique ID values, including UUIDs.  Because we
+                                don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                                intent and helps make sure that UIDs and names do not get conflated.
+                              type: string
+                          type: object
+                        type: array
+                      resourceVersion:
+                        type: string
+                      uid:
+                        description: |-
+                          UID is a type that holds unique ID values, including UUIDs.  Because we
+                          don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                          intent and helps make sure that UIDs and names do not get conflated.
+                        type: string
                     type: object
                   spec:
-                    description: WorkspaceSpec defines the desired state of Workspace
+                    description: |-
+                      WorkspaceSpecApplyConfiguration represents an declarative configuration of the WorkspaceSpec type for use
+                      with apply.
                     properties:
                       env:
-                        description: List of environment variables to set in the container.
                         items:
                           description: EnvVar represents an environment variable present
                             in a Container.
@@ -10444,16 +10515,7 @@ spec:
                           - name
                           type: object
                         type: array
-                        x-kubernetes-list-map-keys:
-                        - name
-                        x-kubernetes-list-type: map
                       envFrom:
-                        description: |-
-                          List of sources to populate environment variables in the workspace.
-                          The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-                          will be reported as an event when the container is starting. When a key exists in multiple
-                          sources, the value associated with the last source will take precedence.
-                          Values defined by an Env with a duplicate key will take precedence.
                         items:
                           description: EnvFromSource represents the source of a set
                             of ConfigMaps
@@ -10504,34 +10566,31 @@ spec:
                               x-kubernetes-map-type: atomic
                           type: object
                         type: array
-                        x-kubernetes-list-type: atomic
                       flux:
-                        description: Flux is the flux source containing the Pulumi
-                          program.
+                        description: |-
+                          FluxSourceApplyConfiguration represents an declarative configuration of the FluxSource type for use
+                          with apply.
                         properties:
                           digest:
-                            description: Digest is the digest of the artifact to fetch.
                             type: string
                           dir:
-                            description: |-
-                              Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
-                              interest, within the fetched artifact.
                             type: string
                           url:
-                            description: URL is the URL of the artifact to fetch.
                             type: string
                         type: object
                       git:
-                        description: Git is the git source containing the Pulumi program.
+                        description: |-
+                          GitSourceApplyConfiguration represents an declarative configuration of the GitSource type for use
+                          with apply.
                         properties:
                           auth:
                             description: |-
-                              Auth contains optional authentication information to use when cloning
-                              the repository.
+                              GitAuthApplyConfiguration represents an declarative configuration of the GitAuth type for use
+                              with apply.
                             properties:
                               password:
-                                description: The password that pairs with a username
-                                  or as part of an SSH Private Key.
+                                description: SecretKeySelector selects a key of a
+                                  Secret.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -10557,10 +10616,8 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               sshPrivateKey:
-                                description: |-
-                                  SSHPrivateKey should contain a private key for access to the git repo.
-                                  When using `SSHPrivateKey`, the URL of the repository must be in the
-                                  format git@github.com:org/repository.git.
+                                description: SecretKeySelector selects a key of a
+                                  Secret.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -10586,9 +10643,8 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               token:
-                                description: |-
-                                  Token is a Git personal access token in replacement of
-                                  your password.
+                                description: SecretKeySelector selects a key of a
+                                  Secret.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -10614,8 +10670,8 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               username:
-                                description: Username is the username to use when
-                                  authenticating to a git repository.
+                                description: SecretKeySelector selects a key of a
+                                  Secret.
                                 properties:
                                   key:
                                     description: The key of the secret to select from.  Must
@@ -10642,71 +10698,41 @@ spec:
                                 x-kubernetes-map-type: atomic
                             type: object
                           dir:
-                            description: |-
-                              Dir is the directory to work from in the project's source repository
-                              where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
-                              in the project source root.
                             type: string
                           ref:
-                            description: Ref is the git ref (tag, branch, or commit
-                              SHA) to fetch.
                             type: string
                           shallow:
-                            description: |-
-                              Shallow controls whether the workspace uses a shallow clone or whether
-                              all history is cloned.
                             type: boolean
                           url:
-                            description: |-
-                              URL is the git source control repository from which we fetch the project
-                              code and configuration.
                             type: string
                         type: object
                       image:
-                        description: |-
-                          Image is the container image containing the 'pulumi' executable. If no image is provided,
-                          the default image is used based on the securityProfile:
-                          for 'baseline', it defaults to 'pulumi/pulumi:latest';
-                          for 'restricted', it defaults to 'pulumi/pulumi:latest-nonroot'.
                         type: string
                       imagePullPolicy:
-                        description: |-
-                          Image pull policy.
-                          One of Always, Never, IfNotPresent.
-                          Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
-                          More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+                        description: PullPolicy describes a policy for if/when to
+                          pull a container image
                         type: string
                       podTemplate:
-                        description: PodTemplate defines a PodTemplateSpec for Workspace's
-                          pods.
+                        description: |-
+                          EmbeddedPodTemplateSpecApplyConfiguration represents an declarative configuration of the EmbeddedPodTemplateSpec type for use
+                          with apply.
                         properties:
                           metadata:
-                            description: EmbeddedMetadata contains metadata relevant
-                              to an embedded resource.
+                            description: |-
+                              EmbeddedObjectMetaApplyConfiguration represents an declarative configuration of the EmbeddedObjectMeta type for use
+                              with apply.
                             properties:
                               annotations:
                                 additionalProperties:
                                   type: string
-                                description: |-
-                                  Annotations is an unstructured key value map stored with a resource that may be
-                                  set by external tools to store and retrieve arbitrary metadata. They are not
-                                  queryable and should be preserved when modifying objects.
-                                  More info: http://kubernetes.io/docs/user-guide/annotations
                                 type: object
                               labels:
                                 additionalProperties:
                                   type: string
-                                description: |-
-                                  Map of string keys and values that can be used to organize and categorize
-                                  (scope and select) objects. May match selectors of replication controllers
-                                  and services.
-                                  More info: http://kubernetes.io/docs/user-guide/labels
                                 type: object
                             type: object
                           spec:
-                            description: |-
-                              Specification of the desired behavior of the pod.
-                              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+                            description: PodSpec is a description of a pod.
                             properties:
                               activeDeadlineSeconds:
                                 description: |-
@@ -18817,9 +18843,8 @@ spec:
                             type: object
                         type: object
                       resources:
-                        description: |-
-                          Compute Resources required by this workspace.
-                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        description: ResourceRequirements describes the compute resource
+                          requirements.
                         properties:
                           claims:
                             description: |-
@@ -18874,82 +18899,84 @@ spec:
                             type: object
                         type: object
                       securityProfile:
-                        default: restricted
-                        description: |-
-                          SecurityProfile applies a security profile to the workspace.
-                          The restricted profile (default) runs the pod as a non-root user and with a security context that conforms with
-                          the Restricted policy of the Pod Security Standards.
-                          The baseline profile runs the pod as the root user and with a security context that conforms with
-                          the Baseline policy of the Pod Security Standards.
+                        description: SecurityProfile declares the security profile
+                          of the workspace, either baseline or restricted.
                         type: string
                       serviceAccountName:
-                        default: default
-                        description: ServiceAccountName is the Kubernetes service
-                          account identity of the workspace.
                         type: string
                       stacks:
-                        description: List of stacks this workspace manages.
                         items:
+                          description: |-
+                            WorkspaceStackApplyConfiguration represents an declarative configuration of the WorkspaceStack type for use
+                            with apply.
                           properties:
                             config:
-                              description: Config is a list of confguration values
-                                to set on the stack.
                               items:
+                                description: |-
+                                  ConfigItemApplyConfiguration represents an declarative configuration of the ConfigItem type for use
+                                  with apply.
                                 properties:
                                   key:
-                                    description: Key is the configuration key or path
-                                      to set.
                                     type: string
                                   path:
-                                    description: The key contains a path to a property
-                                      in a map or list to set
                                     type: boolean
                                   secret:
-                                    description: Secret marks the configuration value
-                                      as a secret.
                                     type: boolean
                                   value:
-                                    description: Value is the configuration value
-                                      to set.
                                     type: string
                                   valueFrom:
-                                    description: ValueFrom is a reference to a value
-                                      from the environment or from a file.
+                                    description: |-
+                                      ConfigValueFromApplyConfiguration represents an declarative configuration of the ConfigValueFrom type for use
+                                      with apply.
                                     properties:
                                       env:
-                                        description: Env is an environment variable
-                                          in the pulumi container to use as the value.
                                         type: string
                                       path:
-                                        description: Path is a path to a file in the
-                                          pulumi container containing the value.
                                         type: string
                                     type: object
-                                    x-kubernetes-map-type: atomic
-                                required:
-                                - key
                                 type: object
-                                x-kubernetes-map-type: atomic
                               type: array
-                              x-kubernetes-list-map-keys:
-                              - key
-                              x-kubernetes-list-type: map
                             create:
-                              description: Create the stack if it does not exist.
                               type: boolean
                             name:
                               type: string
                             secretsProvider:
-                              description: SecretsProvider is the name of the secret
-                                provider to use for the stack.
                               type: string
-                          required:
-                          - name
                           type: object
                         type: array
-                        x-kubernetes-list-map-keys:
-                        - name
-                        x-kubernetes-list-type: map
+                    type: object
+                  status:
+                    description: |-
+                      WorkspaceStatusApplyConfiguration represents an declarative configuration of the WorkspaceStatus type for use
+                      with apply.
+                    properties:
+                      address:
+                        type: string
+                      conditions:
+                        items:
+                          description: |-
+                            ConditionApplyConfiguration represents an declarative configuration of the Condition type for use
+                            with apply.
+                          properties:
+                            lastTransitionTime:
+                              format: date-time
+                              type: string
+                            message:
+                              type: string
+                            observedGeneration:
+                              format: int64
+                              type: integer
+                            reason:
+                              type: string
+                            status:
+                              type: string
+                            type:
+                              type: string
+                          type: object
+                        type: array
+                      observedGeneration:
+                        format: int64
+                        type: integer
                     type: object
                 type: object
             required:
@@ -18962,6 +18989,13 @@ spec:
                 description: LastUpdate contains details of the status of the last
                   update.
                 properties:
+                  failures:
+                    description: |-
+                      Failures records how many times the update has been attempted and
+                      failed. Failed updates are periodically retried with exponential backoff
+                      in case the failure was due to transient conditions.
+                    format: int64
+                    type: integer
                   generation:
                     description: Generation is the stack generation associated with
                       the update.
@@ -18992,6 +19026,8 @@ spec:
                   type:
                     description: Type is the type of update.
                     type: string
+                required:
+                - failures
                 type: object
               outputs:
                 additionalProperties:

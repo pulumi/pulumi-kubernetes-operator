@@ -1260,6 +1260,9 @@ func (sess *stackReconcilerSession) CreateWorkspace(ctx context.Context) error {
 // constructed a workspace from a source.
 func (sess *stackReconcilerSession) setupWorkspace(ctx context.Context) error {
 	w := sess.ws
+	if sess.stack.ServiceAccountName != "" {
+		w.Spec.ServiceAccountName = sess.stack.ServiceAccountName
+	}
 	if sess.stack.Backend != "" {
 		w.Spec.Env = append(w.Spec.Env, corev1.EnvVar{
 			Name:  "PULUMI_BACKEND_URL",

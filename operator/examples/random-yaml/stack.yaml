@@ -23,6 +23,7 @@ metadata:
   name: random-yaml
   namespace: default
 spec:
+  serviceAccountName: random-yaml
   fluxSource:
     sourceRef:
       apiVersion: source.toolkit.fluxcd.io/v1
@@ -44,6 +45,5 @@ spec:
         key: accessToken
   workspaceTemplate:
     spec:
-      serviceAccountName: random-yaml
       image: pulumi/pulumi:3.134.1-nonroot
 
