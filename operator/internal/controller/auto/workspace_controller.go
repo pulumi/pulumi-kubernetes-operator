@@ -270,19 +270,20 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				}); err != nil {
 					return err
 				}
-				l.V(1).Info("Setting the stack configuration")
-				for _, item := range stack.Config {
-					v := marshalConfigValue(item)
-					if _, err = wc.SetAllConfig(ctx, &agentpb.SetAllConfigRequest{
-						Path: item.Path,
-						Config: map[string]*agentpb.ConfigValue{
-							item.Key: v,
-						},
-					}); err != nil {
-						return err
-					}
+
+				if len(stack.Config) == 0 {
+					l.V(1).Info("No stack configuration to set")
+					return nil
 				}
-				return nil
+
+				l.V(1).Info("Setting the stack configuration")
+
+				config := make([]*agentpb.ConfigItem, 0, len(stack.Config))
+				for _, item := range stack.Config {
+					config = append(config, marshalConfigItem(item))
+				}
+				_, err = wc.SetAllConfig(ctx, &agentpb.SetAllConfigRequest{Config: config})
+				return err
 			}()
 			if err != nil {
 				l.Error(err, "unable to initialize the Pulumi stack")
