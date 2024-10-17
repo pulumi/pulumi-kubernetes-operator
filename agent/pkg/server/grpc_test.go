@@ -45,7 +45,7 @@ func TestGracefulShutdown(t *testing.T) {
 	tc := newTC(ctx, t, tcOptions{ProjectDir: "./testdata/hang", Stacks: []string{"test"}})
 	log := zap.L().Named("test").Sugar()
 	lis := bufconn.Listen(1024)
-	s := server.NewGRPC(tc.server, log)
+	s := server.NewGRPC(log, tc.server, nil)
 	go func() {
 		// This should exit cleanly if we shut down gracefully.
 		if err := s.Serve(ctx, lis); err != nil {

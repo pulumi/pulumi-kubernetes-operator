@@ -19,6 +19,7 @@ import (
 	"context"
 	"net"
 
+	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	pb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
@@ -33,8 +34,8 @@ type GRPC struct {
 	log     *zap.SugaredLogger
 }
 
-// NewGRPC constructs a new gRPC server with logging and graceful shutdown.
-func NewGRPC(server *Server, rootLogger *zap.SugaredLogger) *GRPC {
+// NewGRPC constructs a new gRPC server with logging and authentication support.
+func NewGRPC(rootLogger *zap.SugaredLogger, server *Server, authF grpc_auth.AuthFunc) *GRPC {
 	log := rootLogger.Named("grpc")
 	// Configure the grpc server.
 	// Apply zap logging and use filters to reduce log verbosity as needed.
@@ -43,17 +44,26 @@ func NewGRPC(server *Server, rootLogger *zap.SugaredLogger) *GRPC {
 			return true
 		}),
 	}
-
 	grpc_zap.ReplaceGrpcLoggerV2WithVerbosity(log.Desugar(), int(log.Level()))
 
+	// Apply a default authentication function.
+	if authF == nil {
+		authF = func(ctx context.Context) (context.Context, error) {
+			return ctx, nil
+		}
+	}
+
+	// Create the gRPC server.
 	s := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
 			grpc_zap.UnaryServerInterceptor(log.Desugar(), serverOpts...),
+			grpc_auth.UnaryServerInterceptor(authF),
 		),
 		grpc.ChainStreamInterceptor(
 			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
 			grpc_zap.StreamServerInterceptor(log.Desugar(), serverOpts...),
+			grpc_auth.StreamServerInterceptor(authF),
 		),
 	)
 	pb.RegisterAutomationServiceServer(s, server)

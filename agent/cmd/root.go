@@ -18,11 +18,18 @@ package cmd
 import (
 	"os"
 
+	"flag"
+
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-var verbose bool
+var (
+	verbose     bool
+	kubeContext string
+)
 
 // a command-specific logger
 var log *zap.SugaredLogger
@@ -51,6 +58,7 @@ to use to perform stack operations.`,
 
 		// initialize a command-specific logger
 		log = zap.L().Named("cmd").Named(cmd.Name()).Sugar()
+		cmd.SilenceErrors = true
 		return nil
 	},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
@@ -64,10 +72,23 @@ to use to perform stack operations.`,
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
+		if log != nil {
+			log.Error(err.Error())
+		}
 		os.Exit(1)
 	}
 }
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
+
+	// register the Kubernetes flags (e.g. for serve command when using Kubernetes RBAC for authorization)
+	fs := flag.NewFlagSet("kubernetes", flag.ExitOnError)
+	config.RegisterFlags(fs)
+	rootCmd.PersistentFlags().AddGoFlagSet(fs)
+	rootCmd.PersistentFlags().StringVar(&kubeContext, "context", "", "Kubernetes context override")
+}
+
+func GetKubeConfig() (*rest.Config, error) {
+	return config.GetConfigWithContext(kubeContext)
 }

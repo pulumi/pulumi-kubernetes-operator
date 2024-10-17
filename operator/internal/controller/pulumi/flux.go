@@ -11,6 +11,8 @@ import (
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 func (sess *stackReconcilerSession) SetupWorkspaceFromFluxSource(ctx context.Context, source unstructured.Unstructured, fluxSource *shared.FluxSource) (string, error) {
@@ -70,37 +72,28 @@ func checksumOrDigest(source unstructured.Unstructured) (string, error) {
 	return checksum, nil
 }
 
-// checkFluxSourceReady looks for the conventional "Ready" condition to see if the supplied object
-// can be considered _not_ ready. It returns an error if it can determine that the object is not
-// ready, and nil if it cannot determine so.
-func checkFluxSourceReady(obj unstructured.Unstructured) error {
+func checkFluxSourceReady(obj *unstructured.Unstructured) bool {
+	observedGeneration, ok, err := unstructured.NestedInt64(obj.Object, "status", "observedGeneration")
+	if !ok || err != nil || observedGeneration != obj.GetGeneration() {
+		return false
+	}
 	conditions, ok, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
-	if ok && err == nil {
-		// didn't find a []Condition, so there's nothing to indicate that it's not ready there
-		for _, c0 := range conditions {
-			var c map[string]interface{}
-			if c, ok = c0.(map[string]interface{}); !ok {
-				// condition isn't the right shape, try the next one
-				continue
-			}
-			if t, ok, err := unstructured.NestedString(c, "type"); ok && err == nil && t == "Ready" {
-				if v, ok, err := unstructured.NestedString(c, "status"); ok && err == nil && v == "True" {
-					// found the Ready condition and it is actually ready; proceed to next check
-					break
-				}
-				// found the Ready condition and it's something other than ready
-				return fmt.Errorf("source Ready condition does not have status True %#v", c)
+	if !ok || err != nil {
+		return false
+	}
+	for _, c0 := range conditions {
+		var c map[string]interface{}
+		if c, ok = c0.(map[string]interface{}); !ok {
+			// condition isn't the right shape, try the next one
+			continue
+		}
+		if t, ok, err := unstructured.NestedString(c, "type"); ok && err == nil && t == "Ready" {
+			if v, ok, err := unstructured.NestedString(c, "status"); ok && err == nil && v == "True" {
+				return true
 			}
 		}
-		// Ready=true, or no ready condition to tell us either way
 	}
-
-	_, ok, err = unstructured.NestedMap(obj.Object, "status", "artifact")
-	if !ok || err != nil {
-		return fmt.Errorf(".status.artifact does not have an Artifact object")
-	}
-
-	return nil
+	return false
 }
 
 func getSourceGVK(src shared.FluxSourceReference) (schema.GroupVersionKind, error) {
@@ -110,4 +103,27 @@ func getSourceGVK(src shared.FluxSourceReference) (schema.GroupVersionKind, erro
 
 func fluxSourceKey(gvk schema.GroupVersionKind, name string) string {
 	return fmt.Sprintf("%s:%s", gvk, name)
+}
+
+type fluxSourceReadyPredicate struct{}
+
+var _ predicate.Predicate = &fluxSourceReadyPredicate{}
+
+func (fluxSourceReadyPredicate) Create(e event.CreateEvent) bool {
+	return checkFluxSourceReady(e.Object.(*unstructured.Unstructured))
+}
+
+func (fluxSourceReadyPredicate) Delete(_ event.DeleteEvent) bool {
+	return false
+}
+
+func (fluxSourceReadyPredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+	return !checkFluxSourceReady(e.ObjectOld.(*unstructured.Unstructured)) && checkFluxSourceReady(e.ObjectNew.(*unstructured.Unstructured))
+}
+
+func (fluxSourceReadyPredicate) Generic(_ event.GenericEvent) bool {
+	return false
 }
