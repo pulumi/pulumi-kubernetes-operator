@@ -12,6 +12,9 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/structpb"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 func connect(ctx context.Context, addr string) (*grpc.ClientConn, error) {
@@ -83,4 +86,32 @@ func marshalConfigValue(item autov1alpha1.ConfigItem) *agentpb.ConfigValue {
 		}
 	}
 	return v
+}
+
+var l = log.Log.WithName("predicate").WithName("debug")
+
+type DebugPredicate struct {
+	Controller string
+}
+
+var _ predicate.Predicate = &DebugPredicate{}
+
+func (p *DebugPredicate) Create(e event.CreateEvent) bool {
+	l.V(1).Info("Create", "controller", p.Controller, "type", fmt.Sprintf("%T", e.Object), "name", e.Object.GetName(), "revision", e.Object.GetResourceVersion())
+	return true
+}
+
+func (p *DebugPredicate) Delete(e event.DeleteEvent) bool {
+	l.V(1).Info("Delete", "controller", p.Controller, "type", fmt.Sprintf("%T", e.Object), "name", e.Object.GetName(), "revision", e.Object.GetResourceVersion())
+	return true
+}
+
+func (p *DebugPredicate) Update(e event.UpdateEvent) bool {
+	l.V(1).Info("Update", "controller", p.Controller, "type", fmt.Sprintf("%T", e.ObjectOld), "name", e.ObjectOld.GetName(), "old-revision", e.ObjectOld.GetResourceVersion(), "new-revision", e.ObjectNew.GetResourceVersion())
+	return true
+}
+
+func (p *DebugPredicate) Generic(e event.GenericEvent) bool {
+	l.V(1).Info("Generic", "controller", p.Controller, "type", fmt.Sprintf("%T", e.Object), "name", e.Object.GetName(), "revision", e.Object.GetResourceVersion())
+	return true
 }

@@ -58,7 +58,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	ctrlhandler "sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -101,7 +101,9 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Filter for update events where an object's metadata.generation is changed (no spec change!),
 	// or the "force reconcile" annotation is used (and not marked as handled).
 	predicates := []predicate.Predicate{
-		predicate.Or(predicate.GenerationChangedPredicate{}, ReconcileRequestedPredicate{}),
+		predicate.Or(
+			predicate.And(predicate.GenerationChangedPredicate{}, predicate.Not(&finalizerAddedPredicate{})),
+			ReconcileRequestedPredicate{}),
 	}
 
 	// Track metrics about stacks.
@@ -194,13 +196,16 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		enqueueStacksForSourceFunc(programRefIndexFieldName,
 			func(obj client.Object) string {
 				return obj.GetName()
-			})))
+			})),
+		builder.WithPredicates(&auto.DebugPredicate{Controller: "stack-controller"}))
 
 	// Watch the stack's workspace and update objects
-	blder = blder.Watches(&autov1alpha1.Workspace{}, ctrlhandler.EnqueueRequestForOwner(
-		mgr.GetScheme(), mgr.GetRESTMapper(), &pulumiv1.Stack{}))
-	blder = blder.Watches(&autov1alpha1.Update{}, ctrlhandler.EnqueueRequestForOwner(
-		mgr.GetScheme(), mgr.GetRESTMapper(), &pulumiv1.Stack{}))
+	blder = blder.Watches(&autov1alpha1.Workspace{},
+		ctrlhandler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &pulumiv1.Stack{}),
+		builder.WithPredicates(&workspaceReadyPredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
+	blder = blder.Watches(&autov1alpha1.Update{},
+		ctrlhandler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &pulumiv1.Stack{}),
+		builder.WithPredicates(&updateCompletePredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
 
 	c, err := blder.WithOptions(opts).Build(r)
 	if err != nil {
@@ -254,9 +259,7 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		}
 		watchedMu.Unlock()
 		if !ok {
-			// Using PartialObjectMetadata means we don't need the actual types registered in the
-			// schema.
-			var sourceKind metav1.PartialObjectMetadata
+			var sourceKind unstructured.Unstructured
 			sourceKind.SetGroupVersionKind(gvk)
 			mgr.GetLogger().Info("installing watcher for newly seen source kind", "GroupVersionKind", gvk)
 			err = c.Watch(source.Kind[client.Object](mgr.GetCache(), &sourceKind,
@@ -264,7 +267,7 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					enqueueStacksForSourceFunc(fluxSourceIndexFieldName, func(obj client.Object) string {
 						gvk := obj.GetObjectKind().GroupVersionKind()
 						return fluxSourceKey(gvk, obj.GetName())
-					}))))
+					})), &fluxSourceReadyPredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
 			if err != nil {
 				watchedMu.Lock()
 				delete(watched, gvk)
@@ -344,6 +347,66 @@ func (p ReconcileRequestedPredicate) Update(e event.UpdateEvent) bool {
 	return false // either removed, or present in neither object
 }
 
+func isWorkspaceReady(ws *autov1alpha1.Workspace) bool {
+	if ws == nil || ws.Generation != ws.Status.ObservedGeneration {
+		return false
+	}
+	return meta.IsStatusConditionTrue(ws.Status.Conditions, autov1alpha1.WorkspaceReady)
+}
+
+type workspaceReadyPredicate struct{}
+
+var _ predicate.Predicate = &workspaceReadyPredicate{}
+
+func (workspaceReadyPredicate) Create(e event.CreateEvent) bool {
+	return isWorkspaceReady(e.Object.(*autov1alpha1.Workspace))
+}
+
+func (workspaceReadyPredicate) Delete(_ event.DeleteEvent) bool {
+	return false
+}
+
+func (workspaceReadyPredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+	return !isWorkspaceReady(e.ObjectOld.(*autov1alpha1.Workspace)) && isWorkspaceReady(e.ObjectNew.(*autov1alpha1.Workspace))
+}
+
+func (workspaceReadyPredicate) Generic(_ event.GenericEvent) bool {
+	return false
+}
+
+func isUpdateComplete(update *autov1alpha1.Update) bool {
+	if update == nil || update.Generation != update.Status.ObservedGeneration {
+		return false
+	}
+	return meta.IsStatusConditionTrue(update.Status.Conditions, autov1alpha1.UpdateConditionTypeComplete)
+}
+
+type updateCompletePredicate struct{}
+
+var _ predicate.Predicate = &updateCompletePredicate{}
+
+func (updateCompletePredicate) Create(e event.CreateEvent) bool {
+	return isUpdateComplete(e.Object.(*autov1alpha1.Update))
+}
+
+func (updateCompletePredicate) Delete(e event.DeleteEvent) bool {
+	return false
+}
+
+func (updateCompletePredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+	return !isUpdateComplete(e.ObjectOld.(*autov1alpha1.Update)) && isUpdateComplete(e.ObjectNew.(*autov1alpha1.Update))
+}
+
+func (updateCompletePredicate) Generic(e event.GenericEvent) bool {
+	return false
+}
+
 // StackReconciler reconciles a Stack object
 type StackReconciler struct {
 	// This client, initialized using mgr.Client() above, is a split client
@@ -395,8 +458,7 @@ var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
 // and what is in the Stack.Spec
 func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (res ctrl.Result, reterr error) {
-	log := log.FromContext(ctx)
-	log.Info("Reconciling Stack")
+	log := ctrllog.FromContext(ctx)
 
 	// Fetch the Stack instance
 	instance := &pulumiv1.Stack{}
@@ -407,6 +469,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		// Return and don't requeue
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
+	log = log.WithValues("revision", instance.ResourceVersion)
+	log.Info("Reconciling Stack")
 
 	// Update the observed generation and "reconcile request" of the object.
 	instance.Status.ObservedGeneration = instance.GetGeneration()
@@ -445,6 +509,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			log.Error(err, "unable to save object status")
 			return err
 		}
+		log = ctrllog.FromContext(ctx).WithValues("revision", instance.ResourceVersion)
+		log.V(1).Info("Status updated")
 		return nil
 	}
 
@@ -463,7 +529,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, fmt.Errorf("get current update: %w", err)
 		}
 
-		completed := meta.IsStatusConditionTrue(sess.update.Status.Conditions, autov1alpha1.UpdateConditionTypeComplete)
+		completed := sess.update.Generation == sess.update.Status.ObservedGeneration &&
+			meta.IsStatusConditionTrue(sess.update.Status.Conditions, autov1alpha1.UpdateConditionTypeComplete)
 		if !completed {
 			// wait for the update to complete
 			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingProcessingReason, pulumiv1.ReconcilingProcessingUpdateMessage)
@@ -619,9 +686,9 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, err
 		}
 
-		if err := checkFluxSourceReady(sourceObject); err != nil {
+		if !checkFluxSourceReady(&sourceObject) {
 			// Wait until the source is ready, at which time the watch mechanism will requeue it.
-			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, "Flux source not ready")
 			return reconcile.Result{}, saveStatus()
 		}
 
@@ -735,7 +802,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		return reconcile.Result{}, fmt.Errorf("unable to create workspace: %w", err)
 	}
 
-	if !sess.isWorkspaceReady() {
+	if !isWorkspaceReady(sess.ws) {
 		// watch the workspace for status updates
 		log.V(1).Info("waiting for workspace to be ready")
 		return reconcile.Result{}, saveStatus()
@@ -1190,16 +1257,6 @@ func (sess *stackReconcilerSession) CreateWorkspace(ctx context.Context) error {
 	return nil
 }
 
-func (sess *stackReconcilerSession) isWorkspaceReady() bool {
-	if sess.ws == nil {
-		return false
-	}
-	if sess.ws.Generation != sess.ws.Status.ObservedGeneration {
-		return false
-	}
-	return meta.IsStatusConditionTrue(sess.ws.Status.Conditions, autov1alpha1.WorkspaceReady)
-}
-
 // setupWorkspace sets all the extra configuration specified by the Stack object, after you have
 // constructed a workspace from a source.
 func (sess *stackReconcilerSession) setupWorkspace(ctx context.Context) error {
@@ -1395,4 +1452,30 @@ func patchObject[T any, V any](base T, patch V) (*T, error) {
 	}
 
 	return &result, nil
+}
+
+// finalizerAddedPredicate detects when a finalizer is added to an object.
+// It is used to suppress reconciliation when the stack controller adds its finalizer, which causes
+// a generation change that would otherwise trigger reconciliation.
+type finalizerAddedPredicate struct{}
+
+var _ predicate.Predicate = &finalizerAddedPredicate{}
+
+func (p *finalizerAddedPredicate) Create(_ event.CreateEvent) bool {
+	return false
+}
+
+func (p *finalizerAddedPredicate) Delete(_ event.DeleteEvent) bool {
+	return false
+}
+
+func (p *finalizerAddedPredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+	return !controllerutil.ContainsFinalizer(e.ObjectOld, pulumiFinalizer) && controllerutil.ContainsFinalizer(e.ObjectNew, pulumiFinalizer)
+}
+
+func (p *finalizerAddedPredicate) Generic(_ event.GenericEvent) bool {
+	return false
 }

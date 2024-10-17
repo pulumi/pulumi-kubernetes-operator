@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -41,6 +42,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -77,13 +79,15 @@ type UpdateReconciler struct {
 // Reconcile manages the Update CRD and initiates Pulumi operations.
 func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
-	l.Info("Reconciling Update")
 
 	obj := &autov1alpha1.Update{}
 	err := r.Get(ctx, req.NamespacedName, obj)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	l = l.WithValues("revision", obj.ResourceVersion)
+	ctx = log.IntoContext(ctx, l)
+	l.Info("Reconciling Update")
 
 	rs := newReconcileSession(r.Client, obj)
 
@@ -116,11 +120,31 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
 
-	// TODO check the w status before proceeding
+	// Get the workspace and check that it is ready
 	w := &autov1alpha1.Workspace{}
 	err = r.Client.Get(ctx, client.ObjectKey{Namespace: obj.Namespace, Name: obj.Spec.WorkspaceName}, w)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			l.Info("Workspace not found", "workspace", obj.Spec.WorkspaceName)
+			rs.progressing.Status = metav1.ConditionFalse
+			rs.progressing.Reason = "WorkspaceNotFound"
+			rs.failed.Status = metav1.ConditionFalse
+			rs.failed.Reason = UpdateConditionReasonProgressing
+			rs.complete.Status = metav1.ConditionFalse
+			rs.complete.Reason = UpdateConditionReasonProgressing
+			return ctrl.Result{}, rs.updateStatus(ctx, obj)
+		}
 		return ctrl.Result{}, fmt.Errorf("failed to get workspace: %w", err)
+	}
+	if !isWorkspaceReady(w) {
+		l.Info("Workspace not ready", "workspace", w.Name)
+		rs.progressing.Status = metav1.ConditionFalse
+		rs.progressing.Reason = "WorkspaceNotReady"
+		rs.failed.Status = metav1.ConditionFalse
+		rs.failed.Reason = UpdateConditionReasonProgressing
+		rs.complete.Status = metav1.ConditionFalse
+		rs.complete.Reason = UpdateConditionReasonProgressing
+		return ctrl.Result{}, rs.updateStatus(ctx, obj)
 	}
 
 	// Connect to the workspace's GRPC server
@@ -166,6 +190,36 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	default:
 		return ctrl.Result{}, fmt.Errorf("unsupported update type %q", obj.Spec.Type)
 	}
+}
+
+func isWorkspaceReady(ws *autov1alpha1.Workspace) bool {
+	if ws == nil || ws.Generation != ws.Status.ObservedGeneration {
+		return false
+	}
+	return meta.IsStatusConditionTrue(ws.Status.Conditions, autov1alpha1.WorkspaceReady)
+}
+
+type workspaceReadyPredicate struct{}
+
+var _ predicate.Predicate = &workspaceReadyPredicate{}
+
+func (workspaceReadyPredicate) Create(e event.CreateEvent) bool {
+	return isWorkspaceReady(e.Object.(*autov1alpha1.Workspace))
+}
+
+func (workspaceReadyPredicate) Delete(_ event.DeleteEvent) bool {
+	return false
+}
+
+func (workspaceReadyPredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+	return !isWorkspaceReady(e.ObjectOld.(*autov1alpha1.Workspace)) && isWorkspaceReady(e.ObjectNew.(*autov1alpha1.Workspace))
+}
+
+func (workspaceReadyPredicate) Generic(_ event.GenericEvent) bool {
+	return false
 }
 
 type reconcileSession struct {
@@ -375,13 +429,18 @@ func (r *UpdateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&autov1alpha1.Update{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&autov1alpha1.Workspace{},
 			handler.EnqueueRequestsFromMapFunc(r.mapWorkspaceToUpdate),
-			builder.WithPredicates(&predicate.ResourceVersionChangedPredicate{})).
+			builder.WithPredicates(&workspaceReadyPredicate{})).
 		Complete(r)
 }
 
 func indexUpdateByWorkspace(obj client.Object) []string {
-	w := obj.(*autov1alpha1.Update)
-	return []string{w.Spec.WorkspaceName}
+	u := obj.(*autov1alpha1.Update)
+	complete := meta.IsStatusConditionTrue(u.Status.Conditions, UpdateConditionTypeComplete)
+	if complete {
+		// don't index the completed updates, to avoid unnecessary reconciles when their workspace is updated
+		return []string{}
+	}
+	return []string{u.Spec.WorkspaceName}
 }
 
 func (r *UpdateReconciler) mapWorkspaceToUpdate(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -494,7 +553,7 @@ func (s streamReader[T]) Result() (result, error) {
 			continue // No result yet.
 		}
 
-		s.l.Info("Result received", "result", res)
+		s.l.Info("Update complete", "result", res)
 
 		s.obj.Status.StartTime = metav1.NewTime(res.GetSummary().StartTime.AsTime())
 		s.obj.Status.EndTime = metav1.NewTime(res.GetSummary().EndTime.AsTime())
