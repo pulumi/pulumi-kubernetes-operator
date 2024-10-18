@@ -3,10 +3,10 @@ name: Pulumi Kubernetes Operator PR Builds
 on:
   push:
     branches:
-      - v2
+      - master
   pull_request:
     branches:
-      - v2
+      - master
 env:
   PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
