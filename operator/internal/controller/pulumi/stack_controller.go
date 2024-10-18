@@ -26,7 +26,6 @@ import (
 	"os"
 	"path"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -70,10 +69,9 @@ var (
 )
 
 const (
-	pulumiFinalizer                = "finalizer.stack.pulumi.com"
-	defaultMaxConcurrentReconciles = 10
-	programRefIndexFieldName       = ".spec.programRef.name"      // this is an arbitrary string, named for the field it indexes
-	fluxSourceIndexFieldName       = ".spec.fluxSource.sourceRef" // an arbitrary name, named for the field it indexes
+	pulumiFinalizer          = "finalizer.stack.pulumi.com"
+	programRefIndexFieldName = ".spec.programRef.name"      // this is an arbitrary string, named for the field it indexes
+	fluxSourceIndexFieldName = ".spec.fluxSource.sourceRef" // an arbitrary name, named for the field it indexes
 )
 
 const (
@@ -88,14 +86,6 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	var err error
 	blder := ctrl.NewControllerManagedBy(mgr).Named("stack-controller")
 	opts := controller.Options{}
-
-	opts.MaxConcurrentReconciles = defaultMaxConcurrentReconciles
-	if maxConcurrentReconcilesStr, ok := os.LookupEnv("MAX_CONCURRENT_RECONCILES"); ok {
-		opts.MaxConcurrentReconciles, err = strconv.Atoi(maxConcurrentReconcilesStr)
-		if err != nil {
-			return err
-		}
-	}
 
 	// Filter for update events where an object's metadata.generation is changed (no spec change!),
 	// or the "force reconcile" annotation is used (and not marked as handled).
