@@ -130,6 +130,10 @@ type StackSpec struct {
 	// The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.
 	ResyncFrequencySeconds int64 `json:"resyncFrequencySeconds,omitempty"`
 
+	// ServiceAccountName is the Kubernetes service account identity of the stack's workspace.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
 	// WorkspaceTemplate customizes the Workspace generated for this Stack. It
 	// is applied as a strategic merge patch on top of the underlying
 	// Workspace. Use this to customize the Workspace's image, resources,

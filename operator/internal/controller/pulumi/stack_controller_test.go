@@ -1253,6 +1253,23 @@ var _ = Describe("Stack Controller", func() {
 			})
 		})
 	})
+
+	Describe("Workspace Customization", func() {
+		useFluxSource()
+
+		When("a service account is specified", func() {
+			BeforeEach(func(ctx context.Context) {
+				obj.Spec.ServiceAccountName = "pulumi"
+			})
+			It("reconciles", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				By("configuring the workspace")
+				Expect(ws).ToNot(BeNil())
+				Expect(ws.Spec.ServiceAccountName).To(Equal("pulumi"))
+			})
+		})
+	})
 })
 
 func matchEvent(reason pulumiv1.StackEventReason) gtypes.GomegaMatcher {

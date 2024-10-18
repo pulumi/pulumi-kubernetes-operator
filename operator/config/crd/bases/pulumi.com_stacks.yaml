@@ -719,6 +719,10 @@ spec:
                   (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef.
                   If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
                 type: object
+              serviceAccountName:
+                description: ServiceAccountName is the Kubernetes service account
+                  identity of the stack's workspace.
+                type: string
               shallow:
                 description: |-
                   Shallow controls whether the workspace uses a shallow checkout or
@@ -10274,6 +10278,10 @@ spec:
                   (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef.
                   If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
                 type: object
+              serviceAccountName:
+                description: ServiceAccountName is the Kubernetes service account
+                  identity of the stack's workspace.
+                type: string
               shallow:
                 description: |-
                   Shallow controls whether the workspace uses a shallow checkout or
