@@ -1,4 +1,4 @@
-![Pulumi Kubernetes Operator](https://github.com/pulumi/pulumi-kubernetes-operator/actions/workflows/master.yaml/badge.svg?branch=master)
+![Pulumi Kubernetes Operator](https://github.com/pulumi/pulumi-kubernetes-operator/actions/workflows/run-acceptance-tests.yaml/badge.svg?branch=master)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/pulumi-kubernetes-operator)](https://artifacthub.io/packages/search?repo=pulumi-kubernetes-operator)
 # Pulumi Kubernetes Operator
 
