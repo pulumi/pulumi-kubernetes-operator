@@ -10,7 +10,7 @@ icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
 type: application
 
 version: 2.0.0
-appVersion: "v2.0-beta.0"
+appVersion: "v2.0.0-beta.1"
 
 keywords:
   - pulumi
@@ -28,7 +28,7 @@ annotations:
     - Major version bump to 2.0.0
   artifacthub.io/images: |
     - name: pulumi-kubernetes-operator
-      image: docker.io/pulumi-kubernetes-operator:v2.0-beta.0
+      image: docker.io/pulumi-kubernetes-operator:v2.0.0-beta.1
   artifacthub.io/license: Apache-2.0
   artifacthub.io/links: |
     - name: website
