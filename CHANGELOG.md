@@ -6,8 +6,6 @@ CHANGELOG
 - New pod-based architecture
 - New installer
   
-# 1.16.0 (2024-08-26)
-
 ## 1.16.0 (2024-08-26)
 
 ### Fixed
