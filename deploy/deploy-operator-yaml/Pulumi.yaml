@@ -1,0 +1,13 @@
+name: pulumi-operator-yaml
+runtime: yaml
+description: |
+  Deploys the Pulumi Kubernetes Operator.
+config:
+  version: # The version to install of the Pulumi Kubernetes Operator.
+    type: string
+    default: v2.0-beta.0
+resources:
+  pko:
+    type: kubernetes:kustomize/v2:Directory
+    properties:
+      directory: https://github.com/pulumi/pulumi-kubernetes-operator//operator/config/default/?ref=${version}

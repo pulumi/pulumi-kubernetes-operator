@@ -1,0 +1,15 @@
+apiVersion: pulumi.com/v1
+kind: Program
+metadata:
+  name: random-yaml
+program:
+  resources:
+    randomPassword:
+      type: random:RandomPassword
+      properties:
+        length: 16
+        special: true
+        overrideSpecial: "_%@"
+    
+  outputs:
+    password: ${randomPassword.result}

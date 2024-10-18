@@ -5,28 +5,24 @@ metadata:
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  name: {{ include "pulumi-kubernetes-operator.fullname" . }}
+  name: {{ include "pulumi-kubernetes-operator.fullname" . }}-controller-manager
   labels:
   {{- include "pulumi-kubernetes-operator.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   strategy:
-    type: {{ .Values.deploymentStrategy }}
+    type: {{ default "RollingUpdate" .Values.deploymentStrategy }}
   selector:
     matchLabels:
     {{- include "pulumi-kubernetes-operator.selectorLabels" . | nindent 6 }}
-      app: {{ template "pulumi-kubernetes-operator.name" . }}
-      release: {{ .Release.Name }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        kubectl.kubernetes.io/default-container: manager
+      {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        name: {{ template "pulumi-kubernetes-operator.name" . }}
-        app: {{ template "pulumi-kubernetes-operator.name" . }}
-        release: {{ .Release.Name }}
       {{- include "pulumi-kubernetes-operator.selectorLabels" . | nindent 8 }}
       {{- if .Values.podLabels }}
         {{ toYaml .Values.podLabels | indent 8 }}
@@ -36,35 +32,35 @@ spec:
       {{- if .Values.extraSidecars }}
       {{- toYaml .Values.extraSidecars  | nindent  8 }}
       {{- end}}
-      - args:
-        {{- with .Values.controller.args }}
-        {{- toYaml . | nindent 10 }}
-        {{- end }}
+      - name: manager
+        args:
+        - /manager
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        - --metrics-bind-address=:8383
+        - --program-fs-adv-addr=pulumi-kubernetes-operator.$(POD_NAMESPACE).svc.cluster.local:80
+        - --zap-log-level={{ .Values.controller.logLevel }}
+        - --zap-time-encoding=iso8601
         env:
         {{- if .Values.extraEnv }}
         {{- toYaml .Values.extraEnv  | nindent 8 }}
         {{- end }}
-        - name: WATCH_NAMESPACE
+        - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: OPERATOR_NAME
-          value: {{ include "pulumi-kubernetes-operator.name" . }}
-        - name: GRACEFUL_SHUTDOWN_TIMEOUT_DURATION
-          value: {{ .Values.controller.gracefulShutdownTimeoutDuration }}
-        - name: MAX_CONCURRENT_RECONCILES
-          value: {{ .Values.controller.maxConcurrentReconciles | quote }}
-        - name: PULUMI_INFER_NAMESPACE
-          value: {{ .Values.controller.pulumiInferNamespace | quote }}
-        - name: KUBERNETES_CLUSTER_DOMAIN
-          value: {{ .Values.controller.kubernetesClusterDomain }}
-        image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:v{{ .Values.image.tag | default .Chart.AppVersion }}"
+        ports:
+        - containerPort: 8383
+          name: http-metrics
+          protocol: TCP
+        - containerPort: 9090
+          name: http-fileserver
+          protocol: TCP
+        {{- if .Values.extraPorts }}
+        {{- toYaml .Values.extraPorts  | nindent 8 }}
+        {{- end }}
+        image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        name: {{ .Chart.Name }}
         {{- if .Values.securityContext }}
         securityContext:
         {{- toYaml .Values.securityContext | nindent 12 }}
@@ -73,12 +69,22 @@ spec:
         resources:
           {{- toYaml .Values.resources | nindent 12 }}
         {{- end }}
-        volumeMounts:
         {{- with .Values.extraVolumeMounts }}
+        volumeMounts:
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        - mountPath: /tmp
-          name: tmp-dir
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -109,9 +115,7 @@ spec:
         {{- toYaml . | nindent 6 }}
       {{- end }}
       {{- end }}
-      volumes:
       {{- with .Values.extraVolumes }}
+      volumes:
         {{- toYaml . | nindent 6 }}
       {{- end }}
-      - emptyDir: {}
-        name: tmp-dir

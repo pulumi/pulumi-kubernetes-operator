@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: pulumi-kubernetes-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: pulumi-kubernetes-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pulumi-kubernetes-operator-controller-manager
+subjects:
+  - kind: ServiceAccount
+    name: controller-manager
+    namespace: pulumi-kubernetes-operator

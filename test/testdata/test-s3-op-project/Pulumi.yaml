@@ -1,3 +1,0 @@
-name: s3-op-project
-runtime: nodejs
-description: A simple S3 bucket to deploy

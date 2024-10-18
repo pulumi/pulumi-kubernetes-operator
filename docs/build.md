@@ -2,36 +2,63 @@
 
 ## Project Layout
 
-### Stack CRD and CR
+### Stack Resource
 
-A custom Kubernetes API type to implement a Pulumi Stack, it's configuration,
-and job run settings.
+A custom Kubernetes resource (CR) to deploy and maintain a Pulumi stack, based on 
+a program (from a Git repository, a `Program` resource, or a Flux source),
+a stack configuration, and other options.
 
-- [CRD API type](../pkg/apis/pulumi/v1alpha1/stack_types.go)
-- [Generated CRD YAML Manifest](../deploy/crds/pulumi.com_stacks.yaml)
+- [Type Definition](../operator/api/pulumi/v1/stack_types.go)
+- [CRD Manifest](../deploy/crds/pulumi.com_stacks.yaml)
+- [Controller](../operator/internal/controller/pulumi/stack_controller.go)
+- [Controller Tests](../operator/internal/controller/pulumi/stack_controller_tests.go)
 
-### Stack Controller
+### Program Resource
 
-A controller that manages user-created Stack CRs by running a Pulumi program until
-completion of the update execution run.
+A custom Kubernetes resource to define a Pulumi YAML program.
 
-- [Stack Controller](./pkg/controller/stack/stack_controller.go)
+- [Type Definition](../operator/api/pulumi/v1/program_types.go)
+- [CRD Manifest](../deploy/crds/pulumi.com_programs.yaml)
+- [Controller](../operator/internal/controller/pulumi/program_controller.go)
+- [Controller Tests](../operator/internal/controller/pulumi/program_controller_tests.go)
+
+### Workspace Resource
+
+A custom Kubernetes resource (CR) to make workspace pods to serve as an execution environment
+for Pulumi deployment operation(s), applied to the given program.
+
+- [Type Definition](../operator/api/auto/v1alpha1/workspace_types.go)
+- [CRD Manifest](../deploy/crds/auto.pulumi.com_workspaces.yaml)
+- [Controller](../operator/internal/controller/auto/workspace_controller.go)
+- [Controller Tests](../operator/internal/controller/auto/workspace_controller_tests.go)
+
+### Update Resource
+
+A custom Kubernetes resource (CR) to execute a Pulumi deployment operation (e.g `pulumi up`, `pulumi destroy`)
+in the given workspace pod.
+
+- [Type Definition](../operator/api/auto/v1alpha1/update_types.go)
+- [CRD Manifest](../deploy/crds/auto.pulumi.com_updates.yaml)
+- [Controller](../operator/internal/controller/auto/update_controller.go)
+- [Controller Tests](../operator/internal/controller/auto/update_controller_tests.go)
 
 ### The Operator
 
-A managed Kubernetes application that uses the Stack Controller to process
-Stack CRs.
+A managed Kubernetes application that uses controllers to manage Pulumi workloads.
 
-- [Deployment - Generated YAML Manifest](./deploy/yaml/operator.yaml)
-- [Role - Generated YAML Manifest](./deploy/yaml/role.yaml)
-- [RoleBinding - Generated YAML Manifest](./deploy/yaml/role_binding.yaml)
-- [ServiceAccount - Generated YAML Manifest](./deploy/yaml/service_account.yaml)
+- [Main Entrypoint](../operator/cmd/main.go)
+- [Dockerfile](../operator/Dockerfile)
+- [CRD Manifests](./deploy/crds/)
+- [Deployment Manifests](./deploy/yaml/)
+- [Pulumi App](./deploy/helm/pulumi-operator/)
+- [Helm Chart](./deploy/deploy-operator-ts/)
 
 ## Requirements
 
 Install the following binaries.
 
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/#install-kubectl)
+- [kubebuilder v4.2.0](https://github.com/kubernetes-sigs/kubebuilder/releases/tag/v4.2.0)
 - [ginkgo (for testing only)](https://onsi.github.io/ginkgo/)
 
 ### Quickly Build

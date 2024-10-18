@@ -3,12 +3,15 @@ pulumi-kubernetes-operator
 # Temporary Build Files
 build/_output
 build/_test
+.pulumi
+Pulumi.*.yaml
 
 # Created by https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 ### Emacs ###
 # -*- mode: gitignore; -*-
 *~
 \#*\#
+.DS_Store
 /.emacs.desktop
 /.emacs.desktop.lock
 *.elc
@@ -87,5 +90,5 @@ tags
 *.vsix
 ### IntelliJ ###
 .idea
-config/
 .envrc
+bin/*

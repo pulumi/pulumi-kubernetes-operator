@@ -1,3 +1,0 @@
-name: deploy-operator-ts
-runtime: nodejs
-description: Deploy Kubernetes Operator with Typescript

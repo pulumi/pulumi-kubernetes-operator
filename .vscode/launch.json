@@ -18,6 +18,61 @@
 			"args": [
 				"--zap-level=debug"
 			]
+		},
+		{
+			"name": "Manager (v2)",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "operator/cmd",
+			"args": [
+				"--zap-encoder=console",
+				"--zap-log-level=debug"
+			],
+			"env": {
+				"WORKSPACE_LOCALHOST": "localhost:50051",
+				"SOURCE_CONTROLLER_LOCALHOST": "localhost:9090",
+			},
+		},
+		{
+			"name": "Agent (v2)",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "agent",
+			"args": [
+				"serve",
+				"-v=false",
+				"--workspace=${input:workdir}",
+				"-s=dev"
+			]
+		},
+		{
+			"name": "Agent (kubernetes)",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "agent",
+			"args": [
+				"serve",
+				"-v=true",
+				"--workspace=${input:workdir}",
+				"-s=dev",
+				"--auth-mode=kube",
+				"--kube-workspace-namespace=default",
+				"--kube-workspace-name=random-yaml"
+			],
+			"env": {
+				"POD_NAMESPACE": "default",
+				"POD_SA_NAME": "fake"
+			}
+		}
+	],
+	"inputs": [
+		{
+			"id": "workdir",
+			"description": "Please provide the Pulumi program directory",
+			"type": "promptString"
 		}
 	]
 }

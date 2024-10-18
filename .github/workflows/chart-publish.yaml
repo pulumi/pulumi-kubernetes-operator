@@ -2,13 +2,9 @@
 name: chart-publish
 on:
   push:
-    branches:
-      - master
-    paths:
-      - "deploy/helm/**"
-      - "!deploy/helm/pulumi-operator/README.md"
-      - "!deploy/helm/pulumi-operator/README.md.gotmpl"
-      
+    tags:
+      - v*.*.*     # e.g. v2.0.0
+
 env:
   HELM_DOCS_VERSION: "1.11.0"
 

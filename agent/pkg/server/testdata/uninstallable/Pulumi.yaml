@@ -1,0 +1,3 @@
+name: uninstallable
+runtime: go
+description: A project that cannot be installed because it lacks a go.mod

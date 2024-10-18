@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: controller-manager
+    app.kubernetes.io/name: pulumi-kubernetes-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: pulumi-kubernetes-operator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: pulumi-kubernetes-operator
+  labels:
+    control-plane: controller-manager
+    app.kubernetes.io/name: pulumi-kubernetes-operator
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        control-plane: controller-manager
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+      containers:
+        - name: manager
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          args:
+            - /manager
+            - --leader-elect
+            - --health-probe-bind-address=:8081
+            - --program-fs-adv-addr=pulumi-kubernetes-operator.$(POD_NAMESPACE).svc.cluster.local:80
+            - --zap-log-level=info
+            - --zap-time-encoding=iso8601
+          ports:
+          - containerPort: 8383
+            name: http-metrics
+            protocol: TCP
+          - containerPort: 9090
+            name: http-fileserver
+            protocol: TCP
+          image: controller:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - "ALL"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 200m
+              memory: 128Mi
+      serviceAccountName: controller-manager
+      terminationGracePeriodSeconds: 600
+---
+# Service is required to expose the file server for workspace pods to fetch Program objects.
+apiVersion: v1
+kind: Service
+metadata:
+  name: pulumi-kubernetes-operator
+  labels:
+    control-plane: controller-manager
+spec:
+  type: ClusterIP
+  selector:
+    control-plane: controller-manager
+  ports:
+    - name: http-fileserver
+      port: 80
+      protocol: TCP
+      targetPort: http-fileserver
+    - name: http-metrics
+      port: 8383
+      targetPort: http-metrics
+      protocol: TCP

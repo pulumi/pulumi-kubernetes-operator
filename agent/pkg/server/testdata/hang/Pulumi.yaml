@@ -1,0 +1,9 @@
+name: hang
+runtime: yaml
+description: A program that takes a very long time in order to test termination behavior.
+
+resources:
+  sleep:
+    type: time:Sleep
+    properties:
+      createDuration: 300s

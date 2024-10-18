@@ -33,8 +33,7 @@ spec:
     - {{ .Release.Namespace }}
   selector:
     matchLabels:
-      app: {{ template "pulumi-kubernetes-operator.name" . }}
-      release: {{ .Release.Name }}
+{{- include "pulumi-kubernetes-operator.selectorLabels" . | nindent 6 }}
 {{- if .Values.serviceMonitor.targetLabels }}
   targetLabels:
 {{- range .Values.serviceMonitor.targetLabels }}

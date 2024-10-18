@@ -1,0 +1,17 @@
+# More info: https://docs.docker.com/engine/reference/builder/#dockerignore-file
+*.md
+*.txt
+*.out
+*.yaml
+*.yml
+*_test.go
+.dockerignore
+.gitignore
+.git
+bin
+config
+examples
+deploy
+hack
+Dockerfile
+Makefile
