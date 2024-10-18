@@ -1,4 +1,4 @@
-FROM pulumi/pulumi:3.134.1
+FROM pulumi/pulumi:3.137.0
 
 RUN apt-get update \
     && apt-get install tini \
