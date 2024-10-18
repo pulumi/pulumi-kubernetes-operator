@@ -1,11 +1,10 @@
 CHANGELOG
 =========
 
-## 2.0-beta.0 (2024-09-27)
+## 2.0.0-beta.1 (2024-10-18)
 
-- New pod-based architecture
-- New installer
-  
+- Major update to new horizontally-scalable architecture. [#725](https://github.com/pulumi/pulumi-kubernetes-operator/pull/725)
+
 ## 1.16.0 (2024-08-26)
 
 ### Fixed
