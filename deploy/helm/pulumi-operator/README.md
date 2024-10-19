@@ -1,7 +1,6 @@
 # Pulumi Kubernetes Operator - Helm Chart
 
-![Version: 0.7.2](https://img.shields.io/badge/Version-0.7.2-informational?style=for-the-badge) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=for-the-badge) ![AppVersion: v2.0.0-beta.1](https://img.shields.io/badge/AppVersion-v2.0.0-beta.1-informational?style=for-the-badge)
-[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/pulumi-kubernetes-operator&style=for-the-badge)](https://artifacthub.io/packages/search?repo=pulumi-kubernetes-operator)
+![Version: 2.0.0](https://img.shields.io/badge/Version-2.0.0-informational?style=for-the-badge) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=for-the-badge) ![AppVersion: v2.0.0-beta.1](https://img.shields.io/badge/AppVersion-v2.0.0--beta.1-informational?style=for-the-badge)
 
 ## Description 📜
 
@@ -12,7 +11,7 @@ A Helm chart for the Pulumi Kubernetes Operator
 To install the chart using the OCI artifact, run:
 
 ```bash
-helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --version 0.8.1
+helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --version 2.0.0
 ```
 
 After a few seconds, the `pulumi-kubernetes-operator` should be running.
@@ -41,18 +40,12 @@ The command removes all the Kubernetes components associated with the chart and 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | The affinity constraint |
-| clusterRoleRules.enabled | bool | `false` | Enable custom rules for the application controller's ClusterRole resource default: false |
-| clusterRoleRules.rules | list | `[]` | List of custom rules for the application controller's ClusterRole resource default: [] |
-| controller.args | list | `["--zap-level=error","--zap-time-encoding=iso8601"]` | List of arguments to pass to the operator |
-| controller.gracefulShutdownTimeoutDuration | string | `"5m"` | Graceful shutdown timeout duration, default: `5m` |
-| controller.kubernetesClusterDomain | string | `"cluster.local"` | Kubernetes Cluster Domain, default: `cluster.local` |
-| controller.maxConcurrentReconciles | string | `"10"` | Max concurrent reconciles, default: `10` |
-| controller.pulumiInferNamespace | string | `"1"` | Pulumi infer namespace, default: `1` |
-| createClusterRole | bool | `false` | Create a ClusterRole resource for the node-red pod. default: false |
+| controller.logLevel | string | `"error"` | Log Level ('debug', 'info', 'error', or any integer value > 0 which corresponds to custom debug levels of increasing verbosity) |
 | deploymentAnnotations | object | `{}` | Deployment annotations |
 | deploymentStrategy | string | `""` | Specifies the strategy used to replace old Pods by new ones, default: `RollingUpdate` |
 | extraEnv | list | `[]` | Extra Environments to be passed to the operator |
-| extraSidecars | list | `[]` | You can configure extra sidecars containers to run alongside the pulumi-kubernetes-operator pod. default: [] |
+| extraPorts | string | `nil` |  |
+| extraSidecars | list | `[]` | You can configure extra sidecar containers to run within the pulumi-kubernetes-operator pod. default: [] |
 | extraVolumeMounts | string | `nil` | Extra Volume Mounts for the pulumi-kubernetes-operator pod |
 | extraVolumes | string | `nil` | Extra Volumes for the pod |
 | fullnameOverride | string | `""` | String to fully override "pulumi-kubernetes-operator.fullname" |
@@ -61,20 +54,26 @@ The command removes all the Kubernetes components associated with the chart and 
 | image.repository | string | `"pulumi/pulumi-kubernetes-operator"` | The image repository to pull from |
 | image.tag | string | `""` | The image tag to pull, default: `Chart.appVersion` |
 | imagePullSecrets | string | `""` | The image pull secrets |
-| initContainers | list | `[]` | containers which are run before the app containers are started |
+| initContainers | list | `[]` | You can configure extra init containers to run within the pulumi-kubernetes-operator pod. default: [] |
 | nameOverride | string | `""` | Provide a name in place of pulumi-kubernetes-operator |
 | nodeSelector | object | `{}` | Node selector |
 | podAnnotations | object | `{}` | Pod annotations |
 | podLabels | object | `{}` | Labels to add to the pulumi-kubernetes-operator pod. default: {} |
-| podSecurityContext | object | `{"fsGroup":1000,"runAsUser":1000}` | Pod Security Context see [values.yaml](values.yaml) |
-| podSecurityContext.fsGroup | int | `1000` | pulumi-kubernetes-operator group is 1000 |
-| podSecurityContext.runAsUser | int | `1000` | pulumi-kubernetes-operator user is 1000 |
+| podSecurityContext | object | `{"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}` | Pod Security Context see [values.yaml](values.yaml) |
+| podSecurityContext.runAsGroup | int | `65532` | pulumi-kubernetes-operator group is 65532 |
+| podSecurityContext.runAsUser | int | `65532` | pulumi-kubernetes-operator user is 65532 |
+| rbac.create | bool | `true` | Specifies whether RBAC resources should be created |
+| rbac.createClusterAggregationRoles | bool | `true` | Specifies whether aggregation roles should be created to extend the built-in view and edit roles |
+| rbac.createClusterRole | bool | `true` | Specifies whether cluster roles and bindings should be created |
+| rbac.createRole | bool | `false` | Specifies whether namespaced roles and bindings should be created |
+| rbac.extraRules | list | `[]` | Specifies extra rules for the manager role, e.g. for a 3rd party Flux source |
 | replicaCount | int | `1` | Specifies the replica count for the deployment |
-| resources | object | `{"limits":{"cpu":"500m","memory":"5123Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` | CPU/Memory resource requests/limits |
-| securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"runAsGroup":10003,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security Context see [values.yaml](values.yaml) |
+| resources | object | `{"limits":{"cpu":"200m","memory":"128Mi"},"requests":{"cpu":"200m","memory":"128Mi"}}` | CPU/Memory resource requests/limits |
+| securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}` | Security Context see [values.yaml](values.yaml) |
 | serviceAccount.annotations | object | `{}` | Additional ServiceAccount annotations |
 | serviceAccount.create | bool | `true` | Create service account |
 | serviceAccount.name | string | `""` | Service account name to use, when empty will be set to created account if |
+| serviceAnnotations | object | `{}` | Service annotations |
 | serviceMonitor.enabled | bool | `false` | When set true then use a ServiceMonitor to configure scraping |
 | terminationGracePeriodSeconds | int | `300` | Specifies termination grace period, default: `300` |
 | tolerations | list | `[]` | Toleration labels for pod assignment |
