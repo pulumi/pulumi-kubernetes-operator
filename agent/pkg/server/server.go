@@ -27,6 +27,7 @@ import (
 
 	"github.com/mitchellh/go-ps"
 	pb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/version"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
 	"google.golang.org/grpc/codes"
@@ -46,9 +47,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 )
 
-const (
-	UserAgent = "pulumi-kubernetes-operator"
-)
+var _userAgent = fmt.Sprintf("pulumi-kubernetes-operator/%s", version.Version)
 
 type Server struct {
 	log       *zap.SugaredLogger
@@ -339,7 +338,7 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 
 	// determine the options to pass to the preview operation
 	opts := []optpreview.Option{
-		optpreview.UserAgent(UserAgent),
+		optpreview.UserAgent(_userAgent),
 		optpreview.Diff(), /* richer result? */
 	}
 	if in.Parallel != nil {
@@ -431,7 +430,7 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 
 	// determine the options to pass to the preview operation
 	opts := []optrefresh.Option{
-		optrefresh.UserAgent(UserAgent),
+		optrefresh.UserAgent(_userAgent),
 	}
 	if in.Parallel != nil {
 		opts = append(opts, optrefresh.Parallel(int(*in.Parallel)))
@@ -510,7 +509,7 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 
 	// determine the options to pass to the preview operation
 	opts := []optup.Option{
-		optup.UserAgent(UserAgent),
+		optup.UserAgent(_userAgent),
 		optup.SuppressProgress(),
 		optup.Diff(), /* richer result? */
 	}
@@ -615,7 +614,7 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 
 	// determine the options to pass to the preview operation
 	opts := []optdestroy.Option{
-		optdestroy.UserAgent(UserAgent),
+		optdestroy.UserAgent(_userAgent),
 	}
 	if in.Parallel != nil {
 		opts = append(opts, optdestroy.Parallel(int(*in.Parallel)))
