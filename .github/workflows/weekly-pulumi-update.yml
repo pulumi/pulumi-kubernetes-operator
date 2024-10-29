@@ -38,7 +38,7 @@ jobs:
         id: gomod
         run: |
           go get github.com/pulumi/pulumi/sdk/v3
-          make dep-tidy
+          go mod tidy
           git update-index -q --refresh
           if ! git diff-files --quiet; then
             echo changes=1 >> "$GITHUB_OUTPUT"
