@@ -32,6 +32,7 @@ type WorkspaceSpecApplyConfiguration struct {
 	ImagePullPolicy    *v1.PullPolicy                             `json:"imagePullPolicy,omitempty"`
 	Git                *GitSourceApplyConfiguration               `json:"git,omitempty"`
 	Flux               *FluxSourceApplyConfiguration              `json:"flux,omitempty"`
+	Local              *LocalSourceApplyConfiguration             `json:"local,omitempty"`
 	EnvFrom            []v1.EnvFromSource                         `json:"envFrom,omitempty"`
 	Env                []v1.EnvVar                                `json:"env,omitempty"`
 	Resources          *v1.ResourceRequirements                   `json:"resources,omitempty"`
@@ -90,6 +91,14 @@ func (b *WorkspaceSpecApplyConfiguration) WithGit(value *GitSourceApplyConfigura
 // If called multiple times, the Flux field is set to the value of the last call.
 func (b *WorkspaceSpecApplyConfiguration) WithFlux(value *FluxSourceApplyConfiguration) *WorkspaceSpecApplyConfiguration {
 	b.Flux = value
+	return b
+}
+
+// WithLocal sets the Local field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Local field is set to the value of the last call.
+func (b *WorkspaceSpecApplyConfiguration) WithLocal(value *LocalSourceApplyConfiguration) *WorkspaceSpecApplyConfiguration {
+	b.Local = value
 	return b
 }
 

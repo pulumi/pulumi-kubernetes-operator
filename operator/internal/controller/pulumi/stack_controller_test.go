@@ -1091,6 +1091,7 @@ var _ = Describe("Stack Controller", func() {
 
 	Describe("Sources", func() {
 		When("the stack has no sources", func() {
+			// use-case: user wants to fetch the source themselves, e.g. via init container
 			BeforeEach(func(ctx context.Context) {
 				obj.Spec.GitSource = nil
 				obj.Spec.FluxSource = nil
@@ -1099,7 +1100,8 @@ var _ = Describe("Stack Controller", func() {
 			It("reconciles", func(ctx context.Context) {
 				_, err := reconcileF(ctx)
 				Expect(err).NotTo(HaveOccurred())
-				ByMarkingAsStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring("exactly one source"))
+				By("configuring the workspace")
+				Expect(ws).ToNot(BeNil())
 			})
 		})
 

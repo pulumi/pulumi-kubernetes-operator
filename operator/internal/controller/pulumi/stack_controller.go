@@ -615,11 +615,6 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	// Check which kind of source we have.
 
 	switch {
-	case !exactlyOneOf(stack.GitSource != nil, stack.FluxSource != nil, stack.ProgramRef != nil):
-		err := errOtherThanOneSourceSpecified
-		instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
-		return reconcile.Result{}, saveStatus()
-
 	case stack.GitSource != nil:
 		auth, err := sess.resolveGitAuth(ctx)
 		if err != nil {
@@ -712,6 +707,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			log.Error(err, "Failed to setup Pulumi workspace")
 			return reconcile.Result{}, err
 		}
+
+	default:
+		log.V(1).Info("No source specified")
+		currentCommit = ""
 	}
 
 	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
@@ -771,6 +770,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			log.Info("Commit hash unchanged. Will wait for Source update or resync.")
 		} else if stack.ProgramRef != nil {
 			log.Info("Commit hash unchanged. Will wait for Program update or resync.")
+		} else {
+			log.Info("Not commit tracking. Will wait for resync.")
 		}
 
 		return reconcile.Result{RequeueAfter: requeueAfter}, saveStatus()

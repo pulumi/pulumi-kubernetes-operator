@@ -72,6 +72,10 @@ type WorkspaceSpec struct {
 	// +optional
 	Flux *FluxSource `json:"flux,omitempty"`
 
+	// Local is the local source containing the Pulumi program.
+	// +optional
+	Local *LocalSource `json:"local,omitempty"`
+
 	// List of sources to populate environment variables in the workspace.
 	// The keys defined within a source must be a C_IDENTIFIER. All invalid keys
 	// will be reported as an event when the container is starting. When a key exists in multiple
@@ -151,7 +155,7 @@ type GitAuth struct {
 	Token *corev1.SecretKeySelector `json:"token,omitempty"`
 }
 
-// FluxSource specifies how to fetch a Fllux source artifact.
+// FluxSource specifies how to fetch a Flux source artifact.
 type FluxSource struct {
 	// URL is the URL of the artifact to fetch.
 	Url string `json:"url,omitempty"`
@@ -160,6 +164,13 @@ type FluxSource struct {
 	// Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
 	// interest, within the fetched artifact.
 	// +optional
+	Dir string `json:"dir,omitempty"`
+}
+
+// LocalSource specifies how to locate a local source directory.
+type LocalSource struct {
+	// Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
+	// interest, within the workspace image.
 	Dir string `json:"dir,omitempty"`
 }
 

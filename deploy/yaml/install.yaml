@@ -1388,6 +1388,14 @@ spec:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
+                      local:
+                        description: |-
+                          LocalSourceApplyConfiguration represents an declarative configuration of the LocalSource type for use
+                          with apply.
+                        properties:
+                          dir:
+                            type: string
+                        type: object
                       podTemplate:
                         description: |-
                           EmbeddedPodTemplateSpecApplyConfiguration represents an declarative configuration of the EmbeddedPodTemplateSpec type for use
@@ -10947,6 +10955,14 @@ spec:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
+                      local:
+                        description: |-
+                          LocalSourceApplyConfiguration represents an declarative configuration of the LocalSource type for use
+                          with apply.
+                        properties:
+                          dir:
+                            type: string
+                        type: object
                       podTemplate:
                         description: |-
                           EmbeddedPodTemplateSpecApplyConfiguration represents an declarative configuration of the EmbeddedPodTemplateSpec type for use
@@ -19904,6 +19920,15 @@ spec:
                   Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
                   More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
                 type: string
+              local:
+                description: Local is the local source containing the Pulumi program.
+                properties:
+                  dir:
+                    description: |-
+                      Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
+                      interest, within the workspace image.
+                    type: string
+                type: object
               podTemplate:
                 description: PodTemplate defines a PodTemplateSpec for Workspace's
                   pods.
