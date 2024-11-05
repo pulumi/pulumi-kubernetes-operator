@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+## Unreleased
+
+- Improved support for using custom program sources. [#741](https://github.com/pulumi/pulumi-kubernetes-operator/pull/741) 
+
 ## 2.0.0-beta.1 (2024-10-18)
 
 - Major update to new horizontally-scalable architecture. [#725](https://github.com/pulumi/pulumi-kubernetes-operator/pull/725)
