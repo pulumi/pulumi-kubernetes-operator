@@ -150,6 +150,11 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			Dir:    w.Spec.Flux.Dir,
 		}
 	}
+	if w.Spec.Local != nil {
+		source.Local = &localSource{
+			Dir: w.Spec.Local.Dir,
+		}
+	}
 	sourceHash := source.Hash()
 	l.Info("Applying StatefulSet", "hash", sourceHash, "source", source)
 
@@ -637,6 +642,29 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 		statefulset.Spec.Template.Spec.InitContainers = append(statefulset.Spec.Template.Spec.InitContainers, container)
 	}
 
+	if source.Local != nil {
+		script := `ln -s $LOCAL_DIR /share/workspace`
+		container := corev1.Container{
+			Name:            "fetch",
+			Image:           image,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      WorkspaceShareVolumeName,
+					MountPath: WorkspaceShareMountPath,
+				},
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "LOCAL_DIR",
+					Value: source.Local.Dir,
+				},
+			},
+			Args: []string{"sh", "-c", script},
+		}
+		statefulset.Spec.Template.Spec.InitContainers = append(statefulset.Spec.Template.Spec.InitContainers, container)
+	}
+
 	// apply the 'restricted' security profile as necessary
 	if w.Spec.SecurityProfile == autov1alpha1.SecurityProfileRestricted {
 		sc := statefulset.Spec.Template.Spec.SecurityContext
@@ -713,6 +741,7 @@ type sourceSpec struct {
 	ForceRequest string
 	Git          *gitSource
 	Flux         *fluxSource
+	Local        *localSource
 }
 
 type gitSource struct {
@@ -730,6 +759,10 @@ type fluxSource struct {
 	Url    string
 	Digest string
 	Dir    string
+}
+
+type localSource struct {
+	Dir string
 }
 
 func (s *sourceSpec) Hash() string {

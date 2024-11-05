@@ -54,6 +54,9 @@ var (
 		Digest: "sha256:6560311e95689086aa195a82c0310080adc31bea2457936ce528a014d811407a",
 		Dir:    "random-yaml",
 	}
+	TestLocalSource = &autov1alpha1.LocalSource{
+		Dir: "/app",
+	}
 )
 
 var _ = Describe("Workspace Controller", func() {
@@ -360,6 +363,24 @@ var _ = Describe("Workspace Controller", func() {
 						corev1.EnvVar{Name: "FLUX_URL", Value: TestFluxSource.Url},
 						corev1.EnvVar{Name: "FLUX_DIGEST", Value: TestFluxSource.Digest},
 						corev1.EnvVar{Name: "FLUX_DIR", Value: TestFluxSource.Dir},
+					))
+				})
+			})
+		})
+
+		Describe("spec.local", func() {
+			When("a local dir is set", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.Local = TestLocalSource
+				})
+				It("links the source to the shared volume", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					fetch := findContainer(ss.Spec.Template.Spec.InitContainers, "fetch")
+					Expect(fetch).NotTo(BeNil())
+					Expect(fetch.Args).ToNot(BeEmpty())
+					Expect(fetch.Env).To(ConsistOf(
+						corev1.EnvVar{Name: "LOCAL_DIR", Value: TestLocalSource.Dir},
 					))
 				})
 			})

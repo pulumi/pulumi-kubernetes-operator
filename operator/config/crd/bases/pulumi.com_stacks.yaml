@@ -1153,6 +1153,14 @@ spec:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
+                      local:
+                        description: |-
+                          LocalSourceApplyConfiguration represents an declarative configuration of the LocalSource type for use
+                          with apply.
+                        properties:
+                          dir:
+                            type: string
+                        type: object
                       podTemplate:
                         description: |-
                           EmbeddedPodTemplateSpecApplyConfiguration represents an declarative configuration of the EmbeddedPodTemplateSpec type for use
@@ -10712,6 +10720,14 @@ spec:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
+                      local:
+                        description: |-
+                          LocalSourceApplyConfiguration represents an declarative configuration of the LocalSource type for use
+                          with apply.
+                        properties:
+                          dir:
+                            type: string
+                        type: object
                       podTemplate:
                         description: |-
                           EmbeddedPodTemplateSpecApplyConfiguration represents an declarative configuration of the EmbeddedPodTemplateSpec type for use
