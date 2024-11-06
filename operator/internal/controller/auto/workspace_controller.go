@@ -104,6 +104,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}
 	updateStatus := func() error {
+		oldRevision := w.ResourceVersion
 		w.Status.ObservedGeneration = w.Generation
 		ready.ObservedGeneration = w.Generation
 		meta.SetStatusCondition(&w.Status.Conditions, *ready)
@@ -111,8 +112,13 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err != nil {
 			l.Error(err, "updating status")
 		} else {
-			l = log.FromContext(ctx).WithValues("revision", w.ResourceVersion)
-			l.V(1).Info("Status updated")
+			if w.ResourceVersion != oldRevision {
+				l = log.FromContext(ctx).WithValues("revision", w.ResourceVersion)
+				l.Info("Status updated",
+					"observedGeneration", w.Status.ObservedGeneration,
+					"address", w.Status.Address,
+					"conditions", w.Status.Conditions)
+			}
 		}
 
 		return err

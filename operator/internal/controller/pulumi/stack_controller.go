@@ -494,12 +494,20 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	}
 
 	saveStatus := func() error {
+		oldRevision := instance.ResourceVersion
 		if err := r.Status().Update(ctx, instance); err != nil {
 			log.Error(err, "unable to save object status")
 			return err
 		}
-		log = ctrllog.FromContext(ctx).WithValues("revision", instance.ResourceVersion)
-		log.V(1).Info("Status updated")
+		if instance.ResourceVersion != oldRevision {
+			log = ctrllog.FromContext(ctx).WithValues("revision", instance.ResourceVersion)
+			log.Info("Status updated",
+				"observedGeneration", instance.Status.ObservedGeneration,
+				"observedReconcileRequest", instance.Status.ObservedReconcileRequest,
+				"lastUpdate", instance.Status.LastUpdate,
+				"currentUpdate", instance.Status.CurrentUpdate,
+				"conditions", instance.Status.Conditions)
+		}
 		return nil
 	}
 
