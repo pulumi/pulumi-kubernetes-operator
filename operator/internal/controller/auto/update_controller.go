@@ -119,6 +119,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 	}
+	l = log.FromContext(ctx).WithValues("revision", obj.ResourceVersion)
 
 	// Get the workspace and check that it is ready
 	w := &autov1alpha1.Workspace{}
@@ -257,6 +258,7 @@ func newReconcileSession(client client.Client, obj *autov1alpha1.Update) *reconc
 }
 
 func (rs *reconcileSession) updateStatus(ctx context.Context, obj *autov1alpha1.Update) error {
+	oldRevision := obj.ResourceVersion
 	obj.Status.ObservedGeneration = obj.Generation
 	rs.progressing.ObservedGeneration = obj.Generation
 	meta.SetStatusCondition(&obj.Status.Conditions, *rs.progressing)
@@ -266,6 +268,13 @@ func (rs *reconcileSession) updateStatus(ctx context.Context, obj *autov1alpha1.
 	meta.SetStatusCondition(&obj.Status.Conditions, *rs.complete)
 	err := rs.client.Status().Update(ctx, obj)
 	if err == nil {
+		if obj.ResourceVersion != oldRevision {
+			l := log.FromContext(ctx).WithValues("revision", obj.ResourceVersion)
+			l.Info("Status updated",
+				"observedGeneration", obj.Status.ObservedGeneration,
+				"message", obj.Status.Message,
+				"conditions", obj.Status.Conditions)
+		}
 		return nil
 	}
 	return fmt.Errorf("updating status: %w", err)
@@ -426,6 +435,7 @@ func (r *UpdateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("update-controller").
 		For(&autov1alpha1.Update{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&autov1alpha1.Workspace{},
 			handler.EnqueueRequestsFromMapFunc(r.mapWorkspaceToUpdate),
