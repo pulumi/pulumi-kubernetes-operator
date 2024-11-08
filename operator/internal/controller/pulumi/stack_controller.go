@@ -63,10 +63,17 @@ import (
 )
 
 var (
-	errRequirementNotRun    = fmt.Errorf("prerequisite has not run to completion")
-	errRequirementFailed    = fmt.Errorf("prerequisite failed")
-	errRequirementOutOfDate = fmt.Errorf("prerequisite succeeded but not recently enough")
+	errRequirementNotRun = fmt.Errorf("prerequisite has not run to completion")
+	errRequirementFailed = fmt.Errorf("prerequisite failed")
 )
+
+type errRequirementOutOfDate struct {
+	LastResyncTime time.Time
+}
+
+func (e errRequirementOutOfDate) Error() string {
+	return fmt.Sprintf("prerequisite succeeded but not since %s", e.LastResyncTime.Format(time.RFC3339))
+}
 
 const (
 	pulumiFinalizer          = "finalizer.stack.pulumi.com"
@@ -143,7 +150,8 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	blder = blder.Watches(&pulumiv1.Stack{}, &handler.InstrumentedEnqueueRequestForObject[client.Object]{}, builder.WithPredicates(predicates...))
 
 	// Watch stacks so that dependent stacks can be requeued when they change
-	blder = blder.Watches(&pulumiv1.Stack{}, ctrlhandler.EnqueueRequestsFromMapFunc(enqueueDependents) /* , builder.WithPredicates(dependentStatusUpdate...) */)
+	blder = blder.Watches(&pulumiv1.Stack{}, ctrlhandler.EnqueueRequestsFromMapFunc(enqueueDependents),
+		builder.WithPredicates(&stackReadyPredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
 
 	// Watch Programs, and look up which (if any) Stack refers to them when they change
 
@@ -274,8 +282,11 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // isRequirementSatisfied checks the given readiness requirement against the given stack, and
 // returns nil if the requirement is satisfied, and an error otherwise. The requirement can be nil
 // itself, in which case the prerequisite is only that the stack succeeded on its last run.
-func isRequirementSatisfied(req *shared.RequirementSpec, stack pulumiv1.Stack) error {
-	if stack.Status.LastUpdate == nil || stack.Status.LastUpdate.Generation != stack.GetGeneration() {
+func isRequirementSatisfied(req *shared.RequirementSpec, stack *pulumiv1.Stack) error {
+	syncRequest, _ := getReconcileRequestAnnotation(stack)
+	if stack.Status.LastUpdate == nil ||
+		stack.Status.LastUpdate.Generation != stack.GetGeneration() ||
+		stack.Status.LastUpdate.ReconcileRequest != syncRequest {
 		return errRequirementNotRun
 	}
 	if stack.Status.LastUpdate.State != shared.SucceededStackStateMessage {
@@ -283,8 +294,8 @@ func isRequirementSatisfied(req *shared.RequirementSpec, stack pulumiv1.Stack) e
 	}
 	if req != nil && req.SucceededWithinDuration != nil {
 		lastRun := stack.Status.LastUpdate.LastResyncTime
-		if lastRun.IsZero() || time.Since(lastRun.Time) > req.SucceededWithinDuration.Duration {
-			return errRequirementOutOfDate
+		if time.Since(lastRun.Time) > req.SucceededWithinDuration.Duration {
+			return &errRequirementOutOfDate{LastResyncTime: lastRun.Time}
 		}
 	}
 	return nil
@@ -321,19 +332,62 @@ func getReconcileRequestAnnotation(obj client.Object) (string, bool) {
 	return r, ok
 }
 
+func setReconcileRequestAnnotation(obj client.Object, v string) bool {
+	a := obj.GetAnnotations()
+	if a == nil {
+		a = map[string]string{}
+	}
+	if a[shared.ReconcileRequestAnnotation] == v {
+		return false
+	}
+	a[shared.ReconcileRequestAnnotation] = v
+	obj.SetAnnotations(a)
+	return true
+}
+
 // Update filters update events based on whether the request reconciliation annotation has been
 // added or amended.
 func (p ReconcileRequestedPredicate) Update(e event.UpdateEvent) bool {
 	if e.ObjectOld == nil || e.ObjectNew == nil {
 		return false
 	}
-	if vNew, ok := getReconcileRequestAnnotation(e.ObjectNew); ok {
-		if vOld, ok := getReconcileRequestAnnotation(e.ObjectOld); ok {
-			return vNew != vOld
-		}
-		return true // new object has it, old one doesn't
+	vNew, _ := getReconcileRequestAnnotation(e.ObjectNew)
+	vOld, _ := getReconcileRequestAnnotation(e.ObjectOld)
+	return vNew != vOld
+}
+
+type stackReadyPredicate struct{}
+
+func isStackReady(s *pulumiv1.Stack) bool {
+	if s == nil || s.Generation != s.Status.ObservedGeneration {
+		return false
 	}
-	return false // either removed, or present in neither object
+	syncRequest, _ := getReconcileRequestAnnotation(s)
+	if syncRequest != s.Status.ObservedReconcileRequest {
+		return false
+	}
+	return meta.IsStatusConditionTrue(s.Status.Conditions, pulumiv1.ReadyCondition)
+}
+
+var _ predicate.Predicate = &stackReadyPredicate{}
+
+func (stackReadyPredicate) Create(e event.CreateEvent) bool {
+	return isStackReady(e.Object.(*pulumiv1.Stack))
+}
+
+func (stackReadyPredicate) Delete(_ event.DeleteEvent) bool {
+	return false
+}
+
+func (stackReadyPredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+	return !isStackReady(e.ObjectOld.(*pulumiv1.Stack)) && isStackReady(e.ObjectNew.(*pulumiv1.Stack))
+}
+
+func (stackReadyPredicate) Generic(_ event.GenericEvent) bool {
+	return false
 }
 
 func isWorkspaceReady(ws *autov1alpha1.Workspace) bool {
@@ -463,9 +517,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 	// Update the observed generation and "reconcile request" of the object.
 	instance.Status.ObservedGeneration = instance.GetGeneration()
-	if req, ok := getReconcileRequestAnnotation(instance); ok {
-		instance.Status.ObservedReconcileRequest = req
-	}
+	syncRequest, _ := getReconcileRequestAnnotation(instance)
+	instance.Status.ObservedReconcileRequest = syncRequest
 
 	// Check if the Stack instance is marked to be deleted, which is indicated by the deletion
 	// timestamp being set.
@@ -565,9 +618,9 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	var failedPrereqErr error      // in caase there's just one, we report the specific error
 
 	for _, prereq := range instance.Spec.Prerequisites {
-		var prereqStack pulumiv1.Stack
+		prereqStack := &pulumiv1.Stack{}
 		key := types.NamespacedName{Name: prereq.Name, Namespace: instance.Namespace}
-		err := r.Client.Get(ctx, key, &prereqStack)
+		err := r.Client.Get(ctx, key, prereqStack)
 		if err != nil {
 			prereqErr := fmt.Errorf("unable to fetch prerequisite %q: %w", prereq.Name, err)
 			if apierrors.IsNotFound(err) {
@@ -584,22 +637,22 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		if requireErr != nil {
 			failedPrereqNames = append(failedPrereqNames, prereq.Name)
 			failedPrereqErr = fmt.Errorf("prerequisite not satisfied for %q: %w", prereq.Name, requireErr)
-			// annotate the out of date stack so that it'll be queued. The value is arbitrary; this
-			// value gives a bit of context which might be helpful when troubleshooting.
-			v := fmt.Sprintf("update prerequisite of %s at %s", instance.Name, time.Now().Format(time.RFC3339))
-			prereqStack1 := prereqStack.DeepCopy()
-			a := prereqStack1.GetAnnotations()
-			if a == nil {
-				a = map[string]string{}
-			}
-			a[shared.ReconcileRequestAnnotation] = v
-			prereqStack1.SetAnnotations(a)
-			log.Info("requesting requeue of prerequisite", "name", prereqStack1.Name, "cause", requireErr.Error())
-			if err := r.Client.Patch(ctx, prereqStack1, client.MergeFrom(&prereqStack)); err != nil {
-				// A conflict here may mean the prerequisite has been changed, or it's just been
-				// run. In any case, requeueing this object means we'll see the new state of the
-				// world next time around.
-				return reconcile.Result{}, fmt.Errorf("annotating prerequisite to force requeue: %w", err)
+
+			var errOutOfDate *errRequirementOutOfDate
+			if errors.As(requireErr, &errOutOfDate) {
+				// annotate the out-of-date stack so that it'll be resynced.
+				// The value is arbtrary but here may be understood as the time of the resync that was deemed out-of-date.
+				// Such a value is idempotent (don't want to spam the underlying stack with new requests)
+				// and supports having multiple dependent stacks.
+				setReconcileRequestAnnotation(prereqStack, errOutOfDate.LastResyncTime.Format(time.RFC3339))
+				log.Info("requesting resync of prerequisite",
+					"name", prereqStack.Name, "lastResync", errOutOfDate.LastResyncTime, "cause", requireErr.Error())
+				if err := r.Client.Update(ctx, prereqStack); err != nil {
+					// A conflict here may mean the prerequisite has been changed, or it's just been
+					// run. In any case, requeueing this object means we'll see the new state of the
+					// world next time around.
+					return reconcile.Result{}, fmt.Errorf("annotating prerequisite to force resync: %w", err)
+				}
 			}
 		}
 	}
@@ -735,8 +788,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	sess.SetSecretEnvs(ctx, stack.SecretEnvs, request.Namespace)
 
 	// Step 3: Evaluate whether an update is needed. If not, we transition to Ready.
-	if isSynced(instance, currentCommit) {
-		// We don't mark the stack as read if its update failed so downstream
+	if isSynced(log, instance, currentCommit) {
+		// We don't mark the stack as ready if its update failed so downstream
 		// Stack dependencies aren't triggered.
 		if instance.Status.LastUpdate.State == shared.SucceededStackStateMessage {
 			instance.Status.MarkReadyCondition()
@@ -823,9 +876,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		}
 	}
 	instance.Status.CurrentUpdate = &shared.CurrentStackUpdate{
-		Generation: instance.Generation,
-		Name:       update.Name,
-		Commit:     currentCommit,
+		Generation:       instance.Generation,
+		ReconcileRequest: syncRequest,
+		Name:             update.Name,
+		Commit:           currentCommit,
 	}
 	if err := saveStatus(); err != nil {
 		// the status couldn't be updated, e.g. due to a conflct; try again later.
@@ -855,6 +909,7 @@ func (r *StackReconciler) markStackFailed(sess *stackReconcilerSession, instance
 	last := instance.Status.LastUpdate
 	instance.Status.LastUpdate = &shared.StackUpdateState{
 		Generation:          current.Generation,
+		ReconcileRequest:    current.ReconcileRequest,
 		Name:                update.Name,
 		Type:                update.Spec.Type,
 		State:               shared.FailedStackStateMessage,
@@ -865,7 +920,7 @@ func (r *StackReconciler) markStackFailed(sess *stackReconcilerSession, instance
 	if last != nil {
 		instance.Status.LastUpdate.LastSuccessfulCommit = last.LastSuccessfulCommit
 	}
-	if last != nil && last.Generation == current.Generation {
+	if last != nil && last.Generation == current.Generation && last.ReconcileRequest == current.ReconcileRequest {
 		instance.Status.LastUpdate.Failures = last.Failures + 1
 	}
 
@@ -900,6 +955,7 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 
 	instance.Status.LastUpdate = &shared.StackUpdateState{
 		Generation:           current.Generation,
+		ReconcileRequest:     current.ReconcileRequest,
 		Name:                 update.Name,
 		Type:                 update.Spec.Type,
 		State:                shared.SucceededStackStateMessage,
@@ -946,30 +1002,48 @@ func newStackReconcilerSession(
 // specification. i.e. the current spec generation has been applied, the update
 // was successful, the latest commit has been applied, and (if resync is
 // enabled) has been resynced recently.
-func isSynced(stack *pulumiv1.Stack, currentCommit string) bool {
+func isSynced(log logr.Logger, stack *pulumiv1.Stack, currentCommit string) bool {
 	if stack.Status.LastUpdate == nil {
+		log.V(1).Info("Not synced: no last update")
 		return false
 	}
 
 	if stack.Status.LastUpdate.Generation != stack.Generation {
+		log.V(1).Info("Not synced: new generation")
+		return false
+	}
+
+	syncRequest, _ := getReconcileRequestAnnotation(stack)
+	if stack.Status.LastUpdate.ReconcileRequest != syncRequest {
+		log.V(1).Info("Not synced: new sync request")
 		return false
 	}
 
 	if stack.Status.LastUpdate.State == shared.SucceededStackStateMessage {
 		if stack.DeletionTimestamp != nil { // Marked for deletion.
+			log.V(1).Info("Not synced: marked for deletion")
 			return true
 		}
 		if stack.Status.LastUpdate.LastSuccessfulCommit != currentCommit {
+			log.V(1).Info("Not synced: new commit")
 			return false
 		}
 		if !stack.Spec.ContinueResyncOnCommitMatch {
 			return true
 		}
-		return time.Since(stack.Status.LastUpdate.LastResyncTime.Time) < resyncFreq(stack)
+		if !(time.Since(stack.Status.LastUpdate.LastResyncTime.Time) < resyncFreq(stack)) {
+			log.V(1).Info("Not synced: resync time elapsed")
+			return false
+		}
+		return true
 	}
 
 	if stack.Status.LastUpdate.State == shared.FailedStackStateMessage {
-		return time.Since(stack.Status.LastUpdate.LastResyncTime.Time) < cooldown(stack)
+		if !(time.Since(stack.Status.LastUpdate.LastResyncTime.Time) < cooldown(stack)) {
+			log.V(1).Info("Not synced: backoff time elapsed")
+			return false
+		}
+		return true
 	}
 
 	// We should never get here; if we do the Update is in an unknown state so

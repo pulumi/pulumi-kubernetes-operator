@@ -381,6 +381,8 @@ type StackOutputs map[string]apiextensionsv1.JSON
 type StackUpdateState struct {
 	// Generation is the stack generation associated with the update.
 	Generation int64 `json:"generation,omitempty"`
+	// ReconcileRequest is the stack reconcile request associated with the update.
+	ReconcileRequest string `json:"reconcileRequest,omitempty"`
 	// Name is the name of the update object.
 	Name string `json:"name,omitempty"`
 	// Type is the type of update.
@@ -398,7 +400,7 @@ type StackUpdateState struct {
 	// Failures records how many times the update has been attempted and
 	// failed. Failed updates are periodically retried with exponential backoff
 	// in case the failure was due to transient conditions.
-	Failures int64 `json:"failures"`
+	Failures int64 `json:"failures,omitempty"`
 }
 
 // StackUpdateStatus is the status code for the result of a Stack Update run.
@@ -435,6 +437,8 @@ type Permalink string
 type CurrentStackUpdate struct {
 	// Generation is the stack generation associated with the update.
 	Generation int64 `json:"generation,omitempty"`
+	// ReconcileRequest is the stack reconcile request associated with the update.
+	ReconcileRequest string `json:"reconcileRequest,omitempty"`
 	// Name is the name of the update object.
 	Name string `json:"name,omitempty"`
 	// Commit is the commit SHA of the planned update.

@@ -9753,6 +9753,10 @@ spec:
                   name:
                     description: Name is the name of the update object.
                     type: string
+                  reconcileRequest:
+                    description: ReconcileRequest is the stack reconcile request associated
+                      with the update.
+                    type: string
                 type: object
               lastUpdate:
                 description: LastUpdate contains details of the status of the last
@@ -9788,6 +9792,10 @@ spec:
                     description: Permalink is the Pulumi Console URL of the stack
                       operation.
                     type: string
+                  reconcileRequest:
+                    description: ReconcileRequest is the stack reconcile request associated
+                      with the update.
+                    type: string
                   state:
                     description: State is the state of the stack update - one of `succeeded`
                       or `failed`
@@ -9795,8 +9803,6 @@ spec:
                   type:
                     description: Type is the type of update.
                     type: string
-                required:
-                - failures
                 type: object
               observedGeneration:
                 description: ObservedGeneration records the value of .meta.generation
@@ -19270,6 +19276,10 @@ spec:
                     description: Permalink is the Pulumi Console URL of the stack
                       operation.
                     type: string
+                  reconcileRequest:
+                    description: ReconcileRequest is the stack reconcile request associated
+                      with the update.
+                    type: string
                   state:
                     description: State is the state of the stack update - one of `succeeded`
                       or `failed`
@@ -19277,8 +19287,6 @@ spec:
                   type:
                     description: Type is the type of update.
                     type: string
-                required:
-                - failures
                 type: object
               outputs:
                 additionalProperties:

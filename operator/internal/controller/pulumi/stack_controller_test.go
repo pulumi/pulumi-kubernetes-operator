@@ -23,6 +23,7 @@ import (
 	"time"
 
 	fluxsourcev1 "github.com/fluxcd/source-controller/api/v1"
+	"github.com/go-logr/logr/testr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -1069,7 +1070,7 @@ var _ = Describe("Stack Controller", func() {
 						LastSuccessfulCommit: "abcdef",
 					}
 				})
-				beNotSatisfied(ContainSubstring(errRequirementOutOfDate.Error()))
+				beNotSatisfied(ContainSubstring("prerequisite succeeded but not since"))
 			})
 
 			When("the prerequisite was synced recently", func() {
@@ -1467,7 +1468,8 @@ func TestIsSynced(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, isSynced(&tt.stack, tt.currentCommit))
+			log := testr.New(t)
+			assert.Equal(t, tt.want, isSynced(log, &tt.stack, tt.currentCommit))
 		})
 	}
 }
