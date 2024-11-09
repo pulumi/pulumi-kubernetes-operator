@@ -68,11 +68,12 @@ var (
 )
 
 type errRequirementOutOfDate struct {
-	LastResyncTime time.Time
+	LastUpdateName string
+	TimeElapsed    time.Duration
 }
 
 func (e errRequirementOutOfDate) Error() string {
-	return fmt.Sprintf("prerequisite succeeded but not since %s", e.LastResyncTime.UTC().Format(time.RFC3339))
+	return "prerequisite is out of date"
 }
 
 const (
@@ -294,8 +295,9 @@ func isRequirementSatisfied(req *shared.RequirementSpec, stack *pulumiv1.Stack) 
 	}
 	if req != nil && req.SucceededWithinDuration != nil {
 		lastRun := stack.Status.LastUpdate.LastResyncTime
-		if time.Since(lastRun.Time) > req.SucceededWithinDuration.Duration {
-			return &errRequirementOutOfDate{LastResyncTime: lastRun.Time}
+		elapsed := time.Since(lastRun.Time)
+		if elapsed > req.SucceededWithinDuration.Duration {
+			return &errRequirementOutOfDate{LastUpdateName: stack.Status.LastUpdate.Name, TimeElapsed: elapsed}
 		}
 	}
 	return nil
@@ -817,11 +819,13 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 			var errOutOfDate *errRequirementOutOfDate
 			if errors.As(requireErr, &errOutOfDate) {
-				// Annotate the out-of-date stack so that it'll be resynced.
-				// The value is arbtrary but here may be understood as the time of the resync that was deemed out-of-date.
-				// Such a value is idempotent (don't want to spam the underlying stack with new requests)
-				// and supports having multiple dependent stacks.
-				if setReconcileRequestAnnotation(prereqStack, errOutOfDate.LastResyncTime.UTC().Format(time.RFC3339)) {
+				// Touch the out-of-date stack so that it'll be resynced.
+				// The value is arbitrary but here we base it on the name of the last update of that stack,
+				// to trigger at least one subsequent update.
+				// This touch is idempotent to avoid "spamming" the stack with new requests,
+				// and won't thrash given multiple stacks having the same parent (with same or different schedules).
+				v := fmt.Sprintf("after-%s", errOutOfDate.LastUpdateName)
+				if setReconcileRequestAnnotation(prereqStack, v) {
 					if err := r.Client.Update(ctx, prereqStack); err != nil {
 						// A conflict here may mean the prerequisite has been changed, or it's just been
 						// run. In any case, requeueing this object means we'll see the new state of the
@@ -829,7 +833,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 						return reconcile.Result{}, fmt.Errorf("annotating prerequisite to force resync: %w", err)
 					}
 					log.Info("Requested resync of prerequisite stack",
-						"name", prereqStack.Name, "lastResyncTime", errOutOfDate.LastResyncTime.UTC())
+						"name", prereqStack.Name, "lastUpdateName", errOutOfDate.LastUpdateName, "age", errOutOfDate.TimeElapsed)
 				}
 			}
 		}
