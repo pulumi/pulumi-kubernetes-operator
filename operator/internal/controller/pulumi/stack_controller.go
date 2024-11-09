@@ -72,7 +72,7 @@ type errRequirementOutOfDate struct {
 }
 
 func (e errRequirementOutOfDate) Error() string {
-	return fmt.Sprintf("prerequisite succeeded but not since %s", e.LastResyncTime.Format(time.RFC3339))
+	return fmt.Sprintf("prerequisite succeeded but not since %s", e.LastResyncTime.UTC().Format(time.RFC3339))
 }
 
 const (
@@ -644,14 +644,15 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 				// The value is arbtrary but here may be understood as the time of the resync that was deemed out-of-date.
 				// Such a value is idempotent (don't want to spam the underlying stack with new requests)
 				// and supports having multiple dependent stacks.
-				setReconcileRequestAnnotation(prereqStack, errOutOfDate.LastResyncTime.Format(time.RFC3339))
-				log.Info("requesting resync of prerequisite",
-					"name", prereqStack.Name, "lastResync", errOutOfDate.LastResyncTime, "cause", requireErr.Error())
-				if err := r.Client.Update(ctx, prereqStack); err != nil {
-					// A conflict here may mean the prerequisite has been changed, or it's just been
-					// run. In any case, requeueing this object means we'll see the new state of the
-					// world next time around.
-					return reconcile.Result{}, fmt.Errorf("annotating prerequisite to force resync: %w", err)
+				if setReconcileRequestAnnotation(prereqStack, errOutOfDate.LastResyncTime.UTC().Format(time.RFC3339)) {
+					if err := r.Client.Update(ctx, prereqStack); err != nil {
+						// A conflict here may mean the prerequisite has been changed, or it's just been
+						// run. In any case, requeueing this object means we'll see the new state of the
+						// world next time around.
+						return reconcile.Result{}, fmt.Errorf("annotating prerequisite to force resync: %w", err)
+					}
+					log.Info("Requested resync of prerequisite stack",
+						"name", prereqStack.Name, "lastResyncTime", errOutOfDate.LastResyncTime.UTC())
 				}
 			}
 		}
@@ -1039,7 +1040,7 @@ func isSynced(log logr.Logger, stack *pulumiv1.Stack, currentCommit string) bool
 	}
 
 	if stack.Status.LastUpdate.State == shared.FailedStackStateMessage {
-		if !(time.Since(stack.Status.LastUpdate.LastResyncTime.Time) < cooldown(stack)) {
+		if time.Since(stack.Status.LastUpdate.LastResyncTime.Time) >= cooldown(stack) {
 			log.V(1).Info("Not synced: backoff time elapsed")
 			return false
 		}
