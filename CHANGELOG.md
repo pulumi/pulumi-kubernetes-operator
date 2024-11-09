@@ -5,6 +5,7 @@ CHANGELOG
 
 - Improved support for using custom program sources. [#741](https://github.com/pulumi/pulumi-kubernetes-operator/pull/741) 
 - Improved Status logging. [#742](https://github.com/pulumi/pulumi-kubernetes-operator/pull/742)
+- Support for ReconcileRequest annotation. [#745](https://github.com/pulumi/pulumi-kubernetes-operator/pull/745)
 
 ## 2.0.0-beta.1 (2024-10-18)
 

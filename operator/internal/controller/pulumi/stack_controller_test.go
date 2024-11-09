@@ -23,6 +23,7 @@ import (
 	"time"
 
 	fluxsourcev1 "github.com/fluxcd/source-controller/api/v1"
+	"github.com/go-logr/logr/testr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -761,6 +762,30 @@ var _ = Describe("Stack Controller", func() {
 			})
 		})
 
+		When("the stack has a new sync request", func() {
+			BeforeEach(func(ctx context.Context) {
+				obj.Annotations = map[string]string{
+					shared.ReconcileRequestAnnotation: "after-test",
+				}
+				// assume that the previous update was successful
+				obj.Status.LastUpdate = &shared.StackUpdateState{
+					Generation:           1,
+					ReconcileRequest:     "test",
+					State:                shared.SucceededStackStateMessage,
+					Name:                 "update-abcdef",
+					Type:                 autov1alpha1.UpType,
+					LastResyncTime:       metav1.Now(),
+					LastAttemptedCommit:  fluxRepo.Status.Artifact.Digest,
+					LastSuccessfulCommit: fluxRepo.Status.Artifact.Digest,
+				}
+			})
+			It("reconciles", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				ByResyncing()
+			})
+		})
+
 		When("the last update was successful", func() {
 			BeforeEach(func(ctx context.Context) {
 				obj.Status.LastUpdate = &shared.StackUpdateState{
@@ -1006,7 +1031,7 @@ var _ = Describe("Stack Controller", func() {
 			beNotSatisfied(ContainSubstring(errRequirementNotRun.Error()))
 		})
 
-		When("the prerequisite spec has changed since the last update", func() {
+		When("the prerequisite has a new generation since the last update", func() {
 			JustBeforeEach(func(ctx context.Context) {
 				prereq.Spec.Stack = "prod"
 				Expect(k8sClient.Update(ctx, prereq)).To(Succeed())
@@ -1015,6 +1040,23 @@ var _ = Describe("Stack Controller", func() {
 			BeforeEach(func(ctx context.Context) {
 				prereq.Status.LastUpdate = &shared.StackUpdateState{
 					Generation:          1,
+					Name:                "update-abcdef",
+					Type:                autov1alpha1.UpType,
+					State:               shared.FailedStackStateMessage,
+					LastAttemptedCommit: "abcdef",
+				}
+			})
+			beNotSatisfied(ContainSubstring(errRequirementNotRun.Error()))
+		})
+
+		When("the prerequisite has a new sync request since the last update", func() {
+			BeforeEach(func(ctx context.Context) {
+				prereq.Annotations = map[string]string{
+					shared.ReconcileRequestAnnotation: "after-test",
+				}
+				prereq.Status.LastUpdate = &shared.StackUpdateState{
+					Generation:          1,
+					ReconcileRequest:    "test",
 					Name:                "update-abcdef",
 					Type:                autov1alpha1.UpType,
 					State:               shared.FailedStackStateMessage,
@@ -1069,7 +1111,20 @@ var _ = Describe("Stack Controller", func() {
 						LastSuccessfulCommit: "abcdef",
 					}
 				})
-				beNotSatisfied(ContainSubstring(errRequirementOutOfDate.Error()))
+
+				beNotSatisfied(ContainSubstring("prerequisite is out of date"))
+
+				It("reconciles", func(ctx context.Context) {
+					result, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result).To(Equal(reconcile.Result{}))
+
+					By("touching the prerequisite")
+					prereqName := types.NamespacedName{Namespace: prereq.Namespace, Name: prereq.Name}
+					prereq := &pulumiv1.Stack{}
+					Expect(k8sClient.Get(ctx, prereqName, prereq)).To(Succeed())
+					Expect(prereq.Annotations).To(HaveKeyWithValue(shared.ReconcileRequestAnnotation, "after-update-abcdef"))
+				})
 			})
 
 			When("the prerequisite was synced recently", func() {
@@ -1467,7 +1522,8 @@ func TestIsSynced(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, isSynced(&tt.stack, tt.currentCommit))
+			log := testr.New(t)
+			assert.Equal(t, tt.want, isSynced(log, &tt.stack, tt.currentCommit))
 		})
 	}
 }
