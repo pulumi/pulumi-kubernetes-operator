@@ -610,72 +610,14 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		return reconcile.Result{}, nil
 	}
 
-	// Check prerequisites, to make sure they are adequately up to date. Any prerequisite failing to
-	// be met will cause this run to be abandoned and the stack under consideration to be requeued;
-	// however, we go through all of the prerequisites anyway, so we can annotate all failing stacks
-	// to be requeued themselves.
-	var failedPrereqNames []string // in the case there's more than one, we report the names
-	var failedPrereqErr error      // in caase there's just one, we report the specific error
-
-	for _, prereq := range instance.Spec.Prerequisites {
-		prereqStack := &pulumiv1.Stack{}
-		key := types.NamespacedName{Name: prereq.Name, Namespace: instance.Namespace}
-		err := r.Client.Get(ctx, key, prereqStack)
-		if err != nil {
-			prereqErr := fmt.Errorf("unable to fetch prerequisite %q: %w", prereq.Name, err)
-			if apierrors.IsNotFound(err) {
-				failedPrereqNames = append(failedPrereqNames, prereq.Name)
-				failedPrereqErr = prereqErr
-				continue
-			}
-			sess.logger.Error(prereqErr, "unable to fetch prerequisite", "name", prereq.Name)
-			return reconcile.Result{}, fmt.Errorf("fetching prerequisite: %w", err)
-		}
-
-		// does the prerequisite stack satisfy the requirements given?
-		requireErr := isRequirementSatisfied(prereq.Requirement, prereqStack)
-		if requireErr != nil {
-			failedPrereqNames = append(failedPrereqNames, prereq.Name)
-			failedPrereqErr = fmt.Errorf("prerequisite not satisfied for %q: %w", prereq.Name, requireErr)
-
-			var errOutOfDate *errRequirementOutOfDate
-			if errors.As(requireErr, &errOutOfDate) {
-				// annotate the out-of-date stack so that it'll be resynced.
-				// The value is arbtrary but here may be understood as the time of the resync that was deemed out-of-date.
-				// Such a value is idempotent (don't want to spam the underlying stack with new requests)
-				// and supports having multiple dependent stacks.
-				if setReconcileRequestAnnotation(prereqStack, errOutOfDate.LastResyncTime.UTC().Format(time.RFC3339)) {
-					if err := r.Client.Update(ctx, prereqStack); err != nil {
-						// A conflict here may mean the prerequisite has been changed, or it's just been
-						// run. In any case, requeueing this object means we'll see the new state of the
-						// world next time around.
-						return reconcile.Result{}, fmt.Errorf("annotating prerequisite to force resync: %w", err)
-					}
-					log.Info("Requested resync of prerequisite stack",
-						"name", prereqStack.Name, "lastResyncTime", errOutOfDate.LastResyncTime.UTC())
-				}
-			}
-		}
-	}
-
-	if len(failedPrereqNames) > 1 {
-		failedPrereqErr = fmt.Errorf("multiple prerequisites were not satisfied %s", strings.Join(failedPrereqNames, ", "))
-	}
-	if failedPrereqErr != nil {
-		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingPrerequisiteNotSatisfiedReason, failedPrereqErr.Error())
-		// Rely on the watcher watching prerequisites to requeue this, rather than requeuing
-		// explicitly.
-		return reconcile.Result{}, saveStatus()
-	}
-
 	// This value is reported in .status, and is set from some property of the source -- whether
 	// it's the actual commit, or some analogue.
 	var currentCommit string
 
-	// Step 1. Set up the workspace, select the right stack and populate config if supplied.
+	// Step 1. Resolve the source and perform some preliminary workspace setup (but without actually
+	// creating the workspace yet, since it may or may not be needed).
 
 	// Check which kind of source we have.
-
 	switch {
 	case stack.GitSource != nil:
 		auth, err := sess.resolveGitAuth(ctx)
@@ -775,7 +717,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		currentCommit = ""
 	}
 
-	// Step 2. If there are extra environment variables, read them in now and use them for subsequent commands.
+	// If there are extra environment variables, read them in now and use them for subsequent commands.
 	err = sess.setupWorkspace(ctx)
 	if err != nil {
 		if errors.Is(err, errNamespaceIsolation) {
@@ -788,7 +730,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	sess.SetEnvs(ctx, stack.Envs, request.Namespace)
 	sess.SetSecretEnvs(ctx, stack.SecretEnvs, request.Namespace)
 
-	// Step 3: Evaluate whether an update is needed. If not, we transition to Ready.
+	// Step 2: Evaluate whether an update is needed. If not, we transition to Ready.
 	if isSynced(log, instance, currentCommit) {
 		// We don't mark the stack as ready if its update failed so downstream
 		// Stack dependencies aren't triggered.
@@ -845,6 +787,64 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			"Last commit", instance.Status.LastUpdate.LastSuccessfulCommit)
 	}
 
+	// Step 3: Check prerequisites, to make sure they are adequately up to date. Any prerequisite failing to
+	// be met will cause this run to be abandoned and the stack under consideration to be resynced;
+	// however, we go through all of the prerequisites anyway, so we can annotate all failing stacks
+	// to be requeued themselves.
+	var failedPrereqNames []string // in the case there's more than one, we report the names
+	var failedPrereqErr error      // in caase there's just one, we report the specific error
+
+	for _, prereq := range instance.Spec.Prerequisites {
+		prereqStack := &pulumiv1.Stack{}
+		key := types.NamespacedName{Name: prereq.Name, Namespace: instance.Namespace}
+		err := r.Client.Get(ctx, key, prereqStack)
+		if err != nil {
+			prereqErr := fmt.Errorf("unable to fetch prerequisite %q: %w", prereq.Name, err)
+			if apierrors.IsNotFound(err) {
+				failedPrereqNames = append(failedPrereqNames, prereq.Name)
+				failedPrereqErr = prereqErr
+				continue
+			}
+			sess.logger.Error(prereqErr, "unable to fetch prerequisite", "name", prereq.Name)
+			return reconcile.Result{}, fmt.Errorf("fetching prerequisite: %w", err)
+		}
+
+		// does the prerequisite stack satisfy the requirements given?
+		requireErr := isRequirementSatisfied(prereq.Requirement, prereqStack)
+		if requireErr != nil {
+			failedPrereqNames = append(failedPrereqNames, prereq.Name)
+			failedPrereqErr = fmt.Errorf("prerequisite not satisfied for %q: %w", prereq.Name, requireErr)
+
+			var errOutOfDate *errRequirementOutOfDate
+			if errors.As(requireErr, &errOutOfDate) {
+				// Annotate the out-of-date stack so that it'll be resynced.
+				// The value is arbtrary but here may be understood as the time of the resync that was deemed out-of-date.
+				// Such a value is idempotent (don't want to spam the underlying stack with new requests)
+				// and supports having multiple dependent stacks.
+				if setReconcileRequestAnnotation(prereqStack, errOutOfDate.LastResyncTime.UTC().Format(time.RFC3339)) {
+					if err := r.Client.Update(ctx, prereqStack); err != nil {
+						// A conflict here may mean the prerequisite has been changed, or it's just been
+						// run. In any case, requeueing this object means we'll see the new state of the
+						// world next time around.
+						return reconcile.Result{}, fmt.Errorf("annotating prerequisite to force resync: %w", err)
+					}
+					log.Info("Requested resync of prerequisite stack",
+						"name", prereqStack.Name, "lastResyncTime", errOutOfDate.LastResyncTime.UTC())
+				}
+			}
+		}
+	}
+
+	if len(failedPrereqNames) > 1 {
+		failedPrereqErr = fmt.Errorf("multiple prerequisites were not satisfied %s", strings.Join(failedPrereqNames, ", "))
+	}
+	if failedPrereqErr != nil {
+		instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingPrerequisiteNotSatisfiedReason, failedPrereqErr.Error())
+		// Rely on the watcher watching prerequisites to requeue this, rather than requeuing
+		// explicitly.
+		return reconcile.Result{}, saveStatus()
+	}
+
 	// Step 4: Create or update the workspace in which to run an update.
 
 	instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingProcessingReason, pulumiv1.ReconcilingProcessingWorkspaceMessage)
@@ -895,6 +895,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		return reconcile.Result{}, fmt.Errorf("unable to create update for stack: %w", err)
 	}
 
+	// Step 6: At this point, an update is running and will requeue the stack once it completes.
 	return reconcile.Result{}, nil
 }
 
@@ -1021,8 +1022,7 @@ func isSynced(log logr.Logger, stack *pulumiv1.Stack, currentCommit string) bool
 	}
 
 	if stack.Status.LastUpdate.State == shared.SucceededStackStateMessage {
-		if stack.DeletionTimestamp != nil { // Marked for deletion.
-			log.V(1).Info("Not synced: marked for deletion")
+		if stack.DeletionTimestamp != nil { // Marked for deletion (and has already been destroyed).
 			return true
 		}
 		if stack.Status.LastUpdate.LastSuccessfulCommit != currentCommit {
