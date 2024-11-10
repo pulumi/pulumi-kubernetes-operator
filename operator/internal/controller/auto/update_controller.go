@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -485,8 +486,13 @@ func outputsToSecret(owner *autov1alpha1.Update, outputs map[string]*agentpb.Out
 	}})
 
 	secrets := []string{}
-	for k, v := range outputs {
-		// v.Value is already JSON-encoded bytes,
+	for outputName, v := range outputs {
+		// note: v.Value is already JSON-encoded bytes
+		k := outputName
+		if strings.Contains(k, " ") {
+			// sanitize the outputName to be a valid secret key
+			k = strings.ReplaceAll(k, " ", "_")
+		}
 		s.Data[k] = v.Value
 		if v.Secret {
 			secrets = append(secrets, k)

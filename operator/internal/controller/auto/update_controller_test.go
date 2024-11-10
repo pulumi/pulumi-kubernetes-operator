@@ -119,8 +119,9 @@ func TestUpdate(t *testing.T) {
 				result := &agentpb.UpStream_Result{Result: &agentpb.UpResult{
 					Summary: &agentpb.UpdateSummary{Result: "succeeded"},
 					Outputs: map[string]*agentpb.OutputValue{
-						"username": {Value: []byte("username")},
-						"password": {Value: []byte("hunter2"), Secret: true},
+						"username":        {Value: []byte("username")},
+						"password":        {Value: []byte("hunter2"), Secret: true},
+						"with whitespace": {Value: []byte("with whitespace"), Secret: true},
 					},
 				}}
 
@@ -141,13 +142,14 @@ func TestUpdate(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo-stack-outputs",
 						Annotations: map[string]string{
-							"pulumi.com/secrets": `["password"]`,
+							"pulumi.com/secrets": `["password","with_whitespace"]`,
 						},
 						OwnerReferences: []metav1.OwnerReference{{UID: "uid", Name: "foo"}},
 					},
 					Data: map[string][]byte{
-						"username": []byte("username"),
-						"password": []byte("hunter2"),
+						"username":        []byte("username"),
+						"password":        []byte("hunter2"),
+						"with_whitespace": []byte("with whitespace"),
 					},
 					Immutable: ptr.To(true),
 				}
