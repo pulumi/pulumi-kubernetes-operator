@@ -144,12 +144,17 @@ func (s *StackStatus) MarkReadyCondition() {
 	})
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:storageversion
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.lastUpdate.state"
-
+// +kubebuilder:printcolumn:name="Stack",priority=10,type="string",JSONPath=".spec.stack"
+// +kubebuilder:printcolumn:name="Last Update",type="string",JSONPath=".status.lastUpdate.state"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".status.lastUpdate.lastResyncTime"
+// +kubebuilder:printcolumn:name="Last Commit",priority=10,type="string",JSONPath=".status.lastUpdate.lastAttemptedCommit"
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Reconciling",type=string,JSONPath=`.status.conditions[?(@.type=="Reconciling")].reason`
+// +kubebuilder:printcolumn:name="Stalled",type=string,JSONPath=`.status.conditions[?(@.type=="Stalled")].status`
+// +kubebuilder:printcolumn:name="Permalink",type="string",JSONPath=".status.lastUpdate.permalink"
 // Stack is the Schema for the stacks API
 type Stack struct {
 	metav1.TypeMeta   `json:",inline"`
