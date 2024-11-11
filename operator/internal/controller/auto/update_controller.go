@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -469,6 +470,8 @@ func (r *UpdateReconciler) mapWorkspaceToUpdate(ctx context.Context, obj client.
 	return requests
 }
 
+var secretKeyReplacementRegex = regexp.MustCompile(`[^-._a-zA-Z0-9]`)
+
 // outputsToSecret returns a Secret object whose keys are stack output names
 // and values are JSON-encoded bytes. An annotation is recorded with all secret
 // outputs overwritten with "[secret]"; this annotation is consumed by the
@@ -485,8 +488,10 @@ func outputsToSecret(owner *autov1alpha1.Update, outputs map[string]*agentpb.Out
 	}})
 
 	secrets := []string{}
-	for k, v := range outputs {
-		// v.Value is already JSON-encoded bytes,
+	for outputName, v := range outputs {
+		// note: v.Value is already JSON-encoded bytes
+		// sanitize the outputName to be a valid secret key
+		k := secretKeyReplacementRegex.ReplaceAllString(outputName, "_")
 		s.Data[k] = v.Value
 		if v.Secret {
 			secrets = append(secrets, k)
