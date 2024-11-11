@@ -15,11 +15,31 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .metadata.creationTimestamp
+    - jsonPath: .spec.stack
+      name: Stack
+      priority: 10
+      type: string
+    - jsonPath: .status.lastUpdate.state
+      name: Last Update
+      type: string
+    - jsonPath: .status.lastUpdate.lastResyncTime
       name: Age
       type: date
-    - jsonPath: .status.lastUpdate.state
-      name: State
+    - jsonPath: .status.lastUpdate.lastAttemptedCommit
+      name: Last Commit
+      priority: 10
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Reconciling")].reason
+      name: Reconciling
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Stalled")].status
+      name: Stalled
+      type: string
+    - jsonPath: .status.lastUpdate.permalink
+      name: Permalink
       type: string
     name: v1
     schema:
