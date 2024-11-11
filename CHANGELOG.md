@@ -1,7 +1,7 @@
 CHANGELOG
 =========
 
-## Unreleased
+## 2.0.0-beta.2 (2024-11-11)
 
 - Improved support for using custom program sources. [#741](https://github.com/pulumi/pulumi-kubernetes-operator/pull/741) 
 - Improved Status logging. [#742](https://github.com/pulumi/pulumi-kubernetes-operator/pull/742)
