@@ -393,7 +393,7 @@ func (stackReadyPredicate) Generic(_ event.GenericEvent) bool {
 }
 
 func isWorkspaceReady(ws *autov1alpha1.Workspace) bool {
-	if ws == nil || ws.Generation != ws.Status.ObservedGeneration {
+	if ws == nil || !ws.DeletionTimestamp.IsZero() || ws.Generation != ws.Status.ObservedGeneration {
 		return false
 	}
 	return meta.IsStatusConditionTrue(ws.Status.Conditions, autov1alpha1.WorkspaceReady)
