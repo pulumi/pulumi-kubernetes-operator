@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+## Unreleased
+
+- Stack Controller: watch for delete events. [#756](https://github.com/pulumi/pulumi-kubernetes-operator/pull/756)
+
 ## 2.0.0-beta.2 (2024-11-11)
 
 - Improved support for using custom program sources. [#741](https://github.com/pulumi/pulumi-kubernetes-operator/pull/741) 
