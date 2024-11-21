@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"sort"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -497,6 +498,7 @@ func outputsToSecret(owner *autov1alpha1.Update, outputs map[string]*agentpb.Out
 			secrets = append(secrets, k)
 		}
 	}
+	sort.Strings(secrets)
 
 	annotation, err := json.Marshal(secrets)
 	if err != nil {

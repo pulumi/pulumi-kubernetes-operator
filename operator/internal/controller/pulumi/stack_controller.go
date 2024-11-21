@@ -378,7 +378,7 @@ func (stackReadyPredicate) Create(e event.CreateEvent) bool {
 }
 
 func (stackReadyPredicate) Delete(_ event.DeleteEvent) bool {
-	return false
+	return true
 }
 
 func (stackReadyPredicate) Update(e event.UpdateEvent) bool {
@@ -393,7 +393,7 @@ func (stackReadyPredicate) Generic(_ event.GenericEvent) bool {
 }
 
 func isWorkspaceReady(ws *autov1alpha1.Workspace) bool {
-	if ws == nil || ws.Generation != ws.Status.ObservedGeneration {
+	if ws == nil || !ws.DeletionTimestamp.IsZero() || ws.Generation != ws.Status.ObservedGeneration {
 		return false
 	}
 	return meta.IsStatusConditionTrue(ws.Status.Conditions, autov1alpha1.WorkspaceReady)
@@ -408,7 +408,7 @@ func (workspaceReadyPredicate) Create(e event.CreateEvent) bool {
 }
 
 func (workspaceReadyPredicate) Delete(_ event.DeleteEvent) bool {
-	return false
+	return true
 }
 
 func (workspaceReadyPredicate) Update(e event.UpdateEvent) bool {
@@ -438,7 +438,7 @@ func (updateCompletePredicate) Create(e event.CreateEvent) bool {
 }
 
 func (updateCompletePredicate) Delete(e event.DeleteEvent) bool {
-	return false
+	return true
 }
 
 func (updateCompletePredicate) Update(e event.UpdateEvent) bool {
