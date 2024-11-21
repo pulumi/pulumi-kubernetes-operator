@@ -56,7 +56,7 @@ jobs:
         with:
           go-version: 1.23.x
       - name: Install Pulumi
-        uses: pulumi/actions@v5
+        uses: pulumi/actions@v6
       - name: Run Tests (Agent)
         run: make -C agent test
       - name: Run Tests (Operator)
