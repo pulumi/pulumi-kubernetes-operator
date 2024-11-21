@@ -378,7 +378,7 @@ func (stackReadyPredicate) Create(e event.CreateEvent) bool {
 }
 
 func (stackReadyPredicate) Delete(_ event.DeleteEvent) bool {
-	return false
+	return true
 }
 
 func (stackReadyPredicate) Update(e event.UpdateEvent) bool {
@@ -408,7 +408,7 @@ func (workspaceReadyPredicate) Create(e event.CreateEvent) bool {
 }
 
 func (workspaceReadyPredicate) Delete(_ event.DeleteEvent) bool {
-	return false
+	return true
 }
 
 func (workspaceReadyPredicate) Update(e event.UpdateEvent) bool {
@@ -438,7 +438,7 @@ func (updateCompletePredicate) Create(e event.CreateEvent) bool {
 }
 
 func (updateCompletePredicate) Delete(e event.DeleteEvent) bool {
-	return false
+	return true
 }
 
 func (updateCompletePredicate) Update(e event.UpdateEvent) bool {
