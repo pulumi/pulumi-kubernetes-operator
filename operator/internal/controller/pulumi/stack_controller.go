@@ -548,6 +548,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		return reconcile.Result{}, fmt.Errorf("unable to define workspace for stack: %w", err)
 	}
 
+	var toBeFinalized *autov1alpha1.Update
 	saveStatus := func() error {
 		oldRevision := instance.ResourceVersion
 		if err := r.Status().Update(ctx, instance); err != nil {
@@ -562,6 +563,15 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 				"lastUpdate", instance.Status.LastUpdate,
 				"currentUpdate", instance.Status.CurrentUpdate,
 				"conditions", instance.Status.Conditions)
+		}
+		if toBeFinalized != nil {
+			// remove the finalizer from the Update object that was being watched,
+			// after the status update is persisted.
+			if controllerutil.RemoveFinalizer(toBeFinalized, pulumiFinalizer) {
+				if err := r.Update(ctx, toBeFinalized, client.FieldOwner(FieldManager)); err != nil {
+					log.Error(err, "unable to remove finalizer from current update; update object will be orphaned")
+				}
+			}
 		}
 		return nil
 	}
@@ -601,6 +611,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			}
 		}
 
+		toBeFinalized = sess.update
 		instance.Status.CurrentUpdate = nil
 	}
 
@@ -886,6 +897,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, fmt.Errorf("unable to prepare update (up) for stack: %w", err)
 		}
 	}
+	// apply a finalizer to the update object to ensure it doesn't disappear entirely
+	// while we're waiting for it to complete.
+	update.Finalizers = append(update.Finalizers, pulumiFinalizer)
+
 	instance.Status.CurrentUpdate = &shared.CurrentStackUpdate{
 		Generation:       instance.Generation,
 		ReconcileRequest: syncRequest,

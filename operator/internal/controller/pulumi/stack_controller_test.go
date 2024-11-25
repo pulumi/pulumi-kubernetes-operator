@@ -109,8 +109,9 @@ func makeUpdate(name types.NamespacedName, spec autov1alpha1.UpdateSpec) *autov1
 			Kind:       "Update",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", name.Name, utilrand.String(8)),
-			Namespace: name.Namespace,
+			Name:       fmt.Sprintf("%s-%s", name.Name, utilrand.String(8)),
+			Namespace:  name.Namespace,
+			Finalizers: []string{pulumiFinalizer},
 		},
 		Spec: spec,
 	}
@@ -378,6 +379,7 @@ var _ = Describe("Stack Controller", func() {
 
 							By("creating a destroy op")
 							Expect(currentUpdate).ToNot(BeNil())
+							Expect(currentUpdate.Finalizers).To(ContainElement(pulumiFinalizer))
 							Expect(currentUpdate.Spec.StackName).To(Equal(obj.Spec.Stack))
 							Expect(currentUpdate.Spec.Type).To(Equal(autov1alpha1.DestroyType))
 
@@ -449,6 +451,8 @@ var _ = Describe("Stack Controller", func() {
 
 		When("the update is not found", func() {
 			JustBeforeEach(func(ctx context.Context) {
+				currentUpdate.Finalizers = []string{}
+				Expect(k8sClient.Update(ctx, currentUpdate)).To(Succeed())
 				Expect(k8sClient.Delete(ctx, currentUpdate)).To(Succeed())
 			})
 			It("reconciles", func(ctx context.Context) {
@@ -525,6 +529,9 @@ var _ = Describe("Stack Controller", func() {
 				Expect(obj.Status.LastUpdate.State).To(Equal(shared.FailedStackStateMessage))
 				Expect(obj.Status.LastUpdate.LastAttemptedCommit).To(Equal("abcdef"))
 				Expect(obj.Status.LastUpdate.LastSuccessfulCommit).To(BeEmpty())
+
+				By("removing the stack finalizer to allow the update to be deleted later")
+				Expect(lastUpdate.Finalizers).ToNot(ContainElement(pulumiFinalizer))
 
 				By("emitting an event")
 				Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.StackUpdateFailure)))
@@ -609,6 +616,9 @@ var _ = Describe("Stack Controller", func() {
 				Expect(obj.Status.LastUpdate.State).To(Equal(shared.SucceededStackStateMessage))
 				Expect(obj.Status.LastUpdate.LastAttemptedCommit).To(Equal("abcdef"))
 				Expect(obj.Status.LastUpdate.LastSuccessfulCommit).To(Equal("abcdef"))
+
+				By("removing the stack finalizer to allow the update to be deleted later")
+				Expect(lastUpdate.Finalizers).ToNot(ContainElement(pulumiFinalizer))
 
 				By("emitting an event")
 				Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.StackUpdateSuccessful)))
@@ -947,6 +957,7 @@ var _ = Describe("Stack Controller", func() {
 
 				By("creating an update op")
 				Expect(currentUpdate).ToNot(BeNil())
+				Expect(currentUpdate.Finalizers).To(ContainElement(pulumiFinalizer))
 				Expect(currentUpdate.Spec.StackName).To(Equal(obj.Spec.Stack))
 				Expect(currentUpdate.Spec.Type).To(Equal(autov1alpha1.UpType))
 
