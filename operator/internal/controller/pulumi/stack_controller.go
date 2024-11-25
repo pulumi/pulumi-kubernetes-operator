@@ -617,6 +617,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 	// We can exit early if there is no clean-up to do.
 	if isStackMarkedToBeDeleted && !stack.DestroyOnFinalize {
+		instance.Status.MarkReadyCondition()
+		if err = saveStatus(); err != nil {
+			return reconcile.Result{}, err
+		}
 		if controllerutil.RemoveFinalizer(instance, pulumiFinalizer) {
 			return reconcile.Result{}, r.Update(ctx, instance, client.FieldOwner(FieldManager))
 		}
