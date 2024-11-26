@@ -761,7 +761,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(cooldown(instance))))
 		}
 		// Schedule another poll if ContinueResyncOnCommitMatch is set or if we're tracking a branch.
-		if sess.stack.ContinueResyncOnCommitMatch || stack.Branch != "" {
+		if sess.stack.ContinueResyncOnCommitMatch || (stack.GitSource != nil && stack.GitSource.Branch != "") {
 			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(resyncFreq(instance))))
 		}
 		if stack.GitSource != nil {
