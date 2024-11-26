@@ -756,22 +756,16 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 		requeueAfter := time.Duration(0)
 
+		// Try again with exponential backoff if the update failed.
 		if instance.Status.LastUpdate.State == shared.FailedStackStateMessage {
 			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(cooldown(instance))))
 		}
-		if sess.stack.ContinueResyncOnCommitMatch {
+		// Schedule another poll if ContinueResyncOnCommitMatch is set or if we're tracking a branch.
+		if sess.stack.ContinueResyncOnCommitMatch || stack.Branch != "" {
 			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(resyncFreq(instance))))
 		}
 		if stack.GitSource != nil {
-			trackBranch := len(stack.GitSource.Branch) > 0
-			if trackBranch {
-				// Reconcile every resyncFreq to check for new commits to the branch.
-				pollFreq := resyncFreq(instance)
-				log.Info("Commit hash unchanged. Will poll for new commits.", "pollFrequency", pollFreq)
-				requeueAfter = min(requeueAfter, pollFreq)
-			} else {
-				log.Info("Commit hash unchanged.")
-			}
+			log.Info("Commit hash unchanged. Will wait for new commit or resync.")
 		} else if stack.FluxSource != nil {
 			log.Info("Commit hash unchanged. Will wait for Source update or resync.")
 		} else if stack.ProgramRef != nil {
@@ -1079,7 +1073,7 @@ func cooldown(stack *pulumiv1.Stack) time.Duration {
 func resyncFreq(stack *pulumiv1.Stack) time.Duration {
 	resyncFreq := time.Duration(stack.Spec.ResyncFrequencySeconds) * time.Second
 	if resyncFreq.Seconds() < 60 {
-		resyncFreq = time.Duration(60) * time.Second
+		resyncFreq = 60 * time.Second
 	}
 	return resyncFreq
 }
