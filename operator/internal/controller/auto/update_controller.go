@@ -44,6 +44,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -98,15 +99,33 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, nil
 	}
 
-	// guard against retrying an incomplete update
-	if rs.progressing.Status == metav1.ConditionTrue {
-		l.Info("was progressing; marking as failed")
+	markFailed := func(reason string) {
 		rs.progressing.Status = metav1.ConditionFalse
 		rs.progressing.Reason = "Failed"
 		rs.failed.Status = metav1.ConditionTrue
-		rs.failed.Reason = "unknown"
+		rs.failed.Reason = reason
 		rs.complete.Status = metav1.ConditionTrue
-		rs.complete.Reason = "Aborted"
+		rs.complete.Reason = "Failed"
+	}
+
+	// guard against retrying an incomplete update
+	if rs.progressing.Status == metav1.ConditionTrue {
+		l.Info("was progressing; marking as failed")
+		markFailed(codes.Unknown.String())
+		return ctrl.Result{}, rs.updateStatus(ctx, obj)
+	}
+
+	// abort if the update is being deleted
+	if !obj.DeletionTimestamp.IsZero() {
+		l.Info("deleting; marking as failed")
+		markFailed(codes.Aborted.String())
+		return ctrl.Result{}, rs.updateStatus(ctx, obj)
+	}
+
+	// abort if the update was orphaned from its workspace
+	if isOrphaned(obj) {
+		l.Info("orphaned; marking as failed")
+		markFailed(codes.Aborted.String())
 		return ctrl.Result{}, rs.updateStatus(ctx, obj)
 	}
 
@@ -195,8 +214,13 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 }
 
+func isOrphaned(obj *autov1alpha1.Update) bool {
+	// an Update is considered orphaned if it has no managing controller.
+	return !controllerutil.HasControllerReference(obj)
+}
+
 func isWorkspaceReady(ws *autov1alpha1.Workspace) bool {
-	if ws == nil || ws.Generation != ws.Status.ObservedGeneration {
+	if ws == nil || !ws.DeletionTimestamp.IsZero() || ws.Generation != ws.Status.ObservedGeneration {
 		return false
 	}
 	return meta.IsStatusConditionTrue(ws.Status.Conditions, autov1alpha1.WorkspaceReady)
@@ -211,7 +235,7 @@ func (workspaceReadyPredicate) Create(e event.CreateEvent) bool {
 }
 
 func (workspaceReadyPredicate) Delete(_ event.DeleteEvent) bool {
-	return false
+	return true
 }
 
 func (workspaceReadyPredicate) Update(e event.UpdateEvent) bool {
@@ -438,7 +462,8 @@ func (r *UpdateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("update-controller").
-		For(&autov1alpha1.Update{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		For(&autov1alpha1.Update{}, builder.WithPredicates(predicate.Or(
+			predicate.GenerationChangedPredicate{}, OwnerReferencesChangedPredicate{}))).
 		Watches(&autov1alpha1.Workspace{},
 			handler.EnqueueRequestsFromMapFunc(r.mapWorkspaceToUpdate),
 			builder.WithPredicates(&workspaceReadyPredicate{})).
@@ -585,11 +610,11 @@ func (s streamReader[T]) Result() (result, error) {
 		switch res.GetSummary().Result {
 		case string(apitype.StatusSucceeded):
 			s.u.failed.Status = metav1.ConditionFalse
-			s.u.failed.Reason = res.GetSummary().Result
+			s.u.failed.Reason = "UpdateSucceeded"
 			s.u.failed.Message = res.GetSummary().Message
 		default:
 			s.u.failed.Status = metav1.ConditionTrue
-			s.u.failed.Reason = res.GetSummary().Result
+			s.u.failed.Reason = "UpdateFailed"
 			s.u.failed.Message = res.GetSummary().Message
 		}
 		return res, nil

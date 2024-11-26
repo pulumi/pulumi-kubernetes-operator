@@ -1490,7 +1490,7 @@ func (sess *stackReconcilerSession) newUp(ctx context.Context, o *pulumiv1.Stack
 		},
 	}
 
-	if err := controllerutil.SetControllerReference(o, update, sess.scheme); err != nil {
+	if err := sess.setOwnerReferences(o, update); err != nil {
 		return nil, err
 	}
 
@@ -1516,11 +1516,29 @@ func (sess *stackReconcilerSession) newDestroy(ctx context.Context, o *pulumiv1.
 		},
 	}
 
-	if err := controllerutil.SetControllerReference(o, update, sess.scheme); err != nil {
+	if err := sess.setOwnerReferences(o, update); err != nil {
 		return nil, err
 	}
 
 	return update, nil
+}
+
+func (sess *stackReconcilerSession) setOwnerReferences(o *pulumiv1.Stack, update *autov1alpha1.Update) error {
+	// see "The Three Laws of Controllers":
+	// https://github.com/kubernetes/design-proposals-archive/blob/acc25e14ca83dfda4f66d8cb1f1b491f26e78ffe/api-machinery/controller-ref.md#behavior
+
+	// Set the workspace as the managing controller of the update.
+	// If the workspace is deleted, the update would be a candidate for adoption by a replacement workspace.
+	if err := controllerutil.SetControllerReference(sess.ws, update, sess.scheme); err != nil {
+		return err
+	}
+
+	// Set the stack as an owner of the update. Updates should survive deletion of the Workspace,
+	// to retain some history even if the workspace is deleted as an optimization.
+	if err := controllerutil.SetOwnerReference(o, update, sess.scheme); err != nil {
+		return err
+	}
+	return nil
 }
 
 func makeUpdateName(o *pulumiv1.Stack) string {
