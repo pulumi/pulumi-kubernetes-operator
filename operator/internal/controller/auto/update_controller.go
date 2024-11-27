@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -32,7 +31,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -111,21 +109,21 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// guard against retrying an incomplete update
 	if rs.progressing.Status == metav1.ConditionTrue {
 		l.Info("was progressing; marking as failed")
-		markFailed(codes.Unknown.String())
+		markFailed(codes.Aborted.String())
 		return ctrl.Result{}, rs.updateStatus(ctx, obj)
 	}
 
-	// abort if the update is being deleted
+	// cancel if the update is being deleted
 	if !obj.DeletionTimestamp.IsZero() {
 		l.Info("deleting; marking as failed")
-		markFailed(codes.Aborted.String())
+		markFailed(codes.Canceled.String())
 		return ctrl.Result{}, rs.updateStatus(ctx, obj)
 	}
 
-	// abort if the update was orphaned from its workspace
+	// cancel if the update was orphaned from its workspace
 	if isOrphaned(obj) {
 		l.Info("orphaned; marking as failed")
-		markFailed(codes.Aborted.String())
+		markFailed(codes.Canceled.String())
 		return ctrl.Result{}, rs.updateStatus(ctx, obj)
 	}
 
@@ -572,22 +570,9 @@ func (s streamReader[T]) Result() (result, error) {
 		if err == io.EOF {
 			break
 		}
-		if transient(err) {
-			// Surface transient errors to trigger another reconcile.
-			return nil, err
-		}
 		if err != nil {
-			// For all other errors treat the operation as failed.
-			s.l.Error(err, "Update failed")
-			s.obj.Status.Message = status.Convert(err).Message()
-			s.u.progressing.Status = metav1.ConditionFalse
-			s.u.progressing.Reason = UpdateConditionReasonComplete
-			s.u.complete.Status = metav1.ConditionTrue
-			s.u.complete.Reason = UpdateConditionReasonComplete
-			s.u.failed.Status = metav1.ConditionTrue
-			s.u.failed.Reason = status.Code(err).String()
-			s.u.failed.Message = s.obj.Status.Message
-			return res, nil
+			s.l.Error(err, "Unexpected error from response stream")
+			return nil, err
 		}
 
 		res = stream.GetResult()
@@ -621,26 +606,6 @@ func (s streamReader[T]) Result() (result, error) {
 	}
 
 	return res, fmt.Errorf("didn't receive a result")
-}
-
-// transient returns false when the given error is nil, or when the error
-// represents a condition that is not likely to resolve quickly. This is used
-// to determine whether to retry immediately or much more slowly.
-func transient(err error) bool {
-	if err == nil {
-		return false
-	}
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-		return true
-	}
-
-	code := status.Code(err)
-	switch code {
-	case codes.Unknown, codes.Unauthenticated, codes.PermissionDenied, codes.InvalidArgument:
-		return false
-	default:
-		return true
-	}
 }
 
 // getResulter glues our various result types to a common interface.
