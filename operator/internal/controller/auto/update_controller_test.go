@@ -163,7 +163,7 @@ func TestUpdate(t *testing.T) {
 				EndTime:   metav1.NewTime(time.Unix(0, 0).UTC()),
 				Conditions: []metav1.Condition{
 					{Type: "Progressing", Status: "False", Reason: "Complete"},
-					{Type: "Failed", Status: "False", Reason: "succeeded"},
+					{Type: "Failed", Status: "False", Reason: "UpdateSucceeded"},
 					{Type: "Complete", Status: "True", Reason: "Updated"},
 				},
 			},
@@ -206,7 +206,7 @@ func TestUpdate(t *testing.T) {
 					{
 						Type:    "Failed",
 						Status:  "True",
-						Reason:  "failed",
+						Reason:  "UpdateFailed",
 						Message: "something went wrong",
 					},
 					{Type: "Complete", Status: "True", Reason: "Updated"},
@@ -214,9 +214,7 @@ func TestUpdate(t *testing.T) {
 			},
 		},
 		{
-			// Auto API failures are currently returned as non-nil errors,
-			// which we translate into "failed" Results.
-			name: "update failed error",
+			name: "update grpc error",
 			obj:  autov1alpha1.Update{ObjectMeta: metav1.ObjectMeta{Name: "foo", UID: "uid"}},
 			client: func(ctrl *gomock.Controller) upper {
 				upper := NewMockupper(ctrl)
@@ -234,19 +232,7 @@ func TestUpdate(t *testing.T) {
 				return upper
 			},
 			kclient: func(*gomock.Controller) creater { return nil },
-			want: autov1alpha1.UpdateStatus{
-				Message: "failed to run update: exit status 255",
-				Conditions: []metav1.Condition{
-					{Type: "Progressing", Status: "False", Reason: "Complete"},
-					{
-						Type:    "Failed",
-						Status:  "True",
-						Reason:  "Unknown",
-						Message: "failed to run update: exit status 255",
-					},
-					{Type: "Complete", Status: "True", Reason: "Complete"},
-				},
-			},
+			wantErr: "failed to run update: exit status 255",
 		},
 		{
 			name: "workspace grpc failure",

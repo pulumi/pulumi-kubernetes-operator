@@ -548,6 +548,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		return reconcile.Result{}, fmt.Errorf("unable to define workspace for stack: %w", err)
 	}
 
+	var toBeFinalized *autov1alpha1.Update
 	saveStatus := func() error {
 		oldRevision := instance.ResourceVersion
 		if err := r.Status().Update(ctx, instance); err != nil {
@@ -562,6 +563,15 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 				"lastUpdate", instance.Status.LastUpdate,
 				"currentUpdate", instance.Status.CurrentUpdate,
 				"conditions", instance.Status.Conditions)
+		}
+		if toBeFinalized != nil {
+			// remove the finalizer from the Update object that was being watched,
+			// after the status update is persisted.
+			if controllerutil.RemoveFinalizer(toBeFinalized, pulumiFinalizer) {
+				if err := r.Update(ctx, toBeFinalized, client.FieldOwner(FieldManager)); err != nil {
+					log.Error(err, "unable to remove finalizer from current update; update object will be orphaned")
+				}
+			}
 		}
 		return nil
 	}
@@ -601,11 +611,16 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			}
 		}
 
+		toBeFinalized = sess.update
 		instance.Status.CurrentUpdate = nil
 	}
 
 	// We can exit early if there is no clean-up to do.
 	if isStackMarkedToBeDeleted && !stack.DestroyOnFinalize {
+		instance.Status.MarkReadyCondition()
+		if err = saveStatus(); err != nil {
+			return reconcile.Result{}, err
+		}
 		if controllerutil.RemoveFinalizer(instance, pulumiFinalizer) {
 			return reconcile.Result{}, r.Update(ctx, instance, client.FieldOwner(FieldManager))
 		}
@@ -886,6 +901,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, fmt.Errorf("unable to prepare update (up) for stack: %w", err)
 		}
 	}
+	// apply a finalizer to the update object to ensure it doesn't disappear entirely
+	// while we're waiting for it to complete.
+	update.Finalizers = append(update.Finalizers, pulumiFinalizer)
+
 	instance.Status.CurrentUpdate = &shared.CurrentStackUpdate{
 		Generation:       instance.Generation,
 		ReconcileRequest: syncRequest,
@@ -1471,7 +1490,7 @@ func (sess *stackReconcilerSession) newUp(ctx context.Context, o *pulumiv1.Stack
 		},
 	}
 
-	if err := controllerutil.SetControllerReference(o, update, sess.scheme); err != nil {
+	if err := sess.setOwnerReferences(o, update); err != nil {
 		return nil, err
 	}
 
@@ -1497,11 +1516,31 @@ func (sess *stackReconcilerSession) newDestroy(ctx context.Context, o *pulumiv1.
 		},
 	}
 
-	if err := controllerutil.SetControllerReference(o, update, sess.scheme); err != nil {
+	if err := sess.setOwnerReferences(o, update); err != nil {
 		return nil, err
 	}
 
 	return update, nil
+}
+
+func (sess *stackReconcilerSession) setOwnerReferences(o *pulumiv1.Stack, update *autov1alpha1.Update) error {
+	// see "The Three Laws of Controllers":
+	// https://github.com/kubernetes/design-proposals-archive/blob/acc25e14ca83dfda4f66d8cb1f1b491f26e78ffe/api-machinery/controller-ref.md#behavior
+
+	// Set the workspace as the managing controller of the update.
+	// If the workspace is deleted, the update would be a candidate for adoption by a replacement workspace.
+	if err := controllerutil.SetControllerReference(sess.ws, update, sess.scheme); err != nil {
+		return err
+	}
+
+	// Set the stack as an owner of the update. Updates should survive deletion of the Workspace,
+	// to retain some history even if the workspace is deleted as an optimization.
+	// The WithBlockOwnerDeletion option ensures that the owner reference is not removed eagerly in background deletion
+	// of the stack, which would break the EnqueueRequestForOwner logic that triggers a new reconcile loop.
+	if err := controllerutil.SetOwnerReference(o, update, sess.scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
+		return err
+	}
+	return nil
 }
 
 func makeUpdateName(o *pulumiv1.Stack) string {

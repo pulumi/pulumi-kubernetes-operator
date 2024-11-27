@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 
 	agentclient "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/client"
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
@@ -117,4 +118,27 @@ func (p *DebugPredicate) Update(e event.UpdateEvent) bool {
 func (p *DebugPredicate) Generic(e event.GenericEvent) bool {
 	l.V(1).Info("Generic", "controller", p.Controller, "type", fmt.Sprintf("%T", e.Object), "name", e.Object.GetName(), "revision", e.Object.GetResourceVersion())
 	return true
+}
+
+type OwnerReferencesChangedPredicate struct{}
+
+var _ predicate.Predicate = &OwnerReferencesChangedPredicate{}
+
+func (OwnerReferencesChangedPredicate) Create(e event.CreateEvent) bool {
+	return false
+}
+
+func (OwnerReferencesChangedPredicate) Delete(_ event.DeleteEvent) bool {
+	return false
+}
+
+func (OwnerReferencesChangedPredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+	return reflect.DeepEqual(e.ObjectOld.GetOwnerReferences(), e.ObjectNew.GetOwnerReferences())
+}
+
+func (OwnerReferencesChangedPredicate) Generic(_ event.GenericEvent) bool {
+	return false
 }

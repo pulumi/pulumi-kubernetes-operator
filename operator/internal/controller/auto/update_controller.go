@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -31,8 +30,6 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -44,6 +41,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -62,6 +60,11 @@ const (
 	UpdateConditionReasonComplete    = "Complete"
 	UpdateConditionReasonUpdated     = "Updated"
 	UpdateConditionReasonProgressing = "Progressing"
+
+	UpdateConditionReasonAborted         = "Aborted"
+	UpdateConditionReasonCanceled        = "Canceled"
+	UpdateConditionReasonUpdateFailed    = "UpdateFailed"
+	UpdateConditionReasonUpdateSucceeded = "UpdateSucceeded"
 )
 
 // UpdateReconciler reconciles a Update object
@@ -98,15 +101,33 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, nil
 	}
 
-	// guard against retrying an incomplete update
-	if rs.progressing.Status == metav1.ConditionTrue {
-		l.Info("was progressing; marking as failed")
+	markFailed := func(reason string) {
 		rs.progressing.Status = metav1.ConditionFalse
 		rs.progressing.Reason = "Failed"
 		rs.failed.Status = metav1.ConditionTrue
-		rs.failed.Reason = "unknown"
+		rs.failed.Reason = reason
 		rs.complete.Status = metav1.ConditionTrue
-		rs.complete.Reason = "Aborted"
+		rs.complete.Reason = "Failed"
+	}
+
+	// guard against retrying an incomplete update
+	if rs.progressing.Status == metav1.ConditionTrue {
+		l.Info("was progressing; marking as failed")
+		markFailed(UpdateConditionReasonAborted)
+		return ctrl.Result{}, rs.updateStatus(ctx, obj)
+	}
+
+	// cancel if the update is being deleted
+	if !obj.DeletionTimestamp.IsZero() {
+		l.Info("deleting; marking as failed")
+		markFailed(UpdateConditionReasonCanceled)
+		return ctrl.Result{}, rs.updateStatus(ctx, obj)
+	}
+
+	// cancel if the update was orphaned from its workspace
+	if isOrphaned(obj) {
+		l.Info("orphaned; marking as failed")
+		markFailed(UpdateConditionReasonCanceled)
 		return ctrl.Result{}, rs.updateStatus(ctx, obj)
 	}
 
@@ -195,8 +216,13 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 }
 
+func isOrphaned(obj *autov1alpha1.Update) bool {
+	// an Update is considered orphaned if it has no managing controller.
+	return !controllerutil.HasControllerReference(obj)
+}
+
 func isWorkspaceReady(ws *autov1alpha1.Workspace) bool {
-	if ws == nil || ws.Generation != ws.Status.ObservedGeneration {
+	if ws == nil || !ws.DeletionTimestamp.IsZero() || ws.Generation != ws.Status.ObservedGeneration {
 		return false
 	}
 	return meta.IsStatusConditionTrue(ws.Status.Conditions, autov1alpha1.WorkspaceReady)
@@ -211,7 +237,7 @@ func (workspaceReadyPredicate) Create(e event.CreateEvent) bool {
 }
 
 func (workspaceReadyPredicate) Delete(_ event.DeleteEvent) bool {
-	return false
+	return true
 }
 
 func (workspaceReadyPredicate) Update(e event.UpdateEvent) bool {
@@ -438,7 +464,8 @@ func (r *UpdateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("update-controller").
-		For(&autov1alpha1.Update{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		For(&autov1alpha1.Update{}, builder.WithPredicates(predicate.Or(
+			predicate.GenerationChangedPredicate{}, OwnerReferencesChangedPredicate{}))).
 		Watches(&autov1alpha1.Workspace{},
 			handler.EnqueueRequestsFromMapFunc(r.mapWorkspaceToUpdate),
 			builder.WithPredicates(&workspaceReadyPredicate{})).
@@ -547,22 +574,9 @@ func (s streamReader[T]) Result() (result, error) {
 		if err == io.EOF {
 			break
 		}
-		if transient(err) {
-			// Surface transient errors to trigger another reconcile.
-			return nil, err
-		}
 		if err != nil {
-			// For all other errors treat the operation as failed.
-			s.l.Error(err, "Update failed")
-			s.obj.Status.Message = status.Convert(err).Message()
-			s.u.progressing.Status = metav1.ConditionFalse
-			s.u.progressing.Reason = UpdateConditionReasonComplete
-			s.u.complete.Status = metav1.ConditionTrue
-			s.u.complete.Reason = UpdateConditionReasonComplete
-			s.u.failed.Status = metav1.ConditionTrue
-			s.u.failed.Reason = status.Code(err).String()
-			s.u.failed.Message = s.obj.Status.Message
-			return res, nil
+			s.l.Error(err, "Unexpected error from response stream")
+			return nil, err
 		}
 
 		res = stream.GetResult()
@@ -585,37 +599,17 @@ func (s streamReader[T]) Result() (result, error) {
 		switch res.GetSummary().Result {
 		case string(apitype.StatusSucceeded):
 			s.u.failed.Status = metav1.ConditionFalse
-			s.u.failed.Reason = res.GetSummary().Result
+			s.u.failed.Reason = UpdateConditionReasonUpdateSucceeded
 			s.u.failed.Message = res.GetSummary().Message
 		default:
 			s.u.failed.Status = metav1.ConditionTrue
-			s.u.failed.Reason = res.GetSummary().Result
+			s.u.failed.Reason = UpdateConditionReasonUpdateFailed
 			s.u.failed.Message = res.GetSummary().Message
 		}
 		return res, nil
 	}
 
 	return res, fmt.Errorf("didn't receive a result")
-}
-
-// transient returns false when the given error is nil, or when the error
-// represents a condition that is not likely to resolve quickly. This is used
-// to determine whether to retry immediately or much more slowly.
-func transient(err error) bool {
-	if err == nil {
-		return false
-	}
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-		return true
-	}
-
-	code := status.Code(err)
-	switch code {
-	case codes.Unknown, codes.Unauthenticated, codes.PermissionDenied, codes.InvalidArgument:
-		return false
-	default:
-		return true
-	}
 }
 
 // getResulter glues our various result types to a common interface.
