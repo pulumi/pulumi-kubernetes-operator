@@ -30,7 +30,6 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -61,6 +60,11 @@ const (
 	UpdateConditionReasonComplete    = "Complete"
 	UpdateConditionReasonUpdated     = "Updated"
 	UpdateConditionReasonProgressing = "Progressing"
+
+	UpdateConditionReasonAborted         = "Aborted"
+	UpdateConditionReasonCanceled        = "Canceled"
+	UpdateConditionReasonUpdateFailed    = "UpdateFailed"
+	UpdateConditionReasonUpdateSucceeded = "UpdateSucceeded"
 )
 
 // UpdateReconciler reconciles a Update object
@@ -109,21 +113,21 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// guard against retrying an incomplete update
 	if rs.progressing.Status == metav1.ConditionTrue {
 		l.Info("was progressing; marking as failed")
-		markFailed(codes.Aborted.String())
+		markFailed(UpdateConditionReasonAborted)
 		return ctrl.Result{}, rs.updateStatus(ctx, obj)
 	}
 
 	// cancel if the update is being deleted
 	if !obj.DeletionTimestamp.IsZero() {
 		l.Info("deleting; marking as failed")
-		markFailed(codes.Canceled.String())
+		markFailed(UpdateConditionReasonCanceled)
 		return ctrl.Result{}, rs.updateStatus(ctx, obj)
 	}
 
 	// cancel if the update was orphaned from its workspace
 	if isOrphaned(obj) {
 		l.Info("orphaned; marking as failed")
-		markFailed(codes.Canceled.String())
+		markFailed(UpdateConditionReasonCanceled)
 		return ctrl.Result{}, rs.updateStatus(ctx, obj)
 	}
 
@@ -595,11 +599,11 @@ func (s streamReader[T]) Result() (result, error) {
 		switch res.GetSummary().Result {
 		case string(apitype.StatusSucceeded):
 			s.u.failed.Status = metav1.ConditionFalse
-			s.u.failed.Reason = "UpdateSucceeded"
+			s.u.failed.Reason = UpdateConditionReasonUpdateSucceeded
 			s.u.failed.Message = res.GetSummary().Message
 		default:
 			s.u.failed.Status = metav1.ConditionTrue
-			s.u.failed.Reason = "UpdateFailed"
+			s.u.failed.Reason = UpdateConditionReasonUpdateFailed
 			s.u.failed.Message = res.GetSummary().Message
 		}
 		return res, nil
