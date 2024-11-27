@@ -60,3 +60,14 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Create the advertised address for the controller
+*/}}
+{{- define "pulumi-kubernetes-operator.advertisedAddress" -}}
+{{- if .Values.controller.advertisedAddress }}
+{{- .Values.controller.advertisedAddress }}
+{{- else }}
+{{- include "pulumi-kubernetes-operator.fullname" . }}.$(POD_NAMESPACE)
+{{- end }}
+{{- end }}

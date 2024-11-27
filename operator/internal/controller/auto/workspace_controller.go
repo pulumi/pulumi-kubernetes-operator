@@ -395,7 +395,7 @@ func nameForService(w *autov1alpha1.Workspace) string {
 }
 
 func fqdnForService(w *autov1alpha1.Workspace) string {
-	return fmt.Sprintf("%s.%s.svc.cluster.local", nameForService(w), w.Namespace)
+	return fmt.Sprintf("%s.%s", nameForService(w), w.Namespace)
 }
 
 func labelsForStatefulSet(w *autov1alpha1.Workspace) map[string]string {

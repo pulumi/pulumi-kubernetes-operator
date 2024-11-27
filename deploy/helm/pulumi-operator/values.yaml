@@ -23,6 +23,8 @@ imagePullSecrets: ""
 controller:
   # -- Log Level ('debug', 'info', 'error', or any integer value > 0 which corresponds to custom debug levels of increasing verbosity)
   logLevel: error
+  # -- the advertised address for the controller's service
+  # advertisedAddress: "pulumi-kubernetes-operator.pulumi-kubernetes-operator.svc.cluster.local"
 
 # -- Extra Environments to be passed to the operator
 extraEnv: []
