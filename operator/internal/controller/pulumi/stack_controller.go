@@ -770,7 +770,11 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 				// Reconcile every resyncFreq to check for new commits to the branch.
 				pollFreq := resyncFreq(instance)
 				log.Info("Commit hash unchanged. Will poll for new commits.", "pollFrequency", pollFreq)
-				requeueAfter = max(1*time.Second, min(pollFreq, requeueAfter))
+				if requeueAfter > 0 {
+					requeueAfter = max(1*time.Second, min(pollFreq, requeueAfter))
+				} else {
+					requeueAfter = max(1*time.Second, pollFreq)
+				}
 			} else {
 				log.Info("Commit hash unchanged.")
 			}
