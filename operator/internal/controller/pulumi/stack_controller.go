@@ -752,23 +752,29 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		}
 
 		// Requeue reconciliation as necessary to detect branch updates and
-		// resyncs.
-
+		// resyncs. The logic finds the smallest requeue time (if any) among various polling loops.
 		requeueAfter := time.Duration(0)
 
+		// Try again with exponential backoff if the update failed.
 		if instance.Status.LastUpdate.State == shared.FailedStackStateMessage {
 			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(cooldown(instance))))
 		}
-		if sess.stack.ContinueResyncOnCommitMatch {
+		// Schedule another poll if ContinueResyncOnCommitMatch is set, for drift detection or to maintain dynamic resources.
+		if instance.Status.LastUpdate.State == shared.SucceededStackStateMessage && sess.stack.ContinueResyncOnCommitMatch {
 			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(resyncFreq(instance))))
 		}
+		// Schedule another poll for source tracking.
 		if stack.GitSource != nil {
 			trackBranch := len(stack.GitSource.Branch) > 0
 			if trackBranch {
 				// Reconcile every resyncFreq to check for new commits to the branch.
 				pollFreq := resyncFreq(instance)
 				log.Info("Commit hash unchanged. Will poll for new commits.", "pollFrequency", pollFreq)
-				requeueAfter = min(requeueAfter, pollFreq)
+				if requeueAfter > 0 {
+					requeueAfter = max(1*time.Second, min(pollFreq, requeueAfter))
+				} else {
+					requeueAfter = max(1*time.Second, pollFreq)
+				}
 			} else {
 				log.Info("Commit hash unchanged.")
 			}
@@ -1079,7 +1085,7 @@ func cooldown(stack *pulumiv1.Stack) time.Duration {
 func resyncFreq(stack *pulumiv1.Stack) time.Duration {
 	resyncFreq := time.Duration(stack.Spec.ResyncFrequencySeconds) * time.Second
 	if resyncFreq.Seconds() < 60 {
-		resyncFreq = time.Duration(60) * time.Second
+		resyncFreq = 60 * time.Second
 	}
 	return resyncFreq
 }
