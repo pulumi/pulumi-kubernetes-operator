@@ -1535,7 +1535,9 @@ func (sess *stackReconcilerSession) setOwnerReferences(o *pulumiv1.Stack, update
 
 	// Set the stack as an owner of the update. Updates should survive deletion of the Workspace,
 	// to retain some history even if the workspace is deleted as an optimization.
-	if err := controllerutil.SetOwnerReference(o, update, sess.scheme); err != nil {
+	// The WithBlockOwnerDeletion option ensures that the owner reference is not removed eagerly in background deletion
+	// of the stack, which would break the EnqueueRequestForOwner logic that triggers a new reconcile loop.
+	if err := controllerutil.SetOwnerReference(o, update, sess.scheme, controllerutil.WithBlockOwnerDeletion(true)); err != nil {
 		return err
 	}
 	return nil
