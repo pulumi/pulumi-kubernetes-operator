@@ -43,6 +43,10 @@ func TestDetermineAdvAddr(t *testing.T) {
 			want: fakehostname + ":9090",
 		},
 		{
+			addr: "fake.default:9090",
+			want: "fake.default:9090",
+		},
+		{
 			addr: "fake.default.svc.cluster.local:9090",
 			want: "fake.default.svc.cluster.local:9090",
 		},

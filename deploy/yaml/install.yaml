@@ -28587,7 +28587,7 @@ spec:
         - --metrics-bind-address=:8443
         - --leader-elect
         - --health-probe-bind-address=:8081
-        - --program-fs-adv-addr=pulumi-kubernetes-operator.$(POD_NAMESPACE).svc.cluster.local:80
+        - --program-fs-adv-addr=pulumi-kubernetes-operator.$(POD_NAMESPACE):80
         - --zap-log-level=info
         - --zap-time-encoding=iso8601
         env:

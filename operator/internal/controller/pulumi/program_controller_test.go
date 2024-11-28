@@ -42,7 +42,7 @@ var _ = Describe("Program Controller", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 
-		advertisedAddress = "http://fake-svc.fake-namespace.svc.cluster.local"
+		advertisedAddress = "http://fake-svc.fake-namespace"
 
 		r = &ProgramReconciler{
 			Client:   k8sClient,

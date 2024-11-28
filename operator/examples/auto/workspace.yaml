@@ -14,14 +14,9 @@ spec:
   image: pulumi/pulumi:3.134.1-nonroot
   securityProfile: restricted
   serviceAccountName: default
-
-  # git:
-  #   url: https://github.com/pulumi/examples.git
-  #   revision: 1e2fc471709448f3c9f7a250f28f1eafcde7017b
-  #   dir: random-yaml
-  flux:
-    url: http://source-controller.flux-system.svc.cluster.local./gitrepository/default/pulumi-examples/1e2fc471709448f3c9f7a250f28f1eafcde7017b.tar.gz
-    digest: sha256:6560311e95689086aa195a82c0310080adc31bea2457936ce528a014d811407a
+  git:
+    url: https://github.com/pulumi/examples.git
+    revision: 1e2fc471709448f3c9f7a250f28f1eafcde7017b
     dir: random-yaml
   env:
     - name: PULUMI_ACCESS_TOKEN
