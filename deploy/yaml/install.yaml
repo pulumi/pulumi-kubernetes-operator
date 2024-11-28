@@ -16,6 +16,8 @@ metadata:
 spec:
   group: pulumi.com
   names:
+    categories:
+    - pulumi
     kind: Program
     listKind: ProgramList
     plural: programs
@@ -243,6 +245,8 @@ metadata:
 spec:
   group: pulumi.com
   names:
+    categories:
+    - pulumi
     kind: Stack
     listKind: StackList
     plural: stacks
@@ -19330,6 +19334,8 @@ metadata:
 spec:
   group: auto.pulumi.com
   names:
+    categories:
+    - pulumi
     kind: Update
     listKind: UpdateList
     plural: updates
@@ -19555,6 +19561,8 @@ metadata:
 spec:
   group: auto.pulumi.com
   names:
+    categories:
+    - pulumi
     kind: Workspace
     listKind: WorkspaceList
     plural: workspaces
