@@ -111,6 +111,7 @@ type UpdateStatus struct {
 }
 
 //+kubebuilder:object:root=true
+//+kubebuilder:resource:categories=pulumi
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="Workspace",type=string,JSONPath=`.spec.workspaceName`
 //+kubebuilder:printcolumn:name="Type",type=string,priority=10,JSONPath=`.spec.type`

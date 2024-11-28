@@ -271,6 +271,7 @@ type WorkspaceStatus struct {
 
 //+genclient
 //+kubebuilder:object:root=true
+//+kubebuilder:resource:categories=pulumi
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="Image",type=string,JSONPath=`.spec.image`
 //+kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`

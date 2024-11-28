@@ -145,6 +145,7 @@ func (s *StackStatus) MarkReadyCondition() {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:categories=pulumi
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Stack",priority=10,type="string",JSONPath=".spec.stack"

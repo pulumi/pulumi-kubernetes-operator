@@ -174,6 +174,7 @@ type ProgramStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
+// +kubebuilder:resource:categories=pulumi
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.artifact.url"

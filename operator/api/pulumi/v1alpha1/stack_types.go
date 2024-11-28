@@ -22,6 +22,7 @@ import (
 )
 
 //+kubebuilder:object:root=true
+//+kubebuilder:resource:categories=pulumi
 //+kubebuilder:subresource:status
 
 // Stack is the Schema for the stacks API.

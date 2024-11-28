@@ -8,6 +8,8 @@ metadata:
 spec:
   group: auto.pulumi.com
   names:
+    categories:
+    - pulumi
     kind: Update
     listKind: UpdateList
     plural: updates
