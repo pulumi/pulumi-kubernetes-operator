@@ -1,7 +1,7 @@
 CHANGELOG
 =========
 
-## Unreleased
+## 2.0.0-beta.3 (2024-11-27)
 
 - Stack Controller: watch for delete events. [#756](https://github.com/pulumi/pulumi-kubernetes-operator/pull/756)
 - Stack Controller: fix an issue where new commits weren't detected when using git sources. https://github.com/pulumi/pulumi-kubernetes-operator/issues/762
