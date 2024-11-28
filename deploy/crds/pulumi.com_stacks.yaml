@@ -8,6 +8,8 @@ metadata:
 spec:
   group: pulumi.com
   names:
+    categories:
+    - pulumi
     kind: Stack
     listKind: StackList
     plural: stacks
