@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
       {{- if .Values.extraSidecars }}
-      {{- toYaml .Values.extraSidecars  | nindent  8 }}
+      {{- toYaml .Values.extraSidecars  | nindent 6 }}
       {{- end}}
       - name: manager
         args:
