@@ -17,7 +17,7 @@ require (
 	github.com/operator-framework/operator-lib v0.14.0
 	github.com/prometheus/client_golang v1.19.0
 	github.com/prometheus/client_model v0.6.1
-	github.com/pulumi/pulumi/sdk/v3 v3.144.0
+	github.com/pulumi/pulumi/sdk/v3 v3.144.1
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/mock v0.4.0
