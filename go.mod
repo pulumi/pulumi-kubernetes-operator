@@ -32,7 +32,7 @@ require (
 	k8s.io/client-go v0.32.0
 	k8s.io/kubernetes v1.32.0
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
-	sigs.k8s.io/controller-runtime v0.18.4
+	sigs.k8s.io/controller-runtime v0.19.3
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -70,7 +70,6 @@ require (
 	github.com/djherbis/times v1.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.2 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
-	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fluxcd/pkg/apis/acl v0.3.0 // indirect
