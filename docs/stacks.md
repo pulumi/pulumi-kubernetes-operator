@@ -326,6 +326,13 @@ If this is omitted, secrets configuration is assumed to be checked in and taken 
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>serviceAccountName</b></td>
+        <td>string</td>
+        <td>
+          ServiceAccountName is the Kubernetes service account identity of the stack's workspace.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>shallow</b></td>
         <td>boolean</td>
         <td>
@@ -1958,18 +1965,41 @@ volumes, etc.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatemetadata">metadata</a></b></td>
         <td>object</td>
         <td>
-          EmbeddedObjectMeta contains a subset of the fields included in k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta
-Only fields which are relevant to embedded resources are included.<br/>
+          ObjectMetaApplyConfiguration represents an declarative configuration of the ObjectMeta type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespec">spec</a></b></td>
         <td>object</td>
         <td>
-          WorkspaceSpec defines the desired state of Workspace<br/>
+          WorkspaceSpecApplyConfiguration represents an declarative configuration of the WorkspaceSpec type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatestatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          WorkspaceStatusApplyConfiguration represents an declarative configuration of the WorkspaceStatus type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1981,8 +2011,8 @@ Only fields which are relevant to embedded resources are included.<br/>
 
 
 
-EmbeddedObjectMeta contains a subset of the fields included in k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta
-Only fields which are relevant to embedded resources are included.
+ObjectMetaApplyConfiguration represents an declarative configuration of the ObjectMeta type for use
+with apply.
 
 <table>
     <thead>
@@ -1997,20 +2027,166 @@ Only fields which are relevant to embedded resources are included.
         <td><b>annotations</b></td>
         <td>map[string]string</td>
         <td>
-          Annotations is an unstructured key value map stored with a resource that may be
-set by external tools to store and retrieve arbitrary metadata. They are not
-queryable and should be preserved when modifying objects.
-More info: http://kubernetes.io/docs/user-guide/annotations<br/>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>creationTimestamp</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>deletionGracePeriodSeconds</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>deletionTimestamp</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>finalizers</b></td>
+        <td>[]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>generateName</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>generation</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>labels</b></td>
         <td>map[string]string</td>
         <td>
-          Map of string keys and values that can be used to organize and categorize
-(scope and select) objects. May match selectors of replication controllers
-and services.
-More info: http://kubernetes.io/docs/user-guide/labels<br/>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatemetadataownerreferencesindex">ownerReferences</a></b></td>
+        <td>[]object</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>resourceVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>uid</b></td>
+        <td>string</td>
+        <td>
+          UID is a type that holds unique ID values, including UUIDs.  Because we
+don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+intent and helps make sure that UIDs and names do not get conflated.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.metadata.ownerReferences[index]
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatemetadata)</sup></sup>
+
+
+
+OwnerReferenceApplyConfiguration represents an declarative configuration of the OwnerReference type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>blockOwnerDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>controller</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>uid</b></td>
+        <td>string</td>
+        <td>
+          UID is a type that holds unique ID values, including UUIDs.  Because we
+don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+intent and helps make sure that UIDs and names do not get conflated.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2022,7 +2198,8 @@ More info: http://kubernetes.io/docs/user-guide/labels<br/>
 
 
 
-WorkspaceSpec defines the desired state of Workspace
+WorkspaceSpecApplyConfiguration represents an declarative configuration of the WorkspaceSpec type for use
+with apply.
 
 <table>
     <thead>
@@ -2037,91 +2214,88 @@ WorkspaceSpec defines the desired state of Workspace
         <td><b><a href="#stackspecworkspacetemplatespecenvindex">env</a></b></td>
         <td>[]object</td>
         <td>
-          List of environment variables to set in the container.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecenvfromindex">envFrom</a></b></td>
         <td>[]object</td>
         <td>
-          List of sources to populate environment variables in the workspace.
-The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-will be reported as an event when the container is starting. When a key exists in multiple
-sources, the value associated with the last source will take precedence.
-Values defined by an Env with a duplicate key will take precedence.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecflux">flux</a></b></td>
         <td>object</td>
         <td>
-          Flux is the flux source containing the Pulumi program.<br/>
+          FluxSourceApplyConfiguration represents an declarative configuration of the FluxSource type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecgit">git</a></b></td>
         <td>object</td>
         <td>
-          Git is the git source containing the Pulumi program.<br/>
+          GitSourceApplyConfiguration represents an declarative configuration of the GitSource type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>image</b></td>
         <td>string</td>
         <td>
-          Image is the Docker image containing the 'pulumi' executable.<br/>
           <br/>
-            <i>Default</i>: pulumi/pulumi:latest<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>imagePullPolicy</b></td>
         <td>string</td>
         <td>
-          Image pull policy.
-One of Always, Never, IfNotPresent.
-Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
-More info: https://kubernetes.io/docs/concepts/containers/images#updating-images<br/>
+          PullPolicy describes a policy for if/when to pull a container image<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespeclocal">local</a></b></td>
+        <td>object</td>
+        <td>
+          LocalSourceApplyConfiguration represents an declarative configuration of the LocalSource type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecpodtemplate">podTemplate</a></b></td>
         <td>object</td>
         <td>
-          PodTemplate defines a PodTemplateSpec for Workspace's pods.<br/>
+          EmbeddedPodTemplateSpecApplyConfiguration represents an declarative configuration of the EmbeddedPodTemplateSpec type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecresources">resources</a></b></td>
         <td>object</td>
         <td>
-          Compute Resources required by this workspace.
-More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/<br/>
+          ResourceRequirements describes the compute resource requirements.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>securityProfile</b></td>
         <td>string</td>
         <td>
-          SecurityProfile applies a security profile to the workspace, 'restricted' by default.<br/>
-          <br/>
-            <i>Default</i>: restricted<br/>
+          SecurityProfile declares the security profile of the workspace, either baseline or restricted.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>serviceAccountName</b></td>
         <td>string</td>
         <td>
-          ServiceAccountName is the Kubernetes service account identity of the workspace.<br/>
           <br/>
-            <i>Default</i>: default<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecstacksindex">stacks</a></b></td>
         <td>[]object</td>
         <td>
-          List of stacks this workspace manages.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2532,7 +2706,8 @@ TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://git
 
 
 
-Flux is the flux source containing the Pulumi program.
+FluxSourceApplyConfiguration represents an declarative configuration of the FluxSource type for use
+with apply.
 
 <table>
     <thead>
@@ -2547,22 +2722,21 @@ Flux is the flux source containing the Pulumi program.
         <td><b>digest</b></td>
         <td>string</td>
         <td>
-          Digest is the digest of the artifact to fetch.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>dir</b></td>
         <td>string</td>
         <td>
-          Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
-interest, within the fetched artifact.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>url</b></td>
         <td>string</td>
         <td>
-          URL is the URL of the artifact to fetch.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2574,7 +2748,8 @@ interest, within the fetched artifact.<br/>
 
 
 
-Git is the git source containing the Pulumi program.
+GitSourceApplyConfiguration represents an declarative configuration of the GitSource type for use
+with apply.
 
 <table>
     <thead>
@@ -2589,40 +2764,36 @@ Git is the git source containing the Pulumi program.
         <td><b><a href="#stackspecworkspacetemplatespecgitauth">auth</a></b></td>
         <td>object</td>
         <td>
-          Auth contains optional authentication information to use when cloning
-the repository.<br/>
+          GitAuthApplyConfiguration represents an declarative configuration of the GitAuth type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>dir</b></td>
         <td>string</td>
         <td>
-          Dir is the directory to work from in the project's source repository
-where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
-in the project source root.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>ref</b></td>
         <td>string</td>
         <td>
-          Ref is the git ref (tag, branch, or commit SHA) to fetch.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>shallow</b></td>
         <td>boolean</td>
         <td>
-          Shallow controls whether the workspace uses a shallow clone or whether
-all history is cloned.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>url</b></td>
         <td>string</td>
         <td>
-          URL is the git source control repository from which we fetch the project
-code and configuration.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2634,8 +2805,8 @@ code and configuration.<br/>
 
 
 
-Auth contains optional authentication information to use when cloning
-the repository.
+GitAuthApplyConfiguration represents an declarative configuration of the GitAuth type for use
+with apply.
 
 <table>
     <thead>
@@ -2650,31 +2821,28 @@ the repository.
         <td><b><a href="#stackspecworkspacetemplatespecgitauthpassword">password</a></b></td>
         <td>object</td>
         <td>
-          The password that pairs with a username or as part of an SSH Private Key.<br/>
+          SecretKeySelector selects a key of a Secret.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecgitauthsshprivatekey">sshPrivateKey</a></b></td>
         <td>object</td>
         <td>
-          SSHPrivateKey should contain a private key for access to the git repo.
-When using `SSHPrivateKey`, the URL of the repository must be in the
-format git@github.com:org/repository.git.<br/>
+          SecretKeySelector selects a key of a Secret.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecgitauthtoken">token</a></b></td>
         <td>object</td>
         <td>
-          Token is a Git personal access token in replacement of
-your password.<br/>
+          SecretKeySelector selects a key of a Secret.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecgitauthusername">username</a></b></td>
         <td>object</td>
         <td>
-          Username is the username to use when authenticating to a git repository.<br/>
+          SecretKeySelector selects a key of a Secret.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2686,7 +2854,7 @@ your password.<br/>
 
 
 
-The password that pairs with a username or as part of an SSH Private Key.
+SecretKeySelector selects a key of a Secret.
 
 <table>
     <thead>
@@ -2735,9 +2903,7 @@ TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://git
 
 
 
-SSHPrivateKey should contain a private key for access to the git repo.
-When using `SSHPrivateKey`, the URL of the repository must be in the
-format git@github.com:org/repository.git.
+SecretKeySelector selects a key of a Secret.
 
 <table>
     <thead>
@@ -2786,8 +2952,7 @@ TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://git
 
 
 
-Token is a Git personal access token in replacement of
-your password.
+SecretKeySelector selects a key of a Secret.
 
 <table>
     <thead>
@@ -2836,7 +3001,7 @@ TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://git
 
 
 
-Username is the username to use when authenticating to a git repository.
+SecretKeySelector selects a key of a Secret.
 
 <table>
     <thead>
@@ -2880,12 +3045,41 @@ TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://git
 </table>
 
 
+### Stack.spec.workspaceTemplate.spec.local
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespec)</sup></sup>
+
+
+
+LocalSourceApplyConfiguration represents an declarative configuration of the LocalSource type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>dir</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate.spec.podTemplate
 <sup><sup>[↩ Parent](#stackspecworkspacetemplatespec)</sup></sup>
 
 
 
-PodTemplate defines a PodTemplateSpec for Workspace's pods.
+EmbeddedPodTemplateSpecApplyConfiguration represents an declarative configuration of the EmbeddedPodTemplateSpec type for use
+with apply.
 
 <table>
     <thead>
@@ -2900,15 +3094,15 @@ PodTemplate defines a PodTemplateSpec for Workspace's pods.
         <td><b><a href="#stackspecworkspacetemplatespecpodtemplatemetadata">metadata</a></b></td>
         <td>object</td>
         <td>
-          EmbeddedMetadata contains metadata relevant to an embedded resource.<br/>
+          EmbeddedObjectMetaApplyConfiguration represents an declarative configuration of the EmbeddedObjectMeta type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespec">spec</a></b></td>
         <td>object</td>
         <td>
-          Specification of the desired behavior of the pod.
-More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status<br/>
+          PodSpec is a description of a pod.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2920,7 +3114,8 @@ More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-
 
 
 
-EmbeddedMetadata contains metadata relevant to an embedded resource.
+EmbeddedObjectMetaApplyConfiguration represents an declarative configuration of the EmbeddedObjectMeta type for use
+with apply.
 
 <table>
     <thead>
@@ -2935,20 +3130,14 @@ EmbeddedMetadata contains metadata relevant to an embedded resource.
         <td><b>annotations</b></td>
         <td>map[string]string</td>
         <td>
-          Annotations is an unstructured key value map stored with a resource that may be
-set by external tools to store and retrieve arbitrary metadata. They are not
-queryable and should be preserved when modifying objects.
-More info: http://kubernetes.io/docs/user-guide/annotations<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>labels</b></td>
         <td>map[string]string</td>
         <td>
-          Map of string keys and values that can be used to organize and categorize
-(scope and select) objects. May match selectors of replication controllers
-and services.
-More info: http://kubernetes.io/docs/user-guide/labels<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2960,8 +3149,7 @@ More info: http://kubernetes.io/docs/user-guide/labels<br/>
 
 
 
-Specification of the desired behavior of the pod.
-More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+PodSpec is a description of a pod.
 
 <table>
     <thead>
@@ -18423,8 +18611,7 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
 
 
 
-Compute Resources required by this workspace.
-More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+ResourceRequirements describes the compute resource requirements.
 
 <table>
     <thead>
@@ -18506,7 +18693,8 @@ inside a container.<br/>
 
 
 
-
+WorkspaceStackApplyConfiguration represents an declarative configuration of the WorkspaceStack type for use
+with apply.
 
 <table>
     <thead>
@@ -18518,31 +18706,31 @@ inside a container.<br/>
         </tr>
     </thead>
     <tbody><tr>
-        <td><b>name</b></td>
-        <td>string</td>
-        <td>
-          <br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecstacksindexconfigindex">config</a></b></td>
         <td>[]object</td>
         <td>
-          Config is a list of confguration values to set on the stack.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>create</b></td>
         <td>boolean</td>
         <td>
-          Create the stack if it does not exist.<br/>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>secretsProvider</b></td>
         <td>string</td>
         <td>
-          SecretsProvider is the name of the secret provider to use for the stack.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -18554,7 +18742,8 @@ inside a container.<br/>
 
 
 
-
+ConfigItemApplyConfiguration represents an declarative configuration of the ConfigItem type for use
+with apply.
 
 <table>
     <thead>
@@ -18569,35 +18758,36 @@ inside a container.<br/>
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key is the configuration key or path to set.<br/>
+          <br/>
         </td>
-        <td>true</td>
+        <td>false</td>
       </tr><tr>
         <td><b>path</b></td>
         <td>boolean</td>
         <td>
-          The key contains a path to a property in a map or list to set<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>secret</b></td>
         <td>boolean</td>
         <td>
-          Secret marks the configuration value as a secret.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>value</b></td>
         <td>string</td>
         <td>
-          Value is the configuration value to set.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecstacksindexconfigindexvaluefrom">valueFrom</a></b></td>
         <td>object</td>
         <td>
-          ValueFrom is a reference to a value from the environment or from a file.<br/>
+          ConfigValueFromApplyConfiguration represents an declarative configuration of the ConfigValueFrom type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -18609,7 +18799,8 @@ inside a container.<br/>
 
 
 
-ValueFrom is a reference to a value from the environment or from a file.
+ConfigValueFromApplyConfiguration represents an declarative configuration of the ConfigValueFrom type for use
+with apply.
 
 <table>
     <thead>
@@ -18624,14 +18815,125 @@ ValueFrom is a reference to a value from the environment or from a file.
         <td><b>env</b></td>
         <td>string</td>
         <td>
-          Env is an environment variable in the pulumi container to use as the value.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>path</b></td>
         <td>string</td>
         <td>
-          Path is a path to a file in the pulumi container containing the value.<br/>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.status
+<sup><sup>[↩ Parent](#stackspecworkspacetemplate)</sup></sup>
+
+
+
+WorkspaceStatusApplyConfiguration represents an declarative configuration of the WorkspaceStatus type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>address</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatestatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.status.conditions[index]
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatestatus)</sup></sup>
+
+
+
+ConditionApplyConfiguration represents an declarative configuration of the Condition type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -18839,6 +19141,13 @@ CurrentUpdate contains details of the status of the current update, if any.
           Name is the name of the update object.<br/>
         </td>
         <td>false</td>
+      </tr><tr>
+        <td><b>reconcileRequest</b></td>
+        <td>string</td>
+        <td>
+          ReconcileRequest is the stack reconcile request associated with the update.<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -18860,6 +19169,17 @@ LastUpdate contains details of the status of the last update.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b>failures</b></td>
+        <td>integer</td>
+        <td>
+          Failures records how many times the update has been attempted and
+failed. Failed updates are periodically retried with exponential backoff
+in case the failure was due to transient conditions.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>generation</b></td>
         <td>integer</td>
         <td>
@@ -18903,6 +19223,13 @@ LastUpdate contains details of the status of the last update.
         <td>string</td>
         <td>
           Permalink is the Pulumi Console URL of the stack operation.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>reconcileRequest</b></td>
+        <td>string</td>
+        <td>
+          ReconcileRequest is the stack reconcile request associated with the update.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -19242,6 +19569,13 @@ See: https://www.pulumi.com/docs/intro/concepts/secrets/#initializing-a-stack-wi
         <td>
           (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef.
 If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>serviceAccountName</b></td>
+        <td>string</td>
+        <td>
+          ServiceAccountName is the Kubernetes service account identity of the stack's workspace.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20877,18 +21211,41 @@ volumes, etc.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatemetadata-1">metadata</a></b></td>
         <td>object</td>
         <td>
-          EmbeddedObjectMeta contains a subset of the fields included in k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta
-Only fields which are relevant to embedded resources are included.<br/>
+          ObjectMetaApplyConfiguration represents an declarative configuration of the ObjectMeta type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespec-1">spec</a></b></td>
         <td>object</td>
         <td>
-          WorkspaceSpec defines the desired state of Workspace<br/>
+          WorkspaceSpecApplyConfiguration represents an declarative configuration of the WorkspaceSpec type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatestatus-1">status</a></b></td>
+        <td>object</td>
+        <td>
+          WorkspaceStatusApplyConfiguration represents an declarative configuration of the WorkspaceStatus type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -20900,8 +21257,8 @@ Only fields which are relevant to embedded resources are included.<br/>
 
 
 
-EmbeddedObjectMeta contains a subset of the fields included in k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta
-Only fields which are relevant to embedded resources are included.
+ObjectMetaApplyConfiguration represents an declarative configuration of the ObjectMeta type for use
+with apply.
 
 <table>
     <thead>
@@ -20916,20 +21273,166 @@ Only fields which are relevant to embedded resources are included.
         <td><b>annotations</b></td>
         <td>map[string]string</td>
         <td>
-          Annotations is an unstructured key value map stored with a resource that may be
-set by external tools to store and retrieve arbitrary metadata. They are not
-queryable and should be preserved when modifying objects.
-More info: http://kubernetes.io/docs/user-guide/annotations<br/>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>creationTimestamp</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>deletionGracePeriodSeconds</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>deletionTimestamp</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>finalizers</b></td>
+        <td>[]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>generateName</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>generation</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>labels</b></td>
         <td>map[string]string</td>
         <td>
-          Map of string keys and values that can be used to organize and categorize
-(scope and select) objects. May match selectors of replication controllers
-and services.
-More info: http://kubernetes.io/docs/user-guide/labels<br/>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatemetadataownerreferencesindex-1">ownerReferences</a></b></td>
+        <td>[]object</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>resourceVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>uid</b></td>
+        <td>string</td>
+        <td>
+          UID is a type that holds unique ID values, including UUIDs.  Because we
+don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+intent and helps make sure that UIDs and names do not get conflated.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.metadata.ownerReferences[index]
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatemetadata-1)</sup></sup>
+
+
+
+OwnerReferenceApplyConfiguration represents an declarative configuration of the OwnerReference type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>blockOwnerDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>controller</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>uid</b></td>
+        <td>string</td>
+        <td>
+          UID is a type that holds unique ID values, including UUIDs.  Because we
+don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+intent and helps make sure that UIDs and names do not get conflated.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -20941,7 +21444,8 @@ More info: http://kubernetes.io/docs/user-guide/labels<br/>
 
 
 
-WorkspaceSpec defines the desired state of Workspace
+WorkspaceSpecApplyConfiguration represents an declarative configuration of the WorkspaceSpec type for use
+with apply.
 
 <table>
     <thead>
@@ -20956,91 +21460,88 @@ WorkspaceSpec defines the desired state of Workspace
         <td><b><a href="#stackspecworkspacetemplatespecenvindex-1">env</a></b></td>
         <td>[]object</td>
         <td>
-          List of environment variables to set in the container.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecenvfromindex-1">envFrom</a></b></td>
         <td>[]object</td>
         <td>
-          List of sources to populate environment variables in the workspace.
-The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-will be reported as an event when the container is starting. When a key exists in multiple
-sources, the value associated with the last source will take precedence.
-Values defined by an Env with a duplicate key will take precedence.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecflux-1">flux</a></b></td>
         <td>object</td>
         <td>
-          Flux is the flux source containing the Pulumi program.<br/>
+          FluxSourceApplyConfiguration represents an declarative configuration of the FluxSource type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecgit-1">git</a></b></td>
         <td>object</td>
         <td>
-          Git is the git source containing the Pulumi program.<br/>
+          GitSourceApplyConfiguration represents an declarative configuration of the GitSource type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>image</b></td>
         <td>string</td>
         <td>
-          Image is the Docker image containing the 'pulumi' executable.<br/>
           <br/>
-            <i>Default</i>: pulumi/pulumi:latest<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>imagePullPolicy</b></td>
         <td>string</td>
         <td>
-          Image pull policy.
-One of Always, Never, IfNotPresent.
-Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
-More info: https://kubernetes.io/docs/concepts/containers/images#updating-images<br/>
+          PullPolicy describes a policy for if/when to pull a container image<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespeclocal-1">local</a></b></td>
+        <td>object</td>
+        <td>
+          LocalSourceApplyConfiguration represents an declarative configuration of the LocalSource type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecpodtemplate-1">podTemplate</a></b></td>
         <td>object</td>
         <td>
-          PodTemplate defines a PodTemplateSpec for Workspace's pods.<br/>
+          EmbeddedPodTemplateSpecApplyConfiguration represents an declarative configuration of the EmbeddedPodTemplateSpec type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecresources-1">resources</a></b></td>
         <td>object</td>
         <td>
-          Compute Resources required by this workspace.
-More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/<br/>
+          ResourceRequirements describes the compute resource requirements.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>securityProfile</b></td>
         <td>string</td>
         <td>
-          SecurityProfile applies a security profile to the workspace, 'restricted' by default.<br/>
-          <br/>
-            <i>Default</i>: restricted<br/>
+          SecurityProfile declares the security profile of the workspace, either baseline or restricted.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>serviceAccountName</b></td>
         <td>string</td>
         <td>
-          ServiceAccountName is the Kubernetes service account identity of the workspace.<br/>
           <br/>
-            <i>Default</i>: default<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecstacksindex-1">stacks</a></b></td>
         <td>[]object</td>
         <td>
-          List of stacks this workspace manages.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -21451,7 +21952,8 @@ TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://git
 
 
 
-Flux is the flux source containing the Pulumi program.
+FluxSourceApplyConfiguration represents an declarative configuration of the FluxSource type for use
+with apply.
 
 <table>
     <thead>
@@ -21466,22 +21968,21 @@ Flux is the flux source containing the Pulumi program.
         <td><b>digest</b></td>
         <td>string</td>
         <td>
-          Digest is the digest of the artifact to fetch.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>dir</b></td>
         <td>string</td>
         <td>
-          Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
-interest, within the fetched artifact.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>url</b></td>
         <td>string</td>
         <td>
-          URL is the URL of the artifact to fetch.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -21493,7 +21994,8 @@ interest, within the fetched artifact.<br/>
 
 
 
-Git is the git source containing the Pulumi program.
+GitSourceApplyConfiguration represents an declarative configuration of the GitSource type for use
+with apply.
 
 <table>
     <thead>
@@ -21508,40 +22010,36 @@ Git is the git source containing the Pulumi program.
         <td><b><a href="#stackspecworkspacetemplatespecgitauth-1">auth</a></b></td>
         <td>object</td>
         <td>
-          Auth contains optional authentication information to use when cloning
-the repository.<br/>
+          GitAuthApplyConfiguration represents an declarative configuration of the GitAuth type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>dir</b></td>
         <td>string</td>
         <td>
-          Dir is the directory to work from in the project's source repository
-where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
-in the project source root.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>ref</b></td>
         <td>string</td>
         <td>
-          Ref is the git ref (tag, branch, or commit SHA) to fetch.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>shallow</b></td>
         <td>boolean</td>
         <td>
-          Shallow controls whether the workspace uses a shallow clone or whether
-all history is cloned.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>url</b></td>
         <td>string</td>
         <td>
-          URL is the git source control repository from which we fetch the project
-code and configuration.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -21553,8 +22051,8 @@ code and configuration.<br/>
 
 
 
-Auth contains optional authentication information to use when cloning
-the repository.
+GitAuthApplyConfiguration represents an declarative configuration of the GitAuth type for use
+with apply.
 
 <table>
     <thead>
@@ -21569,31 +22067,28 @@ the repository.
         <td><b><a href="#stackspecworkspacetemplatespecgitauthpassword-1">password</a></b></td>
         <td>object</td>
         <td>
-          The password that pairs with a username or as part of an SSH Private Key.<br/>
+          SecretKeySelector selects a key of a Secret.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecgitauthsshprivatekey-1">sshPrivateKey</a></b></td>
         <td>object</td>
         <td>
-          SSHPrivateKey should contain a private key for access to the git repo.
-When using `SSHPrivateKey`, the URL of the repository must be in the
-format git@github.com:org/repository.git.<br/>
+          SecretKeySelector selects a key of a Secret.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecgitauthtoken-1">token</a></b></td>
         <td>object</td>
         <td>
-          Token is a Git personal access token in replacement of
-your password.<br/>
+          SecretKeySelector selects a key of a Secret.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecgitauthusername-1">username</a></b></td>
         <td>object</td>
         <td>
-          Username is the username to use when authenticating to a git repository.<br/>
+          SecretKeySelector selects a key of a Secret.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -21605,7 +22100,7 @@ your password.<br/>
 
 
 
-The password that pairs with a username or as part of an SSH Private Key.
+SecretKeySelector selects a key of a Secret.
 
 <table>
     <thead>
@@ -21654,9 +22149,7 @@ TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://git
 
 
 
-SSHPrivateKey should contain a private key for access to the git repo.
-When using `SSHPrivateKey`, the URL of the repository must be in the
-format git@github.com:org/repository.git.
+SecretKeySelector selects a key of a Secret.
 
 <table>
     <thead>
@@ -21705,8 +22198,7 @@ TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://git
 
 
 
-Token is a Git personal access token in replacement of
-your password.
+SecretKeySelector selects a key of a Secret.
 
 <table>
     <thead>
@@ -21755,7 +22247,7 @@ TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://git
 
 
 
-Username is the username to use when authenticating to a git repository.
+SecretKeySelector selects a key of a Secret.
 
 <table>
     <thead>
@@ -21799,12 +22291,41 @@ TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://git
 </table>
 
 
+### Stack.spec.workspaceTemplate.spec.local
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespec-1)</sup></sup>
+
+
+
+LocalSourceApplyConfiguration represents an declarative configuration of the LocalSource type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>dir</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate.spec.podTemplate
 <sup><sup>[↩ Parent](#stackspecworkspacetemplatespec-1)</sup></sup>
 
 
 
-PodTemplate defines a PodTemplateSpec for Workspace's pods.
+EmbeddedPodTemplateSpecApplyConfiguration represents an declarative configuration of the EmbeddedPodTemplateSpec type for use
+with apply.
 
 <table>
     <thead>
@@ -21819,15 +22340,15 @@ PodTemplate defines a PodTemplateSpec for Workspace's pods.
         <td><b><a href="#stackspecworkspacetemplatespecpodtemplatemetadata-1">metadata</a></b></td>
         <td>object</td>
         <td>
-          EmbeddedMetadata contains metadata relevant to an embedded resource.<br/>
+          EmbeddedObjectMetaApplyConfiguration represents an declarative configuration of the EmbeddedObjectMeta type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespec-1">spec</a></b></td>
         <td>object</td>
         <td>
-          Specification of the desired behavior of the pod.
-More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status<br/>
+          PodSpec is a description of a pod.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -21839,7 +22360,8 @@ More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-
 
 
 
-EmbeddedMetadata contains metadata relevant to an embedded resource.
+EmbeddedObjectMetaApplyConfiguration represents an declarative configuration of the EmbeddedObjectMeta type for use
+with apply.
 
 <table>
     <thead>
@@ -21854,20 +22376,14 @@ EmbeddedMetadata contains metadata relevant to an embedded resource.
         <td><b>annotations</b></td>
         <td>map[string]string</td>
         <td>
-          Annotations is an unstructured key value map stored with a resource that may be
-set by external tools to store and retrieve arbitrary metadata. They are not
-queryable and should be preserved when modifying objects.
-More info: http://kubernetes.io/docs/user-guide/annotations<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>labels</b></td>
         <td>map[string]string</td>
         <td>
-          Map of string keys and values that can be used to organize and categorize
-(scope and select) objects. May match selectors of replication controllers
-and services.
-More info: http://kubernetes.io/docs/user-guide/labels<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -21879,8 +22395,7 @@ More info: http://kubernetes.io/docs/user-guide/labels<br/>
 
 
 
-Specification of the desired behavior of the pod.
-More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+PodSpec is a description of a pod.
 
 <table>
     <thead>
@@ -37342,8 +37857,7 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
 
 
 
-Compute Resources required by this workspace.
-More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+ResourceRequirements describes the compute resource requirements.
 
 <table>
     <thead>
@@ -37425,7 +37939,8 @@ inside a container.<br/>
 
 
 
-
+WorkspaceStackApplyConfiguration represents an declarative configuration of the WorkspaceStack type for use
+with apply.
 
 <table>
     <thead>
@@ -37437,31 +37952,31 @@ inside a container.<br/>
         </tr>
     </thead>
     <tbody><tr>
-        <td><b>name</b></td>
-        <td>string</td>
-        <td>
-          <br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecstacksindexconfigindex-1">config</a></b></td>
         <td>[]object</td>
         <td>
-          Config is a list of confguration values to set on the stack.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>create</b></td>
         <td>boolean</td>
         <td>
-          Create the stack if it does not exist.<br/>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>secretsProvider</b></td>
         <td>string</td>
         <td>
-          SecretsProvider is the name of the secret provider to use for the stack.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -37473,7 +37988,8 @@ inside a container.<br/>
 
 
 
-
+ConfigItemApplyConfiguration represents an declarative configuration of the ConfigItem type for use
+with apply.
 
 <table>
     <thead>
@@ -37488,35 +38004,36 @@ inside a container.<br/>
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key is the configuration key or path to set.<br/>
+          <br/>
         </td>
-        <td>true</td>
+        <td>false</td>
       </tr><tr>
         <td><b>path</b></td>
         <td>boolean</td>
         <td>
-          The key contains a path to a property in a map or list to set<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>secret</b></td>
         <td>boolean</td>
         <td>
-          Secret marks the configuration value as a secret.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>value</b></td>
         <td>string</td>
         <td>
-          Value is the configuration value to set.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecstacksindexconfigindexvaluefrom-1">valueFrom</a></b></td>
         <td>object</td>
         <td>
-          ValueFrom is a reference to a value from the environment or from a file.<br/>
+          ConfigValueFromApplyConfiguration represents an declarative configuration of the ConfigValueFrom type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -37528,7 +38045,8 @@ inside a container.<br/>
 
 
 
-ValueFrom is a reference to a value from the environment or from a file.
+ConfigValueFromApplyConfiguration represents an declarative configuration of the ConfigValueFrom type for use
+with apply.
 
 <table>
     <thead>
@@ -37543,14 +38061,125 @@ ValueFrom is a reference to a value from the environment or from a file.
         <td><b>env</b></td>
         <td>string</td>
         <td>
-          Env is an environment variable in the pulumi container to use as the value.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>path</b></td>
         <td>string</td>
         <td>
-          Path is a path to a file in the pulumi container containing the value.<br/>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.status
+<sup><sup>[↩ Parent](#stackspecworkspacetemplate-1)</sup></sup>
+
+
+
+WorkspaceStatusApplyConfiguration represents an declarative configuration of the WorkspaceStatus type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>address</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatestatusconditionsindex-1">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.status.conditions[index]
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatestatus-1)</sup></sup>
+
+
+
+ConditionApplyConfiguration represents an declarative configuration of the Condition type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -37608,6 +38237,17 @@ LastUpdate contains details of the status of the last update.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b>failures</b></td>
+        <td>integer</td>
+        <td>
+          Failures records how many times the update has been attempted and
+failed. Failed updates are periodically retried with exponential backoff
+in case the failure was due to transient conditions.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>generation</b></td>
         <td>integer</td>
         <td>
@@ -37651,6 +38291,13 @@ LastUpdate contains details of the status of the last update.
         <td>string</td>
         <td>
           Permalink is the Pulumi Console URL of the stack operation.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>reconcileRequest</b></td>
+        <td>string</td>
+        <td>
+          ReconcileRequest is the stack reconcile request associated with the update.<br/>
         </td>
         <td>false</td>
       </tr><tr>

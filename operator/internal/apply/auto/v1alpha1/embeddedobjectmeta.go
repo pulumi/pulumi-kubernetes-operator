@@ -18,14 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
-// EmbeddedObjectMetaApplyConfiguration represents an declarative configuration of the EmbeddedObjectMeta type for use
+// EmbeddedObjectMetaApplyConfiguration represents a declarative configuration of the EmbeddedObjectMeta type for use
 // with apply.
 type EmbeddedObjectMetaApplyConfiguration struct {
 	Labels      map[string]string `json:"labels,omitempty"`
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-// EmbeddedObjectMetaApplyConfiguration constructs an declarative configuration of the EmbeddedObjectMeta type for use with
+// EmbeddedObjectMetaApplyConfiguration constructs a declarative configuration of the EmbeddedObjectMeta type for use with
 // apply.
 func EmbeddedObjectMeta() *EmbeddedObjectMetaApplyConfiguration {
 	return &EmbeddedObjectMetaApplyConfiguration{}

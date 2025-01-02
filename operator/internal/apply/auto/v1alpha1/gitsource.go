@@ -18,7 +18,7 @@ limitations under the License.
 
 package v1alpha1
 
-// GitSourceApplyConfiguration represents an declarative configuration of the GitSource type for use
+// GitSourceApplyConfiguration represents a declarative configuration of the GitSource type for use
 // with apply.
 type GitSourceApplyConfiguration struct {
 	URL     *string                    `json:"url,omitempty"`
@@ -28,7 +28,7 @@ type GitSourceApplyConfiguration struct {
 	Shallow *bool                      `json:"shallow,omitempty"`
 }
 
-// GitSourceApplyConfiguration constructs an declarative configuration of the GitSource type for use with
+// GitSourceApplyConfiguration constructs a declarative configuration of the GitSource type for use with
 // apply.
 func GitSource() *GitSourceApplyConfiguration {
 	return &GitSourceApplyConfiguration{}
