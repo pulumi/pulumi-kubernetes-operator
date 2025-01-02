@@ -228,6 +228,13 @@ Known .status.conditions.type are: "Complete", "Failed", and "Progressing"<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>outputs</b></td>
+        <td>string</td>
+        <td>
+          Outputs names a secret containing the outputs for this update.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>permalink</b></td>
         <td>string</td>
         <td>

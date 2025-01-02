@@ -18,7 +18,7 @@ limitations under the License.
 
 package v1alpha1
 
-// ConfigItemApplyConfiguration represents an declarative configuration of the ConfigItem type for use
+// ConfigItemApplyConfiguration represents a declarative configuration of the ConfigItem type for use
 // with apply.
 type ConfigItemApplyConfiguration struct {
 	Key       *string                            `json:"key,omitempty"`
@@ -28,7 +28,7 @@ type ConfigItemApplyConfiguration struct {
 	Secret    *bool                              `json:"secret,omitempty"`
 }
 
-// ConfigItemApplyConfiguration constructs an declarative configuration of the ConfigItem type for use with
+// ConfigItemApplyConfiguration constructs a declarative configuration of the ConfigItem type for use with
 // apply.
 func ConfigItem() *ConfigItemApplyConfiguration {
 	return &ConfigItemApplyConfiguration{}

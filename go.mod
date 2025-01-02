@@ -14,8 +14,8 @@ require (
 	github.com/onsi/ginkgo/v2 v2.21.0
 	github.com/onsi/gomega v1.35.1
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/operator-framework/operator-lib v0.14.0
-	github.com/prometheus/client_golang v1.19.1
+	github.com/operator-framework/operator-lib v0.15.0
+	github.com/prometheus/client_golang v1.20.2
 	github.com/prometheus/client_model v0.6.1
 	github.com/pulumi/pulumi/sdk/v3 v3.144.1
 	github.com/spf13/cobra v1.8.1
@@ -41,6 +41,8 @@ require (
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
+	github.com/klauspost/compress v1.17.9 // indirect
+	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 )

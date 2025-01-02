@@ -18,7 +18,7 @@ limitations under the License.
 
 package v1alpha1
 
-// FluxSourceApplyConfiguration represents an declarative configuration of the FluxSource type for use
+// FluxSourceApplyConfiguration represents a declarative configuration of the FluxSource type for use
 // with apply.
 type FluxSourceApplyConfiguration struct {
 	Url    *string `json:"url,omitempty"`
@@ -26,7 +26,7 @@ type FluxSourceApplyConfiguration struct {
 	Dir    *string `json:"dir,omitempty"`
 }
 
-// FluxSourceApplyConfiguration constructs an declarative configuration of the FluxSource type for use with
+// FluxSourceApplyConfiguration constructs a declarative configuration of the FluxSource type for use with
 // apply.
 func FluxSource() *FluxSourceApplyConfiguration {
 	return &FluxSourceApplyConfiguration{}

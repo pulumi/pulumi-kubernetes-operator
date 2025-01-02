@@ -22,7 +22,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-// GitAuthApplyConfiguration represents an declarative configuration of the GitAuth type for use
+// GitAuthApplyConfiguration represents a declarative configuration of the GitAuth type for use
 // with apply.
 type GitAuthApplyConfiguration struct {
 	SSHPrivateKey *v1.SecretKeySelector `json:"sshPrivateKey,omitempty"`
@@ -31,7 +31,7 @@ type GitAuthApplyConfiguration struct {
 	Token         *v1.SecretKeySelector `json:"token,omitempty"`
 }
 
-// GitAuthApplyConfiguration constructs an declarative configuration of the GitAuth type for use with
+// GitAuthApplyConfiguration constructs a declarative configuration of the GitAuth type for use with
 // apply.
 func GitAuth() *GitAuthApplyConfiguration {
 	return &GitAuthApplyConfiguration{}

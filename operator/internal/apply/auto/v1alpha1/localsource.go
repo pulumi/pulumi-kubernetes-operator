@@ -18,13 +18,13 @@ limitations under the License.
 
 package v1alpha1
 
-// LocalSourceApplyConfiguration represents an declarative configuration of the LocalSource type for use
+// LocalSourceApplyConfiguration represents a declarative configuration of the LocalSource type for use
 // with apply.
 type LocalSourceApplyConfiguration struct {
 	Dir *string `json:"dir,omitempty"`
 }
 
-// LocalSourceApplyConfiguration constructs an declarative configuration of the LocalSource type for use with
+// LocalSourceApplyConfiguration constructs a declarative configuration of the LocalSource type for use with
 // apply.
 func LocalSource() *LocalSourceApplyConfiguration {
 	return &LocalSourceApplyConfiguration{}

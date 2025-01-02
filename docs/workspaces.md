@@ -120,9 +120,10 @@ Values defined by an Env with a duplicate key will take precedence.<br/>
         <td><b>image</b></td>
         <td>string</td>
         <td>
-          Image is the Docker image containing the 'pulumi' executable.<br/>
-          <br/>
-            <i>Default</i>: pulumi/pulumi:latest<br/>
+          Image is the container image containing the 'pulumi' executable. If no image is provided,
+the default image is used based on the securityProfile:
+for 'baseline', it defaults to 'pulumi/pulumi:latest';
+for 'restricted', it defaults to 'pulumi/pulumi:latest-nonroot'.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -133,6 +134,13 @@ Values defined by an Env with a duplicate key will take precedence.<br/>
 One of Always, Never, IfNotPresent.
 Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
 More info: https://kubernetes.io/docs/concepts/containers/images#updating-images<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#workspacespeclocal">local</a></b></td>
+        <td>object</td>
+        <td>
+          Local is the local source containing the Pulumi program.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -154,7 +162,11 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
         <td><b>securityProfile</b></td>
         <td>string</td>
         <td>
-          SecurityProfile applies a security profile to the workspace, 'restricted' by default.<br/>
+          SecurityProfile applies a security profile to the workspace.
+The restricted profile (default) runs the pod as a non-root user and with a security context that conforms with
+the Restricted policy of the Pod Security Standards.
+The baseline profile runs the pod as the root user and with a security context that conforms with
+the Baseline policy of the Pod Security Standards.<br/>
           <br/>
             <i>Default</i>: restricted<br/>
         </td>
@@ -925,6 +937,34 @@ TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://git
         <td>boolean</td>
         <td>
           Specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Workspace.spec.local
+<sup><sup>[↩ Parent](#workspacespec)</sup></sup>
+
+
+
+Local is the local source containing the Pulumi program.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>dir</b></td>
+        <td>string</td>
+        <td>
+          Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
+interest, within the workspace image.<br/>
         </td>
         <td>false</td>
       </tr></tbody>

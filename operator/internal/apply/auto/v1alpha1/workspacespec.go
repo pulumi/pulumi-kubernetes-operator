@@ -19,15 +19,15 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 )
 
-// WorkspaceSpecApplyConfiguration represents an declarative configuration of the WorkspaceSpec type for use
+// WorkspaceSpecApplyConfiguration represents a declarative configuration of the WorkspaceSpec type for use
 // with apply.
 type WorkspaceSpecApplyConfiguration struct {
 	ServiceAccountName *string                                    `json:"serviceAccountName,omitempty"`
-	SecurityProfile    *v1alpha1.SecurityProfile                  `json:"securityProfile,omitempty"`
+	SecurityProfile    *autov1alpha1.SecurityProfile              `json:"securityProfile,omitempty"`
 	Image              *string                                    `json:"image,omitempty"`
 	ImagePullPolicy    *v1.PullPolicy                             `json:"imagePullPolicy,omitempty"`
 	Git                *GitSourceApplyConfiguration               `json:"git,omitempty"`
@@ -40,7 +40,7 @@ type WorkspaceSpecApplyConfiguration struct {
 	Stacks             []WorkspaceStackApplyConfiguration         `json:"stacks,omitempty"`
 }
 
-// WorkspaceSpecApplyConfiguration constructs an declarative configuration of the WorkspaceSpec type for use with
+// WorkspaceSpecApplyConfiguration constructs a declarative configuration of the WorkspaceSpec type for use with
 // apply.
 func WorkspaceSpec() *WorkspaceSpecApplyConfiguration {
 	return &WorkspaceSpecApplyConfiguration{}
@@ -57,7 +57,7 @@ func (b *WorkspaceSpecApplyConfiguration) WithServiceAccountName(value string) *
 // WithSecurityProfile sets the SecurityProfile field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the SecurityProfile field is set to the value of the last call.
-func (b *WorkspaceSpecApplyConfiguration) WithSecurityProfile(value v1alpha1.SecurityProfile) *WorkspaceSpecApplyConfiguration {
+func (b *WorkspaceSpecApplyConfiguration) WithSecurityProfile(value autov1alpha1.SecurityProfile) *WorkspaceSpecApplyConfiguration {
 	b.SecurityProfile = &value
 	return b
 }
