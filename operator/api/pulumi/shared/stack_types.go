@@ -140,6 +140,11 @@ type StackSpec struct {
 	// volumes, etc.
 	// +optional
 	WorkspaceTemplate *WorkspaceApplyConfiguration `json:"workspaceTemplate,omitempty"`
+
+	// WorkspaceReclaimPolicy specifies whether the workspace should be deleted or retained after the Stack is synced.
+	// The default behavior is to retain the workspace. Valid values are one of "Retain" or "Delete".
+	// +optional
+	WorkspaceReclaimPolicy WorkspaceReclaimPolicy `json:"workspaceReclaimPolicy,omitempty"`
 }
 
 // GitSource specifies how to fetch from a git repository directly.
@@ -456,3 +461,15 @@ func (ac *WorkspaceApplyConfiguration) DeepCopy() *WorkspaceApplyConfiguration {
 	_ = json.Unmarshal(bytes, out)
 	return out
 }
+
+// WorkspaceReclaimPolicy defines whether the workspace should be deleted or retained after the Stack is synced.
+// +kubebuilder:validation:Enum=Retain;Delete
+// +kubebuilder:default=Retain
+type WorkspaceReclaimPolicy string
+
+const (
+	// WorkspaceReclaimRetain retains the workspace after the Stack is synced.
+	WorkspaceReclaimRetain WorkspaceReclaimPolicy = "Retain"
+	// WorkspaceReclaimDelete deletes the workspace after the Stack is synced.
+	WorkspaceReclaimDelete WorkspaceReclaimPolicy = "Delete"
+)
