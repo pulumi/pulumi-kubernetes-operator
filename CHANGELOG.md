@@ -8,11 +8,12 @@ CHANGELOG
 - Surface Update failures back to the Stack object status [#807](https://github.com/pulumi/pulumi-kubernetes-operator/pull/807)
 - Surface update conflict errors when a stack is locked [#807](https://github.com/pulumi/pulumi-kubernetes-operator/pull/807)4 (add changelog entry)
 - Do not destroy the workspace pod if an authentication error occurs [#805](https://github.com/pulumi/pulumi-kubernetes-operator/pull/805)
+- Use 'parallel' policy for workspace pod rollouts to avoid stalls. [#802](https://github.com/pulumi/pulumi-kubernetes-operator/pull/802)
 
 ## 2.0.0-beta.3 (2024-11-27)
 
 - Stack Controller: watch for delete events. [#756](https://github.com/pulumi/pulumi-kubernetes-operator/pull/756)
-- Stack Controller: fix an issue where new commits weren't detected when using git sources. https://github.com/pulumi/pulumi-kubernetes-operator/issues/762
+- Stack Controller: fix an issue where new commits weren't detected when using git sources. [#762](https://github.com/pulumi/pulumi-kubernetes-operator/issues/762)
 - Ensure cleanup of Stack in foreground deletion. [#760](https://github.com/pulumi/pulumi-kubernetes-operator/pull/760)
 - Register API resources into the "pulumi" category [#765](https://github.com/pulumi/pulumi-kubernetes-operator/pull/765)
 - Use shorter DNS name for pod-to-pod networking. [#764](https://github.com/pulumi/pulumi-kubernetes-operator/pull/764)
