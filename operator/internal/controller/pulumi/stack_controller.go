@@ -957,6 +957,7 @@ func (r *StackReconciler) markStackFailed(sess *stackReconcilerSession, instance
 		Name:                update.Name,
 		Type:                update.Spec.Type,
 		State:               shared.FailedStackStateMessage,
+		Message:             update.Status.Message,
 		LastAttemptedCommit: current.Commit,
 		Permalink:           shared.Permalink(update.Status.Permalink),
 		LastResyncTime:      metav1.Now(),

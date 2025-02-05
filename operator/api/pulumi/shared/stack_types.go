@@ -394,6 +394,8 @@ type StackUpdateState struct {
 	Type autov1alpha1.UpdateType `json:"type,omitempty"`
 	// State is the state of the stack update - one of `succeeded` or `failed`
 	State StackUpdateStateMessage `json:"state,omitempty"`
+	// Message is the message surfacing any errors or additional information about the update.
+	Message string `json:"message,omitempty"`
 	// Last commit attempted
 	LastAttemptedCommit string `json:"lastAttemptedCommit,omitempty"`
 	// Last commit successfully applied
