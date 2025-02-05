@@ -978,11 +978,11 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 				return fmt.Errorf("unmarshaling output mask: %w", err)
 			}
 		}
-		for key, value := range secret.Data {
+		for _, key := range slices.Sorted(maps.Keys(secret.Data)) {
 			if slices.Contains(secrets, key) {
 				outputs[key] = apiextensionsv1.JSON{Raw: []byte(`"[secret]"`)}
 			} else {
-				outputs[key] = apiextensionsv1.JSON{Raw: json.RawMessage(value)}
+				outputs[key] = apiextensionsv1.JSON{Raw: json.RawMessage(secret.Data[key])}
 			}
 		}
 		instance.Status.Outputs = outputs
@@ -1438,23 +1438,22 @@ func (sess *stackReconcilerSession) setupWorkspace(ctx context.Context) error {
 func (sess *stackReconcilerSession) UpdateConfig(ctx context.Context) error {
 	ws := sess.wss
 
-	// m := make(auto.ConfigMap)
-	for k, v := range sess.stack.Config {
+	for _, k := range slices.Sorted(maps.Keys(sess.stack.Config)) {
 		ws.Config = append(ws.Config, autov1alpha1.ConfigItem{
 			Key:    k,
-			Value:  ptr.To(v),
+			Value:  ptr.To(sess.stack.Config[k]),
 			Secret: ptr.To(false),
 		})
 	}
-	for k, v := range sess.stack.Secrets {
+	for _, k := range slices.Sorted(maps.Keys(sess.stack.Secrets)) {
 		ws.Config = append(ws.Config, autov1alpha1.ConfigItem{
 			Key:    k,
-			Value:  ptr.To(v),
+			Value:  ptr.To(sess.stack.Secrets[k]),
 			Secret: ptr.To(true),
 		})
 	}
-
-	for k, ref := range sess.stack.SecretRefs {
+	for _, k := range slices.Sorted(maps.Keys(sess.stack.SecretRefs)) {
+		ref := sess.stack.SecretRefs[k]
 		value, valueFrom, err := sess.resolveResourceRefAsConfigItem(ctx, &ref)
 		if err != nil {
 			return fmt.Errorf("updating secretRef for %q: %w", k, err)
