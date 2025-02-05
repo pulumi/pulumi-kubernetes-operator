@@ -802,6 +802,15 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			log.Info("Not commit tracking. Will wait for resync.")
 		}
 
+		// Delete the workspace if the reclaim policy is set to delete.
+		if instance.Spec.WorkspaceReclaimPolicy == shared.WorkspaceReclaimDelete {
+			log.Info("Deleting workspace as reclaim policy is set to delete")
+			err := sess.DeleteWorkspace(ctx)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+
 		return reconcile.Result{RequeueAfter: requeueAfter}, saveStatus()
 	}
 
@@ -1358,6 +1367,21 @@ func (sess *stackReconcilerSession) CreateWorkspace(ctx context.Context) error {
 
 	if err := sess.kubeClient.Patch(ctx, sess.ws, client.Apply, client.FieldOwner(FieldManager)); err != nil {
 		sess.logger.Error(err, "Failed to create workspace object")
+		return err
+	}
+	return nil
+}
+
+// DeleteWorkspace deletes the workspace object. This is manually called when a Stack is successfully synced,
+// and the Stack has a WorkspaceReclaimPolicy of Delete.
+func (sess *stackReconcilerSession) DeleteWorkspace(ctx context.Context) error {
+	if err := sess.kubeClient.Delete(ctx, sess.ws); err != nil {
+		if apierrors.IsNotFound(err) {
+			sess.logger.Info("Workspace object not found; already deleted")
+			return nil
+		}
+
+		sess.logger.Error(err, "Failed to delete workspace object")
 		return err
 	}
 	return nil
