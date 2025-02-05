@@ -275,3 +275,10 @@ message DestroyResult {
   UpdateSummary summary = 3;
   optional string permalink = 4;
 }
+
+// Describes the cause of the error from Pulumi CLI with structured details.
+message PulumiErrorInfo {
+  int32 code = 1;
+  string reason = 2;
+  string message = 3;
+}
