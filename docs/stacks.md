@@ -19394,6 +19394,13 @@ in case the failure was due to transient conditions.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          Message is the message surfacing any errors or additional information about the update.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
@@ -38661,6 +38668,13 @@ in case the failure was due to transient conditions.<br/>
         <td>string</td>
         <td>
           Last commit successfully applied<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          Message is the message surfacing any errors or additional information about the update.<br/>
         </td>
         <td>false</td>
       </tr><tr>
