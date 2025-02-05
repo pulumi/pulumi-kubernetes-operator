@@ -55,8 +55,10 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 1.23.x
-      - name: Install Pulumi
-        uses: pulumi/actions@13b8b7177d6fb736766875dac9b78aab07bd785f # v6
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@13b8b7177d6fb736766875dac9b78aab07bd785f # v6.0.1
+        with:
+          pulumi-version-file: .pulumi.version
       - name: Run Tests (Agent)
         run: make -C agent test
       - name: Run Tests (Operator)
