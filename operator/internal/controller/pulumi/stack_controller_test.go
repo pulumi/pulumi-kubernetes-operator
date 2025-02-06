@@ -827,12 +827,29 @@ var _ = Describe("Stack Controller", func() {
 					obj.Status.LastUpdate.LastSuccessfulCommit = fluxRepo.Status.Artifact.Digest
 				})
 
+				When("the WorkspaceReclaimPolicy is set to Delete", func() {
+					BeforeEach(func(ctx context.Context) {
+						obj.Spec.WorkspaceReclaimPolicy = shared.WorkspaceReclaimDelete
+					})
+					It("reconciles", func(ctx context.Context) {
+						result, err := reconcileF(ctx)
+						Expect(err).NotTo(HaveOccurred())
+						ByMarkingAsReady()
+						By("not requeuing")
+						Expect(result).To(Equal(reconcile.Result{}))
+						By("deleting the Workspace object")
+						Expect(ws.GetName()).To(BeEmpty())
+					})
+				})
+
 				It("reconciles", func(ctx context.Context) {
 					result, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
 					ByMarkingAsReady()
 					By("not requeuing")
 					Expect(result).To(Equal(reconcile.Result{}))
+					By("not deleting the Workspace object")
+					Expect(ws.GetName()).To(Equal(nameForWorkspace(&obj.ObjectMeta)))
 				})
 
 				Describe("ContinueResyncOnCommitMatch", func() {

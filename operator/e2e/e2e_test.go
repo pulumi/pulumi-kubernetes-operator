@@ -76,13 +76,47 @@ func TestE2E(t *testing.T) {
 			name: "random-yaml-nonroot",
 			f: func(t *testing.T) {
 				t.Parallel()
-
+				// 1. Test `WorkspaceReclaimPolicy` is unset.
 				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/random-yaml-nonroot")
 				require.NoError(t, run(cmd))
 				dumpLogs(t, "random-yaml-nonroot", "pod/random-yaml-nonroot-workspace-0")
 
-				// _, err := waitFor[pulumiv1.Stack]("stacks/random-yaml-nonroot", "random-yaml-nonroot", "condition=Ready", 5*time.Minute)
-				// assert.NoError(t, err) // Failing on CI
+				_, err := waitFor[pulumiv1.Stack]("stacks/random-yaml-nonroot", "random-yaml-nonroot", 5*time.Minute, "condition=Ready")
+				assert.NoError(t, err)
+
+				// Ensure that the workspace pod was not deleted after successful Stack reconciliation.
+				time.Sleep(10 * time.Second)
+				found, err := foundEvent("Pod", "random-yaml-nonroot-workspace-0", "random-yaml-nonroot", "Killing")
+				assert.NoError(t, err)
+				assert.False(t, found)
+
+				// 2. Test `WorkspaceReclaimPolicy` is set to `Delete`.
+				// Update the Stack spec to set the `WorkspaceReclaimPolicy` to `Delete`.
+				cmd = exec.Command("kubectl", "patch", "stacks", "--namespace", "random-yaml-nonroot", "random-yaml-nonroot", "--type=merge", "-p", `{"spec":{"workspaceReclaimPolicy":"Delete"}}`)
+				require.NoError(t, run(cmd))
+
+				// Wait for the Stack to be reconciled, and observedGeneration to be updated.
+				_, err = waitFor[pulumiv1.Stack](
+					"stacks/random-yaml-nonroot",
+					"random-yaml-nonroot",
+					5*time.Minute,
+					"condition=Ready",
+					"jsonpath={.status.observedGeneration}=3")
+				assert.NoError(t, err)
+
+				// Ensure that the workspace pod is now deleted after successful Stack reconciliation.
+				retryUntil(t, 10*time.Second, true, func() bool {
+					found, err = foundEvent("Pod", "random-yaml-nonroot-workspace-0", "random-yaml-nonroot", "Killing")
+					assert.NoError(t, err)
+					return found
+				})
+
+				if t.Failed() {
+					cmd := exec.Command("kubectl", "get", "pods", "-A")
+					out, err := cmd.CombinedOutput()
+					assert.NoError(t, err)
+					t.Log(string(out))
+				}
 			},
 		},
 		{
@@ -92,12 +126,11 @@ func TestE2E(t *testing.T) {
 				if os.Getenv("PULUMI_BOT_TOKEN") == "" {
 					t.Skip("missing PULUMI_BOT_TOKEN")
 				}
-
 				cmd := exec.Command("bash", "-c", "envsubst < e2e/testdata/git-auth-nonroot/* | kubectl apply -f -")
 				require.NoError(t, run(cmd))
 				dumpLogs(t, "git-auth-nonroot", "pod/git-auth-nonroot-workspace-0")
 
-				stack, err := waitFor[pulumiv1.Stack]("stacks/git-auth-nonroot", "git-auth-nonroot", "condition=Ready", 5*time.Minute)
+				stack, err := waitFor[pulumiv1.Stack]("stacks/git-auth-nonroot", "git-auth-nonroot", 5*time.Minute, "condition=Ready")
 				assert.NoError(t, err)
 
 				assert.Equal(t, `"[secret]"`, string(stack.Status.Outputs["secretOutput"].Raw))
@@ -113,7 +146,7 @@ func TestE2E(t *testing.T) {
 				require.NoError(t, run(cmd))
 				dumpLogs(t, "targets", "pod/targets-workspace-0")
 
-				stack, err := waitFor[pulumiv1.Stack]("stacks/targets", "targets", "condition=Ready", 5*time.Minute)
+				stack, err := waitFor[pulumiv1.Stack]("stacks/targets", "targets", 5*time.Minute, "condition=Ready")
 				assert.NoError(t, err)
 
 				assert.Contains(t, stack.Status.Outputs, "targeted")
@@ -125,6 +158,19 @@ func TestE2E(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, tt.f)
 	}
+}
+
+// retryUntil retries the provided function until it returns the required condition or the deadline is reached.
+func retryUntil(t *testing.T, d time.Duration, condition bool, f func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(d)
+	for time.Now().Before(deadline) {
+		if f() == condition {
+			return
+		}
+		time.Sleep(1 * time.Second)
+	}
+	t.Fatalf("timed out waiting for condition")
 }
 
 // dumpLogs prints logs if the test fails.
@@ -141,13 +187,22 @@ func dumpLogs(t *testing.T, namespace, name string) {
 	})
 }
 
-func waitFor[T any](name, namespace, condition string, d time.Duration) (*T, error) {
+func waitFor[T any](name, namespace string, d time.Duration, conditions ...string) (*T, error) {
+	if len(conditions) == 0 {
+		return nil, fmt.Errorf("no conditions provided")
+	}
+
 	cmd := exec.Command("kubectl", "wait", name,
 		"-n", namespace,
-		"--for", condition,
+		"--for", conditions[0],
 		fmt.Sprintf("--timeout=%ds", int(d.Seconds())),
 		"--output=yaml",
 	)
+	// Add additional conditions if provided.
+	for _, condition := range conditions[1:] {
+		cmd.Args = append(cmd.Args, "--for", condition)
+	}
+
 	err := run(cmd)
 	if err != nil {
 		return nil, err
@@ -161,6 +216,22 @@ func waitFor[T any](name, namespace, condition string, d time.Duration) (*T, err
 	}
 
 	return &obj, nil
+}
+
+// foundEvent checks if a Kubernetes event with the given kind, name, namespace, and reason exists.
+func foundEvent(kind, name, namespace, reason string) (bool, error) {
+	cmd := exec.Command("kubectl", "get", "events",
+		"-n", namespace,
+		"--field-selector", fmt.Sprintf("involvedObject.kind=%s,involvedObject.name=%s,reason=%s", kind, name, reason),
+		"--output=name",
+	)
+	err := run(cmd)
+	if err != nil {
+		return false, err
+	}
+
+	buf, _ := cmd.Stdout.(*bytes.Buffer)
+	return strings.Contains(buf.String(), "event/"+name), nil
 }
 
 // run executes the provided command within this context
