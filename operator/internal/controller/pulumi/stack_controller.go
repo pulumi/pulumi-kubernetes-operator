@@ -572,6 +572,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 					log.Error(err, "unable to remove finalizer from current update; update object will be orphaned")
 				}
 			}
+			toBeFinalized = nil
 		}
 		return nil
 	}
@@ -873,16 +874,19 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	// Step 4: Create or update the workspace in which to run an update.
 
 	instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingProcessingReason, pulumiv1.ReconcilingProcessingWorkspaceMessage)
+	if err := saveStatus(); err != nil {
+		// the status couldn't be updated, e.g. due to a conflct; try again later.
+		return reconcile.Result{}, fmt.Errorf("unable to update the status: %w", err)
+	}
 
 	if err := sess.CreateWorkspace(ctx); err != nil {
 		log.Error(err, "cannot create workspace")
 		return reconcile.Result{}, fmt.Errorf("unable to create workspace: %w", err)
 	}
-
 	if !isWorkspaceReady(sess.ws) {
 		// watch the workspace for status updates
 		log.V(1).Info("waiting for workspace to be ready")
-		return reconcile.Result{}, saveStatus()
+		return reconcile.Result{}, nil
 	}
 
 	// Step 5: Create an Update object to run the update asynchronously
@@ -974,11 +978,11 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 				return fmt.Errorf("unmarshaling output mask: %w", err)
 			}
 		}
-		for key, value := range secret.Data {
+		for _, key := range slices.Sorted(maps.Keys(secret.Data)) {
 			if slices.Contains(secrets, key) {
 				outputs[key] = apiextensionsv1.JSON{Raw: []byte(`"[secret]"`)}
 			} else {
-				outputs[key] = apiextensionsv1.JSON{Raw: json.RawMessage(value)}
+				outputs[key] = apiextensionsv1.JSON{Raw: json.RawMessage(secret.Data[key])}
 			}
 		}
 		instance.Status.Outputs = outputs
@@ -1434,23 +1438,22 @@ func (sess *stackReconcilerSession) setupWorkspace(ctx context.Context) error {
 func (sess *stackReconcilerSession) UpdateConfig(ctx context.Context) error {
 	ws := sess.wss
 
-	// m := make(auto.ConfigMap)
-	for k, v := range sess.stack.Config {
+	for _, k := range slices.Sorted(maps.Keys(sess.stack.Config)) {
 		ws.Config = append(ws.Config, autov1alpha1.ConfigItem{
 			Key:    k,
-			Value:  ptr.To(v),
+			Value:  ptr.To(sess.stack.Config[k]),
 			Secret: ptr.To(false),
 		})
 	}
-	for k, v := range sess.stack.Secrets {
+	for _, k := range slices.Sorted(maps.Keys(sess.stack.Secrets)) {
 		ws.Config = append(ws.Config, autov1alpha1.ConfigItem{
 			Key:    k,
-			Value:  ptr.To(v),
+			Value:  ptr.To(sess.stack.Secrets[k]),
 			Secret: ptr.To(true),
 		})
 	}
-
-	for k, ref := range sess.stack.SecretRefs {
+	for _, k := range slices.Sorted(maps.Keys(sess.stack.SecretRefs)) {
+		ref := sess.stack.SecretRefs[k]
 		value, valueFrom, err := sess.resolveResourceRefAsConfigItem(ctx, &ref)
 		if err != nil {
 			return fmt.Errorf("updating secretRef for %q: %w", k, err)

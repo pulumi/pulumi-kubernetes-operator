@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+## Unreleased
+
+- Reduce volatility of the workspace due to ordering and caching issues [#803](https://github.com/pulumi/pulumi-kubernetes-operator/pull/803)
+
 ## 2.0.0-beta.3 (2024-11-27)
 
 - Stack Controller: watch for delete events. [#756](https://github.com/pulumi/pulumi-kubernetes-operator/pull/756)

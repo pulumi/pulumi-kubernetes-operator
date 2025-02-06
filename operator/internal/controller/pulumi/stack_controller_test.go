@@ -1322,6 +1322,241 @@ var _ = Describe("Stack Controller", func() {
 		})
 	})
 
+	Describe("Environment Variables", func() {
+		useFluxSource()
+
+		var secret *corev1.Secret
+		BeforeEach(func(ctx context.Context) {
+			secret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-", Namespace: obj.Namespace,
+				},
+				StringData: map[string]string{
+					"foo":          "bar",
+				},
+			}
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+		})
+
+		var cm *corev1.ConfigMap
+		BeforeEach(func(ctx context.Context) {
+			cm = &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "test-", Namespace: obj.Namespace,
+				},
+				Data: map[string]string{
+					"foo":          "bar",
+				},
+			}
+			Expect(k8sClient.Create(ctx, cm)).To(Succeed())
+		})
+
+		Describe("envs", func() {
+			BeforeEach(func(ctx context.Context) {
+				obj.Spec.Envs = []string{cm.Name}
+			})
+	
+			It("reconciles", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				By("applying environment variables to the workspace")
+				Expect(ws.Spec.EnvFrom).To(HaveExactElements(
+					corev1.EnvFromSource{
+						ConfigMapRef: &corev1.ConfigMapEnvSource{
+							LocalObjectReference: corev1.LocalObjectReference{Name: cm.Name},
+						},
+					},
+				))
+			})
+		})
+
+		Describe("secretEnvs", func() {
+			BeforeEach(func(ctx context.Context) {
+				obj.Spec.SecretEnvs = []string{secret.Name}
+			})
+	
+			It("reconciles", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				By("applying environment variables to the workspace")
+				Expect(ws.Spec.EnvFrom).To(HaveExactElements(
+					corev1.EnvFromSource{
+						SecretRef: &corev1.SecretEnvSource{
+							LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
+						},
+					},
+				))
+			})
+		})
+
+		Describe("envRefs", func() {
+			BeforeEach(func(ctx context.Context) {
+				obj.Spec.EnvRefs = map[string]shared.ResourceRef{
+					"c": {
+						SelectorType: shared.ResourceSelectorLiteral,
+						ResourceSelector: shared.ResourceSelector{
+							LiteralRef: &shared.LiteralRef{
+								Value: "c",
+							},
+						},
+					},
+					"b": {
+						SelectorType: shared.ResourceSelectorSecret,
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
+								Name: secret.Name,
+								Key: "foo",
+							},
+						},
+					},
+				}
+			})
+	
+			It("reconciles", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				By("applying environment variable (refs) to the workspace")
+				Expect(ws.Spec.Env).To(HaveExactElements(
+					corev1.EnvVar{
+						Name: "b",
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
+								Key: "foo",
+							},
+						},
+					},
+					corev1.EnvVar{
+						Name: "c",
+						Value: "c",
+					},
+				))
+			})
+		})
+	})
+
+	Describe("Stack Configuration", func() {
+		useFluxSource()
+
+		BeforeEach(func(ctx context.Context) {
+			obj.Spec.Stack = "dev"
+		})
+
+		It("reconciles", func(ctx context.Context) {
+			_, err := reconcileF(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			By("configuring a workspace stack")
+			Expect(ws).ToNot(BeNil())
+			Expect(ws.Spec.Stacks).To(HaveLen(1))
+			actual := ws.Spec.Stacks[0]
+			Expect(actual.Name).To(Equal(obj.Spec.Stack))
+		})
+
+		Describe("config", func() {
+			BeforeEach(func(ctx context.Context) {
+				obj.Spec.Config = map[string]string{
+					"c": "c",
+					"b": "b",
+				}
+			})
+			It("reconciles", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				actual := ws.Spec.Stacks[0]
+				By("applying workspace config values (in key order)")
+				Expect(actual.Config).To(HaveExactElements(
+					autov1alpha1.ConfigItem{Key: "b", Secret: ptr.To(false), Value: ptr.To("b")},
+					autov1alpha1.ConfigItem{Key: "c", Secret: ptr.To(false), Value: ptr.To("c")},
+				))
+			})
+		})
+
+		Describe("secrets", func() {
+			BeforeEach(func(ctx context.Context) {
+				obj.Spec.Secrets = map[string]string{
+					"c": "c",
+					"b": "b",
+				}
+			})
+			It("reconciles", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				actual := ws.Spec.Stacks[0]
+				By("applying workspace config values (in key order and marked as secrets)")
+				Expect(actual.Config).To(HaveExactElements(
+					autov1alpha1.ConfigItem{Key: "b", Secret: ptr.To(true), Value: ptr.To("b")},
+					autov1alpha1.ConfigItem{Key: "c", Secret: ptr.To(true), Value: ptr.To("c")},
+				))
+			})
+		})
+
+		Describe("secretRefs", func() {
+			var secret *corev1.Secret
+			BeforeEach(func(ctx context.Context) {
+				secret = &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "test-", Namespace: obj.Namespace,
+					},
+					StringData: map[string]string{
+						"foo":          "bar",
+					},
+				}
+				Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+			})
+
+			BeforeEach(func(ctx context.Context) {
+				obj.Spec.SecretRefs = map[string]shared.ResourceRef{
+					"c": {
+						SelectorType: shared.ResourceSelectorLiteral,
+						ResourceSelector: shared.ResourceSelector{
+							LiteralRef: &shared.LiteralRef{
+								Value: "c",
+							},
+						},
+					},
+					"b": {
+						SelectorType: shared.ResourceSelectorSecret,
+						ResourceSelector: shared.ResourceSelector{
+							SecretRef: &shared.SecretSelector{
+								Name: secret.Name,
+								Key: "foo",
+							},
+						},
+					},
+				}
+			})
+			
+			It("reconciles", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				actual := ws.Spec.Stacks[0]
+				By("applying workspace config values (in key order and marked as secrets)")
+				Expect(actual.Config).To(HaveExactElements(
+					autov1alpha1.ConfigItem{Key: "b", Secret: ptr.To(true), ValueFrom: &autov1alpha1.ConfigValueFrom{
+						Path: "/var/run/secrets/stacks.pulumi.com/secrets/" + secret.Name + "/foo",
+					}},
+					autov1alpha1.ConfigItem{Key: "c", Secret: ptr.To(true), Value: ptr.To("c")},
+				))
+				By("attaching the secret(s) as a volume")
+				Expect(ws.Spec.PodTemplate.Spec.Volumes).To(ContainElement(corev1.Volume{
+					Name: "secret-" + secret.Name,
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: secret.Name,
+						},
+					},
+				}))
+				By("mounting the volume to a local path")
+				wspc := ws.Spec.PodTemplate.Spec.Containers[0]
+				Expect(wspc.Name).To(Equal("pulumi"))
+				Expect(wspc.VolumeMounts).To(ContainElement(corev1.VolumeMount{
+					Name: "secret-" + secret.Name,
+					MountPath: "/var/run/secrets/stacks.pulumi.com/secrets/" + secret.Name,
+				}))
+			})
+		})
+	})
+	
 	Describe("Workspace Customization", func() {
 		useFluxSource()
 
