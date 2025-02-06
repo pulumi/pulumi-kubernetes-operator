@@ -271,6 +271,49 @@ func TestUpdate(t *testing.T) {
 			kclient: func(*gomock.Controller) creater { return nil },
 			wantErr: "transient stream error",
 		},
+		{
+			name: "surfacing pulumi cli failures: stack locked",
+			obj:  autov1alpha1.Update{ObjectMeta: metav1.ObjectMeta{Name: "foo", UID: "uid"}},
+			client: func(ctrl *gomock.Controller) upper {
+				upper := NewMockupper(ctrl)
+				recver := NewMockrecver[agentpb.UpStream](ctrl)
+
+				st := status.New(codes.Unknown, "up failed")
+				d, _ := st.WithDetails(&agentpb.PulumiErrorInfo{
+					Message: "Another update is currently in progress",
+					Reason:  "UpdateConflict",
+					Code:    409,
+				})
+
+				gomock.InOrder(
+					upper.EXPECT().
+						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}, grpc.WaitForReady(true)).
+						Return(recver, nil),
+					recver.EXPECT().
+						Recv().
+						Return(nil, d.Err()),
+					recver.EXPECT().CloseSend().Return(nil),
+				)
+				return upper
+			},
+			kclient: func(_ *gomock.Controller) creater { return nil },
+			want: autov1alpha1.UpdateStatus{
+				Message:   "Another u",
+				StartTime: metav1.NewTime(time.Unix(0, 0).UTC()),
+				EndTime:   metav1.NewTime(time.Unix(0, 0).UTC()),
+				Conditions: []metav1.Condition{
+					{Type: "Progressing", Status: "False", Reason: "Complete"},
+					{
+						Type:    "Failed",
+						Status:  "True",
+						Reason:  "UpdateConflict",
+						Message: "Another update is currently in progress",
+					},
+					{Type: "Complete", Status: "True", Reason: "Updated"},
+				},
+			},
+			wantErr: "up failed",
+		},
 	}
 
 	for _, tt := range tests {
@@ -294,6 +337,7 @@ func TestUpdate(t *testing.T) {
 			)
 			if tt.wantErr != "" {
 				assert.ErrorContains(t, err, tt.wantErr)
+				//TODO(rquitales): Also check the return statues!
 				return
 			}
 			assert.NoError(t, err)
