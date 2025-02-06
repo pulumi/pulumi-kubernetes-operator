@@ -5,6 +5,8 @@ CHANGELOG
 
 - Reduce volatility of the workspace due to ordering and caching issues [#803](https://github.com/pulumi/pulumi-kubernetes-operator/pull/803)
 - Enable deleting workspace pod after a successful sync by exposing `WorkspaceReclaimPolicy` [#804](https://github.com/pulumi/pulumi-kubernetes-operator/pull/804)
+- Surface Update failures back to the Stack object status [#807](https://github.com/pulumi/pulumi-kubernetes-operator/pull/807)
+- Surface update conflict errors when a stack is locked [#807](https://github.com/pulumi/pulumi-kubernetes-operator/pull/807)4 (add changelog entry)
 
 ## 2.0.0-beta.3 (2024-11-27)
 
