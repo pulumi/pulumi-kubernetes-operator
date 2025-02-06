@@ -153,6 +153,37 @@ func TestE2E(t *testing.T) {
 				assert.NotContains(t, stack.Status.Outputs, "notTargeted")
 			},
 		},
+		{
+			name: "random-yaml-auth-error",
+			f: func(t *testing.T) {
+				t.Parallel()
+
+				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/random-yaml-auth-error")
+				require.NoError(t, run(cmd))
+				dumpLogs(t, "random-yaml-auth-error", "pod/random-yaml-auth-error-workspace-0")
+
+				// Wait for the Workspace pod to be created, so that we can watch/wait on the Workspace object.
+				retryUntil(t, 30*time.Second, true, func() bool {
+					found, err := foundEvent("Pod", "random-yaml-auth-error-workspace-0", "random-yaml-auth-error", "Created")
+					assert.NoError(t, err)
+					return found
+				})
+
+				// Ensure the Workspace is in a failed state with Unauthenticated.
+				_, err := waitFor[pulumiv1.Stack](
+					"workspaces/random-yaml-auth-error",
+					"random-yaml-auth-error",
+					5*time.Minute,
+					`jsonpath={.status.conditions[?(@.type=="Ready")].reason}=Unauthenticated`)
+				assert.NoError(t, err)
+
+				// Ensure that the workspace pod was not deleted after reconciling the failed stack.
+				time.Sleep(10 * time.Second)
+				found, err := foundEvent("Pod", "random-yaml-auth-error-workspace-0", "random-yaml-auth-error", "Killing")
+				assert.NoError(t, err)
+				assert.False(t, found)
+			},
+		},
 	}
 
 	for _, tt := range tests {
