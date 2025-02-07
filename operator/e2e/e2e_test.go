@@ -159,17 +159,21 @@ func TestE2E(t *testing.T) {
 			f: func(t *testing.T) {
 				t.Parallel()
 
+				// deploy a workspace with a non-existent container image (pulumi:nosuchimage)
 				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/issue-801")
 				require.NoError(t, run(cmd))
 				dumpLogs(t, "issue-801", "pods/issue-801-workspace-0")
 
-				_, err := waitFor[autov1alpha1.Workspace]("pods/issue-801-workspace-0", "issue-801", "create", 5*time.Minute)
+				// wait for the pod to be created (knowing that it will never become ready)
+				_, err := waitFor[autov1alpha1.Workspace]("pods/issue-801-workspace-0", "issue-801", 5*time.Minute, "create")
 				assert.NoError(t, err)
 
+				// update the workspace to a valid image (expecting that a new pod will be rolled out)
 				cmd = exec.Command("kubectl", "apply", "-f", "e2e/testdata/issue-801/step2")
 				require.NoError(t, run(cmd))
 
-				_, err = waitFor[autov1alpha1.Workspace]("workspaces/issue-801", "issue-801", "condition=Ready", 5*time.Minute)
+				// wait for the workspace to be fully ready
+				_, err = waitFor[autov1alpha1.Workspace]("workspaces/issue-801", "issue-801", 5*time.Minute, "condition=Ready")
 				assert.NoError(t, err)
 			},
 		},

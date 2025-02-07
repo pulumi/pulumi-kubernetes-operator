@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc/status"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -188,6 +189,14 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 	err = r.Patch(ctx, ss, client.Apply, client.FieldOwner(FieldManager))
 	if err != nil {
+		// issue-801 - migration logic for 2.0-beta.3 to 2.0.0
+		if apierrors.IsInvalid(err) {
+			l.V(0).Info("replacing the workspace statefulset to update an immutable field")
+			if err = r.Delete(ctx, ss); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to delete statefulset: %w", err)
+			}
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
 		return ctrl.Result{}, fmt.Errorf("failed to apply statefulset: %w", err)
 	}
 
