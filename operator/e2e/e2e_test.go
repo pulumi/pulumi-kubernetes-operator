@@ -31,6 +31,7 @@ import (
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -76,7 +77,6 @@ func TestE2E(t *testing.T) {
 		{
 			name: "random-yaml-nonroot",
 			f: func(t *testing.T) {
-				t.Parallel()
 				// 1. Test `WorkspaceReclaimPolicy` is unset.
 				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/random-yaml-nonroot")
 				require.NoError(t, run(cmd))
@@ -123,7 +123,6 @@ func TestE2E(t *testing.T) {
 		{
 			name: "git-auth-nonroot",
 			f: func(t *testing.T) {
-				t.Parallel()
 				if os.Getenv("PULUMI_BOT_TOKEN") == "" {
 					t.Skip("missing PULUMI_BOT_TOKEN")
 				}
@@ -141,8 +140,6 @@ func TestE2E(t *testing.T) {
 		{
 			name: "targets",
 			f: func(t *testing.T) {
-				t.Parallel()
-
 				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/targets")
 				require.NoError(t, run(cmd))
 				dumpLogs(t, "targets", "pod/targets-workspace-0")
@@ -157,15 +154,13 @@ func TestE2E(t *testing.T) {
 		{
 			name: "issue-801",
 			f: func(t *testing.T) {
-				t.Parallel()
-
 				// deploy a workspace with a non-existent container image (pulumi:nosuchimage)
 				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/issue-801")
 				require.NoError(t, run(cmd))
 				dumpLogs(t, "issue-801", "pods/issue-801-workspace-0")
 
 				// wait for the pod to be created (knowing that it will never become ready)
-				_, err := waitFor[autov1alpha1.Workspace]("pods/issue-801-workspace-0", "issue-801", 5*time.Minute, "create")
+				_, err := waitFor[corev1.Pod]("pods/issue-801-workspace-0", "issue-801", 5*time.Minute, "create")
 				assert.NoError(t, err)
 
 				// update the workspace to a valid image (expecting that a new pod will be rolled out)
