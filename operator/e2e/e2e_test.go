@@ -27,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -151,6 +152,25 @@ func TestE2E(t *testing.T) {
 
 				assert.Contains(t, stack.Status.Outputs, "targeted")
 				assert.NotContains(t, stack.Status.Outputs, "notTargeted")
+			},
+		},
+		{
+			name: "issue-801",
+			f: func(t *testing.T) {
+				t.Parallel()
+
+				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/issue-801")
+				require.NoError(t, run(cmd))
+				dumpLogs(t, "issue-801", "pods/issue-801-workspace-0")
+
+				_, err := waitFor[autov1alpha1.Workspace]("pods/issue-801-workspace-0", "issue-801", "create", 5*time.Minute)
+				assert.NoError(t, err)
+
+				cmd = exec.Command("kubectl", "apply", "-f", "e2e/testdata/issue-801/step2")
+				require.NoError(t, run(cmd))
+
+				_, err = waitFor[autov1alpha1.Workspace]("workspaces/issue-801", "issue-801", "condition=Ready", 5*time.Minute)
+				assert.NoError(t, err)
 			},
 		},
 		{
