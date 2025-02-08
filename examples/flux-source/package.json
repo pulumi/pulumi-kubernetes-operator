@@ -6,7 +6,7 @@
     "dependencies": {
         "@pulumi/kubernetes": "4.21.1",
         "@pulumi/kubernetesx": "0.1.6",
-        "@pulumi/pulumi": "3.148.0",
+        "@pulumi/pulumi": "3.149.0",
         "@worawat/flux": "^1.0.0"
     }
 }
