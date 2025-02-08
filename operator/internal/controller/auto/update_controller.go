@@ -30,6 +30,7 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -294,6 +295,7 @@ func (rs *reconcileSession) updateStatus(ctx context.Context, obj *autov1alpha1.
 	meta.SetStatusCondition(&obj.Status.Conditions, *rs.failed)
 	rs.complete.ObservedGeneration = obj.Generation
 	meta.SetStatusCondition(&obj.Status.Conditions, *rs.complete)
+
 	err := rs.client.Status().Update(ctx, obj)
 	if err == nil {
 		if obj.ResourceVersion != oldRevision {
@@ -332,6 +334,12 @@ func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update
 	reader := streamReader[agentpb.PreviewStream]{receiver: res, l: l, u: u, obj: obj}
 	_, err = reader.Result()
 	if err != nil {
+		// Update the status/conditions.
+		l.Error(err, "failed to run preview")
+		if err := u.updateStatus(ctx, obj); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
+		}
+
 		return ctrl.Result{}, err
 	}
 
@@ -378,6 +386,12 @@ func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update,
 	reader := streamReader[agentpb.UpStream]{receiver: res, l: l, u: u, obj: obj}
 	result, err := reader.Result()
 	if err != nil {
+		// Update the status/conditions.
+		l.Error(err, "failed to run update")
+		if err := u.updateStatus(ctx, obj); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
+		}
+
 		return ctrl.Result{}, err
 	}
 
@@ -418,6 +432,12 @@ func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update
 	reader := streamReader[agentpb.RefreshStream]{receiver: res, l: l, u: u, obj: obj}
 	_, err = reader.Result()
 	if err != nil {
+		// Update the status/conditions.
+		l.Error(err, "failed to run refresh")
+		if err := u.updateStatus(ctx, obj); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
+		}
+
 		return ctrl.Result{}, err
 	}
 
@@ -448,6 +468,12 @@ func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update
 	reader := streamReader[agentpb.DestroyStream]{receiver: res, l: l, u: u, obj: obj}
 	_, err = reader.Result()
 	if err != nil {
+		// Update the status/conditions.
+		l.Error(err, "failed to run destroy")
+		if err := u.updateStatus(ctx, obj); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
+		}
+
 		return ctrl.Result{}, err
 	}
 
@@ -576,6 +602,7 @@ func (s streamReader[T]) Result() (result, error) {
 		}
 		if err != nil {
 			s.l.Error(err, "Unexpected error from response stream")
+			s.setStatusBlockFromGRPCErr(err)
 			return nil, err
 		}
 
@@ -610,6 +637,43 @@ func (s streamReader[T]) Result() (result, error) {
 	}
 
 	return res, fmt.Errorf("didn't receive a result")
+}
+
+// setStatusBlockFromGRPCErr sets the Update object status blocks based on the result of a gRPC error.
+// If the error contains a structured PulumiErrorInfo, we'll use that information to surface the error.
+func (s streamReader[T]) setStatusBlockFromGRPCErr(grpcErr error) {
+	// Set the conditions to indicate the update failed.
+	s.obj.Status.Message = "An unknown error occurred" // Default message if we can't parse one.
+	s.u.progressing.Status = metav1.ConditionFalse
+	s.u.progressing.Reason = UpdateConditionReasonComplete
+	s.u.complete.Status = metav1.ConditionTrue
+	s.u.complete.Reason = UpdateConditionReasonUpdated
+
+	st, ok := status.FromError(grpcErr)
+	if !ok {
+		return
+	}
+
+	// Set the failed condition to use the generic grpc error.
+	s.obj.Status.Message = st.Message()
+	s.u.failed.Status = metav1.ConditionTrue
+	s.u.failed.Reason = "Unknown"
+	s.u.failed.Message = st.Message()
+
+	if len(st.Details()) == 0 {
+		return
+	}
+
+	// Use the detailed structured error from PulumiErrorInfo if available.
+	d := st.Details()[0]
+	switch info := d.(type) {
+	case *agentpb.PulumiErrorInfo:
+		// Override the failed condition using additional info from PulumiErrorInfo.
+		s.obj.Status.Message = info.GetMessage()
+		s.u.failed.Status = metav1.ConditionTrue
+		s.u.failed.Reason = info.GetReason()
+		s.u.failed.Message = info.GetMessage()
+	}
 }
 
 // getResulter glues our various result types to a common interface.

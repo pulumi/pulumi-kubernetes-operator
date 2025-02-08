@@ -393,7 +393,8 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 	res, err := stack.Preview(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("preview completed with an error", zap.Error(err))
-		return err
+		st := status.Newf(codes.Unknown, "preview failed: %v", err)
+		return withPulumiErrorInfo(st, err).Err()
 	}
 	stdout.Close()
 	stderr.Close()
@@ -474,7 +475,8 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 	res, err := stack.Refresh(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("refresh completed with an error", zap.Error(err))
-		return err
+		st := status.Newf(codes.Unknown, "refresh failed: %v", err)
+		return withPulumiErrorInfo(st, err).Err()
 	}
 	s.log.Infow("refresh completed", "summary", res.Summary)
 
@@ -569,7 +571,8 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 	res, err := stack.Up(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("up completed with an error", zap.Error(err))
-		return err
+		st := status.Newf(codes.Unknown, "up failed: %v", err)
+		return withPulumiErrorInfo(st, err).Err()
 	}
 	stdout.Close()
 	stderr.Close()
@@ -668,7 +671,8 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 	res, err := stack.Destroy(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("destroy completed with an error", zap.Error(err))
-		return err
+		st := status.Newf(codes.Unknown, "destroy failed: %v", err)
+		return withPulumiErrorInfo(st, err).Err()
 	}
 	s.log.Infow("destroy completed", "summary", res.Summary)
 

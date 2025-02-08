@@ -9631,6 +9631,10 @@ spec:
                   lastSuccessfulCommit:
                     description: Last commit successfully applied
                     type: string
+                  message:
+                    description: Message is the message surfacing any errors or additional
+                      information about the update.
+                    type: string
                   name:
                     description: Name is the name of the update object.
                     type: string
@@ -19186,6 +19190,10 @@ spec:
                     type: string
                   lastSuccessfulCommit:
                     description: Last commit successfully applied
+                    type: string
+                  message:
+                    description: Message is the message surfacing any errors or additional
+                      information about the update.
                     type: string
                   name:
                     description: Name is the name of the update object.

@@ -537,6 +537,62 @@ var _ = Describe("Stack Controller", func() {
 				Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.StackUpdateFailure)))
 			})
 
+			When("a stack is locked", func() {
+				BeforeEach(func(ctx context.Context) {
+					currentUpdate.Status.Message = "the stack is locked; another update is in progress"
+					currentUpdate.Status.Conditions = []metav1.Condition{
+						{
+							Type:               autov1alpha1.UpdateConditionTypeComplete,
+							Status:             metav1.ConditionTrue,
+							Reason:             "Updated",
+							LastTransitionTime: metav1.Now(),
+						},
+						{
+							Type:               autov1alpha1.UpdateConditionTypeFailed,
+							Status:             metav1.ConditionTrue,
+							Reason:             "UpdateConflict",
+							Message:            "the stack is locked; another update is in progress",
+							LastTransitionTime: metav1.Now(),
+						},
+					}
+				})
+
+				It("reconciles", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(obj.Status.LastUpdate.Message).To(Equal("the stack is locked; another update is in progress"))
+				})
+			})
+
+			When("an unknown error occured running pulumi", func() {
+				BeforeEach(func(ctx context.Context) {
+					currentUpdate.Status.Message = "an unknown error occurred running up"
+					currentUpdate.Status.Conditions = []metav1.Condition{
+						{
+							Type:               autov1alpha1.UpdateConditionTypeComplete,
+							Status:             metav1.ConditionTrue,
+							Reason:             "Updated",
+							LastTransitionTime: metav1.Now(),
+						},
+						{
+							Type:               autov1alpha1.UpdateConditionTypeFailed,
+							Status:             metav1.ConditionTrue,
+							Reason:             "Unknown",
+							Message:            "an unknown error occurred running up",
+							LastTransitionTime: metav1.Now(),
+						},
+					}
+				})
+
+				It("reconciles", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(obj.Status.LastUpdate.Message).To(Equal("an unknown error occurred running up"))
+				})
+			})
+
 			When("retrying", func() {
 				JustBeforeEach(func(ctx context.Context) {
 					obj.Status.LastUpdate = &shared.StackUpdateState{
@@ -725,6 +781,7 @@ var _ = Describe("Stack Controller", func() {
 					Failures:             3,
 				}
 			})
+
 			When("within cooldown period", func() {
 				It("backs off exponentially", func(ctx context.Context) {
 					res, err := reconcileF(ctx)
@@ -1349,7 +1406,7 @@ var _ = Describe("Stack Controller", func() {
 					GenerateName: "test-", Namespace: obj.Namespace,
 				},
 				StringData: map[string]string{
-					"foo":          "bar",
+					"foo": "bar",
 				},
 			}
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
@@ -1362,7 +1419,7 @@ var _ = Describe("Stack Controller", func() {
 					GenerateName: "test-", Namespace: obj.Namespace,
 				},
 				Data: map[string]string{
-					"foo":          "bar",
+					"foo": "bar",
 				},
 			}
 			Expect(k8sClient.Create(ctx, cm)).To(Succeed())
@@ -1372,7 +1429,7 @@ var _ = Describe("Stack Controller", func() {
 			BeforeEach(func(ctx context.Context) {
 				obj.Spec.Envs = []string{cm.Name}
 			})
-	
+
 			It("reconciles", func(ctx context.Context) {
 				_, err := reconcileF(ctx)
 				Expect(err).NotTo(HaveOccurred())
@@ -1391,7 +1448,7 @@ var _ = Describe("Stack Controller", func() {
 			BeforeEach(func(ctx context.Context) {
 				obj.Spec.SecretEnvs = []string{secret.Name}
 			})
-	
+
 			It("reconciles", func(ctx context.Context) {
 				_, err := reconcileF(ctx)
 				Expect(err).NotTo(HaveOccurred())
@@ -1422,13 +1479,13 @@ var _ = Describe("Stack Controller", func() {
 						ResourceSelector: shared.ResourceSelector{
 							SecretRef: &shared.SecretSelector{
 								Name: secret.Name,
-								Key: "foo",
+								Key:  "foo",
 							},
 						},
 					},
 				}
 			})
-	
+
 			It("reconciles", func(ctx context.Context) {
 				_, err := reconcileF(ctx)
 				Expect(err).NotTo(HaveOccurred())
@@ -1439,12 +1496,12 @@ var _ = Describe("Stack Controller", func() {
 						ValueFrom: &corev1.EnvVarSource{
 							SecretKeyRef: &corev1.SecretKeySelector{
 								LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
-								Key: "foo",
+								Key:                  "foo",
 							},
 						},
 					},
 					corev1.EnvVar{
-						Name: "c",
+						Name:  "c",
 						Value: "c",
 					},
 				))
@@ -1515,7 +1572,7 @@ var _ = Describe("Stack Controller", func() {
 						GenerateName: "test-", Namespace: obj.Namespace,
 					},
 					StringData: map[string]string{
-						"foo":          "bar",
+						"foo": "bar",
 					},
 				}
 				Expect(k8sClient.Create(ctx, secret)).To(Succeed())
@@ -1536,13 +1593,13 @@ var _ = Describe("Stack Controller", func() {
 						ResourceSelector: shared.ResourceSelector{
 							SecretRef: &shared.SecretSelector{
 								Name: secret.Name,
-								Key: "foo",
+								Key:  "foo",
 							},
 						},
 					},
 				}
 			})
-			
+
 			It("reconciles", func(ctx context.Context) {
 				_, err := reconcileF(ctx)
 				Expect(err).NotTo(HaveOccurred())
@@ -1567,13 +1624,13 @@ var _ = Describe("Stack Controller", func() {
 				wspc := ws.Spec.PodTemplate.Spec.Containers[0]
 				Expect(wspc.Name).To(Equal("pulumi"))
 				Expect(wspc.VolumeMounts).To(ContainElement(corev1.VolumeMount{
-					Name: "secret-" + secret.Name,
+					Name:      "secret-" + secret.Name,
 					MountPath: "/var/run/secrets/stacks.pulumi.com/secrets/" + secret.Name,
 				}))
 			})
 		})
 	})
-	
+
 	Describe("Workspace Customization", func() {
 		useFluxSource()
 
