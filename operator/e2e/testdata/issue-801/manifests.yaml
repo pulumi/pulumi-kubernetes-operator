@@ -1,3 +1,4 @@
+# note: image is purposefully set to a non-existent image to simulate a rollout problem
 apiVersion: v1
 kind: Namespace
 metadata:

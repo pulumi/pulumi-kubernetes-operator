@@ -118,6 +118,10 @@ func TestE2E(t *testing.T) {
 					assert.NoError(t, err)
 					t.Log(string(out))
 				}
+
+				// cleanup
+				cmd = exec.Command("kubectl", "delete", "-f", "e2e/testdata/random-yaml-nonroot")
+				require.NoError(t, run(cmd))
 			},
 		},
 		{
@@ -135,6 +139,10 @@ func TestE2E(t *testing.T) {
 
 				assert.Equal(t, `"[secret]"`, string(stack.Status.Outputs["secretOutput"].Raw))
 				assert.Equal(t, `"foo"`, string(stack.Status.Outputs["simpleOutput"].Raw))
+
+				// cleanup
+				cmd = exec.Command("bash", "-c", "envsubst < e2e/testdata/git-auth-nonroot/* | kubectl delete -f -")
+				require.NoError(t, run(cmd))
 			},
 		},
 		{
@@ -149,15 +157,21 @@ func TestE2E(t *testing.T) {
 
 				assert.Contains(t, stack.Status.Outputs, "targeted")
 				assert.NotContains(t, stack.Status.Outputs, "notTargeted")
+
+				// cleanup
+				cmd = exec.Command("kubectl", "delete", "-f", "e2e/testdata/targets")
+				require.NoError(t, run(cmd))
 			},
 		},
 		{
 			name: "issue-801",
 			f: func(t *testing.T) {
+				dumpEvents(t, "issue-801")
+				dumpLogs(t, "issue-801", "pods/issue-801-workspace-0")
+
 				// deploy a workspace with a non-existent container image (pulumi:nosuchimage)
 				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/issue-801")
 				require.NoError(t, run(cmd))
-				dumpLogs(t, "issue-801", "pods/issue-801-workspace-0")
 
 				// wait for the pod to be created (knowing that it will never become ready)
 				_, err := waitFor[corev1.Pod]("pods/issue-801-workspace-0", "issue-801", 5*time.Minute, "create")
@@ -170,6 +184,10 @@ func TestE2E(t *testing.T) {
 				// wait for the workspace to be fully ready
 				_, err = waitFor[autov1alpha1.Workspace]("workspaces/issue-801", "issue-801", 5*time.Minute, "condition=Ready")
 				assert.NoError(t, err)
+
+				// cleanup
+				cmd = exec.Command("kubectl", "delete", "-f", "e2e/testdata/issue-801")
+				require.NoError(t, run(cmd))
 			},
 		},
 		{
@@ -231,6 +249,20 @@ func dumpLogs(t *testing.T, namespace, name string) {
 		}
 		t.Logf("=== LOGS %s %s", namespace, name)
 		cmd := exec.Command("kubectl", "logs", "--all-containers=true", "-n", namespace, name)
+		out, err := cmd.CombinedOutput()
+		assert.NoError(t, err)
+		t.Log(string(out))
+	})
+}
+
+
+func dumpEvents(t *testing.T, namespace string) {
+	t.Cleanup(func() {
+		if !t.Failed() {
+			return
+		}
+		t.Logf("=== EVENTS %s", namespace)
+		cmd := exec.Command("kubectl", "get", "events", "-n", namespace)
 		out, err := cmd.CombinedOutput()
 		assert.NoError(t, err)
 		t.Log(string(out))

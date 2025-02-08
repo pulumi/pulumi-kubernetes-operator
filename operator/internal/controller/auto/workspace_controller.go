@@ -189,7 +189,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 	err = r.Patch(ctx, ss, client.Apply, client.FieldOwner(FieldManager))
 	if err != nil {
-		// issue-801 - migration logic for 2.0-beta.3 to 2.0.0
+		// issue-801 - migration logic for 2.0.0-beta.3 to 2.0.0
 		if apierrors.IsInvalid(err) {
 			l.V(0).Info("replacing the workspace statefulset to update an immutable field")
 			if err = r.Delete(ctx, ss); err != nil {
