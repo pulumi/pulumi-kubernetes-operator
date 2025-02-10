@@ -239,7 +239,6 @@ func dumpLogs(t *testing.T, namespace, name string) {
 	})
 }
 
-
 func dumpEvents(t *testing.T, namespace string) {
 	t.Cleanup(func() {
 		if !t.Failed() {

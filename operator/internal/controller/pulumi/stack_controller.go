@@ -80,6 +80,7 @@ const (
 	pulumiFinalizer          = "finalizer.stack.pulumi.com"
 	programRefIndexFieldName = ".spec.programRef.name"      // this is an arbitrary string, named for the field it indexes
 	fluxSourceIndexFieldName = ".spec.fluxSource.sourceRef" // an arbitrary name, named for the field it indexes
+	ttlForCompletedUpdate    = time.Hour * 24
 )
 
 const (
@@ -1507,10 +1508,11 @@ func (sess *stackReconcilerSession) newUp(ctx context.Context, o *pulumiv1.Stack
 			Namespace: sess.namespace,
 		},
 		Spec: autov1alpha1.UpdateSpec{
-			WorkspaceName: sess.ws.Name,
-			StackName:     sess.stack.Stack,
-			Type:          autov1alpha1.UpType,
-			Message:       ptr.To(message),
+			WorkspaceName:     sess.ws.Name,
+			StackName:         sess.stack.Stack,
+			Type:              autov1alpha1.UpType,
+			TtlAfterCompleted: &metav1.Duration{Duration: ttlForCompletedUpdate},
+			Message:           ptr.To(message),
 			// ExpectNoChanges:  ptr.To(o.Spec.ExpectNoRefreshChanges),
 			Target:           o.Spec.Targets,
 			TargetDependents: ptr.To(o.Spec.TargetDependents),
@@ -1537,10 +1539,11 @@ func (sess *stackReconcilerSession) newDestroy(ctx context.Context, o *pulumiv1.
 			Namespace: sess.namespace,
 		},
 		Spec: autov1alpha1.UpdateSpec{
-			WorkspaceName: sess.ws.Name,
-			StackName:     sess.stack.Stack,
-			Type:          autov1alpha1.DestroyType,
-			Message:       ptr.To(message),
+			WorkspaceName:     sess.ws.Name,
+			StackName:         sess.stack.Stack,
+			Type:              autov1alpha1.DestroyType,
+			TtlAfterCompleted: &metav1.Duration{Duration: ttlForCompletedUpdate},
+			Message:           ptr.To(message),
 		},
 	}
 

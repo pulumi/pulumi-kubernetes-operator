@@ -98,6 +98,21 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	rs := newReconcileSession(r.Client, obj)
 
 	if rs.complete.Status == metav1.ConditionTrue {
+		// implement ttl for completed updates
+		if obj.DeletionTimestamp.IsZero() && obj.Spec.TtlAfterCompleted != nil {
+			remainingTtl := rs.complete.LastTransitionTime.Add(obj.Spec.TtlAfterCompleted.Duration).Sub(time.Now())
+			if remainingTtl <= 0 {
+				l.Info("Deleting completed update (ttl has expired)")
+				err = r.Delete(ctx, obj)
+				if err != nil {
+					return ctrl.Result{}, fmt.Errorf("failed to delete completed update: %w", err)
+				}
+				return ctrl.Result{}, nil
+			} else {
+				l.V(1).Info("Retaining completed update", "remainingTtl", remainingTtl)
+				return ctrl.Result{RequeueAfter: remainingTtl}, nil
+			}
+		}
 		l.V(1).Info("Ignoring completed update")
 		return ctrl.Result{}, nil
 	}

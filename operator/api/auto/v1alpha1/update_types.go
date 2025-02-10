@@ -39,10 +39,13 @@ const (
 type UpdateSpec struct {
 	// WorkspaceName is the workspace to update.
 	WorkspaceName string `json:"workspaceName,omitempty"`
-	StackName     string `json:"stackName,omitempty"`
-
+	// Specify the Pulumi stack to select for the update.
+	StackName string `json:"stackName,omitempty"`
+	// Type of the update to perform.
 	Type UpdateType `json:"type,omitempty"`
-
+	// TTL for a completed update object.
+	// +optional
+	TtlAfterCompleted *metav1.Duration `json:"ttlAfterCompleted,omitempty"`
 	// Parallel is the number of resource operations to run in parallel at once
 	// (1 for no parallelism). Defaults to unbounded.
 	// +optional
