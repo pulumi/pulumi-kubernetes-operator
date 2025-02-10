@@ -59,7 +59,7 @@ spec:
   refresh: false
   continueResyncOnCommitMatch: false
   resyncFrequencySeconds: 60
-  destroyOnFinalize: true
+  destroyOnFinalize: false
 
   # Enable file state for testing.
   envRefs:
@@ -73,6 +73,7 @@ spec:
         value: "test"
   workspaceTemplate:
     spec:
+      image: pulumi/pulumi:3.147.0-nonroot
       serviceAccountName: git-auth-nonroot
       podTemplate:
         spec:

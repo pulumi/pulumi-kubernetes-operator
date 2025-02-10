@@ -1,0 +1,55 @@
+# note: image is purposefully set to a non-existent image to simulate a rollout problem
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: issue-801
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: issue-801
+  namespace: issue-801
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: issue-801:system:auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: issue-801
+  namespace: issue-801
+---
+apiVersion: auto.pulumi.com/v1alpha1
+kind: Workspace
+metadata:
+  name: issue-801
+  namespace: issue-801
+spec:
+  image: pulumi/nosuchimage:3.147.0-nonroot
+  securityProfile: restricted
+  serviceAccountName: issue-801
+  git:
+    url: https://github.com/pulumi/examples.git
+    ref: 1e2fc471709448f3c9f7a250f28f1eafcde7017b
+    dir: random-yaml
+    shallow: true
+  env:
+    - name: PULUMI_CONFIG_PASSPHRASE
+      value: test
+    - name: PULUMI_BACKEND_URL
+      value: file:///state/
+
+  podTemplate:
+    spec:
+      containers:
+        - name: pulumi
+          volumeMounts:
+            - name: state
+              mountPath: /state
+      volumes:
+        - name: state
+          emptyDir: {}

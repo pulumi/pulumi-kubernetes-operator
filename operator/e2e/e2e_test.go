@@ -27,9 +27,11 @@ import (
 	"testing"
 	"time"
 
+	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -75,7 +77,6 @@ func TestE2E(t *testing.T) {
 		{
 			name: "random-yaml-nonroot",
 			f: func(t *testing.T) {
-				t.Parallel()
 				// 1. Test `WorkspaceReclaimPolicy` is unset.
 				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/random-yaml-nonroot")
 				require.NoError(t, run(cmd))
@@ -122,7 +123,6 @@ func TestE2E(t *testing.T) {
 		{
 			name: "git-auth-nonroot",
 			f: func(t *testing.T) {
-				t.Parallel()
 				if os.Getenv("PULUMI_BOT_TOKEN") == "" {
 					t.Skip("missing PULUMI_BOT_TOKEN")
 				}
@@ -140,8 +140,6 @@ func TestE2E(t *testing.T) {
 		{
 			name: "targets",
 			f: func(t *testing.T) {
-				t.Parallel()
-
 				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/targets")
 				require.NoError(t, run(cmd))
 				dumpLogs(t, "targets", "pod/targets-workspace-0")
@@ -151,6 +149,29 @@ func TestE2E(t *testing.T) {
 
 				assert.Contains(t, stack.Status.Outputs, "targeted")
 				assert.NotContains(t, stack.Status.Outputs, "notTargeted")
+			},
+		},
+		{
+			name: "issue-801",
+			f: func(t *testing.T) {
+				dumpEvents(t, "issue-801")
+				dumpLogs(t, "issue-801", "pods/issue-801-workspace-0")
+
+				// deploy a workspace with a non-existent container image (pulumi:nosuchimage)
+				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/issue-801")
+				require.NoError(t, run(cmd))
+
+				// wait for the pod to be created (knowing that it will never become ready)
+				_, err := waitFor[corev1.Pod]("pods/issue-801-workspace-0", "issue-801", 5*time.Minute, "create")
+				assert.NoError(t, err)
+
+				// update the workspace to a valid image (expecting that a new pod will be rolled out)
+				cmd = exec.Command("kubectl", "apply", "-f", "e2e/testdata/issue-801/step2")
+				require.NoError(t, run(cmd))
+
+				// wait for the workspace to be fully ready
+				_, err = waitFor[autov1alpha1.Workspace]("workspaces/issue-801", "issue-801", 5*time.Minute, "condition=Ready")
+				assert.NoError(t, err)
 			},
 		},
 		{
@@ -212,6 +233,20 @@ func dumpLogs(t *testing.T, namespace, name string) {
 		}
 		t.Logf("=== LOGS %s %s", namespace, name)
 		cmd := exec.Command("kubectl", "logs", "--all-containers=true", "-n", namespace, name)
+		out, err := cmd.CombinedOutput()
+		assert.NoError(t, err)
+		t.Log(string(out))
+	})
+}
+
+
+func dumpEvents(t *testing.T, namespace string) {
+	t.Cleanup(func() {
+		if !t.Failed() {
+			return
+		}
+		t.Logf("=== EVENTS %s", namespace)
+		cmd := exec.Command("kubectl", "get", "events", "-n", namespace)
 		out, err := cmd.CombinedOutput()
 		assert.NoError(t, err)
 		t.Log(string(out))
