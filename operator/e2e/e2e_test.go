@@ -118,12 +118,6 @@ func TestE2E(t *testing.T) {
 					assert.NoError(t, err)
 					t.Log(string(out))
 				}
-
-				if !t.Failed() {
-					// cleanup
-					cmd = exec.Command("kubectl", "delete", "-f", "e2e/testdata/random-yaml-nonroot")
-					require.NoError(t, run(cmd))
-				}
 			},
 		},
 		{
@@ -141,12 +135,6 @@ func TestE2E(t *testing.T) {
 
 				assert.Equal(t, `"[secret]"`, string(stack.Status.Outputs["secretOutput"].Raw))
 				assert.Equal(t, `"foo"`, string(stack.Status.Outputs["simpleOutput"].Raw))
-
-				if !t.Failed() {
-					// cleanup
-					cmd = exec.Command("bash", "-c", "envsubst < e2e/testdata/git-auth-nonroot/* | kubectl delete -f -")
-					require.NoError(t, run(cmd))
-				}
 			},
 		},
 		{
@@ -161,12 +149,6 @@ func TestE2E(t *testing.T) {
 
 				assert.Contains(t, stack.Status.Outputs, "targeted")
 				assert.NotContains(t, stack.Status.Outputs, "notTargeted")
-
-				if !t.Failed() {
-					// cleanup
-					cmd = exec.Command("kubectl", "delete", "-f", "e2e/testdata/targets")
-					require.NoError(t, run(cmd))
-				}
 			},
 		},
 		{
@@ -190,12 +172,6 @@ func TestE2E(t *testing.T) {
 				// wait for the workspace to be fully ready
 				_, err = waitFor[autov1alpha1.Workspace]("workspaces/issue-801", "issue-801", 5*time.Minute, "condition=Ready")
 				assert.NoError(t, err)
-
-				if !t.Failed() {
-					// cleanup
-					cmd = exec.Command("kubectl", "delete", "-f", "e2e/testdata/issue-801")
-					require.NoError(t, run(cmd))
-				}
 			},
 		},
 		{
