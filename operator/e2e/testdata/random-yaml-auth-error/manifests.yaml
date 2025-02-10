@@ -69,7 +69,7 @@ spec:
   refresh: false
   continueResyncOnCommitMatch: false
   resyncFrequencySeconds: 60
-  destroyOnFinalize: true
+  destroyOnFinalize: false
   # Enable file state for testing.
   envRefs:
     PULUMI_BACKEND_URL:
@@ -82,6 +82,7 @@ spec:
         value: "test"
   workspaceTemplate:
     spec:
+      image: pulumi/pulumi:3.147.0-nonroot
       serviceAccountName: random-yaml-auth-error
       podTemplate:
         spec:
