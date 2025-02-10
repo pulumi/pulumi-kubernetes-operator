@@ -1,0 +1,89 @@
+---
+# This NetworkPolicy allows ingress traffic to the source-controller pods
+# from specific namespaces and pods managed by pulumi-kubernetes-operator.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-random-yaml-auth-error-fetch
+  namespace: flux-system
+spec:
+  podSelector:
+    matchLabels:
+      app: source-controller
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: http
+      from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: random-yaml-auth-error
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/managed-by: pulumi-kubernetes-operator
+              app.kubernetes.io/name: pulumi
+              app.kubernetes.io/component: workspace
+  policyTypes:
+    - Ingress
+---
+# Namespace to isolate the random-yaml-auth-error test.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: random-yaml-auth-error
+---
+# ServiceAccount for the random-yaml-auth-error namespace.
+# No permissions are granted to this service account.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: random-yaml-auth-error
+  namespace: random-yaml-auth-error
+---
+# Define a Flux Source GitRepository object for syncing Pulumi examples from a GitHub repository
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: pulumi-examples
+  namespace: random-yaml-auth-error
+spec:
+  interval: 10m
+  ref:
+    branch: master
+  timeout: 60s
+  url: https://github.com/pulumi/examples
+---
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: random-yaml-auth-error
+  namespace: random-yaml-auth-error
+spec:
+  fluxSource:
+    sourceRef:
+      apiVersion: source.toolkit.fluxcd.io/v1
+      kind: GitRepository
+      name: pulumi-examples
+    dir: random-yaml
+  stack: dev
+  refresh: false
+  continueResyncOnCommitMatch: false
+  resyncFrequencySeconds: 60
+  destroyOnFinalize: true
+  # Enable file state for testing.
+  envRefs:
+    PULUMI_BACKEND_URL:
+      type: Literal
+      literal:
+        value: "file:///state/"
+    PULUMI_CONFIG_PASSPHRASE:
+      type: Literal
+      literal:
+        value: "test"
+  workspaceTemplate:
+    spec:
+      serviceAccountName: random-yaml-auth-error
+      podTemplate:
+        spec:
+          containers:
+            - name: pulumi

@@ -30,6 +30,7 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	autov1alpha1webhook "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/webhook/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/version"
+	"google.golang.org/grpc/status"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -242,6 +243,31 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	initializedV, ok := pod.Annotations[PodAnnotationInitialized]
 	initialized, _ := strconv.ParseBool(initializedV)
 	if !ok || !initialized {
+		l.Info("Running whoami to ensure authentication is setup correctly with the workspace pod")
+		_, err = wc.WhoAmI(ctx, &agentpb.WhoAmIRequest{})
+		if err != nil {
+			l.Error(err, "unable to run whoami; retaining the workspace pod to retry later")
+			st := status.Convert(err)
+
+			ready.Status = metav1.ConditionFalse
+			ready.Reason = st.Code().String()
+			ready.Message = st.Message()
+
+			// Override with structured error from PulumiErrorInfo if provided.
+			if len(st.Details()) > 0 {
+				if info, ok := st.Details()[0].(*agentpb.PulumiErrorInfo); ok {
+					ready.Reason = info.Reason
+					ready.Message = info.Message
+				}
+			}
+
+			if statusErr := updateStatus(); statusErr != nil {
+				return ctrl.Result{}, statusErr
+			}
+
+			return ctrl.Result{}, err
+		}
+
 		l.Info("Running pulumi install")
 		ready.Status = metav1.ConditionFalse
 		ready.Reason = "Installing"

@@ -175,7 +175,9 @@ func (s *Server) Cancel() {
 func (s *Server) WhoAmI(ctx context.Context, in *pb.WhoAmIRequest) (*pb.WhoAmIResult, error) {
 	whoami, err := s.ws.WhoAmIDetails(ctx)
 	if err != nil {
-		return nil, err
+		s.log.Errorw("whoami completed with an error", zap.Error(err))
+		st := status.Newf(codes.Unknown, "whoami failed: %v", err)
+		return nil, withPulumiErrorInfo(st, err).Err()
 	}
 	resp := &pb.WhoAmIResult{
 		User:          whoami.User,

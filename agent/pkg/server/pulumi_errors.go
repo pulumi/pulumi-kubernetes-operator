@@ -31,6 +31,11 @@ var knownErrors = knownPulumiErrors{
 		Reason:  "UpdateConflict",
 		Code:    409,
 	},
+	"invalid access token": {
+		Message: "Invalid access token used to authenticate with Pulumi Cloud",
+		Reason:  "InvalidAccessToken",
+		Code:    401,
+	},
 }
 
 // withPulumiErrorInfo iterates over known errors and checks if the provided error matches any of them.
