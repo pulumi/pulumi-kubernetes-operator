@@ -9,6 +9,7 @@ CHANGELOG
 - Surface update conflict errors when a stack is locked [#807](https://github.com/pulumi/pulumi-kubernetes-operator/pull/807)4 (add changelog entry)
 - Do not destroy the workspace pod if an authentication error occurs [#805](https://github.com/pulumi/pulumi-kubernetes-operator/pull/805)
 - Use 'parallel' policy for workspace pod rollouts to avoid stalls. [#802](https://github.com/pulumi/pulumi-kubernetes-operator/pull/802)
+- Garbage collection for Update objects. [#810](https://github.com/pulumi/pulumi-kubernetes-operator/pull/810)
 
 ## 2.0.0-beta.3 (2024-11-27)
 

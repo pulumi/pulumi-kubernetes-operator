@@ -109,12 +109,15 @@ var _ = Describe("Update Controller", func() {
 					obj.Spec.TtlAfterCompleted = ttl
 				})
 				It("reconciles", func(ctx context.Context) {
-					_, err := reconcileF(ctx)
+					result, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
 					if expectDeletion {
 						Expect(obj.UID).To(BeEmpty())
 					} else {
 						Expect(obj.UID).ToNot(BeEmpty())
+						if ttl != nil {
+							Expect(result.RequeueAfter).ToNot(BeZero())
+						}
 					}
 				})
 			},
