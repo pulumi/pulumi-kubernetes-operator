@@ -16,38 +16,59 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
 
-	agentclient "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/client"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/client"
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/structpb"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-func connect(ctx context.Context, addr string) (*grpc.ClientConn, error) {
+type ConnectionManager struct {
+	factory client.TokenSourceFactory
+}
+
+type ConnectionManagerOptions struct {
+	// The service account to impersonate for authentication purposes (i.e. the operator's KSA).
+	ServiceAccount types.NamespacedName
+}
+
+func NewConnectionManager(config *rest.Config, opts ConnectionManagerOptions) (*ConnectionManager, error) {
+	if config == nil {
+		return nil, errors.New("must specify Config")
+	}
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
+	}
+	factory := client.NewServiceAccountTokenFactory(clientset.CoreV1(), opts.ServiceAccount.Namespace, opts.ServiceAccount.Name)
+	
+	return &ConnectionManager{
+		factory: factory,
+	}, nil
+}
+
+func (cm *ConnectionManager) Connect(ctx context.Context, w *autov1alpha1.Workspace) (*grpc.ClientConn, error) {
+	audience := fmt.Sprintf("%s.%s", w.Name, w.Namespace)
+	creds := client.NewTokenCredentials(cm.factory.TokenSource(audience))
+
+	addr := fmt.Sprintf("%s:%d", fqdnForService(w), WorkspaceGrpcPort)
+	l.Info("Connecting", "addr", addr)
 	if os.Getenv("WORKSPACE_LOCALHOST") != "" {
 		addr = os.Getenv("WORKSPACE_LOCALHOST")
 	}
-
-	token := os.Getenv("WORKSPACE_TOKEN")
-	tokenFile := os.Getenv("WORKSPACE_TOKEN_FILE")
-	if token == "" && tokenFile == "" {
-		// use in-cluster configuration using the operator's service account token
-		tokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token" //nolint:gosec // this is not a hardcoded credential
-	}
-	creds, err := agentclient.NewTokenCredentials(token, tokenFile)
-	if err != nil {
-		return nil, fmt.Errorf("unable to use token credentials: %w", err)
-	}
-
 	conn, err := grpc.NewClient(
 		addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

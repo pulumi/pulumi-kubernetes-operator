@@ -30,6 +30,7 @@ import (
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -184,10 +185,23 @@ func main() {
 	}
 	pHandler := pulumicontroller.NewProgramHandler(mgr.GetClient(), programFSAdvAddr)
 
+	// Create a connection manager for making authenticated connections to workspaces.
+	cm, err := autocontroller.NewConnectionManager(ctrl.GetConfigOrDie(), autocontroller.ConnectionManagerOptions{
+		ServiceAccount: types.NamespacedName{
+			Namespace: envOrDefault("POD_NAMESPACE", "pulumi-kubernetes-operator"),
+			Name:      envOrDefault("POD_SERVICE_ACCOUNT", "controller-manager"),
+		},
+	})
+	if err != nil {
+		setupLog.Error(err, "unable to create connection manager")
+		os.Exit(1)
+	}
+
 	if err = (&autocontroller.WorkspaceReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor("workspace-controller"),
+		ConnectionManager:  cm,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Workspace")
 		os.Exit(1)
@@ -196,6 +210,7 @@ func main() {
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor("update-controller"),
+		ConnectionManager:  cm,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Update")
 		os.Exit(1)

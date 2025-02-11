@@ -67,6 +67,7 @@ type WorkspaceReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
+	ConnectionManager *ConnectionManager
 }
 
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch;create;update;patch;delete
@@ -173,7 +174,6 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to apply service: %w", err)
 	}
-	addr := fmt.Sprintf("%s:%d", fqdnForService(w), WorkspaceGrpcPort)
 
 	// make a statefulset, incorporating the source revision into the pod spec.
 	// whenever the revision changes, the statefulset will be updated.
@@ -229,12 +229,12 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// Connect to the workspace's GRPC server
-	l.Info("Connecting to workspace pod", "addr", addr)
+	l.Info("Connecting to workspace pod")
 	connectCtx, connectCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer connectCancel()
-	conn, err := connect(connectCtx, addr)
+	conn, err := r.ConnectionManager.Connect(connectCtx, w)
 	if err != nil {
-		l.Error(err, "unable to connect; retrying later", "addr", addr)
+		l.Error(err, "unable to connect; retrying later")
 		ready.Status = metav1.ConditionFalse
 		ready.Reason = "ConnectionFailed"
 		ready.Message = err.Error()
@@ -243,8 +243,8 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	defer func() {
 		_ = conn.Close()
 	}()
-	l.Info("Connected to workspace pod", "addr", addr)
-	w.Status.Address = addr
+	l.Info("Connected to workspace pod", "addr", conn.Target())
+	w.Status.Address = conn.Target()
 	wc := agentpb.NewAutomationServiceClient(conn)
 
 	initializedV, ok := pod.Annotations[PodAnnotationInitialized]
