@@ -69,8 +69,8 @@ const (
 // UpdateReconciler reconciles a Update object
 type UpdateReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	Scheme            *runtime.Scheme
+	Recorder          record.EventRecorder
 	ConnectionManager *ConnectionManager
 }
 

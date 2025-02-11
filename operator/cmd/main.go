@@ -189,7 +189,7 @@ func main() {
 	cm, err := autocontroller.NewConnectionManager(ctrl.GetConfigOrDie(), autocontroller.ConnectionManagerOptions{
 		ServiceAccount: types.NamespacedName{
 			Namespace: envOrDefault("POD_NAMESPACE", "pulumi-kubernetes-operator"),
-			Name:      envOrDefault("POD_SERVICE_ACCOUNT", "controller-manager"),
+			Name:      envOrDefault("POD_SA_NAME", "controller-manager"),
 		},
 	})
 	if err != nil {
@@ -198,19 +198,19 @@ func main() {
 	}
 
 	if err = (&autocontroller.WorkspaceReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("workspace-controller"),
-		ConnectionManager:  cm,
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
+		Recorder:          mgr.GetEventRecorderFor("workspace-controller"),
+		ConnectionManager: cm,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Workspace")
 		os.Exit(1)
 	}
 	if err = (&autocontroller.UpdateReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("update-controller"),
-		ConnectionManager:  cm,
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
+		Recorder:          mgr.GetEventRecorderFor("update-controller"),
+		ConnectionManager: cm,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Update")
 		os.Exit(1)

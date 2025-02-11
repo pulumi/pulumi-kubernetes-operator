@@ -65,8 +65,8 @@ const (
 // WorkspaceReconciler reconciles a Workspace object
 type WorkspaceReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	Scheme            *runtime.Scheme
+	Recorder          record.EventRecorder
 	ConnectionManager *ConnectionManager
 }
 
