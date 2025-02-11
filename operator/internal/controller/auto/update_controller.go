@@ -1,18 +1,16 @@
-/*
-Copyright 2024.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2016-2025, Pulumi Corporation.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package controller
 
@@ -51,7 +49,7 @@ import (
 )
 
 const (
-	SecretOutputsAnnotation = "pulumi.com/secrets"
+	SecretOutputsAnnotation = "pulumi.com/secrets" //nolint:gosec // this is not a hardcoded credential
 	UpdateIndexerWorkspace  = "index.spec.workspaceRef"
 
 	UpdateConditionTypeComplete    = "Complete"
@@ -100,7 +98,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if rs.complete.Status == metav1.ConditionTrue {
 		// implement ttl for completed updates
 		if obj.DeletionTimestamp.IsZero() && obj.Spec.TtlAfterCompleted != nil {
-			remainingTtl := rs.complete.LastTransitionTime.Add(obj.Spec.TtlAfterCompleted.Duration).Sub(time.Now())
+			remainingTtl := time.Until(rs.complete.LastTransitionTime.Add(obj.Spec.TtlAfterCompleted.Duration))
 			if remainingTtl <= 0 {
 				l.Info("Deleting completed update (ttl has expired)")
 				err = r.Delete(ctx, obj)
@@ -365,18 +363,11 @@ type upper interface {
 	Up(ctx context.Context, in *agentpb.UpRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[agentpb.UpStream], error)
 }
 
-type recver[T any] interface {
-	Recv() (*T, error)
-	grpc.ClientStream
-}
-
-type uprecver = recver[agentpb.UpStream]
-
-type creater interface {
+type creator interface {
 	Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error
 }
 
-func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update, client upper, kclient creater) (ctrl.Result, error) {
+func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update, client upper, kclient creator) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 
 	l.V(1).Info("Configure the up operation")

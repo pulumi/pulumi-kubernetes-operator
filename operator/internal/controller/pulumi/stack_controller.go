@@ -1,18 +1,16 @@
-/*
-Copyright 2024.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2016-2025, Pulumi Corporation.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package pulumi
 
@@ -122,7 +120,7 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	indexer := mgr.GetFieldIndexer()
 	if err = indexer.IndexField(context.Background(), &pulumiv1.Stack{}, prerequisiteIndexFieldName, func(o client.Object) []string {
 		stack := o.(*pulumiv1.Stack)
-		names := make([]string, len(stack.Spec.Prerequisites), len(stack.Spec.Prerequisites))
+		names := make([]string, len(stack.Spec.Prerequisites))
 		for i := range stack.Spec.Prerequisites {
 			names[i] = stack.Spec.Prerequisites[i].Name
 		}
@@ -137,7 +135,7 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			client.InNamespace(stack.GetNamespace()),
 			client.MatchingFields{prerequisiteIndexFieldName: stack.GetName()})
 		if err == nil {
-			reqs := make([]reconcile.Request, len(dependentStacks.Items), len(dependentStacks.Items))
+			reqs := make([]reconcile.Request, len(dependentStacks.Items))
 			for i := range dependentStacks.Items {
 				reqs[i].NamespacedName = client.ObjectKeyFromObject(&dependentStacks.Items[i])
 			}
@@ -177,7 +175,7 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				client.InNamespace(src.GetNamespace()),
 				client.MatchingFields{indexName: getFieldKey(src)})
 			if err == nil {
-				reqs := make([]reconcile.Request, len(stacks.Items), len(stacks.Items))
+				reqs := make([]reconcile.Request, len(stacks.Items))
 				for i := range stacks.Items {
 					reqs[i].NamespacedName = client.ObjectKeyFromObject(&stacks.Items[i])
 				}
@@ -1223,7 +1221,7 @@ func makeSecretRefMountPath(secretRef *shared.SecretSelector) string {
 	return "/var/run/secrets/stacks.pulumi.com/secrets/" + secretRef.Name
 }
 
-func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(ctx context.Context, ref *shared.ResourceRef) (*string, *autov1alpha1.ConfigValueFrom, error) {
+func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(_ context.Context, ref *shared.ResourceRef) (*string, *autov1alpha1.ConfigValueFrom, error) {
 	switch ref.SelectorType {
 	case shared.ResourceSelectorEnv:
 		// DEPRECATED: this reads from the operator's own environment
@@ -1497,7 +1495,7 @@ func (sess *stackReconcilerSession) UpdateConfig(ctx context.Context) error {
 }
 
 // newUp runs `pulumi up` on the stack.
-func (sess *stackReconcilerSession) newUp(ctx context.Context, o *pulumiv1.Stack, message string) (*autov1alpha1.Update, error) {
+func (sess *stackReconcilerSession) newUp(_ context.Context, o *pulumiv1.Stack, message string) (*autov1alpha1.Update, error) {
 	update := &autov1alpha1.Update{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: autov1alpha1.GroupVersion.String(),
@@ -1528,7 +1526,7 @@ func (sess *stackReconcilerSession) newUp(ctx context.Context, o *pulumiv1.Stack
 }
 
 // newUp runs `pulumi destroy` on the stack.
-func (sess *stackReconcilerSession) newDestroy(ctx context.Context, o *pulumiv1.Stack, message string) (*autov1alpha1.Update, error) {
+func (sess *stackReconcilerSession) newDestroy(_ context.Context, o *pulumiv1.Stack, message string) (*autov1alpha1.Update, error) {
 	update := &autov1alpha1.Update{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: autov1alpha1.GroupVersion.String(),

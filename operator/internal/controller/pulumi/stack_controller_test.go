@@ -1,18 +1,16 @@
-/*
-Copyright 2024.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2016-2025, Pulumi Corporation.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package pulumi
 
@@ -252,7 +250,7 @@ var _ = Describe("Stack Controller", func() {
 			}, lastUpdate)
 		}
 
-		return
+		return result, err
 	}
 
 	ByMarkingAsReconciling := func(reason string, msg gtypes.GomegaMatcher) {
@@ -565,7 +563,7 @@ var _ = Describe("Stack Controller", func() {
 				})
 			})
 
-			When("an unknown error occured running pulumi", func() {
+			When("an unknown error occurred running pulumi", func() {
 				BeforeEach(func(ctx context.Context) {
 					currentUpdate.Status.Message = "an unknown error occurred running up"
 					currentUpdate.Status.Conditions = []metav1.Condition{
@@ -787,7 +785,7 @@ var _ = Describe("Stack Controller", func() {
 					res, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
 					// 1 minute * 2^3
-					Expect(res.RequeueAfter).To(BeNumerically("~", time.Duration(8*time.Minute), time.Minute))
+					Expect(res.RequeueAfter).To(BeNumerically("~", 8*time.Minute, time.Minute))
 					ByMarkingAsReconciling(pulumiv1.ReconcilingRetryReason, Equal("3 update failure(s)"))
 				})
 			})
