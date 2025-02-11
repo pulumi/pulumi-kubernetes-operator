@@ -1,6 +1,7 @@
 run:
-  deadline: 5m
+  timeout: 5m
   allow-parallel-runners: true
+  modules-download-mode: readonly
 
 linters:
   disable-all: true
