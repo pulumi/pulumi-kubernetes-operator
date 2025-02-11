@@ -32,9 +32,9 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -46,56 +46,85 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 )
 
-var _ = PDescribe("Update Controller", func() {
-	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
+var _ = Describe("Update Controller", func() {
+	var r *UpdateReconciler
+	var objName types.NamespacedName
+	var obj *autov1alpha1.Update
+	// var progressing, complete, failed *metav1.Condition
 
-		ctx := context.Background()
-
-		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+	BeforeEach(func(ctx context.Context) {
+		objName = types.NamespacedName{
+			Name:      fmt.Sprintf("update-%s", utilrand.String(8)),
+			Namespace: "default",
 		}
-		update := &autov1alpha1.Update{}
+		obj = &autov1alpha1.Update{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      objName.Name,
+				Namespace: objName.Namespace,
+			},
+		}
+	})
 
-		BeforeEach(func() {
-			By("creating the custom resource for the Kind Update")
-			err := k8sClient.Get(ctx, typeNamespacedName, update)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &autov1alpha1.Update{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
-					},
-					// TODO(user): Specify other spec details if needed.
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+	JustBeforeEach(func(ctx context.Context) {
+		Expect(k8sClient.Create(ctx, obj)).To(Succeed())
+		DeferCleanup(func(ctx context.Context) {
+			_ = k8sClient.Delete(ctx, obj)
+		})
+		r = &UpdateReconciler{
+			Client: k8sClient,
+			Scheme: k8sClient.Scheme(),
+		}
+	})
+
+	reconcileF := func(ctx context.Context) (result reconcile.Result, err error) {
+		result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+
+		// refresh the object and find its status condition(s)
+		obj = &autov1alpha1.Update{}
+		_ = k8sClient.Get(ctx, objName, obj)
+
+		// progressing = meta.FindStatusCondition(obj.Status.Conditions, autov1alpha1.UpdateConditionTypeProgressing)
+		// failed = meta.FindStatusCondition(obj.Status.Conditions, autov1alpha1.UpdateConditionTypeFailed)
+		// complete = meta.FindStatusCondition(obj.Status.Conditions, autov1alpha1.UpdateConditionTypeComplete)
+
+		return
+	}
+
+	Describe("Retention", func() {
+		JustBeforeEach(func(ctx context.Context) {
+			// make the update be in a completed state to test the retention logic.
+			completedAt := metav1.NewTime(time.Now().Add(-5 * time.Minute))
+			obj.Status.ObservedGeneration = obj.Generation
+			obj.Status.Conditions = []metav1.Condition{
+				{Type: autov1alpha1.UpdateConditionTypeProgressing, Status: metav1.ConditionFalse, Reason: "Test", LastTransitionTime: completedAt},
+				{Type: autov1alpha1.UpdateConditionTypeComplete, Status: metav1.ConditionTrue, Reason: "Test", LastTransitionTime: completedAt},
+				{Type: autov1alpha1.UpdateConditionTypeFailed, Status: metav1.ConditionFalse, Reason: "Test", LastTransitionTime: completedAt},
 			}
+			Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
 		})
 
-		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &autov1alpha1.Update{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance Update")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
-			controllerReconciler := &UpdateReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
-			}
-
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
-		})
+		DescribeTableSubtree("TtlAfterCompleted",
+			func(ttl *metav1.Duration, expectDeletion bool) {
+				BeforeEach(func() {
+					obj.Spec.TtlAfterCompleted = ttl
+				})
+				It("reconciles", func(ctx context.Context) {
+					result, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					if expectDeletion {
+						Expect(obj.UID).To(BeEmpty())
+					} else {
+						Expect(obj.UID).ToNot(BeEmpty())
+						if ttl != nil {
+							Expect(result.RequeueAfter).ToNot(BeZero())
+						}
+					}
+				})
+			},
+			Entry("TTL is not set", nil, false),
+			Entry("TTL has not expired", &metav1.Duration{Duration: 1 * time.Hour}, false),
+			Entry("TTL has expired", &metav1.Duration{Duration: 1 * time.Minute}, true),
+		)
 	})
 })
 

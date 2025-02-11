@@ -100,6 +100,7 @@ spec:
                   type: string
                 type: array
               stackName:
+                description: Specify the Pulumi stack to select for the update.
                 type: string
               target:
                 description: Specify an exclusive list of resource URNs to update
@@ -111,7 +112,11 @@ spec:
                   TargetDependents allows updating of dependent targets discovered but not
                   specified in the Target list
                 type: boolean
+              ttlAfterCompleted:
+                description: TTL for a completed update object.
+                type: string
               type:
+                description: Type of the update to perform.
                 type: string
               workspaceName:
                 description: WorkspaceName is the workspace to update.

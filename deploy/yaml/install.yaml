@@ -1008,6 +1008,14 @@ spec:
                   creating stacks that do not exist in the tracking git repo.
                   The default behavior is to create a stack if it doesn't exist.
                 type: boolean
+              workspaceReclaimPolicy:
+                description: |-
+                  WorkspaceReclaimPolicy specifies whether the workspace should be deleted or retained after the Stack is synced.
+                  The default behavior is to retain the workspace. Valid values are one of "Retain" or "Delete".
+                enum:
+                - Retain
+                - Delete
+                type: string
               workspaceTemplate:
                 description: |-
                   WorkspaceTemplate customizes the Workspace generated for this Stack. It
@@ -9860,6 +9868,10 @@ spec:
                   lastSuccessfulCommit:
                     description: Last commit successfully applied
                     type: string
+                  message:
+                    description: Message is the message surfacing any errors or additional
+                      information about the update.
+                    type: string
                   name:
                     description: Name is the name of the update object.
                     type: string
@@ -10632,6 +10644,14 @@ spec:
                   creating stacks that do not exist in the tracking git repo.
                   The default behavior is to create a stack if it doesn't exist.
                 type: boolean
+              workspaceReclaimPolicy:
+                description: |-
+                  WorkspaceReclaimPolicy specifies whether the workspace should be deleted or retained after the Stack is synced.
+                  The default behavior is to retain the workspace. Valid values are one of "Retain" or "Delete".
+                enum:
+                - Retain
+                - Delete
+                type: string
               workspaceTemplate:
                 description: |-
                   WorkspaceTemplate customizes the Workspace generated for this Stack. It
@@ -19408,6 +19428,10 @@ spec:
                   lastSuccessfulCommit:
                     description: Last commit successfully applied
                     type: string
+                  message:
+                    description: Message is the message surfacing any errors or additional
+                      information about the update.
+                    type: string
                   name:
                     description: Name is the name of the update object.
                     type: string
@@ -19541,6 +19565,7 @@ spec:
                   type: string
                 type: array
               stackName:
+                description: Specify the Pulumi stack to select for the update.
                 type: string
               target:
                 description: Specify an exclusive list of resource URNs to update
@@ -19552,7 +19577,11 @@ spec:
                   TargetDependents allows updating of dependent targets discovered but not
                   specified in the Target list
                 type: boolean
+              ttlAfterCompleted:
+                description: TTL for a completed update object.
+                type: string
               type:
+                description: Type of the update to perform.
                 type: string
               workspaceName:
                 description: WorkspaceName is the workspace to update.

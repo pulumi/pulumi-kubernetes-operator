@@ -504,9 +504,9 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 			Labels:    labels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Selector:    &metav1.LabelSelector{MatchLabels: labels},
-			ServiceName: nameForService(w),
-			Replicas:    ptr.To[int32](1),
+			Selector:            &metav1.LabelSelector{MatchLabels: labels},
+			ServiceName:         nameForService(w),
+			Replicas:            ptr.To[int32](1),
 			PodManagementPolicy: appsv1.ParallelPodManagement,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
