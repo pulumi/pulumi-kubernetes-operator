@@ -134,6 +134,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// determine the source revision to use in later steps.
 	source := &sourceSpec{
+		Version: 2,
 		Generation: w.Generation,
 	}
 	if w.Spec.Git != nil {
@@ -777,6 +778,7 @@ func newService(w *autov1alpha1.Workspace) *corev1.Service {
 }
 
 type sourceSpec struct {
+	Version      int32
 	Generation   int64
 	ForceRequest string
 	Git          *gitSource
