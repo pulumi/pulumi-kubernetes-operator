@@ -27,39 +27,43 @@ import (
 	"google.golang.org/grpc/credentials"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-type ServiceAccountInterface interface {
+// serviceAccountInterface is the necessary subset of clientcorev1.ServiceAccountInterface.
+type serviceAccountInterface interface {
 	CreateToken(ctx context.Context, serviceAccountName string, tokenRequest *authenticationv1.TokenRequest, opts metav1.CreateOptions) (*authenticationv1.TokenRequest, error)
 }
 
+// TokenSource is an interface for requesting a token, similar to oauth2.TokenSource but accepting a context.
 type TokenSource interface {
 	Token(ctx context.Context) (*oauth2.Token, error)
 }
 
+// TokenSourceFactory is an interface for creating TokenSources for a given audience.
 type TokenSourceFactory interface {
 	TokenSource(audience string) TokenSource
 }
 
-type ServiceAccountTokenSourceFactory struct {
-	creator ServiceAccountInterface
+// ServiceAccount impersonates a service account using the Kubernetes TokenRequest API.
+type ServiceAccount struct {
+	creator serviceAccountInterface
 	serviceAccountName string
 	mu     sync.Mutex
 	sources map[string]TokenSource
 }
 
-func NewServiceAccountTokenFactory(client clientcorev1.ServiceAccountsGetter, ns, name string) *ServiceAccountTokenSourceFactory {
-	return &ServiceAccountTokenSourceFactory{
-		creator: client.ServiceAccounts(ns),
-		serviceAccountName: name,
+// NewServiceAccount returns a new ServiceAccount with the given name and using the given Kubernetes client.
+func NewServiceAccount(client serviceAccountInterface, serviceAccountName string) *ServiceAccount {
+	return &ServiceAccount{
+		creator: client,
+		serviceAccountName: serviceAccountName,
 		sources: map[string]TokenSource{},
 	}
 }
 
-var _ TokenSourceFactory = &ServiceAccountTokenSourceFactory{}
+var _ TokenSourceFactory = &ServiceAccount{}
 
-func (m *ServiceAccountTokenSourceFactory) TokenSource(audience string) TokenSource {
+func (m *ServiceAccount) TokenSource(audience string) TokenSource {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if src, ok := m.sources[audience]; ok {
@@ -79,18 +83,17 @@ func (m *ServiceAccountTokenSourceFactory) TokenSource(audience string) TokenSou
 }
 
 // serviceAccountTokenSource produces tokens representing the given service account,
-// as provided by the Kubernetes TokenRequest API. Resultant tokens are scoped to the given audience (a workspace),
-// to be used as access tokens to authenticate to that workspace.
+// as provided by the Kubernetes TokenRequest API. 
+// Resultant tokens are scoped to the given audience (i.e. a workspace) to be used as bearer tokens for that audience.
 // The underlying Kubernetes client has original credentials to authenticate to the TokenRequest API.
 type serviceAccountTokenSource struct {
-	creator ServiceAccountInterface
+	creator serviceAccountInterface
 	serviceAccountName string
 	audience string
 }
 
 var _ TokenSource = &serviceAccountTokenSource{}
 
-// Token implements oauth2.TokenSource.
 func (k *serviceAccountTokenSource) Token(ctx context.Context) (*oauth2.Token, error) {
 	// Create an identity token representing the service account
 	// and scoped to a particular audience.
@@ -110,6 +113,8 @@ func (k *serviceAccountTokenSource) Token(ctx context.Context) (*oauth2.Token, e
 	}, nil
 }
 
+// cachingTokenSource implements a token cache around an underlying token source,
+// refreshing the token as it nears expiration.
 type cachingTokenSource struct {
 	base TokenSource
 	leeway time.Duration
@@ -167,12 +172,14 @@ func (ts *cachingTokenSource) ResetTokenOlderThan(t time.Time) {
 	}
 }
 
+// tokenCredentials implements credentials.PerRPCCredentials to attach a bearer token to each request.
 type tokenCredentials struct {
 	mu     sync.Mutex
 	source TokenSource
 	t      *oauth2.Token
 }
 
+// NewTokenCredentials creates a new tokenCredentials instance for the given token source.
 func NewTokenCredentials(source TokenSource) *tokenCredentials {
 	return &tokenCredentials{source: source}
 }

@@ -73,7 +73,7 @@ func formattedServiceAccountPermissionsErrorMessage() string {
 }
 
 type KubeAuthOptions struct {
-	Audience      string
+	Audiences     []string
 	WorkspaceName types.NamespacedName
 }
 
@@ -140,7 +140,7 @@ func NewKubeAuth(rootLogger *zap.Logger, config *rest.Config, opts KubeAuthOptio
 		authn:         delegatingAuthenticator,
 		authz:         delegatingAuthorizer,
 		workspaceName: opts.WorkspaceName,
-		audience:      opts.Audience,
+		audiences:     opts.Audiences,
 	}
 	return a.Authenticate, nil
 }
@@ -150,7 +150,7 @@ type kubeAuth struct {
 	authn         authenticator.Token
 	authz         authorizer.Authorizer
 	workspaceName types.NamespacedName
-	audience      string
+	audiences     []string
 }
 
 // Authenticate implements grpc_auth.AuthFunc to perform authentication and authorization.
@@ -177,7 +177,7 @@ func (a *kubeAuth) Authenticate(ctx context.Context) (context.Context, error) {
 	// Authenticate the user via the TokenReview API.
 	// The token is expected to have a specific audience (usually corresponding to a specific workspace),
 	// to prevent a malicious workspace from impersonating the user for any other purpose.
-	ctx = authenticator.WithAudiences(ctx, []string{a.audience})
+	ctx = authenticator.WithAudiences(ctx, a.audiences)
 	res, ok, err := a.authn.AuthenticateToken(ctx, token)
 	if err != nil {
 		if apierrors.IsForbidden(err) {

@@ -53,7 +53,7 @@ func NewConnectionManager(config *rest.Config, opts ConnectionManagerOptions) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
-	factory := client.NewServiceAccountTokenFactory(clientset.CoreV1(), opts.ServiceAccount.Namespace, opts.ServiceAccount.Name)
+	factory := client.NewServiceAccount(clientset.CoreV1().ServiceAccounts(opts.ServiceAccount.Namespace), opts.ServiceAccount.Name)
 	
 	return &ConnectionManager{
 		factory: factory,
