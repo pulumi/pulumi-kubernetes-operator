@@ -61,7 +61,7 @@ func NewConnectionManager(config *rest.Config, opts ConnectionManagerOptions) (*
 }
 
 func (cm *ConnectionManager) Connect(ctx context.Context, w *autov1alpha1.Workspace) (*grpc.ClientConn, error) {
-	audience := fmt.Sprintf("%s.%s", w.Name, w.Namespace)
+	audience := audienceForWorkspace(w)
 	creds := client.NewTokenCredentials(cm.factory.TokenSource(audience))
 
 	addr := fmt.Sprintf("%s:%d", fqdnForService(w), WorkspaceGrpcPort)
@@ -96,6 +96,10 @@ func (cm *ConnectionManager) Connect(ctx context.Context, w *autov1alpha1.Worksp
 			return nil, ctx.Err()
 		}
 	}
+}
+
+func audienceForWorkspace(w *autov1alpha1.Workspace) string {
+	return fmt.Sprintf("%s.%s", w.Name, w.Namespace)
 }
 
 func marshalConfigItem(item autov1alpha1.ConfigItem) *agentpb.ConfigItem {

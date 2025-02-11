@@ -489,6 +489,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 	// enable workspace endpoint protection
 	command = append(command,
 		"--auth-mode", "kube",
+		"--kube-audience", audienceForWorkspace(w),
 		"--kube-workspace-namespace", w.Namespace,
 		"--kube-workspace-name", w.Name)
 
