@@ -55,8 +55,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 1.23.x
-      - name: Lint operator codebase
-        run: make -C operator lint
+      - name: Lint pulumi-kubernetes-operator codebase
+        run: make lint
 
   unit-tests:
     runs-on: ubuntu-latest
