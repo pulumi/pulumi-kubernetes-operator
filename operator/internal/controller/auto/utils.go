@@ -20,7 +20,9 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/client"
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
@@ -34,6 +36,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+)
+
+const (
+	pruneTokensOlderThan = 2 * time.Hour
 )
 
 type ConnectionManager struct {
@@ -96,6 +102,26 @@ func (cm *ConnectionManager) Connect(ctx context.Context, w *autov1alpha1.Worksp
 			return nil, ctx.Err()
 		}
 	}
+}
+
+// Starts the connection manager, e.g. to periodically clean token caches.
+func (m *ConnectionManager) Start(ctx context.Context) error {
+	l := logr.FromContextOrDiscard(ctx)
+	ticker := time.NewTicker(5 * time.Minute)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				unusedSince := time.Now().Add(-1 * pruneTokensOlderThan)
+				n := m.factory.Prune(unusedSince)
+				l.Info("pruned the token cache", "unusedSince", unusedSince, "pruned", n)
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+	return nil
 }
 
 func audienceForWorkspace(w *autov1alpha1.Workspace) string {

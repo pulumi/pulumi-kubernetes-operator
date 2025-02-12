@@ -196,6 +196,10 @@ func main() {
 		setupLog.Error(err, "unable to create connection manager")
 		os.Exit(1)
 	}
+	if err := mgr.Add(cm); err != nil {
+		setupLog.Error(err, "unable to add connection manager")
+		os.Exit(1)
+	}
 
 	if err = (&autocontroller.WorkspaceReconciler{
 		Client:            mgr.GetClient(),

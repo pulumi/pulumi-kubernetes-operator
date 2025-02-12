@@ -42,6 +42,7 @@ type TokenSource interface {
 // TokenSourceFactory is an interface for creating TokenSources for a given audience.
 type TokenSourceFactory interface {
 	TokenSource(audience string) TokenSource
+	Prune(olderThan time.Time) int
 }
 
 // ServiceAccount impersonates a service account using the Kubernetes TokenRequest API.
@@ -49,7 +50,12 @@ type ServiceAccount struct {
 	creator serviceAccountInterface
 	serviceAccountName string
 	mu     sync.Mutex
-	sources map[string]TokenSource
+	sources map[string]*cacheEntry
+}
+
+type cacheEntry struct {
+	TokenSource
+	lastUsed time.Time
 }
 
 // NewServiceAccount returns a new ServiceAccount with the given name and using the given Kubernetes client.
@@ -57,29 +63,48 @@ func NewServiceAccount(client serviceAccountInterface, serviceAccountName string
 	return &ServiceAccount{
 		creator: client,
 		serviceAccountName: serviceAccountName,
-		sources: map[string]TokenSource{},
+		sources: map[string]*cacheEntry{},
 	}
 }
 
 var _ TokenSourceFactory = &ServiceAccount{}
 
+// TokenSource returns a (cached) token sources for the given audience.
 func (m *ServiceAccount) TokenSource(audience string) TokenSource {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if src, ok := m.sources[audience]; ok {
-		return src
+	entry, ok := m.sources[audience]
+	if !ok {
+		entry = &cacheEntry{
+			TokenSource: &cachingTokenSource{
+				base: &serviceAccountTokenSource{
+					creator: m.creator,
+					serviceAccountName: m.serviceAccountName,
+					audience: audience,
+				},
+				leeway: 5 * time.Minute,
+				now: time.Now,
+			},
+		}
+		m.sources[audience] = entry
 	}
-	src := &cachingTokenSource{
-		base: &serviceAccountTokenSource{
-			creator: m.creator,
-			serviceAccountName: m.serviceAccountName,
-			audience: audience,
-		},
-		leeway: 5 * time.Minute,
-		now: time.Now,
+	entry.lastUsed = time.Now()
+	return entry.TokenSource
+}
+
+// Prunes unused token sources from the cache.
+// Returns a count of pruned token sources.
+func (m *ServiceAccount) Prune(unusedSince time.Time) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	n := 0
+	for audience, entry := range m.sources {
+		if entry.lastUsed.Before(unusedSince) {
+			delete(m.sources, audience)
+			n++
+		}
 	}
-	m.sources[audience] = src
-	return src
+	return n
 }
 
 // serviceAccountTokenSource produces tokens representing the given service account,
