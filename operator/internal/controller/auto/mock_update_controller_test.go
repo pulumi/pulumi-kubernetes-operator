@@ -378,31 +378,31 @@ func (c *MockrecverTrailerCall[T]) DoAndReturn(f func() metadata.MD) *Mockrecver
 	return c
 }
 
-// Mockcreater is a mock of creater interface.
-type Mockcreater struct {
+// Mockcreator is a mock of creator interface.
+type Mockcreator struct {
 	ctrl     *gomock.Controller
-	recorder *MockcreaterMockRecorder
+	recorder *MockcreatorMockRecorder
 }
 
-// MockcreaterMockRecorder is the mock recorder for Mockcreater.
-type MockcreaterMockRecorder struct {
-	mock *Mockcreater
+// MockcreatorMockRecorder is the mock recorder for Mockcreator.
+type MockcreatorMockRecorder struct {
+	mock *Mockcreator
 }
 
-// NewMockcreater creates a new mock instance.
-func NewMockcreater(ctrl *gomock.Controller) *Mockcreater {
-	mock := &Mockcreater{ctrl: ctrl}
-	mock.recorder = &MockcreaterMockRecorder{mock}
+// NewMockcreator creates a new mock instance.
+func NewMockcreator(ctrl *gomock.Controller) *Mockcreator {
+	mock := &Mockcreator{ctrl: ctrl}
+	mock.recorder = &MockcreatorMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *Mockcreater) EXPECT() *MockcreaterMockRecorder {
+func (m *Mockcreator) EXPECT() *MockcreatorMockRecorder {
 	return m.recorder
 }
 
 // Create mocks base method.
-func (m *Mockcreater) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+func (m *Mockcreator) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, obj}
 	for _, a := range opts {
@@ -414,32 +414,32 @@ func (m *Mockcreater) Create(ctx context.Context, obj client.Object, opts ...cli
 }
 
 // Create indicates an expected call of Create.
-func (mr *MockcreaterMockRecorder) Create(ctx, obj any, opts ...any) *MockcreaterCreateCall {
+func (mr *MockcreatorMockRecorder) Create(ctx, obj any, opts ...any) *MockcreatorCreateCall {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{ctx, obj}, opts...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*Mockcreater)(nil).Create), varargs...)
-	return &MockcreaterCreateCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*Mockcreator)(nil).Create), varargs...)
+	return &MockcreatorCreateCall{Call: call}
 }
 
-// MockcreaterCreateCall wrap *gomock.Call
-type MockcreaterCreateCall struct {
+// MockcreatorCreateCall wrap *gomock.Call
+type MockcreatorCreateCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockcreaterCreateCall) Return(arg0 error) *MockcreaterCreateCall {
+func (c *MockcreatorCreateCall) Return(arg0 error) *MockcreatorCreateCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockcreaterCreateCall) Do(f func(context.Context, client.Object, ...client.CreateOption) error) *MockcreaterCreateCall {
+func (c *MockcreatorCreateCall) Do(f func(context.Context, client.Object, ...client.CreateOption) error) *MockcreatorCreateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockcreaterCreateCall) DoAndReturn(f func(context.Context, client.Object, ...client.CreateOption) error) *MockcreaterCreateCall {
+func (c *MockcreatorCreateCall) DoAndReturn(f func(context.Context, client.Object, ...client.CreateOption) error) *MockcreatorCreateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
