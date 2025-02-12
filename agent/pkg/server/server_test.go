@@ -1,3 +1,17 @@
+// Copyright 2016-2025, Pulumi Corporation.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package server
 
 import (
@@ -61,7 +75,6 @@ func TestNewServer(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			g := gomega.NewWithT(t)
@@ -94,25 +107,24 @@ func TestWhoAmI(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		req     pb.WhoAmIRequest
+		req     *pb.WhoAmIRequest
 		wantErr any
 		want    string
 	}{
 		{
 			name: "logged in",
-			req:  pb.WhoAmIRequest{},
+			req:  &pb.WhoAmIRequest{},
 			want: u.Username,
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			g := gomega.NewWithT(t)
 			ctx := newContext(t)
 			tc := newTC(ctx, t, tcOptions{ProjectDir: "./testdata/simple"})
 
-			res, err := tc.server.WhoAmI(ctx, &tt.req)
+			res, err := tc.server.WhoAmI(ctx, tt.req)
 			if tt.wantErr != nil {
 				g.Expect(err).To(gomega.MatchError(tt.wantErr))
 			} else {
@@ -137,47 +149,46 @@ func TestSelectStack(t *testing.T) {
 	tests := []struct {
 		name    string
 		stacks  []string
-		req     pb.SelectStackRequest
+		req     *pb.SelectStackRequest
 		wantErr any
 	}{
 		{
 			name:   "already selected stack",
 			stacks: []string{"one"},
-			req: pb.SelectStackRequest{
+			req: &pb.SelectStackRequest{
 				StackName: "one",
 			},
 		},
 		{
 			name:   "existent stack",
 			stacks: []string{"one", "two"},
-			req: pb.SelectStackRequest{
+			req: &pb.SelectStackRequest{
 				StackName: "one",
 			},
 		},
 		{
 			name: "non-existent stack",
-			req: pb.SelectStackRequest{
+			req: &pb.SelectStackRequest{
 				StackName: "unexpected",
 			},
 			wantErr: status.Error(codes.NotFound, "stack not found"),
 		},
 		{
 			name: "non-existent stack with create",
-			req: pb.SelectStackRequest{
+			req: &pb.SelectStackRequest{
 				StackName: "one",
 				Create:    ptr.To(true),
 			},
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			g := gomega.NewWithT(t)
 			ctx := newContext(t)
 			tc := newTC(ctx, t, tcOptions{ProjectDir: "./testdata/simple", Stacks: tt.stacks})
 
-			res, err := tc.server.SelectStack(ctx, &tt.req)
+			res, err := tc.server.SelectStack(ctx, tt.req)
 			if tt.wantErr != nil {
 				g.Expect(err).To(gomega.MatchError(tt.wantErr))
 			} else {
@@ -201,30 +212,29 @@ func TestInfo(t *testing.T) {
 	tests := []struct {
 		name    string
 		stacks  []string
-		req     pb.InfoRequest
+		req     *pb.InfoRequest
 		want    types.GomegaMatcher
 		wantErr any
 	}{
 		{
 			name:    "no active stack",
 			stacks:  []string{},
-			req:     pb.InfoRequest{},
+			req:     &pb.InfoRequest{},
 			wantErr: status.Error(codes.FailedPrecondition, "no stack is selected"),
 		},
 		{
 			name:   "active stack",
 			stacks: []string{TestStackName},
-			req:    pb.InfoRequest{},
+			req:    &pb.InfoRequest{},
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			g := gomega.NewWithT(t)
 			ctx := newContext(t)
 			tc := newTC(ctx, t, tcOptions{ProjectDir: "./testdata/simple", Stacks: tt.stacks})
-			res, err := tc.server.Info(ctx, &tt.req)
+			res, err := tc.server.Info(ctx, tt.req)
 			if tt.wantErr != nil {
 				g.Expect(err).To(gomega.MatchError(tt.wantErr))
 			} else {
@@ -429,29 +439,28 @@ func TestInstall(t *testing.T) {
 	tests := []struct {
 		name       string
 		projectDir string
-		req        pb.InstallRequest
+		req        *pb.InstallRequest
 		wantErr    types.GomegaMatcher
 	}{
 		{
 			name:       "simple",
 			projectDir: "./testdata/simple",
-			req:        pb.InstallRequest{},
+			req:        &pb.InstallRequest{},
 		},
 		{
 			name:       "uninstallable",
 			projectDir: "./testdata/uninstallable",
-			req:        pb.InstallRequest{},
+			req:        &pb.InstallRequest{},
 			wantErr:    HasStatusCode(codes.Aborted, gomega.ContainSubstring("go.mod file not found")),
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			g := gomega.NewWithT(t)
 			ctx := newContext(t)
 			tc := newTC(ctx, t, tcOptions{ProjectDir: tt.projectDir})
-			_, err := tc.server.Install(ctx, &tt.req)
+			_, err := tc.server.Install(ctx, tt.req)
 			if tt.wantErr != nil {
 				g.Expect(err).To(gomega.HaveOccurred())
 				g.Expect(err).To(tt.wantErr)
@@ -470,7 +479,7 @@ func TestUp(t *testing.T) {
 		name       string
 		projectDir string
 		stacks     []string
-		req        pb.UpRequest
+		req        *pb.UpRequest
 		wantErr    any
 		want       auto.ConfigMap
 	}{
@@ -478,18 +487,17 @@ func TestUp(t *testing.T) {
 			name:       "no active stack",
 			projectDir: "./testdata/simple",
 			stacks:     []string{},
-			req:        pb.UpRequest{},
+			req:        &pb.UpRequest{},
 			wantErr:    status.Error(codes.FailedPrecondition, "no stack is selected"),
 		},
 		{
 			name:       "simple",
 			projectDir: "./testdata/simple",
 			stacks:     []string{TestStackName},
-			req:        pb.UpRequest{},
+			req:        &pb.UpRequest{},
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			g := gomega.NewWithT(t)
@@ -498,9 +506,9 @@ func TestUp(t *testing.T) {
 
 			srv := &upStream{
 				ctx:    ctx,
-				events: make([]structpb.Struct, 0, 100),
+				events: make([]*structpb.Struct, 0, 100),
 			}
-			err := tc.server.Up(&tt.req, srv)
+			err := tc.server.Up(tt.req, srv)
 			if tt.wantErr != nil {
 				g.Expect(err).To(gomega.MatchError(tt.wantErr))
 			} else {
@@ -518,7 +526,7 @@ type upStream struct {
 	grpc.ServerStream
 	ctx    context.Context
 	mu     sync.RWMutex
-	events []structpb.Struct
+	events []*structpb.Struct
 	result *pb.UpResult
 }
 
@@ -533,7 +541,7 @@ func (m *upStream) Send(resp *pb.UpStream) error {
 	defer m.mu.Unlock()
 	switch r := resp.Response.(type) {
 	case *pb.UpStream_Event:
-		m.events = append(m.events, *r.Event)
+		m.events = append(m.events, r.Event)
 	case *pb.UpStream_Result:
 		m.result = r.Result
 	}
@@ -547,7 +555,7 @@ func TestPreview(t *testing.T) {
 		name       string
 		projectDir string
 		stacks     []string
-		req        pb.PreviewRequest
+		req        *pb.PreviewRequest
 		wantErr    any
 		want       auto.ConfigMap
 	}{
@@ -555,18 +563,17 @@ func TestPreview(t *testing.T) {
 			name:       "no active stack",
 			projectDir: "./testdata/simple",
 			stacks:     []string{},
-			req:        pb.PreviewRequest{},
+			req:        &pb.PreviewRequest{},
 			wantErr:    status.Error(codes.FailedPrecondition, "no stack is selected"),
 		},
 		{
 			name:       "simple",
 			projectDir: "./testdata/simple",
 			stacks:     []string{TestStackName},
-			req:        pb.PreviewRequest{},
+			req:        &pb.PreviewRequest{},
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			g := gomega.NewWithT(t)
@@ -575,9 +582,9 @@ func TestPreview(t *testing.T) {
 
 			srv := &previewStream{
 				ctx:    ctx,
-				events: make([]structpb.Struct, 0, 100),
+				events: make([]*structpb.Struct, 0, 100),
 			}
-			err := tc.server.Preview(&tt.req, srv)
+			err := tc.server.Preview(tt.req, srv)
 			if tt.wantErr != nil {
 				g.Expect(err).To(gomega.MatchError(tt.wantErr))
 			} else {
@@ -593,7 +600,7 @@ type previewStream struct {
 	grpc.ServerStream
 	ctx    context.Context
 	mu     sync.RWMutex
-	events []structpb.Struct
+	events []*structpb.Struct
 	result *pb.PreviewResult
 }
 
@@ -608,7 +615,7 @@ func (m *previewStream) Send(resp *pb.PreviewStream) error {
 	defer m.mu.Unlock()
 	switch r := resp.Response.(type) {
 	case *pb.PreviewStream_Event:
-		m.events = append(m.events, *r.Event)
+		m.events = append(m.events, r.Event)
 	case *pb.PreviewStream_Result:
 		m.result = r.Result
 	}
@@ -622,7 +629,7 @@ func TestRefresh(t *testing.T) {
 		name       string
 		projectDir string
 		stacks     []string
-		req        pb.RefreshRequest
+		req        *pb.RefreshRequest
 		wantErr    any
 		want       auto.ConfigMap
 	}{
@@ -630,18 +637,17 @@ func TestRefresh(t *testing.T) {
 			name:       "no active stack",
 			projectDir: "./testdata/simple",
 			stacks:     []string{},
-			req:        pb.RefreshRequest{},
+			req:        &pb.RefreshRequest{},
 			wantErr:    status.Error(codes.FailedPrecondition, "no stack is selected"),
 		},
 		{
 			name:       "simple",
 			projectDir: "./testdata/simple",
 			stacks:     []string{TestStackName},
-			req:        pb.RefreshRequest{},
+			req:        &pb.RefreshRequest{},
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			g := gomega.NewWithT(t)
@@ -650,9 +656,9 @@ func TestRefresh(t *testing.T) {
 
 			srv := &refreshStream{
 				ctx:    ctx,
-				events: make([]structpb.Struct, 0, 100),
+				events: make([]*structpb.Struct, 0, 100),
 			}
-			err := tc.server.Refresh(&tt.req, srv)
+			err := tc.server.Refresh(tt.req, srv)
 			if tt.wantErr != nil {
 				g.Expect(err).To(gomega.MatchError(tt.wantErr))
 			} else {
@@ -670,7 +676,7 @@ type refreshStream struct {
 	grpc.ServerStream
 	ctx    context.Context
 	mu     sync.RWMutex
-	events []structpb.Struct
+	events []*structpb.Struct
 	result *pb.RefreshResult
 }
 
@@ -685,7 +691,7 @@ func (m *refreshStream) Send(resp *pb.RefreshStream) error {
 	defer m.mu.Unlock()
 	switch r := resp.Response.(type) {
 	case *pb.RefreshStream_Event:
-		m.events = append(m.events, *r.Event)
+		m.events = append(m.events, r.Event)
 	case *pb.RefreshStream_Result:
 		m.result = r.Result
 	}
@@ -699,7 +705,7 @@ func TestDestroy(t *testing.T) {
 		name       string
 		projectDir string
 		stacks     []string
-		req        pb.DestroyRequest
+		req        *pb.DestroyRequest
 		wantErr    any
 		want       auto.ConfigMap
 	}{
@@ -707,18 +713,17 @@ func TestDestroy(t *testing.T) {
 			name:       "no active stack",
 			projectDir: "./testdata/simple",
 			stacks:     []string{},
-			req:        pb.DestroyRequest{},
+			req:        &pb.DestroyRequest{},
 			wantErr:    status.Error(codes.FailedPrecondition, "no stack is selected"),
 		},
 		{
 			name:       "simple",
 			projectDir: "./testdata/simple",
 			stacks:     []string{TestStackName},
-			req:        pb.DestroyRequest{},
+			req:        &pb.DestroyRequest{},
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			g := gomega.NewWithT(t)
@@ -727,9 +732,9 @@ func TestDestroy(t *testing.T) {
 
 			srv := &destroyStream{
 				ctx:    ctx,
-				events: make([]structpb.Struct, 0, 100),
+				events: make([]*structpb.Struct, 0, 100),
 			}
-			err := tc.server.Destroy(&tt.req, srv)
+			err := tc.server.Destroy(tt.req, srv)
 			if tt.wantErr != nil {
 				g.Expect(err).To(gomega.MatchError(tt.wantErr))
 			} else {
@@ -747,7 +752,7 @@ type destroyStream struct {
 	grpc.ServerStream
 	ctx    context.Context
 	mu     sync.RWMutex
-	events []structpb.Struct
+	events []*structpb.Struct
 	result *pb.DestroyResult
 }
 
@@ -762,7 +767,7 @@ func (m *destroyStream) Send(resp *pb.DestroyStream) error {
 	defer m.mu.Unlock()
 	switch r := resp.Response.(type) {
 	case *pb.DestroyStream_Event:
-		m.events = append(m.events, *r.Event)
+		m.events = append(m.events, r.Event)
 	case *pb.DestroyStream_Result:
 		m.result = r.Result
 	}
@@ -870,10 +875,16 @@ func TestMain(m *testing.M) {
 	})
 
 	// configure the file backend
-	os.Setenv("PULUMI_CONFIG_PASSPHRASE", "")
+	err := os.Setenv("PULUMI_CONFIG_PASSPHRASE", "")
+	if err != nil {
+		panic(err)
+	}
 
 	// create a FOO variable for test purposes
-	os.Setenv("FOO", "bar")
+	err = os.Setenv("FOO", "bar")
+	if err != nil {
+		panic(err)
+	}
 
 	os.Exit(m.Run())
 }
