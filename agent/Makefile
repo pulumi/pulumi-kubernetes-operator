@@ -21,7 +21,7 @@ lint:  ## Run golangci-lint linter & yamllint
 	$(GOLANGCI_LINT) run --config ../.golangci.yml
 
 .PHONY: lint-fix
-lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
+lint-fix: ## Run golangci-lint linter and perform fixes
 	$(GOLANGCI_LINT) run --fix --config ../.golangci.yml
 	
 .PHONY: all agent protoc test
