@@ -140,7 +140,7 @@ lint: golangci-lint ## Run golangci-lint linter & yamllint
 
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	$(GOLANGCI_LINT) run --fix
+	$(GOLANGCI_LINT) run --fix --config ../.golangci.yml
 
 ##@ Build
 
