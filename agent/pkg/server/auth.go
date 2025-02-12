@@ -60,6 +60,10 @@ For example:
 `
 )
 
+type authContextKey string
+
+const userContextKey authContextKey = "k8s.user"
+
 func formattedServiceAccountPermissionsErrorMessage() string {
 	saName := types.NamespacedName{
 		Namespace: os.Getenv("POD_NAMESPACE"),
@@ -217,7 +221,7 @@ func (a *kubeAuth) Authenticate(ctx context.Context) (context.Context, error) {
 	}
 	a.log.Debugw("authorization allowed", zap.String("reason", reason))
 
-	return context.WithValue(ctx, "k8s.user", res.User), nil
+	return context.WithValue(ctx, userContextKey, res.User), nil
 }
 
 // RecordRequestTotal increments the total number of requests for the delegated authentication.
