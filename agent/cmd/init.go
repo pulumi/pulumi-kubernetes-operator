@@ -81,7 +81,7 @@ func runInit(ctx context.Context,
 
 	// fetch the configured flux artifact
 	if f != nil {
-		err := os.MkdirAll(targetDir, 0o777)
+		err := os.MkdirAll(targetDir, 0o750)
 		if err != nil {
 			return fmt.Errorf("unable to make target directory: %w", err)
 		}

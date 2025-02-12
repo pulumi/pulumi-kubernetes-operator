@@ -790,7 +790,7 @@ func newWorkspace(ctx context.Context, t *testing.T, templateDir string) auto.Wo
 	// generate a project based on the template, with a file backend
 	tempDir := t.TempDir()
 	if templateDir != "" {
-		err := os.MkdirAll(filepath.Join(tempDir, ".pulumi"), 0o755)
+		err := os.MkdirAll(filepath.Join(tempDir, ".pulumi"), 0o750)
 		if err != nil {
 			t.Fatalf("failed to create state backend directory: %v", err)
 		}
