@@ -238,7 +238,7 @@ func TestKubernetes(t *testing.T) {
 				g.Expect(status).To(gomega.HaveValue(gomega.Equal(*tt.wantStatus)), "an unexpected status")
 			}
 			if err == nil {
-				g.Expect(ctx.Value("k8s.user")).ToNot(gomega.BeNil())
+				g.Expect(ctx.Value(authContextKey("k8s.user"))).ToNot(gomega.BeNil())
 			}
 		})
 	}
