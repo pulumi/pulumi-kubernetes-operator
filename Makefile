@@ -60,7 +60,8 @@ golangci-lint:
 
 .PHONY: lint
 lint: golangci-lint ## Lint the code.
-	make -C operator lint
+	$(MAKE) -C operator lint
+	$(MAKE) -C agent lint
 
 ##@ Build
 
