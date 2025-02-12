@@ -199,7 +199,7 @@ spec:
             description: ProgramStatus defines the observed state of Program.
             properties:
               artifact:
-                description: Artifact represents the last succesful artifact generated
+                description: Artifact represents the last successful artifact generated
                   by program reconciliation.
                 properties:
                   digest:

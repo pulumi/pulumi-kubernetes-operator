@@ -240,7 +240,7 @@ func (sess *stackReconcilerSession) resolveGitAuth(ctx context.Context) (*auto.G
 	return auth, nil
 }
 
-func (sess *stackReconcilerSession) setupWorkspaceFromGitSource(ctx context.Context, commit string) error {
+func (sess *stackReconcilerSession) setupWorkspaceFromGitSource(_ context.Context, commit string) error {
 	gs := sess.stack.GitSource
 	if gs == nil {
 		return fmt.Errorf("missing gitSource")

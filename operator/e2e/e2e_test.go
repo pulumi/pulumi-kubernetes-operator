@@ -1,26 +1,24 @@
-/*
-Copyright 2024.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2016-2025, Pulumi Corporation.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package e2e
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/exec"
 	"strings"
@@ -45,7 +43,7 @@ func TestE2E(t *testing.T) {
 	// Generate a random tag to ensure pods get re-created when re-running the
 	// test locally.
 	b := make([]byte, 12)
-	_, _ = rand.Read(b) //nolint:staticcheck // Don't need crypto here.
+	_, _ = rand.Read(b)
 	tag := hex.EncodeToString(b)
 	projectimage := "pulumi/pulumi-kubernetes-operator:" + tag
 
@@ -82,7 +80,11 @@ func TestE2E(t *testing.T) {
 				require.NoError(t, run(cmd))
 				dumpLogs(t, "random-yaml-nonroot", "pod/random-yaml-nonroot-workspace-0")
 
-				_, err := waitFor[pulumiv1.Stack]("stacks/random-yaml-nonroot", "random-yaml-nonroot", 5*time.Minute, "condition=Ready")
+				_, err := waitFor[pulumiv1.Stack](
+					"stacks/random-yaml-nonroot",
+					"random-yaml-nonroot",
+					5*time.Minute,
+					"condition=Ready")
 				assert.NoError(t, err)
 
 				// Ensure that the workspace pod was not deleted after successful Stack reconciliation.
@@ -130,7 +132,11 @@ func TestE2E(t *testing.T) {
 				require.NoError(t, run(cmd))
 				dumpLogs(t, "git-auth-nonroot", "pod/git-auth-nonroot-workspace-0")
 
-				stack, err := waitFor[pulumiv1.Stack]("stacks/git-auth-nonroot", "git-auth-nonroot", 5*time.Minute, "condition=Ready")
+				stack, err := waitFor[pulumiv1.Stack](
+					"stacks/git-auth-nonroot",
+					"git-auth-nonroot",
+					5*time.Minute,
+					"condition=Ready")
 				assert.NoError(t, err)
 
 				assert.Equal(t, `"[secret]"`, string(stack.Status.Outputs["secretOutput"].Raw))

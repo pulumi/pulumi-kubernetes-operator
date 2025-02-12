@@ -141,7 +141,7 @@ have been deleted.<br/>
         <td><b>stackName</b></td>
         <td>string</td>
         <td>
-          <br/>
+          Specify the Pulumi stack to select for the update.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -160,10 +160,17 @@ specified in the Target list<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>ttlAfterCompleted</b></td>
+        <td>string</td>
+        <td>
+          TTL for a completed update object.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>type</b></td>
         <td>string</td>
         <td>
-          <br/>
+          Type of the update to perform.<br/>
         </td>
         <td>false</td>
       </tr><tr>

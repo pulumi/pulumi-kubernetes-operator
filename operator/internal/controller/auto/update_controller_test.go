@@ -1,18 +1,16 @@
-/*
-Copyright 2024.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2016-2025, Pulumi Corporation.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package controller
 
@@ -133,7 +131,7 @@ func TestUpdate(t *testing.T) {
 		name    string
 		obj     autov1alpha1.Update
 		client  func(*gomock.Controller) upper
-		kclient func(*gomock.Controller) creater
+		kclient func(*gomock.Controller) creator
 
 		want    autov1alpha1.UpdateStatus
 		wantErr string
@@ -166,7 +164,7 @@ func TestUpdate(t *testing.T) {
 				)
 				return upper
 			},
-			kclient: func(ctrl *gomock.Controller) creater {
+			kclient: func(ctrl *gomock.Controller) creator {
 				want := &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo-stack-outputs",
@@ -182,7 +180,7 @@ func TestUpdate(t *testing.T) {
 					},
 					Immutable: ptr.To(true),
 				}
-				c := NewMockcreater(ctrl)
+				c := NewMockcreator(ctrl)
 				c.EXPECT().Create(gomock.Any(), want).Return(nil)
 				return c
 			},
@@ -225,7 +223,7 @@ func TestUpdate(t *testing.T) {
 				)
 				return upper
 			},
-			kclient: func(_ *gomock.Controller) creater { return nil },
+			kclient: func(_ *gomock.Controller) creator { return nil },
 			want: autov1alpha1.UpdateStatus{
 				Message:   "something went wrong",
 				StartTime: metav1.NewTime(time.Unix(0, 0).UTC()),
@@ -260,7 +258,7 @@ func TestUpdate(t *testing.T) {
 				)
 				return upper
 			},
-			kclient: func(*gomock.Controller) creater { return nil },
+			kclient: func(*gomock.Controller) creator { return nil },
 			wantErr: "failed to run update: exit status 255",
 		},
 		{
@@ -276,7 +274,7 @@ func TestUpdate(t *testing.T) {
 				)
 				return upper
 			},
-			kclient: func(*gomock.Controller) creater { return nil },
+			kclient: func(*gomock.Controller) creator { return nil },
 			wantErr: "transient workspace error",
 		},
 		{
@@ -297,7 +295,7 @@ func TestUpdate(t *testing.T) {
 				)
 				return upper
 			},
-			kclient: func(*gomock.Controller) creater { return nil },
+			kclient: func(*gomock.Controller) creator { return nil },
 			wantErr: "transient stream error",
 		},
 		{
@@ -325,7 +323,7 @@ func TestUpdate(t *testing.T) {
 				)
 				return upper
 			},
-			kclient: func(_ *gomock.Controller) creater { return nil },
+			kclient: func(_ *gomock.Controller) creator { return nil },
 			want: autov1alpha1.UpdateStatus{
 				Message:   "Another u",
 				StartTime: metav1.NewTime(time.Unix(0, 0).UTC()),
