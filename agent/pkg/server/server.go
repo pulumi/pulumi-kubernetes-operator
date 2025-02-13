@@ -1,18 +1,17 @@
-/*
-Copyright © 2024 Pulumi Corporation
+// Copyright 2016-2025, Pulumi Corporation.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-	http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 package server
 
 import (
@@ -398,8 +397,8 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 		st := status.Newf(codes.Unknown, "preview failed: %v", err)
 		return withPulumiErrorInfo(st, err).Err()
 	}
-	stdout.Close()
-	stderr.Close()
+	stdout.Close() //nolint:gosec // Close always returns nil err
+	stderr.Close() //nolint:gosec // Close always returns nil err
 	s.log.Infow("preview completed", "summary", res.ChangeSummary)
 
 	resp := &pb.PreviewResult{
@@ -576,8 +575,8 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 		st := status.Newf(codes.Unknown, "up failed: %v", err)
 		return withPulumiErrorInfo(st, err).Err()
 	}
-	stdout.Close()
-	stderr.Close()
+	stdout.Close() //nolint:gosec // Close always returns nil err
+	stderr.Close() //nolint:gosec // Close always returns nil err
 
 	s.log.Infow("up completed", "summary", res.Summary)
 
@@ -743,7 +742,7 @@ func marshalStackSummary(info auto.StackSummary) *pb.StackSummary {
 		Url:              ptr.To(info.URL),
 	}
 	if info.ResourceCount != nil {
-		data.ResourceCount = ptr.To(int32(*info.ResourceCount))
+		data.ResourceCount = ptr.To(int32(*info.ResourceCount)) //nolint:gosec // We don't reasonably expect an overflow.
 	}
 	return data
 }

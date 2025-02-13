@@ -14,5 +14,15 @@ agent: protoc
 		-ldflags "-X github.com/pulumi/pulumi-kubernetes-operator/v2/agent/version.Version=${VERSION}" \
 		main.go
 
+GOLANGCI_LINT = $(shell pwd)/../bin/golangci-lint
+
+.PHONY: lint
+lint:  ## Run golangci-lint linter & yamllint
+	$(GOLANGCI_LINT) run --config ../.golangci.yml
+
+.PHONY: lint-fix
+lint-fix: ## Run golangci-lint linter and perform fixes
+	$(GOLANGCI_LINT) run --fix --config ../.golangci.yml
+	
 .PHONY: all agent protoc test
 

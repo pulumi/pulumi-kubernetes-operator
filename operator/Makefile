@@ -126,21 +126,15 @@ test: manifests generate fmt vet envtest ## Run tests.
 test-e2e:
 	go test -count=1 -v --timeout=60m -v ./e2e/...
 	
-GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
-GOLANGCI_LINT_VERSION ?= v1.64.2
-golangci-lint:
-	@[ -f $(GOLANGCI_LINT) ] || { \
-	set -e ;\
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell dirname $(GOLANGCI_LINT)) $(GOLANGCI_LINT_VERSION) ;\
-	}
+GOLANGCI_LINT = $(shell pwd)/../bin/golangci-lint
 
 .PHONY: lint
-lint: golangci-lint ## Run golangci-lint linter & yamllint
-	$(GOLANGCI_LINT) run
+lint:  ## Run golangci-lint linter & yamllint
+	$(GOLANGCI_LINT) run --config ../.golangci.yml
 
 .PHONY: lint-fix
-lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	$(GOLANGCI_LINT) run --fix
+lint-fix:  ## Run golangci-lint linter and perform fixes
+	$(GOLANGCI_LINT) run --fix --config ../.golangci.yml
 
 ##@ Build
 
