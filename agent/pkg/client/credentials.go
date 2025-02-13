@@ -18,7 +18,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -47,10 +46,13 @@ type TokenSourceFactory interface {
 
 // ServiceAccount impersonates a service account using the Kubernetes TokenRequest API.
 type ServiceAccount struct {
-	creator serviceAccountInterface
+	creator            serviceAccountInterface
 	serviceAccountName string
-	mu     sync.Mutex
-	sources map[string]*cacheEntry
+	mu                 sync.Mutex
+	sources            map[string]*cacheEntry
+
+	// for testing
+	now func() time.Time
 }
 
 type cacheEntry struct {
@@ -61,15 +63,16 @@ type cacheEntry struct {
 // NewServiceAccount returns a new ServiceAccount with the given name and using the given Kubernetes client.
 func NewServiceAccount(client serviceAccountInterface, serviceAccountName string) *ServiceAccount {
 	return &ServiceAccount{
-		creator: client,
+		creator:            client,
 		serviceAccountName: serviceAccountName,
-		sources: map[string]*cacheEntry{},
+		sources:            map[string]*cacheEntry{},
+		now:                time.Now,
 	}
 }
 
 var _ TokenSourceFactory = &ServiceAccount{}
 
-// TokenSource returns a (cached) token sources for the given audience.
+// TokenSource returns a (cached) token source for the given audience.
 func (m *ServiceAccount) TokenSource(audience string) TokenSource {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -78,17 +81,17 @@ func (m *ServiceAccount) TokenSource(audience string) TokenSource {
 		entry = &cacheEntry{
 			TokenSource: &cachingTokenSource{
 				base: &serviceAccountTokenSource{
-					creator: m.creator,
+					creator:            m.creator,
 					serviceAccountName: m.serviceAccountName,
-					audience: audience,
+					audience:           audience,
 				},
 				leeway: 5 * time.Minute,
-				now: time.Now,
+				now:    m.now,
 			},
 		}
 		m.sources[audience] = entry
 	}
-	entry.lastUsed = time.Now()
+	entry.lastUsed = m.now()
 	return entry.TokenSource
 }
 
@@ -108,13 +111,13 @@ func (m *ServiceAccount) Prune(unusedSince time.Time) int {
 }
 
 // serviceAccountTokenSource produces tokens representing the given service account,
-// as provided by the Kubernetes TokenRequest API. 
+// as provided by the Kubernetes TokenRequest API.
 // Resultant tokens are scoped to the given audience (i.e. a workspace) to be used as bearer tokens for that audience.
 // The underlying Kubernetes client has original credentials to authenticate to the TokenRequest API.
 type serviceAccountTokenSource struct {
-	creator serviceAccountInterface
+	creator            serviceAccountInterface
 	serviceAccountName string
-	audience string
+	audience           string
 }
 
 var _ TokenSource = &serviceAccountTokenSource{}
@@ -132,16 +135,16 @@ func (k *serviceAccountTokenSource) Token(ctx context.Context) (*oauth2.Token, e
 		return nil, err
 	}
 	return &oauth2.Token{
-		TokenType: "Bearer",
+		TokenType:   "Bearer",
 		AccessToken: tokenRequest.Status.Token,
-		Expiry: tokenRequest.Status.ExpirationTimestamp.Time,
+		Expiry:      tokenRequest.Status.ExpirationTimestamp.Time,
 	}, nil
 }
 
 // cachingTokenSource implements a token cache around an underlying token source,
 // refreshing the token as it nears expiration.
 type cachingTokenSource struct {
-	base TokenSource
+	base   TokenSource
 	leeway time.Duration
 
 	sync.RWMutex
@@ -154,7 +157,7 @@ type cachingTokenSource struct {
 
 func (ts *cachingTokenSource) Token(ctx context.Context) (*oauth2.Token, error) {
 	l := logr.FromContextOrDiscard(ctx)
-	
+
 	now := ts.now()
 	// fast path
 	ts.RLock()
@@ -187,7 +190,9 @@ func (ts *cachingTokenSource) Token(ctx context.Context) (*oauth2.Token, error) 
 	return tok, nil
 }
 
-
+// ResetTokenOlderThan resets the token if it was cached before the given time.
+// This is useful for discarding expired tokens following an unauthenticated response;
+// time t should be a time instant before the token source was invoked to avoid resetting newly created tokens.
 func (ts *cachingTokenSource) ResetTokenOlderThan(t time.Time) {
 	ts.Lock()
 	defer ts.Unlock()
@@ -211,15 +216,7 @@ func NewTokenCredentials(source TokenSource) *tokenCredentials {
 
 var _ credentials.PerRPCCredentials = &tokenCredentials{}
 
-// GetRequestMetadata gets the current request metadata, refreshing tokens
-// if required. This should be called by the transport layer on each
-// request, and the data should be populated in headers or other
-// context. If a status code is returned, it will be used as the status for
-// the RPC (restricted to an allowable set of codes as defined by gRFC
-// A54). uri is the URI of the entry point for the request.  When supported
-// by the underlying implementation, ctx can be used for timeout and
-// cancellation. Additionally, RequestInfo data will be available via ctx
-// to this call.
+// GetRequestMetadata gets the current request metadata, refreshing tokens if required.
 func (s *tokenCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -229,10 +226,6 @@ func (s *tokenCredentials) GetRequestMetadata(ctx context.Context, uri ...string
 		if err != nil {
 			return nil, err
 		}
-	}
-	ri, _ := credentials.RequestInfoFromContext(ctx)
-	if err := credentials.CheckSecurityLevel(ri.AuthInfo, credentials.NoSecurity); err != nil {
-		return nil, fmt.Errorf("unable to transfer serviceAccount PerRPCCredentials: %v", err)
 	}
 	return map[string]string{
 		"authorization": s.t.Type() + " " + s.t.AccessToken,
