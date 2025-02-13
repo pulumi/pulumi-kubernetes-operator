@@ -11,3 +11,4 @@ validate-maintainers: true
 validate-yaml: true
 exclude-deprecated: true
 excluded-charts: []
+all: true
