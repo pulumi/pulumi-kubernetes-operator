@@ -347,7 +347,7 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 	opts := []optpreview.Option{
 		optpreview.UserAgent(_userAgent),
 		optpreview.Diff(), /* richer result? */
-		optpreview.DebugLogging(debug.LoggingOptions{LogLevel: &s.pulumiLogLevel}),
+		optpreview.DebugLogging(debug.LoggingOptions{LogLevel: &s.pulumiLogLevel, LogToStdErr: true}),
 	}
 	if in.Parallel != nil {
 		opts = append(opts, optpreview.Parallel(int(*in.Parallel)))
@@ -440,7 +440,7 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 	// determine the options to pass to the preview operation
 	opts := []optrefresh.Option{
 		optrefresh.UserAgent(_userAgent),
-		optrefresh.DebugLogging(debug.LoggingOptions{LogLevel: &s.pulumiLogLevel}),
+		optrefresh.DebugLogging(debug.LoggingOptions{LogLevel: &s.pulumiLogLevel, LogToStdErr: true}),
 	}
 	if in.Parallel != nil {
 		opts = append(opts, optrefresh.Parallel(int(*in.Parallel)))
@@ -523,7 +523,7 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 		optup.UserAgent(_userAgent),
 		optup.SuppressProgress(),
 		optup.Diff(), /* richer result? */
-		optup.DebugLogging(debug.LoggingOptions{LogLevel: &s.pulumiLogLevel}),
+		optup.DebugLogging(debug.LoggingOptions{LogLevel: &s.pulumiLogLevel, LogToStdErr: true}),
 	}
 	if in.Parallel != nil {
 		opts = append(opts, optup.Parallel(int(*in.Parallel)))
@@ -628,7 +628,7 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 	// determine the options to pass to the preview operation
 	opts := []optdestroy.Option{
 		optdestroy.UserAgent(_userAgent),
-		optdestroy.DebugLogging(debug.LoggingOptions{LogLevel: &s.pulumiLogLevel}),
+		optdestroy.DebugLogging(debug.LoggingOptions{LogLevel: &s.pulumiLogLevel, LogToStdErr: true}),
 	}
 	if in.Parallel != nil {
 		opts = append(opts, optdestroy.Parallel(int(*in.Parallel)))
