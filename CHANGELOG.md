@@ -11,6 +11,7 @@ CHANGELOG
 - Use 'parallel' policy for workspace pod rollouts to avoid stalls. [#802](https://github.com/pulumi/pulumi-kubernetes-operator/pull/802)
 - Garbage collection for Update objects. [#810](https://github.com/pulumi/pulumi-kubernetes-operator/pull/810)
 - Use correct logic for OwnerReferencesChangedPredicate. [#815](https://github.com/pulumi/pulumi-kubernetes-operator/pull/815)
+- Use audience-scoped access token. [#816](https://github.com/pulumi/pulumi-kubernetes-operator/pull/816)
 
 ## 2.0.0-beta.3 (2024-11-27)
 

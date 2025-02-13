@@ -48,6 +48,7 @@ var (
 	_port        int
 
 	_authMode           string
+	_audiences          []string
 	_workspaceNamespace string
 	_workspaceName      string
 )
@@ -63,6 +64,9 @@ var serveCmd = &cobra.Command{
 			return fmt.Errorf("unsupported auth mode: %s", _authMode)
 		}
 		if _authMode == AuthModeKubernetes {
+			if len(_audiences) < 1 {
+				return fmt.Errorf("--kube-audience is required when auth mode is kubernetes")
+			}
 			if _workspaceNamespace == "" {
 				return fmt.Errorf("--kube-workspace-namespace is required when auth mode is kubernetes")
 			}
@@ -98,6 +102,7 @@ var serveCmd = &cobra.Command{
 			}
 
 			authFunc, err = server.NewKubeAuth(log.Desugar(), kubeConfig, server.KubeAuthOptions{
+				Audiences: _audiences,
 				WorkspaceName: types.NamespacedName{
 					Namespace: _workspaceNamespace,
 					Name:      _workspaceName,
@@ -107,6 +112,7 @@ var serveCmd = &cobra.Command{
 				return fmt.Errorf("unable to initialize the Kubernetes authorizer: %w", err)
 			}
 			log.Infow("activated the Kubernetes authorization mode",
+				zap.Strings("audiences", _audiences),
 				zap.String("workspace.namespace", _workspaceNamespace), zap.String("workspace.name", _workspaceName))
 		}
 
@@ -209,6 +215,7 @@ func init() {
 	serveCmd.Flags().IntVar(&_port, "port", 50051, "Server port (default: 50051)")
 
 	serveCmd.Flags().StringVar(&_authMode, "auth-mode", AuthModeNone, "Authorization mode (none, kube)")
+	serveCmd.Flags().StringArrayVar(&_audiences, "kube-audience", nil, "The audience to expect in the token (for kubernetes auth mode)")
 	serveCmd.Flags().StringVar(&_workspaceNamespace, "kube-workspace-namespace", os.Getenv("WORKSPACE_NAMESPACE"), "The Workspace object namespace (for kubernetes auth mode)")
 	serveCmd.Flags().StringVar(&_workspaceName, "kube-workspace-name", os.Getenv("WORKSPACE_NAME"), "The Workspace object name (for kubernetes auth mode)")
 }

@@ -69,8 +69,9 @@ const (
 // UpdateReconciler reconciles a Update object
 type UpdateReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	Scheme            *runtime.Scheme
+	Recorder          record.EventRecorder
+	ConnectionManager *ConnectionManager
 }
 
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates,verbs=get;list;watch;create;update;patch;delete
@@ -186,13 +187,12 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// Connect to the workspace's GRPC server
-	addr := fmt.Sprintf("%s:%d", fqdnForService(w), WorkspaceGrpcPort)
-	l.Info("Connecting", "addr", addr)
+	l.Info("Connecting to workspace pod")
 	connectCtx, connectCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer connectCancel()
-	conn, err := connect(connectCtx, addr)
+	conn, err := r.ConnectionManager.Connect(connectCtx, w)
 	if err != nil {
-		l.Error(err, "unable to connect; retrying later", "addr", addr)
+		l.Error(err, "unable to connect; retrying later")
 		rs.progressing.Status = metav1.ConditionFalse
 		rs.progressing.Reason = "TransientFailure"
 		rs.failed.Status = metav1.ConditionFalse
@@ -204,6 +204,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	defer func() {
 		_ = conn.Close()
 	}()
+	l.Info("Connected to workspace pod", "addr", conn.Target())
 	client := agentpb.NewAutomationServiceClient(conn)
 
 	l.Info("Selecting the stack", "stackName", obj.Spec.StackName)

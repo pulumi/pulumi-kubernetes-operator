@@ -39,22 +39,31 @@ func TestKubernetes(t *testing.T) {
 	t.Parallel()
 	log := zap.L().Named("TestKubernetes").Sugar()
 
+	// mock TokenReview API - always unavailable
 	unavailable := func() authenticator.TokenFunc {
 		return func(ctx context.Context, token string) (*authenticator.Response, bool, error) {
 			return nil, false, apierrors.NewForbidden(schema.GroupResource{}, "", errors.New("testing"))
 		}
 	}
 
+	// mock TokenReview API - authenticating a known user by the given token, and a few special cases.
 	authenticate := func(knownToken string, knownUser user.DefaultInfo) authenticator.TokenFunc {
 		return func(ctx context.Context, token string) (*authenticator.Response, bool, error) {
+			knownAudiences, hasKnownAudiences := authenticator.AudiencesFrom(ctx)
+			if !hasKnownAudiences || len(knownAudiences) == 0 {
+				return nil, false, errors.New("no known audiences")
+			}
 			switch token {
 			case "":
 				return nil, false, errors.New("Request unauthenticated with Bearer")
 			case "b4d":
 				return nil, false, errors.New("invalid bearer token")
+			case "sp00f":
+				return nil, false, errors.New("wrong audience")
 			case knownToken:
 				return &authenticator.Response{
-					User: &knownUser,
+					Audiences: knownAudiences,
+					User:      &knownUser,
 				}, true, nil
 			default:
 				return nil, false, nil
@@ -62,6 +71,7 @@ func TestKubernetes(t *testing.T) {
 		}
 	}
 
+	// mock SubjectAccessReview API
 	authorize := func(knownUser user.DefaultInfo, knownWorkspace types.NamespacedName) authorizer.AuthorizerFunc {
 		return func(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 			if !(a.GetUser() != nil && a.GetUser().GetName() == knownUser.Name) {
@@ -98,6 +108,7 @@ func TestKubernetes(t *testing.T) {
 		name            string
 		resourceName    types.NamespacedName
 		authHeaderValue *string
+		audiences       authenticator.Audiences
 		authn           authenticator.TokenFunc
 		authz           authorizer.AuthorizerFunc
 		wantStatus      *grpc_status.Status
@@ -136,6 +147,16 @@ func TestKubernetes(t *testing.T) {
 			authHeaderValue: ptr.To("Bearer b4d"),
 			authn:           authenticate("g00d", testUser),
 			wantStatus:      grpc_status.New(grpc_codes.Unauthenticated, "invalid bearer token"),
+			wantTags: gstruct.Keys{
+				"auth.mode": gomega.Equal("kubernetes"),
+			},
+		},
+		{
+			name:            "WrongAudience",
+			resourceName:    testWorkspace,
+			authHeaderValue: ptr.To("Bearer sp00f"),
+			authn:           authenticate("g00d", testUser),
+			wantStatus:      grpc_status.New(grpc_codes.Unauthenticated, "wrong audience"),
 			wantTags: gstruct.Keys{
 				"auth.mode": gomega.Equal("kubernetes"),
 			},
@@ -207,12 +228,16 @@ func TestKubernetes(t *testing.T) {
 					return authorizer.DecisionNoOpinion, "", nil
 				}
 			}
+			if tt.audiences == nil {
+				tt.audiences = authenticator.Audiences{"workspace"}
+			}
 
 			kubeAuth := &kubeAuth{
 				log:           log,
 				authn:         tt.authn,
 				authz:         tt.authz,
 				workspaceName: tt.resourceName,
+				audiences:     tt.audiences,
 			}
 
 			// prepare the context
