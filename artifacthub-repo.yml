@@ -1,0 +1,9 @@
+# from https://github.com/artifacthub/hub/blob/master/docs/metadata/artifacthub-repo.yml
+repositoryID: 8fcdad40-fcf5-46af-a185-5ccbfa972b03
+owners:
+  - name: Engin Diri
+    email: engin.diri@ediri.de
+  - name: Eron Wright
+    email: eron@pulumi.com
+  - name: Ramon Quitales
+    email: ramon@pulumi.com
