@@ -7,9 +7,6 @@ on:
       - "!deploy/helm/pulumi-operator/README.md.gotmpl"
 
 env:
-  PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  PULUMI_BOT_TOKEN: ${{ secrets.PULUMI_BOT_TOKEN }}
   VERSION: v0.0-${{ github.sha }}
 
 permissions: read-all
