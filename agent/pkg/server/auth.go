@@ -140,7 +140,7 @@ func NewKubeAuth(rootLogger *zap.Logger, config *rest.Config, opts KubeAuthOptio
 		authn:         delegatingAuthenticator,
 		authz:         delegatingAuthorizer,
 		workspaceName: opts.WorkspaceName,
-		audiences:     opts.Audiences,
+		audiences:     authenticator.Audiences(opts.Audiences),
 	}
 	return a.Authenticate, nil
 }
@@ -150,7 +150,7 @@ type kubeAuth struct {
 	authn         authenticator.Token
 	authz         authorizer.Authorizer
 	workspaceName types.NamespacedName
-	audiences     []string
+	audiences     authenticator.Audiences
 }
 
 // Authenticate implements grpc_auth.AuthFunc to perform authentication and authorization.
