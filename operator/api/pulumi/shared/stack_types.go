@@ -159,13 +159,6 @@ type StackSpec struct {
 	// The default behavior is to retain the workspace. Valid values are one of "Retain" or "Delete".
 	// +optional
 	WorkspaceReclaimPolicy WorkspaceReclaimPolicy `json:"workspaceReclaimPolicy,omitempty"`
-
-	// (optional) PulumiLogVerbosity is the log verbosity level to use for the Pulumi CLI.
-	// If unset,verbose logging is disabled.
-	// See: https://www.pulumi.com/docs/iac/support/troubleshooting/#verbose-logging
-	// for more information about log levels.
-	// +optional
-	PulumiLogVerbosity uint32 `json:"pulumiLogLevel,omitempty"`
 }
 
 // GitSource specifies how to fetch from a git repository directly.

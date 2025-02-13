@@ -255,18 +255,6 @@ re-evaluated before running a stack that depends on it.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b>pulumiLogLevel</b></td>
-        <td>integer</td>
-        <td>
-          (optional) PulumiLogVerbosity is the log verbosity level to use for the Pulumi CLI.
-If unset,verbose logging is disabled.
-See: https://www.pulumi.com/docs/iac/support/troubleshooting/#verbose-logging
-for more information about log levels.<br/>
-          <br/>
-            <i>Format</i>: int32<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
         <td><b>refresh</b></td>
         <td>boolean</td>
         <td>
@@ -19699,18 +19687,6 @@ re-evaluated before running a stack that depends on it.<br/>
         <td>string</td>
         <td>
           ProjectRepo is the git source control repository from which we fetch the project code and configuration.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>pulumiLogLevel</b></td>
-        <td>integer</td>
-        <td>
-          (optional) PulumiLogVerbosity is the log verbosity level to use for the Pulumi CLI.
-If unset,verbose logging is disabled.
-See: https://www.pulumi.com/docs/iac/support/troubleshooting/#verbose-logging
-for more information about log levels.<br/>
-          <br/>
-            <i>Format</i>: int32<br/>
         </td>
         <td>false</td>
       </tr><tr>
