@@ -88,22 +88,15 @@ jobs:
           rm -f ./ah
 
       - name: Run chart-testing (lint)
-        run: ct lint --debug --config ./.github/configs/ct-lint.yaml --lint-conf ./.github/configs/lintconf.yaml
+        run: ct lint --debug --config ./.github/configs/ct-lint-install.yaml --lint-conf ./.github/configs/lintconf.yaml
 
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
         if: steps.list-changed.outputs.changed == 'true'
-      
-        # See: https://github.com/helm/chart-testing/issues/171 for how to inject values.
-      - name: Inject tag into test values and use for deployment
-        run: |
-          mkdir -p deploy/helm/pulumi-operator/ci/
-          sed 's/tag: ""/tag: "${{ env.VERSION }}"/' deploy/helm/pulumi-operator/values.yaml > deploy/helm/pulumi-operator/ci/prerelease-values.yaml
       
       - name: Load images into KinD
         run: |
           kind load docker-image pulumi/pulumi-kubernetes-operator:${{ env.VERSION }}
 
       - name: Run chart-testing (install)
-        run: ct install --config ./.github/configs/ct-install.yaml
-        if: steps.list-changed.outputs.changed == 'true'
+        run: ct install --config ./.github/configs/ct-lint-install.yaml  --helm-extra-set-args "--set=image.tag=${{ env.VERSION }}"
