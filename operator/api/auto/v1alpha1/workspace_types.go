@@ -101,6 +101,13 @@ type WorkspaceSpec struct {
 	// +optional
 	PodTemplate *EmbeddedPodTemplateSpec `json:"podTemplate,omitempty"`
 
+	// PulumiLogVerbosity is the log verbosity level to use for the Pulumi CLI.
+	// If unset,verbose logging is disabled.
+	// See: https://www.pulumi.com/docs/iac/support/troubleshooting/#verbose-logging
+	// for more information about log levels.
+	// +optional
+	PulumiLogVerbosity uint32 `json:"pulumiLogLevel,omitempty"`
+
 	// List of stacks this workspace manages.
 	// +optional
 	// +patchMergeKey=name
