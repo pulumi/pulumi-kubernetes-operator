@@ -51,6 +51,7 @@ var (
 	_audiences          []string
 	_workspaceNamespace string
 	_workspaceName      string
+	_pulumiLogLevel     uint
 )
 
 // serveCmd represents the serve command
@@ -156,7 +157,8 @@ var serveCmd = &cobra.Command{
 
 		// Create the automation service
 		autoServer, err := server.NewServer(ctx, workspace, &server.Options{
-			StackName: _stack,
+			StackName:      _stack,
+			PulumiLogLevel: _pulumiLogLevel,
 		})
 		if err != nil {
 			return fmt.Errorf("unable to make an automation server: %w", err)
@@ -218,4 +220,5 @@ func init() {
 	serveCmd.Flags().StringArrayVar(&_audiences, "kube-audience", nil, "The audience to expect in the token (for kubernetes auth mode)")
 	serveCmd.Flags().StringVar(&_workspaceNamespace, "kube-workspace-namespace", os.Getenv("WORKSPACE_NAMESPACE"), "The Workspace object namespace (for kubernetes auth mode)")
 	serveCmd.Flags().StringVar(&_workspaceName, "kube-workspace-name", os.Getenv("WORKSPACE_NAME"), "The Workspace object name (for kubernetes auth mode)")
+	serveCmd.Flags().UintVar(&_pulumiLogLevel, "pulumi-log-level", 0, "The level of logging to use for the Pulumi CLI")
 }

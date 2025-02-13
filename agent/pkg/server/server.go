@@ -36,6 +36,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/debug"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/events"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optpreview"
@@ -49,12 +50,13 @@ import (
 var _userAgent = fmt.Sprintf("pulumi-kubernetes-operator/%s", version.Version)
 
 type Server struct {
-	log       *zap.SugaredLogger
-	plog      *zap.Logger
-	stopping  atomic.Bool
-	ws        auto.Workspace
-	stackLock sync.Mutex
-	stack     *auto.Stack
+	log            *zap.SugaredLogger
+	plog           *zap.Logger
+	stopping       atomic.Bool
+	ws             auto.Workspace
+	stackLock      sync.Mutex
+	stack          *auto.Stack
+	pulumiLogLevel uint
 
 	pb.UnimplementedAutomationServiceServer
 }
@@ -66,6 +68,9 @@ type Options struct {
 	StackName string
 	// SecretsProvider is the secrets provider to use for new stacks (optional).
 	SecretsProvider string
+
+	// PulumiLogLevel is the log level to use for Pulumi CLI operations.
+	PulumiLogLevel uint
 }
 
 // NewServer creates a new automation server for the given workspace.
@@ -79,9 +84,10 @@ func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, 
 	plog := zap.L().Named("pulumi")
 
 	server := &Server{
-		log:  log,
-		plog: plog,
-		ws:   ws,
+		log:            log,
+		plog:           plog,
+		ws:             ws,
+		pulumiLogLevel: opts.PulumiLogLevel,
 	}
 
 	// select the initial stack, if provided
@@ -341,6 +347,7 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 	opts := []optpreview.Option{
 		optpreview.UserAgent(_userAgent),
 		optpreview.Diff(), /* richer result? */
+		optpreview.DebugLogging(debug.LoggingOptions{LogLevel: &s.pulumiLogLevel}),
 	}
 	if in.Parallel != nil {
 		opts = append(opts, optpreview.Parallel(int(*in.Parallel)))
@@ -433,6 +440,7 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 	// determine the options to pass to the preview operation
 	opts := []optrefresh.Option{
 		optrefresh.UserAgent(_userAgent),
+		optrefresh.DebugLogging(debug.LoggingOptions{LogLevel: &s.pulumiLogLevel}),
 	}
 	if in.Parallel != nil {
 		opts = append(opts, optrefresh.Parallel(int(*in.Parallel)))
@@ -515,6 +523,7 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 		optup.UserAgent(_userAgent),
 		optup.SuppressProgress(),
 		optup.Diff(), /* richer result? */
+		optup.DebugLogging(debug.LoggingOptions{LogLevel: &s.pulumiLogLevel}),
 	}
 	if in.Parallel != nil {
 		opts = append(opts, optup.Parallel(int(*in.Parallel)))
@@ -619,6 +628,7 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 	// determine the options to pass to the preview operation
 	opts := []optdestroy.Option{
 		optdestroy.UserAgent(_userAgent),
+		optdestroy.DebugLogging(debug.LoggingOptions{LogLevel: &s.pulumiLogLevel}),
 	}
 	if in.Parallel != nil {
 		opts = append(opts, optdestroy.Parallel(int(*in.Parallel)))
