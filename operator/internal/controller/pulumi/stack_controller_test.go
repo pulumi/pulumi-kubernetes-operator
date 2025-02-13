@@ -788,6 +788,20 @@ var _ = Describe("Stack Controller", func() {
 					Expect(res.RequeueAfter).To(BeNumerically("~", 8*time.Minute, time.Minute))
 					ByMarkingAsReconciling(pulumiv1.ReconcilingRetryReason, Equal("3 update failure(s)"))
 				})
+
+				When("the WorkspaceReclaimPolicy is set to Delete", func() {
+					BeforeEach(func(ctx context.Context) {
+						obj.Spec.WorkspaceReclaimPolicy = shared.WorkspaceReclaimDelete
+					})
+					It("does not delete the workspace pod", func(ctx context.Context) {
+						result, err := reconcileF(ctx)
+						Expect(err).NotTo(HaveOccurred())
+						// 1 minute * 2^3
+						Expect(result.RequeueAfter).To(BeNumerically("~", 8*time.Minute, time.Minute))
+						By("not deleting the Workspace object")
+						Expect(ws.GetName()).NotTo(BeEmpty())
+					})
+				})
 			})
 			When("done cooling down", func() {
 				BeforeEach(func() {
@@ -938,6 +952,21 @@ var _ = Describe("Stack Controller", func() {
 							_, err := reconcileF(ctx)
 							Expect(err).NotTo(HaveOccurred())
 							ByResyncing()
+						})
+
+						When("the WorkspaceReclaimPolicy is set to Delete", func() {
+							BeforeEach(func(ctx context.Context) {
+								obj.Spec.WorkspaceReclaimPolicy = shared.WorkspaceReclaimDelete
+							})
+							It("reconciles and delete the workspace pod", func(ctx context.Context) {
+								result, err := reconcileF(ctx)
+								Expect(err).NotTo(HaveOccurred())
+								ByMarkingAsReady()
+								By("not requeuing")
+								Expect(result).To(Equal(reconcile.Result{}))
+								By("deleting the Workspace object")
+								Expect(ws.GetName()).To(BeEmpty())
+							})
 						})
 					})
 				})

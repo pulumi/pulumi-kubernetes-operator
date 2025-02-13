@@ -769,9 +769,11 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		// Requeue reconciliation as necessary to detect branch updates and
 		// resyncs. The logic finds the smallest requeue time (if any) among various polling loops.
 		requeueAfter := time.Duration(0)
+		updateFailed := false
 
 		// Try again with exponential backoff if the update failed.
 		if instance.Status.LastUpdate.State == shared.FailedStackStateMessage {
+			updateFailed = true
 			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(cooldown(instance))))
 		}
 		// Schedule another poll if ContinueResyncOnCommitMatch is set, for drift detection or to maintain dynamic resources.
@@ -802,7 +804,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		}
 
 		// Delete the workspace if the reclaim policy is set to delete.
-		if instance.Spec.WorkspaceReclaimPolicy == shared.WorkspaceReclaimDelete {
+		if !updateFailed && instance.Spec.WorkspaceReclaimPolicy == shared.WorkspaceReclaimDelete {
 			log.Info("Deleting workspace as reclaim policy is set to delete")
 			err := sess.DeleteWorkspace(ctx)
 			if err != nil {
