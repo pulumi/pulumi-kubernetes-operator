@@ -102,7 +102,7 @@ var serveCmd = &cobra.Command{
 			}
 
 			authFunc, err = server.NewKubeAuth(log.Desugar(), kubeConfig, server.KubeAuthOptions{
-				Audiences:     _audiences,
+				Audiences: _audiences,
 				WorkspaceName: types.NamespacedName{
 					Namespace: _workspaceNamespace,
 					Name:      _workspaceName,
