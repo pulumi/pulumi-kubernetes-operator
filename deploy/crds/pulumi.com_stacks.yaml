@@ -628,6 +628,14 @@ spec:
                 description: ProjectRepo is the git source control repository from
                   which we fetch the project code and configuration.
                 type: string
+              pulumiLogLevel:
+                description: |-
+                  (optional) PulumiLogVerbosity is the log verbosity level to use for the Pulumi CLI.
+                  If unset,verbose logging is disabled.
+                  See: https://www.pulumi.com/docs/iac/support/troubleshooting/#verbose-logging
+                  for more information about log levels.
+                format: int32
+                type: integer
               refresh:
                 description: (optional) Refresh can be set to true to refresh the
                   stack before it is updated.
@@ -10264,6 +10272,14 @@ spec:
                 description: ProjectRepo is the git source control repository from
                   which we fetch the project code and configuration.
                 type: string
+              pulumiLogLevel:
+                description: |-
+                  (optional) PulumiLogVerbosity is the log verbosity level to use for the Pulumi CLI.
+                  If unset,verbose logging is disabled.
+                  See: https://www.pulumi.com/docs/iac/support/troubleshooting/#verbose-logging
+                  for more information about log levels.
+                format: int32
+                type: integer
               refresh:
                 description: (optional) Refresh can be set to true to refresh the
                   stack before it is updated.
