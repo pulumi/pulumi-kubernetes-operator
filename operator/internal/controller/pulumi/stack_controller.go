@@ -1355,6 +1355,12 @@ func (sess *stackReconcilerSession) NewWorkspace(stack *pulumiv1.Stack) error {
 		},
 	}
 	sess.wspc = &sess.ws.Spec.PodTemplate.Spec.Containers[0]
+
+	// Propagate Pulumi CLI log verbosity setting to the workspace.
+	if stack.Spec.PulumiLogVerbosity != 0 {
+		sess.ws.Spec.PulumiLogVerbosity = stack.Spec.PulumiLogVerbosity
+	}
+
 	if err := controllerutil.SetControllerReference(stack, sess.ws, sess.scheme); err != nil {
 		return err
 	}
