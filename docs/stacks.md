@@ -2281,6 +2281,15 @@ with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>pulumiLogLevel</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecresources">resources</a></b></td>
         <td>object</td>
         <td>
@@ -21713,6 +21722,15 @@ with apply.<br/>
         <td>
           EmbeddedPodTemplateSpecApplyConfiguration represents a declarative configuration of the EmbeddedPodTemplateSpec type for use
 with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pulumiLogLevel</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int32<br/>
         </td>
         <td>false</td>
       </tr><tr>
