@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       operator_version:
-        description: The image tag to copy, fully specified, e.g. "3.18.1"
+        description: The image tag to copy, fully specified, e.g. "v2.0.0"
         type: string
         required: true
   repository_dispatch:
