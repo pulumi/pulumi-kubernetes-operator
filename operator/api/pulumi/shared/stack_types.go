@@ -155,7 +155,8 @@ type StackSpec struct {
 	// +optional
 	WorkspaceTemplate *WorkspaceApplyConfiguration `json:"workspaceTemplate,omitempty"`
 
-	// WorkspaceReclaimPolicy specifies whether the workspace should be deleted or retained after the Stack is synced.
+	// WorkspaceReclaimPolicy specifies whether the workspace should be deleted or retained after the Stack is
+	// successfully synced, and the last update is in a succeeded state.
 	// The default behavior is to retain the workspace. Valid values are one of "Retain" or "Delete".
 	// +optional
 	WorkspaceReclaimPolicy WorkspaceReclaimPolicy `json:"workspaceReclaimPolicy,omitempty"`
