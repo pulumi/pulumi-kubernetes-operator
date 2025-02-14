@@ -1322,12 +1322,11 @@ func nameForWorkspace(stack *metav1.ObjectMeta) string {
 	return stack.Name
 }
 
+// labelsForWorkspace returns the labels for the direct children of the stack (workspaces and updates).
 func labelsForWorkspace(stack *metav1.ObjectMeta) map[string]string {
 	return map[string]string{
-		"app.kubernetes.io/name":       "pulumi",
-		"app.kubernetes.io/component":  "stack",
-		"app.kubernetes.io/instance":   stack.Name,
-		"app.kubernetes.io/managed-by": "pulumi-kubernetes-operator",
+		"pulumi.com/component":  "stack",
+		"pulumi.com/stack-name": stack.Name,
 	}
 }
 
@@ -1499,6 +1498,7 @@ func (sess *stackReconcilerSession) UpdateConfig(ctx context.Context) error {
 
 // newUp runs `pulumi up` on the stack.
 func (sess *stackReconcilerSession) newUp(_ context.Context, o *pulumiv1.Stack, message string) (*autov1alpha1.Update, error) {
+	labels := labelsForWorkspace(&o.ObjectMeta)
 	update := &autov1alpha1.Update{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: autov1alpha1.GroupVersion.String(),
@@ -1507,6 +1507,7 @@ func (sess *stackReconcilerSession) newUp(_ context.Context, o *pulumiv1.Stack, 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      makeUpdateName(o),
 			Namespace: sess.namespace,
+			Labels:    labels,
 		},
 		Spec: autov1alpha1.UpdateSpec{
 			WorkspaceName:     sess.ws.Name,
@@ -1530,6 +1531,7 @@ func (sess *stackReconcilerSession) newUp(_ context.Context, o *pulumiv1.Stack, 
 
 // newUp runs `pulumi destroy` on the stack.
 func (sess *stackReconcilerSession) newDestroy(_ context.Context, o *pulumiv1.Stack, message string) (*autov1alpha1.Update, error) {
+	labels := labelsForWorkspace(&o.ObjectMeta)
 	update := &autov1alpha1.Update{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: autov1alpha1.GroupVersion.String(),
@@ -1538,6 +1540,7 @@ func (sess *stackReconcilerSession) newDestroy(_ context.Context, o *pulumiv1.St
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      makeUpdateName(o),
 			Namespace: sess.namespace,
+			Labels:    labels,
 		},
 		Spec: autov1alpha1.UpdateSpec{
 			WorkspaceName:     sess.ws.Name,

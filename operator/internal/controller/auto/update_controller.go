@@ -547,6 +547,7 @@ func outputsToSecret(owner *autov1alpha1.Update, outputs map[string]*agentpb.Out
 		Name:       owner.Name,
 		UID:        owner.UID,
 	}})
+	s.Labels = labelsForUpdateSecret(owner)
 
 	secrets := []string{}
 	for outputName, v := range outputs {
@@ -569,6 +570,13 @@ func outputsToSecret(owner *autov1alpha1.Update, outputs map[string]*agentpb.Out
 	})
 
 	return s, nil
+}
+
+func labelsForUpdateSecret(u *autov1alpha1.Update) map[string]string {
+	return map[string]string{
+		"auto.pulumi.com/component":   "update",
+		"auto.pulumi.com/update-name": u.Name,
+	}
 }
 
 // stream is an interface constraint for the response streams consumable by a

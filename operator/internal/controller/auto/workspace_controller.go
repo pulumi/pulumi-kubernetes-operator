@@ -187,7 +187,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 	err = r.Patch(ctx, ss, client.Apply, client.FieldOwner(FieldManager))
 	if err != nil {
-		// issue-801 - migration logic for 2.0.0-beta.3 to 2.0.0
+		// migration logic for 2.0.0-beta to 2.0.0
 		if apierrors.IsInvalid(err) {
 			l.V(0).Info("replacing the workspace statefulset to update an immutable field")
 			if err = r.Delete(ctx, ss); err != nil {
@@ -433,10 +433,8 @@ func fqdnForService(w *autov1alpha1.Workspace) string {
 
 func labelsForStatefulSet(w *autov1alpha1.Workspace) map[string]string {
 	return map[string]string{
-		"app.kubernetes.io/name":       "pulumi",
-		"app.kubernetes.io/component":  "workspace",
-		"app.kubernetes.io/instance":   w.Name,
-		"app.kubernetes.io/managed-by": "pulumi-kubernetes-operator",
+		"auto.pulumi.com/component":      "workspace",
+		"auto.pulumi.com/workspace-name": w.Name,
 	}
 }
 
