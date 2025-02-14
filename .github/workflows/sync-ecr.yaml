@@ -46,7 +46,7 @@ jobs:
             docker login -u AWS --password-stdin https://public.ecr.aws
       - name: Copy ${{ env.OPERATOR_VERSION }} image to AWS Public ECR
         run: |
-          skopeo copy docker://docker.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }} docker://public.ecr.aws/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
+          skopeo copy --all docker://docker.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }} docker://public.ecr.aws/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
       - name: Copy ${{ env.OPERATOR_VERSION }} image to GitHub Container Registry
         run: |
-          skopeo copy docker://docker.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }} docker://ghcr.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
+          skopeo copy --all docker://docker.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }} docker://ghcr.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
