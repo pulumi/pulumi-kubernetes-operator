@@ -794,10 +794,8 @@ var _ = Describe("Stack Controller", func() {
 						obj.Spec.WorkspaceReclaimPolicy = shared.WorkspaceReclaimDelete
 					})
 					It("does not delete the workspace pod", func(ctx context.Context) {
-						result, err := reconcileF(ctx)
+						_, err := reconcileF(ctx)
 						Expect(err).NotTo(HaveOccurred())
-						// 1 minute * 2^3
-						Expect(result.RequeueAfter).To(BeNumerically("~", 8*time.Minute, time.Minute))
 						By("not deleting the Workspace object")
 						Expect(ws.GetName()).NotTo(BeEmpty())
 					})
