@@ -396,16 +396,15 @@ func TestSetupWorkspace(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "test",
+					Name:      "test-stack",
 					Labels: map[string]string{
-						"app.kubernetes.io/component":  "stack",
-						"app.kubernetes.io/instance":   "",
-						"app.kubernetes.io/managed-by": "pulumi-kubernetes-operator",
-						"app.kubernetes.io/name":       "pulumi",
-						"custom":                       "label",
+						"pulumi.com/component":  "stack",
+						"pulumi.com/stack-name": "test-stack",
+						"custom":                "label",
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
-							APIVersion: "pulumi.com/v1", Kind: "Stack",
+							APIVersion: "pulumi.com/v1", Kind: "Stack", Name: "test-stack",
 							BlockOwnerDeletion: ptr.To(true), Controller: ptr.To(true),
 						},
 					},
@@ -442,7 +441,13 @@ func TestSetupWorkspace(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			log := testr.New(t).WithValues("Request.Test", t.Name())
 			session := newStackReconcilerSession(log, test.stack, client, scheme.Scheme, namespace)
-			require.NoError(t, session.NewWorkspace(&v1.Stack{Spec: session.stack}))
+			require.NoError(t, session.NewWorkspace(&v1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-stack",
+					Namespace: namespace,
+				},
+				Spec: session.stack,
+			}))
 
 			err := session.setupWorkspace(context.Background())
 			if test.err != nil {

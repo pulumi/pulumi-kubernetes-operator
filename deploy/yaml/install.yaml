@@ -1010,7 +1010,7 @@ spec:
                 type: boolean
               workspaceReclaimPolicy:
                 description: |-
-                  WorkspaceReclaimPolicy specifies whether the workspace should be deleted or retained after the Stack is synced.
+                  WorkspaceReclaimPolicy specifies whether the workspace should be deleted or retained after the Stack is successfully updated.
                   The default behavior is to retain the workspace. Valid values are one of "Retain" or "Delete".
                 enum:
                 - Retain
@@ -9618,6 +9618,9 @@ spec:
                             - containers
                             type: object
                         type: object
+                      pulumiLogLevel:
+                        format: int32
+                        type: integer
                       resources:
                         description: ResourceRequirements describes the compute resource
                           requirements.
@@ -10646,7 +10649,7 @@ spec:
                 type: boolean
               workspaceReclaimPolicy:
                 description: |-
-                  WorkspaceReclaimPolicy specifies whether the workspace should be deleted or retained after the Stack is synced.
+                  WorkspaceReclaimPolicy specifies whether the workspace should be deleted or retained after the Stack is successfully updated.
                   The default behavior is to retain the workspace. Valid values are one of "Retain" or "Delete".
                 enum:
                 - Retain
@@ -19254,6 +19257,9 @@ spec:
                             - containers
                             type: object
                         type: object
+                      pulumiLogLevel:
+                        format: int32
+                        type: integer
                       resources:
                         description: ResourceRequirements describes the compute resource
                           requirements.
@@ -28138,6 +28144,14 @@ spec:
                     - containers
                     type: object
                 type: object
+              pulumiLogLevel:
+                description: |-
+                  PulumiLogVerbosity is the log verbosity level to use for the Pulumi CLI.
+                  If unset,verbose logging is disabled.
+                  See: https://www.pulumi.com/docs/iac/support/troubleshooting/#verbose-logging
+                  for more information about log levels.
+                format: int32
+                type: integer
               resources:
                 description: |-
                   Compute Resources required by this workspace.
