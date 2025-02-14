@@ -20,9 +20,8 @@ spec:
               kubernetes.io/metadata.name: random-yaml-auth-error
         - podSelector:
             matchLabels:
-              app.kubernetes.io/managed-by: pulumi-kubernetes-operator
-              app.kubernetes.io/name: pulumi
-              app.kubernetes.io/component: workspace
+              auto.pulumi.com/component: workspace
+              auto.pulumi.com/workspace-name: random-yaml-auth-error
   policyTypes:
     - Ingress
 ---

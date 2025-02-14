@@ -100,7 +100,8 @@ func makeWorkspace(objMeta metav1.ObjectMeta) *autov1alpha1.Workspace {
 	}
 }
 
-func makeUpdate(name types.NamespacedName, spec autov1alpha1.UpdateSpec) *autov1alpha1.Update {
+func makeUpdate(name types.NamespacedName, stack *pulumiv1.Stack, spec autov1alpha1.UpdateSpec) *autov1alpha1.Update {
+	labels := labelsForWorkspace(&stack.ObjectMeta)
 	return &autov1alpha1.Update{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: autov1alpha1.GroupVersion.String(),
@@ -109,6 +110,7 @@ func makeUpdate(name types.NamespacedName, spec autov1alpha1.UpdateSpec) *autov1
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       fmt.Sprintf("%s-%s", name.Name, utilrand.String(8)),
 			Namespace:  name.Namespace,
+			Labels:     labels,
 			Finalizers: []string{pulumiFinalizer},
 		},
 		Spec: spec,
@@ -163,7 +165,7 @@ var _ = Describe("Stack Controller", func() {
 
 		// create a "current" Update object to potentially be observed,
 		// to test how the stack status varies based on current update.
-		currentUpdate = makeUpdate(objName, autov1alpha1.UpdateSpec{
+		currentUpdate = makeUpdate(objName, obj, autov1alpha1.UpdateSpec{
 			WorkspaceName: nameForWorkspace(&obj.ObjectMeta),
 			StackName:     obj.Spec.Stack,
 			Type:          autov1alpha1.UpType,

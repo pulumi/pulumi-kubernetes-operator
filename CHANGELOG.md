@@ -13,6 +13,7 @@ CHANGELOG
 - Use correct logic for OwnerReferencesChangedPredicate. [#815](https://github.com/pulumi/pulumi-kubernetes-operator/pull/815)
 - Use audience-scoped access token. [#816](https://github.com/pulumi/pulumi-kubernetes-operator/pull/816)
 - Enable setting the log verbosity of Pulumi CLI operations for a given workspace. [#824](https://github.com/pulumi/pulumi-kubernetes-operator/pull/824)
+- Use pulumi.com labels [#829](https://github.com/pulumi/pulumi-kubernetes-operator/pull/829)
 
 ## 2.0.0-beta.3 (2024-11-27)
 

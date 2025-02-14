@@ -168,6 +168,10 @@ func TestUpdate(t *testing.T) {
 				want := &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "foo-stack-outputs",
+						Labels: map[string]string{
+							"auto.pulumi.com/component":   "update",
+							"auto.pulumi.com/update-name": "foo",
+						},
 						Annotations: map[string]string{
 							"pulumi.com/secrets": `["password","with_whitespace"]`,
 						},
