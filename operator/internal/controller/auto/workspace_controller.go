@@ -433,8 +433,8 @@ func fqdnForService(w *autov1alpha1.Workspace) string {
 
 func labelsForStatefulSet(w *autov1alpha1.Workspace) map[string]string {
 	return map[string]string{
-		"auto.pulumi.com/component":      "workspace",
-		"auto.pulumi.com/workspace-name": w.Name,
+		autov1alpha1.ComponentAnnotation:     autov1alpha1.WorkspaceComponent,
+		autov1alpha1.WorkspaceNameAnnotation: w.Name,
 	}
 }
 
