@@ -17,8 +17,9 @@ package controller
 type ComponentType = string
 
 const (
-	ComponentAnnotation     = "auto.pulumi.com/component"
-	WorkspaceNameAnnotation = "auto.pulumi.com/workspace-name"
+	ComponentLabel     = "auto.pulumi.com/component"
+	WorkspaceNameLabel = "auto.pulumi.com/workspace-name"
+	UpdateNameLabel    = "auto.pulumi.com/update-name"
 
 	WorkspaceComponent ComponentType = "workspace"
 	UpdateComponent    ComponentType = "update"

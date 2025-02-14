@@ -17,8 +17,8 @@ package pulumi
 type ComponentType = string
 
 const (
-	ComponentAnnotation = "pulumi.com/component"
-	StackNameAnnotation = "pulumi.com/stack-name"
+	ComponentLabel = "pulumi.com/component"
+	StackNameLabel = "pulumi.com/stack-name"
 
 	StackComponent ComponentType = "stack"
 )

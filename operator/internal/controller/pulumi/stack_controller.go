@@ -1325,8 +1325,8 @@ func nameForWorkspace(stack *metav1.ObjectMeta) string {
 // labelsForWorkspace returns the labels for the direct children of the stack (workspaces and updates).
 func labelsForWorkspace(stack *metav1.ObjectMeta) map[string]string {
 	return map[string]string{
-		ComponentAnnotation: StackComponent,
-		StackNameAnnotation: stack.Name,
+		ComponentLabel: StackComponent,
+		StackNameLabel: stack.Name,
 	}
 }
 
