@@ -368,7 +368,8 @@ The default behavior is to create a stack if it doesn't exist.<br/>
         <td><b>workspaceReclaimPolicy</b></td>
         <td>enum</td>
         <td>
-          WorkspaceReclaimPolicy specifies whether the workspace should be deleted or retained after the Stack is synced.
+          WorkspaceReclaimPolicy specifies whether the workspace should be deleted or retained after the Stack is
+successfully synced, and the last update is in a succeeded state.
 The default behavior is to retain the workspace. Valid values are one of "Retain" or "Delete".<br/>
           <br/>
             <i>Enum</i>: Retain, Delete<br/>
@@ -19803,7 +19804,8 @@ The default behavior is to create a stack if it doesn't exist.<br/>
         <td><b>workspaceReclaimPolicy</b></td>
         <td>enum</td>
         <td>
-          WorkspaceReclaimPolicy specifies whether the workspace should be deleted or retained after the Stack is synced.
+          WorkspaceReclaimPolicy specifies whether the workspace should be deleted or retained after the Stack is
+successfully synced, and the last update is in a succeeded state.
 The default behavior is to retain the workspace. Valid values are one of "Retain" or "Delete".<br/>
           <br/>
             <i>Enum</i>: Retain, Delete<br/>
