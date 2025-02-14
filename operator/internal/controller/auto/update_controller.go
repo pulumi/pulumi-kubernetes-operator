@@ -574,8 +574,8 @@ func outputsToSecret(owner *autov1alpha1.Update, outputs map[string]*agentpb.Out
 
 func labelsForUpdateSecret(u *autov1alpha1.Update) map[string]string {
 	return map[string]string{
-		autov1alpha1.ComponentAnnotation:     autov1alpha1.UpdateComponent,
-		autov1alpha1.WorkspaceNameAnnotation: u.Name,
+		ComponentAnnotation:     UpdateComponent,
+		WorkspaceNameAnnotation: u.Name,
 	}
 }
 

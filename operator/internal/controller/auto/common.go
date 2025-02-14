@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha1
+package controller
 
 type ComponentType = string
 
@@ -21,5 +21,5 @@ const (
 	WorkspaceNameAnnotation = "auto.pulumi.com/workspace-name"
 
 	WorkspaceComponent ComponentType = "workspace"
-	UpdateComponent ComponentType = "update"
+	UpdateComponent    ComponentType = "update"
 )
