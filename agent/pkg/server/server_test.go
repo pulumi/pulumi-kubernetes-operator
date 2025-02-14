@@ -479,6 +479,7 @@ func TestUp(t *testing.T) {
 		name       string
 		projectDir string
 		stacks     []string
+		serverOpts *Options
 		req        *pb.UpRequest
 		wantErr    any
 		want       auto.ConfigMap
@@ -496,13 +497,20 @@ func TestUp(t *testing.T) {
 			stacks:     []string{TestStackName},
 			req:        &pb.UpRequest{},
 		},
+		{
+			name:       "Pulumi CLI verbose logging enabled: lvl 11",
+			projectDir: "./testdata/simple",
+			stacks:     []string{TestStackName},
+			serverOpts: &Options{PulumiLogLevel: 11},
+			req:        &pb.UpRequest{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			g := gomega.NewWithT(t)
 			ctx := newContext(t)
-			tc := newTC(ctx, t, tcOptions{ProjectDir: tt.projectDir, Stacks: tt.stacks})
+			tc := newTC(ctx, t, tcOptions{ProjectDir: tt.projectDir, Stacks: tt.stacks, ServerOpts: tt.serverOpts})
 
 			srv := &upStream{
 				ctx:    ctx,
@@ -517,6 +525,11 @@ func TestUp(t *testing.T) {
 				g.Expect(srv.result).ToNot(gomega.BeNil())
 				g.Expect(srv.result.Summary).ToNot(gomega.BeNil())
 				g.Expect(srv.result.Summary.Result).To(gomega.Equal("succeeded"))
+
+				if tt.serverOpts != nil {
+					// ensure that the extra logs are present
+					g.Expect(srv.result).To(gomega.ContainSubstring("log level 11 will print sensitive information"))
+				}
 			}
 		})
 	}
@@ -556,6 +569,7 @@ func TestPreview(t *testing.T) {
 		projectDir string
 		stacks     []string
 		req        *pb.PreviewRequest
+		serverOpts *Options
 		wantErr    any
 		want       auto.ConfigMap
 	}{
@@ -572,13 +586,20 @@ func TestPreview(t *testing.T) {
 			stacks:     []string{TestStackName},
 			req:        &pb.PreviewRequest{},
 		},
+		{
+			name:       "Pulumi CLI verbose logging enabled",
+			projectDir: "./testdata/simple",
+			stacks:     []string{TestStackName},
+			serverOpts: &Options{PulumiLogLevel: 11},
+			req:        &pb.PreviewRequest{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			g := gomega.NewWithT(t)
 			ctx := newContext(t)
-			tc := newTC(ctx, t, tcOptions{ProjectDir: tt.projectDir, Stacks: tt.stacks})
+			tc := newTC(ctx, t, tcOptions{ProjectDir: tt.projectDir, Stacks: tt.stacks, ServerOpts: tt.serverOpts})
 
 			srv := &previewStream{
 				ctx:    ctx,
@@ -591,6 +612,11 @@ func TestPreview(t *testing.T) {
 				g.Expect(err).ToNot(gomega.HaveOccurred())
 				g.Expect(srv.events).ToNot(gomega.BeEmpty())
 				g.Expect(srv.result).ToNot(gomega.BeNil())
+
+				if tt.serverOpts != nil {
+					// ensure that the extra logs are present
+					g.Expect(srv.result).To(gomega.ContainSubstring("log level 11 will print sensitive information"))
+				}
 			}
 		})
 	}
@@ -630,6 +656,7 @@ func TestRefresh(t *testing.T) {
 		projectDir string
 		stacks     []string
 		req        *pb.RefreshRequest
+		serverOpts *Options
 		wantErr    any
 		want       auto.ConfigMap
 	}{
@@ -646,13 +673,20 @@ func TestRefresh(t *testing.T) {
 			stacks:     []string{TestStackName},
 			req:        &pb.RefreshRequest{},
 		},
+		{
+			name:       "Pulumi CLI verbose logging enabled",
+			projectDir: "./testdata/simple",
+			stacks:     []string{TestStackName},
+			serverOpts: &Options{PulumiLogLevel: 11},
+			req:        &pb.RefreshRequest{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			g := gomega.NewWithT(t)
 			ctx := newContext(t)
-			tc := newTC(ctx, t, tcOptions{ProjectDir: tt.projectDir, Stacks: tt.stacks})
+			tc := newTC(ctx, t, tcOptions{ProjectDir: tt.projectDir, Stacks: tt.stacks, ServerOpts: tt.serverOpts})
 
 			srv := &refreshStream{
 				ctx:    ctx,
@@ -667,6 +701,11 @@ func TestRefresh(t *testing.T) {
 				g.Expect(srv.result).ToNot(gomega.BeNil())
 				g.Expect(srv.result.Summary).ToNot(gomega.BeNil())
 				g.Expect(srv.result.Summary.Result).To(gomega.Equal("succeeded"))
+
+				if tt.serverOpts != nil {
+					// ensure that the extra logs are present
+					g.Expect(srv.result).To(gomega.ContainSubstring("log level 11 will print sensitive information"))
+				}
 			}
 		})
 	}
@@ -706,6 +745,7 @@ func TestDestroy(t *testing.T) {
 		projectDir string
 		stacks     []string
 		req        *pb.DestroyRequest
+		serverOpts *Options
 		wantErr    any
 		want       auto.ConfigMap
 	}{
@@ -720,6 +760,13 @@ func TestDestroy(t *testing.T) {
 			name:       "simple",
 			projectDir: "./testdata/simple",
 			stacks:     []string{TestStackName},
+			req:        &pb.DestroyRequest{},
+		},
+		{
+			name:       "Pulumi CLI verbose logging enabled",
+			projectDir: "./testdata/simple",
+			stacks:     []string{TestStackName},
+			serverOpts: &Options{PulumiLogLevel: 11},
 			req:        &pb.DestroyRequest{},
 		},
 	}

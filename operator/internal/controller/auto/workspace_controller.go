@@ -492,6 +492,11 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 		"--kube-workspace-namespace", w.Namespace,
 		"--kube-workspace-name", w.Name)
 
+	// increase Pulumi CLI log verbosity if provided
+	if w.Spec.PulumiLogVerbosity != 0 {
+		command = append(command, "--pulumi-log-level", strconv.Itoa(int(w.Spec.PulumiLogVerbosity)))
+	}
+
 	statefulset := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "StatefulSet",

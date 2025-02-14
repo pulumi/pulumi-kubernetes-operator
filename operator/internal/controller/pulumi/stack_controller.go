@@ -1357,6 +1357,7 @@ func (sess *stackReconcilerSession) NewWorkspace(stack *pulumiv1.Stack) error {
 		},
 	}
 	sess.wspc = &sess.ws.Spec.PodTemplate.Spec.Containers[0]
+
 	if err := controllerutil.SetControllerReference(stack, sess.ws, sess.scheme); err != nil {
 		return err
 	}

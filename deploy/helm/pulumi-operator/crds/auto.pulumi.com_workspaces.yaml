@@ -8454,6 +8454,14 @@ spec:
                     - containers
                     type: object
                 type: object
+              pulumiLogLevel:
+                description: |-
+                  PulumiLogVerbosity is the log verbosity level to use for the Pulumi CLI.
+                  If unset,verbose logging is disabled.
+                  See: https://www.pulumi.com/docs/iac/support/troubleshooting/#verbose-logging
+                  for more information about log levels.
+                format: int32
+                type: integer
               resources:
                 description: |-
                   Compute Resources required by this workspace.

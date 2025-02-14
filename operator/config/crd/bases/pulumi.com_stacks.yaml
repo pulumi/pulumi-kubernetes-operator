@@ -9381,6 +9381,9 @@ spec:
                             - containers
                             type: object
                         type: object
+                      pulumiLogLevel:
+                        format: int32
+                        type: integer
                       resources:
                         description: ResourceRequirements describes the compute resource
                           requirements.
@@ -19017,6 +19020,9 @@ spec:
                             - containers
                             type: object
                         type: object
+                      pulumiLogLevel:
+                        format: int32
+                        type: integer
                       resources:
                         description: ResourceRequirements describes the compute resource
                           requirements.

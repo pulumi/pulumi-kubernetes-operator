@@ -151,6 +151,18 @@ More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>pulumiLogLevel</b></td>
+        <td>integer</td>
+        <td>
+          PulumiLogVerbosity is the log verbosity level to use for the Pulumi CLI.
+If unset,verbose logging is disabled.
+See: https://www.pulumi.com/docs/iac/support/troubleshooting/#verbose-logging
+for more information about log levels.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#workspacespecresources">resources</a></b></td>
         <td>object</td>
         <td>

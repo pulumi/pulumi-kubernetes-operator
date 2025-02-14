@@ -413,6 +413,40 @@ var _ = Describe("Workspace Controller", func() {
 				Expect(pulumi.VolumeMounts).To(ConsistOf(HaveField("Name", "share"), HaveField("Name", "test")))
 			})
 		})
+
+		Describe("spec.pulumiLogVerbosity", func() {
+			When("pulumiLogVerbosity is set", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.PulumiLogVerbosity = 11
+				})
+
+				It("spins up the workspace pod with verbose logging for Pulumi CLI operations", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(ss.Spec.Template.Spec.Containers).
+						To(
+							ConsistOf(
+								HaveField("Command", ContainElement("--pulumi-log-level")),
+							))
+				})
+			})
+
+			When("pulumiLogVerbosity is not set", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.PulumiLogVerbosity = 0 // Set to default value
+				})
+
+				It("spins up the workspace pod without verbose logging for Pulumi CLI operations", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(ss.Spec.Template.Spec.Containers).
+						ToNot(
+							ConsistOf(
+								HaveField("Command", ContainElement("--pulumi-log-level")),
+							))
+				})
+			})
+		})
 	})
 
 	Describe("Agent Injection", func() {
