@@ -1,0 +1,57 @@
+# Copies all Pulumi Kubernetes Operator OCI images for the supplied version from Docker Hub to
+# AWS ECR Public Gallery and GitHub Container Registry.
+name: Sync Docker Hub Images to ECR and GHCR
+on:
+  workflow_dispatch:
+    inputs:
+      operator_version:
+        description: The image tag to copy, fully specified, e.g. "3.18.1"
+        type: string
+        required: true
+  repository_dispatch:
+    types:
+      - sync-ecr
+
+env:
+  DOCKER_USERNAME: pulumi
+  OPERATOR_VERSION: ${{ github.event.inputs.operator_version || github.event.client_payload.ref }}
+  OPERATOR_IMAGE_NAME: pulumi-kubernetes-operator
+
+jobs:
+  sync-to-ecr:
+    name: Pulumi Kubernetes Operator image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-region: us-east-2
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-duration-seconds: 3600
+          role-external-id: upload-pulumi-release
+          role-session-name: pulumi@githubActions
+          role-to-assume: ${{ secrets.AWS_UPLOAD_ROLE_ARN }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get Public ECR Authorization token
+        run: |
+          aws --region us-east-1 ecr-public get-authorization-token \
+            --query 'authorizationData.authorizationToken' | \
+            tr -d '"' | base64 --decode | cut -d: -f2 | \
+            docker login -u AWS --password-stdin https://public.ecr.aws
+      - name: Pull ${{ env.OPERATOR_VERSION }} from Docker Hub
+        run: |
+          docker pull docker.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
+      - name: Tag ${{ env.OPERATOR_VERSION }} and push to AWS Public ECR
+        run: |
+          docker tag docker.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }} public.ecr.aws/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
+          docker push public.ecr.aws/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
+      - name: Tag ${{ env.OPERATOR_VERSION }} and push to GitHub Container Registry
+        run: |
+          docker tag docker.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }} ghcr.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
+          docker push ghcr.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
