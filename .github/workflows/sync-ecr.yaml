@@ -44,14 +44,9 @@ jobs:
             --query 'authorizationData.authorizationToken' | \
             tr -d '"' | base64 --decode | cut -d: -f2 | \
             docker login -u AWS --password-stdin https://public.ecr.aws
-      - name: Pull ${{ env.OPERATOR_VERSION }} from Docker Hub
+      - name: Copy ${{ env.OPERATOR_VERSION }} image to AWS Public ECR
         run: |
-          docker pull docker.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
-      - name: Tag ${{ env.OPERATOR_VERSION }} and push to AWS Public ECR
+          skopeo copy docker://docker.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }} docker://public.ecr.aws/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
+      - name: Copy ${{ env.OPERATOR_VERSION }} image to GitHub Container Registry
         run: |
-          docker tag docker.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }} public.ecr.aws/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
-          docker push public.ecr.aws/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
-      - name: Tag ${{ env.OPERATOR_VERSION }} and push to GitHub Container Registry
-        run: |
-          docker tag docker.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }} ghcr.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
-          docker push ghcr.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
+          skopeo copy docker://docker.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }} docker://ghcr.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
