@@ -193,6 +193,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			if err = r.Delete(ctx, ss); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to delete statefulset: %w", err)
 			}
+			emitEvent(r.Recorder, w, autov1alpha1.MigratedEvent(), "Replaced the workspace statefulset")
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to apply statefulset: %w", err)
@@ -235,6 +236,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	conn, err := r.ConnectionManager.Connect(connectCtx, w)
 	if err != nil {
 		l.Error(err, "unable to connect; retrying later")
+		emitEvent(r.Recorder, w, autov1alpha1.ConnectionFailureEvent(), err.Error())
 		ready.Status = metav1.ConditionFalse
 		ready.Reason = "ConnectionFailed"
 		ready.Message = err.Error()
@@ -254,6 +256,8 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		_, err = wc.WhoAmI(ctx, &agentpb.WhoAmIRequest{})
 		if err != nil {
 			l.Error(err, "unable to run whoami; retaining the workspace pod to retry later")
+			emitEvent(r.Recorder, w, autov1alpha1.ConnectionFailureEvent(), err.Error())
+
 			st := status.Convert(err)
 
 			ready.Status = metav1.ConditionFalse
@@ -285,6 +289,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		_, err = wc.Install(ctx, &agentpb.InstallRequest{})
 		if err != nil {
 			l.Error(err, "unable to install; deleting the workspace pod to retry later")
+			emitEvent(r.Recorder, w, autov1alpha1.InstallationFailureEvent(), err.Error())
 			ready.Status = metav1.ConditionFalse
 			ready.Reason = "InstallationFailed"
 			ready.Message = err.Error()
@@ -331,6 +336,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}()
 			if err != nil {
 				l.Error(err, "unable to initialize the Pulumi stack")
+				emitEvent(r.Recorder, w, autov1alpha1.StackInitializationFailureEvent(), "Failed to initialize stack %q: %v", stack.Name, err.Error())
 				ready.Status = metav1.ConditionFalse
 				ready.Reason = "InitializationFailed"
 				ready.Message = err.Error()
@@ -357,6 +363,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, fmt.Errorf("failed to update the pod: %w", err)
 		}
 		l.Info("workspace pod initialized")
+		emitEvent(r.Recorder, w, autov1alpha1.InitializedEvent(), "Initialized workspace pod %q", pod.Name)
 	}
 
 	ready.Status = metav1.ConditionTrue

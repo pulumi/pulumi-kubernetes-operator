@@ -639,14 +639,14 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	case stack.GitSource != nil:
 		auth, err := sess.resolveGitAuth(ctx)
 		if err != nil {
-			r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
+			emitEvent(r.Recorder, instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
 			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
 			return reconcile.Result{}, saveStatus()
 		}
 
 		gs, err := NewGitSource(*stack.GitSource, auth)
 		if err != nil {
-			r.emitEvent(instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
+			emitEvent(r.Recorder, instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
 			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
 			return reconcile.Result{}, saveStatus()
 		}
@@ -748,7 +748,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	sess.SetSecretEnvs(ctx, stack.SecretEnvs, request.Namespace)
 
 	// Step 2: Evaluate whether an update is needed. If not, we transition to Ready.
-	if isSynced(log, instance, currentCommit) {
+	if isSynced(log, r.Recorder, instance, currentCommit) {
 		// We don't mark the stack as ready if its update failed so downstream
 		// Stack dependencies aren't triggered.
 		if instance.Status.LastUpdate.State == shared.SucceededStackStateMessage {
@@ -810,15 +810,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			if err != nil {
 				return reconcile.Result{}, err
 			}
+			emitEvent(r.Recorder, instance, pulumiv1.WorkspaceDeletedEvent(), "Workspace deleted per reclaim policy")
 		}
 
 		return reconcile.Result{RequeueAfter: requeueAfter}, saveStatus()
-	}
-
-	if instance.Status.LastUpdate != nil && instance.Status.LastUpdate.LastSuccessfulCommit != currentCommit {
-		r.emitEvent(instance, pulumiv1.StackUpdateDetectedEvent(), "New commit detected: %q.", currentCommit)
-		log.Info("New commit hash found", "Current commit", currentCommit,
-			"Last commit", instance.Status.LastUpdate.LastSuccessfulCommit)
 	}
 
 	// Step 3: Check prerequisites, to make sure they are adequately up to date. Any prerequisite failing to
@@ -942,10 +937,6 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	return reconcile.Result{}, nil
 }
 
-func (r *StackReconciler) emitEvent(instance *pulumiv1.Stack, event pulumiv1.StackEvent, messageFmt string, args ...interface{}) {
-	r.Recorder.Eventf(instance, event.EventType(), event.Reason(), messageFmt, args...)
-}
-
 // markStackFailed updates the status of the Stack object `instance` locally, to reflect a failure to process the stack.
 func (r *StackReconciler) markStackFailed(sess *stackReconcilerSession, instance *pulumiv1.Stack, current *shared.CurrentStackUpdate, update *autov1alpha1.Update) {
 	sess.logger.Info("Failed to update Stack", "Stack.Name", sess.stack.Stack, "Message", update.Status.Message)
@@ -970,7 +961,7 @@ func (r *StackReconciler) markStackFailed(sess *stackReconcilerSession, instance
 		instance.Status.LastUpdate.Failures = last.Failures + 1
 	}
 
-	r.emitEvent(instance, pulumiv1.StackUpdateFailureEvent(), "Failed to update Stack: %s", update.Status.Message)
+	emitEvent(r.Recorder, instance, pulumiv1.StackUpdateFailureEvent(), "Failed to update stack: %s", update.Status.Message)
 }
 
 func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulumiv1.Stack, current *shared.CurrentStackUpdate, update *autov1alpha1.Update) error {
@@ -1012,7 +1003,7 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 		Failures:             0,
 	}
 
-	r.emitEvent(instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack.")
+	emitEvent(r.Recorder, instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack")
 	return nil
 }
 
@@ -1048,20 +1039,23 @@ func newStackReconcilerSession(
 // specification. i.e. the current spec generation has been applied, the update
 // was successful, the latest commit has been applied, and (if resync is
 // enabled) has been resynced recently.
-func isSynced(log logr.Logger, stack *pulumiv1.Stack, currentCommit string) bool {
+func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.Stack, currentCommit string) bool {
 	if stack.Status.LastUpdate == nil {
 		log.V(1).Info("Not synced: no last update")
+		emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), "Initial stack update")
 		return false
 	}
 
 	if stack.Status.LastUpdate.Generation != stack.Generation {
 		log.V(1).Info("Not synced: new generation")
+		emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), "New stack generation: %d", stack.Generation)
 		return false
 	}
 
 	syncRequest, _ := getReconcileRequestAnnotation(stack)
 	if stack.Status.LastUpdate.ReconcileRequest != syncRequest {
 		log.V(1).Info("Not synced: new sync request")
+		emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), "Sync request: %q", syncRequest)
 		return false
 	}
 
@@ -1070,22 +1064,27 @@ func isSynced(log logr.Logger, stack *pulumiv1.Stack, currentCommit string) bool
 			return true
 		}
 		if stack.Status.LastUpdate.LastSuccessfulCommit != currentCommit {
-			log.V(1).Info("Not synced: new commit")
+			log.V(1).Info("Not synced: new commit", "current", currentCommit, "last", stack.Status.LastUpdate.LastSuccessfulCommit)
+			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), "New commit detected: %q", currentCommit)
 			return false
 		}
 		if !stack.Spec.ContinueResyncOnCommitMatch {
 			return true
 		}
-		if !(time.Since(stack.Status.LastUpdate.LastResyncTime.Time) < resyncFreq(stack)) {
+		freq := resyncFreq(stack)
+		if !(time.Since(stack.Status.LastUpdate.LastResyncTime.Time) < freq) {
 			log.V(1).Info("Not synced: resync time elapsed")
+			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), "Resync time %v elapsed", freq)
 			return false
 		}
 		return true
 	}
 
 	if stack.Status.LastUpdate.State == shared.FailedStackStateMessage {
-		if time.Since(stack.Status.LastUpdate.LastResyncTime.Time) >= cooldown(stack) {
+		c := cooldown(stack)
+		if time.Since(stack.Status.LastUpdate.LastResyncTime.Time) >= c {
 			log.V(1).Info("Not synced: backoff time elapsed")
+			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), "Backoff time %v elapsed", c)
 			return false
 		}
 		return true

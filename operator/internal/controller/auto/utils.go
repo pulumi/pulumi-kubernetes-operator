@@ -21,6 +21,8 @@ import (
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"google.golang.org/protobuf/types/known/structpb"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -104,4 +106,13 @@ func (OwnerReferencesChangedPredicate) Update(e event.UpdateEvent) bool {
 
 func (OwnerReferencesChangedPredicate) Generic(_ event.GenericEvent) bool {
 	return false
+}
+
+type Event interface {
+	EventType() string
+	Reason() string
+}
+
+func emitEvent(recorder record.EventRecorder, object runtime.Object, event Event, messageFmt string, args ...interface{}) {
+	recorder.Eventf(object, event.EventType(), event.Reason(), messageFmt, args...)
 }

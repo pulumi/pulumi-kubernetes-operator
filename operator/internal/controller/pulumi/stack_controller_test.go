@@ -755,6 +755,8 @@ var _ = Describe("Stack Controller", func() {
 		ByResyncing := func() {
 			GinkgoHelper()
 			ByMarkingAsReconciling(pulumiv1.ReconcilingProcessingReason, Equal(pulumiv1.ReconcilingProcessingWorkspaceMessage))
+			By("emitting an event")
+			Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.StackUpdateDetected)))
 		}
 
 		When("an update hasn't run yet", func() {
@@ -885,8 +887,6 @@ var _ = Describe("Stack Controller", func() {
 					_, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
 					ByResyncing()
-					By("emitting an event")
-					Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.StackUpdateDetected)))
 				})
 			})
 
@@ -908,6 +908,8 @@ var _ = Describe("Stack Controller", func() {
 						Expect(result).To(Equal(reconcile.Result{}))
 						By("deleting the Workspace object")
 						Expect(ws.GetName()).To(BeEmpty())
+						By("emitting an event")
+						Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.WorkspaceDeleted)))
 					})
 				})
 
@@ -1855,7 +1857,8 @@ func TestIsSynced(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			log := testr.New(t)
-			assert.Equal(t, tt.want, isSynced(log, &tt.stack, tt.currentCommit))
+			rec := record.NewFakeRecorder(10)
+			assert.Equal(t, tt.want, isSynced(log, rec, &tt.stack, tt.currentCommit))
 		})
 	}
 }

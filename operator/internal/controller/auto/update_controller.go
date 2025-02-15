@@ -94,7 +94,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	ctx = log.IntoContext(ctx, l)
 	l.Info("Reconciling Update")
 
-	rs := newReconcileSession(r.Client, obj)
+	rs := newReconcileSession(r.Client, r.Recorder, obj)
 
 	if rs.complete.Status == metav1.ConditionTrue {
 		// implement ttl for completed updates
@@ -102,6 +102,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			remainingTtl := time.Until(rs.complete.LastTransitionTime.Add(obj.Spec.TtlAfterCompleted.Duration))
 			if remainingTtl <= 0 {
 				l.Info("Deleting completed update (ttl has expired)")
+				emitEvent(r.Recorder, obj, autov1alpha1.UpdateExpiredEvent(), "ttl expired and was deleted")
 				err = r.Delete(ctx, obj)
 				if err != nil {
 					return ctrl.Result{}, fmt.Errorf("failed to delete completed update: %w", err)
@@ -193,6 +194,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	conn, err := r.ConnectionManager.Connect(connectCtx, w)
 	if err != nil {
 		l.Error(err, "unable to connect; retrying later")
+		emitEvent(r.Recorder, w, autov1alpha1.ConnectionFailureEvent(), err.Error())
 		rs.progressing.Status = metav1.ConditionFalse
 		rs.progressing.Reason = "TransientFailure"
 		rs.failed.Status = metav1.ConditionFalse
@@ -271,11 +273,12 @@ type reconcileSession struct {
 	complete    *metav1.Condition
 	failed      *metav1.Condition
 	client      client.Client
+	recorder    record.EventRecorder
 }
 
 // newReconcileSession creates a new reconcileSession.
-func newReconcileSession(client client.Client, obj *autov1alpha1.Update) *reconcileSession {
-	rs := &reconcileSession{client: client}
+func newReconcileSession(client client.Client, recorder record.EventRecorder, obj *autov1alpha1.Update) *reconcileSession {
+	rs := &reconcileSession{client: client, recorder: recorder}
 	rs.progressing = meta.FindStatusCondition(obj.Status.Conditions, UpdateConditionTypeProgressing)
 	if rs.progressing == nil {
 		rs.progressing = &metav1.Condition{
@@ -341,6 +344,7 @@ func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update
 	l.Info("Executing preview operation", "request", autoReq)
 	res, err := client.Preview(ctx, autoReq, grpc.WaitForReady(true))
 	if err != nil {
+		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to preview stack %q", obj.Spec.StackName)
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
 	defer func() { _ = res.CloseSend() }()
@@ -350,6 +354,7 @@ func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update
 	if err != nil {
 		// Update the status/conditions.
 		l.Error(err, "failed to run preview")
+		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to preview stack %q", obj.Spec.StackName)
 		if err := u.updateStatus(ctx, obj); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 		}
@@ -357,6 +362,7 @@ func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update
 		return ctrl.Result{}, err
 	}
 
+	emitEvent(u.recorder, obj, autov1alpha1.UpdateSucceededEvent(), "Previewed stack %q", obj.Spec.StackName)
 	return ctrl.Result{}, u.updateStatus(ctx, obj)
 }
 
@@ -386,6 +392,7 @@ func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update,
 	l.Info("Executing update operation", "request", autoReq)
 	res, err := client.Up(ctx, autoReq, grpc.WaitForReady(true))
 	if err != nil {
+		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to update stack %q", obj.Spec.StackName)
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
 	defer func() { _ = res.CloseSend() }()
@@ -395,6 +402,7 @@ func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update,
 	if err != nil {
 		// Update the status/conditions.
 		l.Error(err, "failed to run update")
+		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to update stack %q", obj.Spec.StackName)
 		if err := u.updateStatus(ctx, obj); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 		}
@@ -415,6 +423,7 @@ func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update,
 		obj.Status.Outputs = secret.Name
 	}
 
+	emitEvent(u.recorder, obj, autov1alpha1.UpdateSucceededEvent(), "Updated stack %q", obj.Spec.StackName)
 	return ctrl.Result{}, u.updateStatus(ctx, obj)
 }
 
@@ -432,6 +441,7 @@ func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update
 	l.Info("Executing refresh operation", "request", autoReq)
 	res, err := client.Refresh(ctx, autoReq, grpc.WaitForReady(true))
 	if err != nil {
+		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to refresh stack %q", obj.Spec.StackName)
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
 	defer func() { _ = res.CloseSend() }()
@@ -441,6 +451,7 @@ func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update
 	if err != nil {
 		// Update the status/conditions.
 		l.Error(err, "failed to run refresh")
+		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to refresh stack %q", obj.Spec.StackName)
 		if err := u.updateStatus(ctx, obj); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 		}
@@ -448,6 +459,7 @@ func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update
 		return ctrl.Result{}, err
 	}
 
+	emitEvent(u.recorder, obj, autov1alpha1.UpdateSucceededEvent(), "Refreshed stack %q", obj.Spec.StackName)
 	return ctrl.Result{}, u.updateStatus(ctx, obj)
 }
 
@@ -468,6 +480,7 @@ func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update
 	l.Info("Executing destroy operation", "request", autoReq)
 	res, err := client.Destroy(ctx, autoReq, grpc.WaitForReady(true))
 	if err != nil {
+		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to destroy stack %q", obj.Spec.StackName)
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
 	defer func() { _ = res.CloseSend() }()
@@ -477,6 +490,7 @@ func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update
 	if err != nil {
 		// Update the status/conditions.
 		l.Error(err, "failed to run destroy")
+		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to destroy stack %q", obj.Spec.StackName)
 		if err := u.updateStatus(ctx, obj); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update the status: %w", err)
 		}
@@ -484,6 +498,7 @@ func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update
 		return ctrl.Result{}, err
 	}
 
+	emitEvent(u.recorder, obj, autov1alpha1.UpdateSucceededEvent(), "Destroyed stack %q", obj.Spec.StackName)
 	return ctrl.Result{}, u.updateStatus(ctx, obj)
 }
 

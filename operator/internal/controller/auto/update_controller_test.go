@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gtypes "github.com/onsi/gomega/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -69,8 +71,9 @@ var _ = Describe("Update Controller", func() {
 			_ = k8sClient.Delete(ctx, obj)
 		})
 		r = &UpdateReconciler{
-			Client: k8sClient,
-			Scheme: k8sClient.Scheme(),
+			Client:   k8sClient,
+			Scheme:   k8sClient.Scheme(),
+			Recorder: record.NewFakeRecorder(10),
 		}
 	})
 
@@ -111,6 +114,8 @@ var _ = Describe("Update Controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					if expectDeletion {
 						Expect(obj.UID).To(BeEmpty())
+						By("emitting an event")
+						Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(string(autov1alpha1.UpdateExpired))))
 					} else {
 						Expect(obj.UID).ToNot(BeEmpty())
 						if ttl != nil {
@@ -349,6 +354,7 @@ func TestUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
 			ctx := context.Background()
 			scheme.Scheme.AddKnownTypes(
 				schema.GroupVersion{Group: "auto.pulumi.com", Version: "v1alpha1"},
@@ -357,7 +363,8 @@ func TestUpdate(t *testing.T) {
 			builder := fake.NewClientBuilder().
 				WithObjects(&tt.obj).
 				WithStatusSubresource(&tt.obj)
-			rs := newReconcileSession(builder.Build(), &tt.obj)
+			recorder := record.NewFakeRecorder(10)
+			rs := newReconcileSession(builder.Build(), recorder, &tt.obj)
 
 			ctrl := gomock.NewController(t)
 			_, err := rs.Update(
@@ -369,9 +376,11 @@ func TestUpdate(t *testing.T) {
 			if tt.wantErr != "" {
 				assert.ErrorContains(t, err, tt.wantErr)
 				//TODO(rquitales): Also check the return statues!
+				g.Expect(recorder.Events).To(Receive(matchEvent(string(autov1alpha1.UpdateFailed))))
 				return
 			}
 			assert.NoError(t, err)
+			g.Expect(recorder.Events).To(Receive(matchEvent(string(autov1alpha1.UpdateSucceeded))))
 
 			var res autov1alpha1.Update
 			require.NoError(
@@ -401,4 +410,8 @@ func (pm protoMatcher) Matches(v any) bool {
 
 func (pm protoMatcher) String() string {
 	return fmt.Sprintf("%+v", pm.Message)
+}
+
+func matchEvent(reason string) gtypes.GomegaMatcher {
+	return ContainSubstring(reason)
 }
