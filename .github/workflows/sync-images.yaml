@@ -8,6 +8,12 @@ on:
         description: The image tag to copy, fully specified, e.g. "v2.0.0"
         type: string
         required: true
+  workflow_call:
+    inputs:
+      operator_version:
+        description: The image tag to copy, fully specified, e.g. "v2.0.0"
+        type: string
+        required: true
   repository_dispatch:
     types:
       - sync-ecr
