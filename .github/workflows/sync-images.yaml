@@ -52,5 +52,5 @@ jobs:
           skopeo copy --all docker://docker.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }} docker://ghcr.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}
       - name: Output build summary
         run: |
-          SUMMARY=$'# Image Syncing Summary\nSource Image: pulumi/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}\n\nDestination Images:\n- public.ecr.aws/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}\n- ghcr.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}'
+          SUMMARY=$'# Image Syncing Summary\nSource Image: `pulumi/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}`\n\nDestination Images:\n- `public.ecr.aws/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}`\n- `ghcr.io/${{ env.DOCKER_USERNAME }}/${{ env.OPERATOR_IMAGE_NAME }}:${{ env.OPERATOR_VERSION }}`'
           echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
