@@ -35,9 +35,15 @@ jobs:
             pulumi/pulumi-kubernetes-operator:${{ env.VERSION }}
           build-args: |
             VERSION=${{ env.VERSION }}
+  sync-images:
+    uses: ./.github/workflows/sync-images.yaml
+    needs: docker
+    secrets: inherit
+    with:
+      operator_version: ${{ env.VERSION }}
   release:
     name: Create a GitHub Release
-    needs: docker
+    needs: [docker, sync-images]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
