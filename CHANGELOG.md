@@ -1,7 +1,7 @@
 CHANGELOG
 =========
 
-## Unreleased
+## 2.0.0-rc.1 (2025-02-15)
 
 - Reduce volatility of the workspace due to ordering and caching issues [#803](https://github.com/pulumi/pulumi-kubernetes-operator/pull/803)
 - Enable deleting workspace pod after a successful sync by exposing `WorkspaceReclaimPolicy` [#804](https://github.com/pulumi/pulumi-kubernetes-operator/pull/804)
