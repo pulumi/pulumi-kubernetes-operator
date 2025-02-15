@@ -17,6 +17,9 @@ package pulumi
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 )
 
 func exactlyOneOf(these ...bool) bool {
@@ -38,4 +41,8 @@ func getGaugeValue(metric prometheus.Gauge) (float64, error) {
 		return 0, err
 	}
 	return m.Gauge.GetValue(), nil
+}
+
+func emitEvent(recorder record.EventRecorder, object runtime.Object, event pulumiv1.StackEvent, messageFmt string, args ...interface{}) {
+	recorder.Eventf(object, event.EventType(), event.Reason(), messageFmt, args...)
 }

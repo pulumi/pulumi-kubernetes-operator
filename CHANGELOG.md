@@ -15,6 +15,7 @@ CHANGELOG
 - Enable setting the log verbosity of Pulumi CLI operations for a given workspace. [#824](https://github.com/pulumi/pulumi-kubernetes-operator/pull/824)
 - Use pulumi.com labels [#829](https://github.com/pulumi/pulumi-kubernetes-operator/pull/829)
 - Releases will now be published to AWS ECR and GHCR [#831](https://github.com/pulumi/pulumi-kubernetes-operator/pull/831)
+- New controller events [#832](https://github.com/pulumi/pulumi-kubernetes-operator/pull/832)
 
 ## 2.0.0-beta.3 (2024-11-27)
 
