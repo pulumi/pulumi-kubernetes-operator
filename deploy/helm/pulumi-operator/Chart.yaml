@@ -9,7 +9,7 @@ icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
 
 type: application
 
-version: 2.0.0
+version: "2.0.0-rc.1"
 appVersion: "v2.0.0-rc.1"
 
 keywords:
@@ -21,6 +21,10 @@ maintainers:
   - name: dirien
     email: engin@pulumi.com
     url: https://pulumi.com
+  - name: Eron Wright
+    email: eron@pulumi.com
+  - name: Ramon Quitales
+    email: ramon@pulumi.com
 
 annotations:
   artifacthub.io/containsSecurityUpdates: "false"
@@ -36,3 +40,7 @@ annotations:
   artifacthub.io/maintainers: |
     - name: dirien
       email: engin@pulumi.com
+    - name: Eron Wright
+      email: eron@pulumi.com
+    - name: Ramon Quitales
+      email: ramon@pulumi.com
