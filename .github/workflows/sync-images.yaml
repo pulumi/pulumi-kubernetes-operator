@@ -20,7 +20,7 @@ on:
 
 env:
   DOCKER_USERNAME: pulumi
-  OPERATOR_VERSION: ${{ github.event.inputs.operator_version || github.event.client_payload.ref }}
+  OPERATOR_VERSION: ${{ inputs.operator_version || github.event.client_payload.ref }}
   OPERATOR_IMAGE_NAME: pulumi-kubernetes-operator
 
 jobs:
