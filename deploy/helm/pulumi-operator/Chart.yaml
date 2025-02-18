@@ -27,6 +27,7 @@ maintainers:
     email: ramon@pulumi.com
 
 annotations:
+  artifacthub.io/prerelease: "true"
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/changes: |
     - Major version bump to 2.0.0
