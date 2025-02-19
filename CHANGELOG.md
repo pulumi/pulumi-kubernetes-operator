@@ -4,6 +4,8 @@ CHANGELOG
 ## Unreleased
 
 - Sample network policies [#839](https://github.com/pulumi/pulumi-kubernetes-operator/pull/839)
+- Removed obsolete examples [#838](https://github.com/pulumi/pulumi-kubernetes-operator/pull/838)
+- Updated documentation and quickstart script [#837](https://github.com/pulumi/pulumi-kubernetes-operator/pull/837) 
 
 ## 2.0.0-rc.1 (2025-02-15)
 

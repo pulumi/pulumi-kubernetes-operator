@@ -13,13 +13,12 @@ To learn more about the Pulumi Kubernetes Operator visit the [Pulumi documentati
     - [When To Use the Pulumi Kubernetes Operator?](#when-to-use-the-pulumi-kubernetes-operator)
     - [Prerequisites](#prerequisites)
   - [Deploy the Operator](#deploy-the-operator)
-    - [Using kubectl](#using-kubectl)
-    - [Using Pulumi](#using-pulumi)
     - [Using Helm](#using-helm)
-  - [Create Pulumi Stack CustomResources](#create-pulumi-stack-customresources)
-    - [Using kubectl](#using-kubectl-1)
-    - [Using Pulumi](#using-pulumi-1)
-    - [Extended Examples](#extended-examples)
+    - [Using Pulumi](#using-pulumi)
+    - [Dev Install](#dev-install)
+    - [From Source](#from-source)
+  - [Create Pulumi Stack Resources](#create-pulumi-stack-resources)
+    - [Examples](#examples)
   - [Stack CR Documentation](#stack-cr-documentation)
   - [Prometheus Metrics Integration](#prometheus-metrics-integration)
   - [Development](#development)
@@ -42,17 +41,13 @@ Deploy the operator to a Kubernetes cluster.
 
 You can use an existing cluster, or [get started](https://www.pulumi.com/docs/get-started/kubernetes/) by creating a new [managed Kubernetes cluster](https://www.pulumi.com/docs/tutorials/kubernetes/#clusters). We will assume that your target Kubernetes cluster is already created and you have configured `kubectl` to point to it.
 
-### Using kubectl
+### Using Helm
 
-First, download the [latest release](https://github.com/pulumi/pulumi-kubernetes-operator/releases) `source code` tar ball and expand it locally.
-
-Install the operator:
+A Helm chart is provided in `deploy/helm/pulumi-operator` and is also published to [Artifact Hub](https://artifacthub.io/packages/helm/pulumi-kubernetes-operator/pulumi-kubernetes-operator).
 
 ```bash
-kubectl apply -f deploy/yaml
+helm install --create-namespace -n pulumi-kubernetes-operator pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator
 ```
-
-This will deploy the operator to the `pulumi-kubernetes-operator` namespace.
 
 ### Using Pulumi
 
@@ -65,39 +60,49 @@ cd deploy/deploy-operator-yaml
 pulumi up
 ```
 
-### Using Helm
+### Dev Install
 
-A Helm chart is provided in `deploy/helm/pulumi-operator`, offering more customization options.
+A simple "quickstart" installation manifest is provided for non-production environments.
 
-```bash
-cd deploy/helm/pulumi-operator
-helm install pulumi-kubernetes-operator -n pulumi-kubernetes-operator .
+Install with `kubectl`:
+
+```
+kubectl apply -f https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/refs/tags/v2.0.0-rc.1/deploy/quickstart/install.yaml
 ```
 
-## Create Pulumi Stack CustomResources
+### From Source
+
+To build and install the operator from this repository:
+
+1. Build the operator image: `make build-image` (produces `pulumi/pulumi-kubernetes-operator:v2.0.0-rc.1`).
+2. Push or load the image into your cluster's registry.
+3. Deploy to your current cluster context: `make deploy`.
+
+This approach deploys a Kustomization directory located at `./operator/config/default`.
+
+## Create Pulumi Stack Resources
 
 The following are examples to create Pulumi Stacks in Kubernetes that are managed and run by the operator.
 
-### Using kubectl
+Some of the examples use Pulumi Cloud as a state backend, and require that a Pulumi access token
+be stored into a Kubernetes Secret. For example, here's now to create a secret from your `PULUMI_ACCESS_TOKEN` environment variable.
 
-Check out [Create Pulumi Stacks using `kubectl` ](./docs/create-stacks-using-kubectl.md) for YAML examples.
+```bash
+kubectl create secret generic -n default pulumi-api-secret --from-literal=accessToken=$PULUMI_ACCESS_TOKEN
+```
 
-### Using Pulumi
+### Examples
 
-Check out [Create Pulumi Stacks using Pulumi](./docs/create-stacks-using-pulumi.md) for Typescript, Python, Go, and .NET examples.
+Working with sources:
 
-### Extended Examples
+- [Git repositories](./examples/git-source)
+- [Flux sources](./examples/flux-source)
+- [Program resources](./examples/program-source)
+- [Custom sources](./examples/custom-source)
 
-- [Managing a Kubernetes Blue/Green Deployment](./examples/blue-green)
-- [AWS S3 Buckets](./examples/aws-s3)
+Advanced:
 
-If you'd like to use your own Pulumi Stack, ensure that you have an existing Pulumi program in a git repo,
-and update the CR with:
-  - An existing github `project` and/or `commit`,
-  - A Pulumi `stack` name that exists and will be selected, or a new stack that will be created and selected.
-  - A Kubernetes Secret for your Pulumi API `accessToken`,
-  - A Kubernetes Secret for other sensitive settings like cloud provider credentials, and
-  - Environment variables and stack config as needed.
+- [Workspace customization](./examples/custom-workspace)
 
 ## Stack CR Documentation
 
