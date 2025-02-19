@@ -13,12 +13,12 @@ To learn more about the Pulumi Kubernetes Operator visit the [Pulumi documentati
     - [When To Use the Pulumi Kubernetes Operator?](#when-to-use-the-pulumi-kubernetes-operator)
     - [Prerequisites](#prerequisites)
   - [Deploy the Operator](#deploy-the-operator)
-    - [Using kubectl](#using-kubectl)
-    - [Using Pulumi](#using-pulumi)
     - [Using Helm](#using-helm)
-  - [Create Pulumi Stack CustomResources](#create-pulumi-stack-customresources)
-    - [Using kubectl](#using-kubectl-1)
+    - [Using Pulumi](#using-pulumi)
+  - [Create Pulumi Stack Resources](#create-pulumi-stack-resources)
+    - [Using kubectl](#using-kubectl)
     - [Using Pulumi](#using-pulumi-1)
+    - [Simple Examples](#simple-examples)
     - [Extended Examples](#extended-examples)
   - [Stack CR Documentation](#stack-cr-documentation)
   - [Prometheus Metrics Integration](#prometheus-metrics-integration)
@@ -42,17 +42,13 @@ Deploy the operator to a Kubernetes cluster.
 
 You can use an existing cluster, or [get started](https://www.pulumi.com/docs/get-started/kubernetes/) by creating a new [managed Kubernetes cluster](https://www.pulumi.com/docs/tutorials/kubernetes/#clusters). We will assume that your target Kubernetes cluster is already created and you have configured `kubectl` to point to it.
 
-### Using kubectl
+### Using Helm
 
-First, download the [latest release](https://github.com/pulumi/pulumi-kubernetes-operator/releases) `source code` tar ball and expand it locally.
-
-Install the operator:
+A Helm chart is provided in `deploy/helm/pulumi-operator` and is also published to [Artifact Hub](https://artifacthub.io/packages/helm/pulumi-kubernetes-operator/pulumi-kubernetes-operator).
 
 ```bash
-kubectl apply -f deploy/yaml
+helm install --create-namespace -n pulumi-kubernetes-operator pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator
 ```
-
-This will deploy the operator to the `pulumi-kubernetes-operator` namespace.
 
 ### Using Pulumi
 
@@ -65,18 +61,16 @@ cd deploy/deploy-operator-yaml
 pulumi up
 ```
 
-### Using Helm
-
-A Helm chart is provided in `deploy/helm/pulumi-operator`, offering more customization options.
-
-```bash
-cd deploy/helm/pulumi-operator
-helm install pulumi-kubernetes-operator -n pulumi-kubernetes-operator .
-```
-
-## Create Pulumi Stack CustomResources
+## Create Pulumi Stack Resources
 
 The following are examples to create Pulumi Stacks in Kubernetes that are managed and run by the operator.
+
+Some of the examples use Pulumi Cloud as a state backend, and require that a Pulumi access token
+be stored into a Kubernetes Secret. For example, here's now to create a secret from your `PULUMI_ACCESS_TOKEN` environment variable.
+
+```bash
+kubectl create secret generic -n default pulumi-api-secret --from-literal=accessToken=$PULUMI_ACCESS_TOKEN
+```
 
 ### Using kubectl
 
@@ -85,6 +79,19 @@ Check out [Create Pulumi Stacks using `kubectl` ](./docs/create-stacks-using-kub
 ### Using Pulumi
 
 Check out [Create Pulumi Stacks using Pulumi](./docs/create-stacks-using-pulumi.md) for Typescript, Python, Go, and .NET examples.
+
+### Simple Examples
+
+Working with sources:
+
+- [Git repositories](./operator/examples/git-source)
+- [Flux sources](./operator/examples/flux-source)
+- [Program resources](./operator/examples/program-source)
+- [Custom sources](./operator/examples/custom-source)
+
+Advanced:
+
+- [Workspace customization](./operator/examples/custom-workspace)
 
 ### Extended Examples
 
