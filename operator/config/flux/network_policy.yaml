@@ -17,10 +17,8 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: default
-        - podSelector:
+          podSelector:
             matchLabels:
-              app.kubernetes.io/managed-by: pulumi-kubernetes-operator
-              app.kubernetes.io/name: pulumi
-              app.kubernetes.io/component: workspace
+              auto.pulumi.com/component: workspace
   policyTypes:
     - Ingress
