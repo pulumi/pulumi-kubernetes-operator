@@ -1,3 +1,0 @@
-config:
-  app:git-url: https://github.com/squaremo/pko-dev
-  app:stack-name: squaremo/basic/dev

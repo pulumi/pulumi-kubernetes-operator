@@ -1,3 +1,0 @@
-name: flux-and-pulumi
-runtime: nodejs
-description: Deploy Pulumi and Flux together

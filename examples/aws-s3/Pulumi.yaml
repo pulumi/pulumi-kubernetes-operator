@@ -1,3 +1,0 @@
-name: aws-s3
-runtime: nodejs
-description: Create AWS S3 Buckets

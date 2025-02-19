@@ -1,3 +1,0 @@
-name: app
-description: Application stack for Flux+Pulumi
-runtime: nodejs

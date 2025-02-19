@@ -16,10 +16,7 @@ To learn more about the Pulumi Kubernetes Operator visit the [Pulumi documentati
     - [Using Helm](#using-helm)
     - [Using Pulumi](#using-pulumi)
   - [Create Pulumi Stack Resources](#create-pulumi-stack-resources)
-    - [Using kubectl](#using-kubectl)
-    - [Using Pulumi](#using-pulumi-1)
-    - [Simple Examples](#simple-examples)
-    - [Extended Examples](#extended-examples)
+    - [Examples](#examples)
   - [Stack CR Documentation](#stack-cr-documentation)
   - [Prometheus Metrics Integration](#prometheus-metrics-integration)
   - [Development](#development)
@@ -72,39 +69,18 @@ be stored into a Kubernetes Secret. For example, here's now to create a secret f
 kubectl create secret generic -n default pulumi-api-secret --from-literal=accessToken=$PULUMI_ACCESS_TOKEN
 ```
 
-### Using kubectl
-
-Check out [Create Pulumi Stacks using `kubectl` ](./docs/create-stacks-using-kubectl.md) for YAML examples.
-
-### Using Pulumi
-
-Check out [Create Pulumi Stacks using Pulumi](./docs/create-stacks-using-pulumi.md) for Typescript, Python, Go, and .NET examples.
-
-### Simple Examples
+### Examples
 
 Working with sources:
 
-- [Git repositories](./operator/examples/git-source)
-- [Flux sources](./operator/examples/flux-source)
-- [Program resources](./operator/examples/program-source)
-- [Custom sources](./operator/examples/custom-source)
+- [Git repositories](./examples/git-source)
+- [Flux sources](./examples/flux-source)
+- [Program resources](./examples/program-source)
+- [Custom sources](./examples/custom-source)
 
 Advanced:
 
-- [Workspace customization](./operator/examples/custom-workspace)
-
-### Extended Examples
-
-- [Managing a Kubernetes Blue/Green Deployment](./examples/blue-green)
-- [AWS S3 Buckets](./examples/aws-s3)
-
-If you'd like to use your own Pulumi Stack, ensure that you have an existing Pulumi program in a git repo,
-and update the CR with:
-  - An existing github `project` and/or `commit`,
-  - A Pulumi `stack` name that exists and will be selected, or a new stack that will be created and selected.
-  - A Kubernetes Secret for your Pulumi API `accessToken`,
-  - A Kubernetes Secret for other sensitive settings like cloud provider credentials, and
-  - Environment variables and stack config as needed.
+- [Workspace customization](./examples/custom-workspace)
 
 ## Stack CR Documentation
 
