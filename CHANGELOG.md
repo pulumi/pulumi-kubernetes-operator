@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+## Unreleased
+
+- Sample network policies [#839](https://github.com/pulumi/pulumi-kubernetes-operator/pull/839)
+
 ## 2.0.0-rc.1 (2025-02-15)
 
 - Reduce volatility of the workspace due to ordering and caching issues [#803](https://github.com/pulumi/pulumi-kubernetes-operator/pull/803)
