@@ -2,3 +2,4 @@ resources:
   - ../default
   - service_account.yaml
   - rbac.yaml
+  - network_policy.yaml
