@@ -15,6 +15,8 @@ To learn more about the Pulumi Kubernetes Operator visit the [Pulumi documentati
   - [Deploy the Operator](#deploy-the-operator)
     - [Using Helm](#using-helm)
     - [Using Pulumi](#using-pulumi)
+    - [Dev Install](#dev-install)
+    - [From Source](#from-source)
   - [Create Pulumi Stack Resources](#create-pulumi-stack-resources)
     - [Examples](#examples)
   - [Stack CR Documentation](#stack-cr-documentation)
@@ -57,6 +59,26 @@ Use the Pulumi program located in `deploy/deploy-operator-yaml` to install the O
 cd deploy/deploy-operator-yaml
 pulumi up
 ```
+
+### Dev Install
+
+A simple "quickstart" installation manifest is provided for non-production environments.
+
+Install with `kubectl`:
+
+```
+kubectl apply -f https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/refs/tags/v2.0.0-rc.1/deploy/quickstart/install.yaml
+```
+
+### From Source
+
+To build and install the operator from this repository:
+
+1. Build the operator image: `make build-image` (produces `pulumi/pulumi-kubernetes-operator:v2.0.0-rc.1`).
+2. Push or load the image into your cluster's registry.
+3. Deploy to your current cluster context: `make deploy`.
+
+This approach deploys a Kustomization directory located at `./operator/config/default`.
 
 ## Create Pulumi Stack Resources
 

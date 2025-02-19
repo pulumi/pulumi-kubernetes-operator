@@ -49,9 +49,9 @@ A managed Kubernetes application that uses controllers to manage Pulumi workload
 - [Main Entrypoint](../operator/cmd/main.go)
 - [Dockerfile](../operator/Dockerfile)
 - [CRD Manifests](./deploy/crds/)
-- [Deployment Manifests](./deploy/yaml/)
-- [Pulumi App](./deploy/helm/pulumi-operator/)
-- [Helm Chart](./deploy/deploy-operator-ts/)
+- [Quickstart Manifests](./deploy/quickstart/)
+- [Helm Chart](./deploy/helm/pulumi-operator/)
+- [Pulumi App](./deploy/deploy-operator-yaml/)
 
 ## Requirements
 

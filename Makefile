@@ -89,8 +89,8 @@ push-image: ## Push the operator image.
 
 .PHONY: build-deploy
 build-deploy: generate-crds ## Build the deployment scripts.
-	cd operator && $(MAKE) build-installer
-	cp operator/dist/install.yaml deploy/yaml/install.yaml
+	cd operator && $(MAKE) build-quickstart
+	cp operator/dist/quickstart/install.yaml deploy/quickstart/install.yaml
 
 ##@ Deployment
 
@@ -110,8 +110,8 @@ prep: ## Prepare the next release (use RELEASE=<next-tag>).
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" agent/version/version.go
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" operator/Makefile
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" operator/version/version.go
-	cd operator && $(MAKE) build-installer
-	cp operator/dist/install.yaml deploy/yaml/install.yaml
+	cd operator && $(MAKE) build-quickstart
+	cp operator/dist/quickstart/install.yaml deploy/quickstart/install.yaml
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" deploy/deploy-operator-yaml/Pulumi.yaml
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" deploy/helm/pulumi-operator/Chart.yaml
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" deploy/helm/pulumi-operator/README.md
