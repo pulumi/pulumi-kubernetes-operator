@@ -73,14 +73,14 @@ kubectl create secret generic -n default pulumi-api-secret --from-literal=access
 
 Working with sources:
 
-- [Git repositories](./operator/examples/git-source)
-- [Flux sources](./operator/examples/flux-source)
-- [Program resources](./operator/examples/program-source)
-- [Custom sources](./operator/examples/custom-source)
+- [Git repositories](./examples/git-source)
+- [Flux sources](./examples/flux-source)
+- [Program resources](./examples/program-source)
+- [Custom sources](./examples/custom-source)
 
 Advanced:
 
-- [Workspace customization](./operator/examples/custom-workspace)
+- [Workspace customization](./examples/custom-workspace)
 
 ## Stack CR Documentation
 
