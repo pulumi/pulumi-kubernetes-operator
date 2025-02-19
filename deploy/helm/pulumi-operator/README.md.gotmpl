@@ -11,17 +11,11 @@
 To install the chart using the OCI artifact, run:
 
 ```bash
-helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --version {{ .Version }}
+helm install --create-namespace -n pulumi-kubernetes-operator pulumi-kubernetes-operator \
+    oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --version {{ .Version }}
 ```
 
-After a few seconds, the `pulumi-kubernetes-operator` should be running.
-
-To install the chart in a specific namespace use following commands:
-
-```bash
-kubectl create ns pulumi-kubernetes-operator
-helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --namespace pulumi-kubernetes-operator
-```
+After a few seconds, the `pulumi-kubernetes-operator` release should be deployed and running.
 
 > **Tip**: List all releases using `helm list`, a release is a name used to track a specific deployment
 
@@ -30,7 +24,7 @@ helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-
 To uninstall the `pulumi-kubernetes-operator` deployment:
 
 ```bash
-helm uninstall pulumi-kubernetes-operator
+helm uninstall -n pulumi-kubernetes-operator pulumi-kubernetes-operator
 ```
 
 The command removes all the Kubernetes components associated with the chart and deletes the release.
@@ -40,13 +34,15 @@ The command removes all the Kubernetes components associated with the chart and 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
 ```bash
-helm install pulumi-kubernetes-operator pulumi-kubernetes-operator/pulumi-kubernetes-operator --set image.tag=latest
+helm install --create-namespace -n pulumi-kubernetes-operator pulumi-kubernetes-operator \
+    oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --set image.tag=latest
 ```
 
 Alternatively, a YAML file that specifies the values for the parameters can be provided while installing the chart. For example,
 
 ```bash
-helm install pulumi-kubernetes-operator pulumi-kubernetes-operator/pulumi-kubernetes-operator -f values.yaml
+helm install --create-namespace -n pulumi-kubernetes-operator pulumi-kubernetes-operator \
+    oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator -f values.yaml
 ```
 
 > **Tip**: You can use the default [values.yaml](values.yaml)
