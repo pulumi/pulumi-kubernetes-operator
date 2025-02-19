@@ -28899,3 +28899,26 @@ spec:
         runAsUser: 65532
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 600
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-workspace-rpc
+  namespace: default
+spec:
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: pulumi-kubernetes-operator
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: pulumi-kubernetes-operator
+    ports:
+    - port: grpc
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      auto.pulumi.com/component: workspace
+  policyTypes:
+  - Ingress
