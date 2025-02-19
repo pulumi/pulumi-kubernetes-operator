@@ -6,7 +6,7 @@ on:
       - v*.*.*     # e.g. v2.0.0
 
 env:
-  HELM_DOCS_VERSION: "1.11.0"
+  HELM_DOCS_VERSION: "1.14.2"
 
 permissions: read-all
 

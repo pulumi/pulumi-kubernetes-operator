@@ -1,6 +1,6 @@
 # Pulumi Kubernetes Operator - Helm Chart
 
-![Version: 2.0.0](https://img.shields.io/badge/Version-2.0.0-informational?style=for-the-badge) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=for-the-badge) ![AppVersion: v2.0.0-rc.1](https://img.shields.io/badge/AppVersion-v2.0.0--rc.1-informational?style=for-the-badge)
+![Version: 2.0.0-rc.1](https://img.shields.io/badge/Version-2.0.0--rc.1-informational?style=for-the-badge) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=for-the-badge) ![AppVersion: v2.0.0-rc.1](https://img.shields.io/badge/AppVersion-v2.0.0--rc.1-informational?style=for-the-badge)
 
 ## Description 📜
 
@@ -11,17 +11,11 @@ A Helm chart for the Pulumi Kubernetes Operator
 To install the chart using the OCI artifact, run:
 
 ```bash
-helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --version 2.0.0
+helm install --create-namespace -n pulumi-kubernetes-operator pulumi-kubernetes-operator \
+    oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --version 2.0.0-rc.1
 ```
 
-After a few seconds, the `pulumi-kubernetes-operator` should be running.
-
-To install the chart in a specific namespace use following commands:
-
-```bash
-kubectl create ns pulumi-kubernetes-operator
-helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --namespace pulumi-kubernetes-operator
-```
+After a few seconds, the `pulumi-kubernetes-operator` release should be deployed and running.
 
 > **Tip**: List all releases using `helm list`, a release is a name used to track a specific deployment
 
@@ -30,7 +24,7 @@ helm install pulumi-kubernetes-operator oci://ghcr.io/pulumi/helm-charts/pulumi-
 To uninstall the `pulumi-kubernetes-operator` deployment:
 
 ```bash
-helm uninstall pulumi-kubernetes-operator
+helm uninstall -n pulumi-kubernetes-operator pulumi-kubernetes-operator
 ```
 
 The command removes all the Kubernetes components associated with the chart and deletes the release.
@@ -40,7 +34,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | The affinity constraint |
-| controller.logLevel | string | `"error"` | Log Level ('debug', 'info', 'error', or any integer value > 0 which corresponds to custom debug levels of increasing verbosity) |
+| controller.logLevel | string | `"info"` | Log Level ('debug', 'info', 'error', or any integer value > 0 which corresponds to custom debug levels of increasing verbosity) |
 | deploymentAnnotations | object | `{}` | Deployment annotations |
 | deploymentStrategy | string | `""` | Specifies the strategy used to replace old Pods by new ones, default: `RollingUpdate` |
 | extraEnv | list | `[]` | Extra Environments to be passed to the operator |
@@ -81,13 +75,15 @@ The command removes all the Kubernetes components associated with the chart and 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
 ```bash
-helm install pulumi-kubernetes-operator pulumi-kubernetes-operator/pulumi-kubernetes-operator --set image.tag=latest
+helm install --create-namespace -n pulumi-kubernetes-operator pulumi-kubernetes-operator \
+    oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --set image.tag=latest
 ```
 
 Alternatively, a YAML file that specifies the values for the parameters can be provided while installing the chart. For example,
 
 ```bash
-helm install pulumi-kubernetes-operator pulumi-kubernetes-operator/pulumi-kubernetes-operator -f values.yaml
+helm install --create-namespace -n pulumi-kubernetes-operator pulumi-kubernetes-operator \
+    oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator -f values.yaml
 ```
 
 > **Tip**: You can use the default [values.yaml](values.yaml)
@@ -111,3 +107,5 @@ Apache License, Version 2.0
 | Name | Email | Url |
 | ---- | ------ | --- |
 | dirien | <engin@pulumi.com> | <https://pulumi.com> |
+| Eron Wright | <eron@pulumi.com> |  |
+| Ramon Quitales | <ramon@pulumi.com> |  |
