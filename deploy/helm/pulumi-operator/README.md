@@ -1,6 +1,6 @@
 # Pulumi Kubernetes Operator - Helm Chart
 
-![Version: 2.0.0-rc.1](https://img.shields.io/badge/Version-2.0.0--rc.1-informational?style=for-the-badge) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=for-the-badge) ![AppVersion: v2.0.0-rc.1](https://img.shields.io/badge/AppVersion-v2.0.0--rc.1-informational?style=for-the-badge)
+![Version: 2.0.0](https://img.shields.io/badge/Version-2.0.0-informational?style=for-the-badge) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=for-the-badge) ![AppVersion: v2.0.0](https://img.shields.io/badge/AppVersion-v2.0.0-informational?style=for-the-badge)
 
 ## Description 📜
 
@@ -12,7 +12,7 @@ To install the chart using the OCI artifact, run:
 
 ```bash
 helm install --create-namespace -n pulumi-kubernetes-operator pulumi-kubernetes-operator \
-    oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --version 2.0.0-rc.1
+    oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator --version 2.0.0
 ```
 
 After a few seconds, the `pulumi-kubernetes-operator` release should be deployed and running.

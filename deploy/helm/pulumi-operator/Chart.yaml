@@ -9,8 +9,8 @@ icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
 
 type: application
 
-version: "2.0.0-rc.1"
-appVersion: "v2.0.0-rc.1"
+version: "2.0.0"
+appVersion: "v2.0.0"
 
 keywords:
   - pulumi
@@ -27,13 +27,13 @@ maintainers:
     email: ramon@pulumi.com
 
 annotations:
-  artifacthub.io/prerelease: "true"
+  artifacthub.io/prerelease: "false"
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/changes: |
     - Major version bump to 2.0.0
   artifacthub.io/images: |
     - name: pulumi-kubernetes-operator
-      image: docker.io/pulumi-kubernetes-operator:v2.0.0-rc.1
+      image: docker.io/pulumi-kubernetes-operator:v2.0.0
   artifacthub.io/license: Apache-2.0
   artifacthub.io/links: |
     - name: website
