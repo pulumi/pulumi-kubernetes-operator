@@ -25,7 +25,10 @@ The chart value to enable verbose operator logging has changed:
 ### Unsupported: Single-Namespace Installation
 
 In v2, we simplified the installation options to support only a cluster-wide
-installation. See ["Add single-namespace deployment mode #690"](https://github.com/pulumi/pulumi-kubernetes-operator/issues/690).
+installation. A single installation is able to handle stacks across all the namespaces of your cluster.
+
+See ["Add single-namespace deployment mode #690"](https://github.com/pulumi/pulumi-kubernetes-operator/issues/690).
+
 
 ## Stack API
 
