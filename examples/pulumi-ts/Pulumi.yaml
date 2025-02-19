@@ -1,0 +1,10 @@
+name: pulumi-ts
+description: A Pulumi program to deploy a Stack using the Pulumi Kubernetes Operator
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: kubernetes-typescript
