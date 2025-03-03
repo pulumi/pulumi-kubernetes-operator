@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+## Unreleased
+
+- New example: pulumi-ts [#843](https://github.com/pulumi/pulumi-kubernetes-operator/pull/843)
+
 ## 2.0.0 (2025-02-18)
 
 - Sample network policies [#839](https://github.com/pulumi/pulumi-kubernetes-operator/pull/839)
