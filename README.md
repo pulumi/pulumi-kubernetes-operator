@@ -100,7 +100,11 @@ Working with sources:
 - [Program resources](./examples/program-source)
 - [Custom sources](./examples/custom-source)
 
-Advanced:
+Better together with Pulumi IAC:
+
+- [Pulumi (TypeScript)](./examples/pulumi-ts)
+
+Advanced configurations:
 
 - [Workspace customization](./examples/custom-workspace)
 
