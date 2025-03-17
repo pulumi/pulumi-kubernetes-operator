@@ -85,12 +85,12 @@ func TestE2E(t *testing.T) {
 					"random-yaml-nonroot",
 					5*time.Minute,
 					"condition=Ready")
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				// Ensure that the workspace pod was not deleted after successful Stack reconciliation.
 				time.Sleep(10 * time.Second)
 				found, err := foundEvent("Pod", "random-yaml-nonroot-workspace-0", "random-yaml-nonroot", "Killing")
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.False(t, found)
 
 				// 2. Test `WorkspaceReclaimPolicy` is set to `Delete`.
@@ -105,19 +105,19 @@ func TestE2E(t *testing.T) {
 					5*time.Minute,
 					"condition=Ready",
 					"jsonpath={.status.observedGeneration}=3")
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				// Ensure that the workspace pod is now deleted after successful Stack reconciliation.
 				retryUntil(t, 10*time.Second, true, func() bool {
 					found, err = foundEvent("Pod", "random-yaml-nonroot-workspace-0", "random-yaml-nonroot", "Killing")
-					assert.NoError(t, err)
+					require.NoError(t, err)
 					return found
 				})
 
 				if t.Failed() {
 					cmd := exec.Command("kubectl", "get", "pods", "-A")
 					out, err := cmd.CombinedOutput()
-					assert.NoError(t, err)
+					require.NoError(t, err)
 					t.Log(string(out))
 				}
 			},
@@ -137,7 +137,7 @@ func TestE2E(t *testing.T) {
 					"git-auth-nonroot",
 					5*time.Minute,
 					"condition=Ready")
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				assert.Equal(t, `"[secret]"`, string(stack.Status.Outputs["secretOutput"].Raw))
 				assert.Equal(t, `"foo"`, string(stack.Status.Outputs["simpleOutput"].Raw))
@@ -151,7 +151,7 @@ func TestE2E(t *testing.T) {
 				dumpLogs(t, "targets", "pod/targets-workspace-0")
 
 				stack, err := waitFor[pulumiv1.Stack]("stacks/targets", "targets", 5*time.Minute, "condition=Ready")
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				assert.Contains(t, stack.Status.Outputs, "targeted")
 				assert.NotContains(t, stack.Status.Outputs, "notTargeted")
@@ -169,7 +169,7 @@ func TestE2E(t *testing.T) {
 
 				// wait for the pod to be created (knowing that it will never become ready)
 				_, err := waitFor[corev1.Pod]("pods/issue-801-workspace-0", "issue-801", 5*time.Minute, "create")
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				// update the workspace to a valid image (expecting that a new pod will be rolled out)
 				cmd = exec.Command("kubectl", "apply", "-f", "e2e/testdata/issue-801/step2")
@@ -177,7 +177,7 @@ func TestE2E(t *testing.T) {
 
 				// wait for the workspace to be fully ready
 				_, err = waitFor[autov1alpha1.Workspace]("workspaces/issue-801", "issue-801", 5*time.Minute, "condition=Ready")
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			},
 		},
 		{
@@ -192,7 +192,7 @@ func TestE2E(t *testing.T) {
 				// Wait for the Workspace pod to be created, so that we can watch/wait on the Workspace object.
 				retryUntil(t, 30*time.Second, true, func() bool {
 					found, err := foundEvent("Pod", "random-yaml-auth-error-workspace-0", "random-yaml-auth-error", "Created")
-					assert.NoError(t, err)
+					require.NoError(t, err)
 					return found
 				})
 
@@ -202,12 +202,12 @@ func TestE2E(t *testing.T) {
 					"random-yaml-auth-error",
 					5*time.Minute,
 					`jsonpath={.status.conditions[?(@.type=="Ready")].reason}=Unauthenticated`)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				// Ensure that the workspace pod was not deleted after reconciling the failed stack.
 				time.Sleep(10 * time.Second)
 				found, err := foundEvent("Pod", "random-yaml-auth-error-workspace-0", "random-yaml-auth-error", "Killing")
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.False(t, found)
 			},
 		},
@@ -240,7 +240,7 @@ func dumpLogs(t *testing.T, namespace, name string) {
 		t.Logf("=== LOGS %s %s", namespace, name)
 		cmd := exec.Command("kubectl", "logs", "--all-containers=true", "-n", namespace, name)
 		out, err := cmd.CombinedOutput()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		t.Log(string(out))
 	})
 }
@@ -253,7 +253,7 @@ func dumpEvents(t *testing.T, namespace string) {
 		t.Logf("=== EVENTS %s", namespace)
 		cmd := exec.Command("kubectl", "get", "events", "-n", namespace)
 		out, err := cmd.CombinedOutput()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		t.Log(string(out))
 	})
 }
