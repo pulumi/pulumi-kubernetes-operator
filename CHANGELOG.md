@@ -3,6 +3,7 @@ CHANGELOG
 
 ## Unreleased
 
+- Fixed `rbac.extraRules` in Helm chart [#875](https://github.com/pulumi/pulumi-kubernetes-operator/pull/875)
 - New example: pulumi-ts [#843](https://github.com/pulumi/pulumi-kubernetes-operator/pull/843)
 
 ## 2.0.0 (2025-02-18)
