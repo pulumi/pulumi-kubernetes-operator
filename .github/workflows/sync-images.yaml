@@ -1,3 +1,4 @@
+permissions: write-all # Equivalent to default permissions plus id-token: write
 # Copies all Pulumi Kubernetes Operator OCI images for the supplied version from Docker Hub to
 # AWS ECR Public Gallery and GitHub Container Registry.
 name: Sync Docker Hub Images to ECR and GHCR
@@ -22,12 +23,20 @@ env:
   DOCKER_USERNAME: pulumi
   OPERATOR_VERSION: ${{ inputs.operator_version || github.event.client_payload.ref }}
   OPERATOR_IMAGE_NAME: pulumi-kubernetes-operator
+  ESC_ACTION_OIDC_AUTH: true
+  ESC_ACTION_OIDC_ORGANIZATION: pulumi
+  ESC_ACTION_OIDC_REQUESTED_TOKEN_TYPE: urn:pulumi:token-type:access_token:organization
+  ESC_ACTION_ENVIRONMENT: imports/github-secrets
+  ESC_ACTION_EXPORT_ENVIRONMENT_VARIABLES: false
 
 jobs:
   sync-to-ecr:
     name: Pulumi Kubernetes Operator image
     runs-on: ubuntu-latest
     steps:
+      - name: Fetch secrets from ESC
+        id: esc-secrets
+        uses: pulumi/esc-action@v1
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4
         with:
@@ -37,7 +46,7 @@ jobs:
           role-duration-seconds: 3600
           role-external-id: upload-pulumi-release
           role-session-name: pulumi@githubActions
-          role-to-assume: ${{ secrets.AWS_UPLOAD_ROLE_ARN }}
+          role-to-assume: ${{ steps.esc-secrets.outputs.AWS_UPLOAD_ROLE_ARN }}
       - name: Login to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3
         with:
