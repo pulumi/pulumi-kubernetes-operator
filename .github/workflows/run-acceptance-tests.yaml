@@ -1,6 +1,8 @@
 ---
 name: Pulumi Kubernetes Operator PR Builds
 on:
+  repository_dispatch:
+    types: [run-acceptance-tests-command]
   push:
     branches:
       - master
@@ -13,6 +15,23 @@ env:
   PULUMI_BOT_TOKEN: ${{ secrets.PULUMI_BOT_TOKEN }}
   VERSION: v0.0-${{ github.sha }}
 jobs:
+  comment-notification:
+    runs-on: ubuntu-latest
+    name: comment-notification
+    if: github.event_name == 'repository_dispatch'
+    steps:
+    - name: Create URL to the run output
+      id: vars
+      run: echo
+        run-url=https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+        >> "$GITHUB_OUTPUT"
+    - name: Update with Result
+      uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+      with:
+        token: ${{ secrets.PULUMI_BOT_TOKEN }}
+        repository: ${{ github.event.client_payload.github.payload.repository.full_name }}
+        issue-number: ${{ github.event.client_payload.github.payload.issue.number }}
+        body: "Please view the PR build: ${{ steps.vars.outputs.run-url }}"
   build:
     runs-on: ubuntu-latest
     name: Build
@@ -88,6 +107,8 @@ jobs:
   e2e-tests:
     runs-on: ubuntu-latest
     name: E2E tests
+    if: github.event_name == 'repository_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Setup cluster
         uses: helm/kind-action@v1
