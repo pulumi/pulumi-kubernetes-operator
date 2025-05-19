@@ -35,6 +35,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     name: Build
+    if: github.event_name == 'repository_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -80,6 +82,8 @@ jobs:
   unit-tests:
     runs-on: ubuntu-latest
     name: Unit tests
+    if: github.event_name == 'repository_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Check out code
         uses: actions/checkout@v4
