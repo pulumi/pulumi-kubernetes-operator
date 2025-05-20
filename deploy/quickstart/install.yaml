@@ -28859,7 +28859,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
-        image: pulumi/pulumi-kubernetes-operator:v2.0.0
+        image: pulumi/pulumi-kubernetes-operator:v2.1.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:

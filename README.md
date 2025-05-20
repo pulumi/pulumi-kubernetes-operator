@@ -67,14 +67,14 @@ A simple "quickstart" installation manifest is provided for non-production envir
 Install with `kubectl`:
 
 ```
-kubectl apply -f https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/refs/tags/v2.0.0/deploy/quickstart/install.yaml
+kubectl apply -f https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/refs/tags/v2.1.0/deploy/quickstart/install.yaml
 ```
 
 ### From Source
 
 To build and install the operator from this repository:
 
-1. Build the operator image: `make build-image` (produces `pulumi/pulumi-kubernetes-operator:v2.0.0`).
+1. Build the operator image: `make build-image` (produces `pulumi/pulumi-kubernetes-operator:v2.1.0`).
 2. Push or load the image into your cluster's registry.
 3. Deploy to your current cluster context: `make deploy`.
 
