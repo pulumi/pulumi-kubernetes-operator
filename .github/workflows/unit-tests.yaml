@@ -1,0 +1,30 @@
+---
+name: Unit Tests
+on:
+  workflow_call:
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23.x
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@v6
+        with:
+          pulumi-version-file: .pulumi.version
+      - name: Run Tests (Agent)
+        run: make -C agent test
+      - name: Run Tests (Operator)
+        run: make -C operator test
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: agent/coverage.out,operator/coverage.out
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

@@ -1,14 +1,11 @@
 ---
 name: Pulumi Kubernetes Operator PR Builds
 on:
-  repository_dispatch:
-    types: [run-acceptance-tests-command]
-  push:
-    branches:
-      - master
   pull_request:
     branches:
       - master
+  repository_dispatch:
+    types: [run-acceptance-tests-command]
 env:
   PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -32,105 +29,29 @@ jobs:
         repository: ${{ github.event.client_payload.github.payload.repository.full_name }}
         issue-number: ${{ github.event.client_payload.github.payload.issue.number }}
         body: "Please view the PR build: ${{ steps.vars.outputs.run-url }}"
+
   build:
-    runs-on: ubuntu-latest
-    name: Build
+    uses: ./.github/workflows/build.yaml
+    secrets: inherit
     if: github.event_name == 'repository_dispatch' ||
       github.event.pull_request.head.repo.full_name == github.repository
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23.x
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Build
-        uses: docker/build-push-action@v6
-        with:
-          push: false
-          load: true
-          platforms: linux/amd64
-          tags: |
-            pulumi/pulumi-kubernetes-operator:${{ env.VERSION }}
-          build-args: |
-            VERSION=${{ env.VERSION }}
-  
+    with:
+      repository: ${{ github.event.client_payload.pull_request.head.repo.full_name }}
+      ref: ${{ github.event.client_payload.pull_request.head.ref }}
+      version: v0.0-${{ github.sha }}
+
   lint:
-    runs-on: ubuntu-latest
-    name: Lint
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23.x
-      - name: Lint pulumi-kubernetes-operator codebase
-        run: make lint
+    uses: ./.github/workflows/lint.yaml
+    secrets: inherit
 
   unit-tests:
-    runs-on: ubuntu-latest
-    name: Unit tests
+    uses: ./.github/workflows/unit-tests.yaml
+    secrets: inherit
     if: github.event_name == 'repository_dispatch' ||
       github.event.pull_request.head.repo.full_name == github.repository
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23.x
-      - name: Install Pulumi CLI
-        uses: pulumi/actions@df5a93ad715135263c732ba288301bd044c383c0 # v6.3.0
-        with:
-          pulumi-version-file: .pulumi.version
-      - name: Run Tests (Agent)
-        run: make -C agent test
-      - name: Run Tests (Operator)
-        run: make -C operator test
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: agent/coverage.out,operator/coverage.out
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
+      
   e2e-tests:
-    runs-on: ubuntu-latest
-    name: E2E tests
+    uses: ./.github/workflows/e2e-tests.yaml
+    secrets: inherit
     if: github.event_name == 'repository_dispatch' ||
       github.event.pull_request.head.repo.full_name == github.repository
-    steps:
-      - name: Setup cluster
-        uses: helm/kind-action@v1
-        with:
-          cluster_name: kind
-          node_image: kindest/node:v1.31.0
-      - name: Check out code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.23.x
-      - name: Run tests
-        run: make -C operator test-e2e
-      - name: 🐛 Debug Build
-        uses: stateful/vscode-server-action@v1
-        if: failure()
-        with:
-          timeout: '360000'       # milliseconds

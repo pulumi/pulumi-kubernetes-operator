@@ -1,0 +1,31 @@
+---
+name: Pulumi Kubernetes Operator Master Build
+on:
+  push:
+    branches:
+      - master
+env:
+  PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  PULUMI_BOT_TOKEN: ${{ secrets.PULUMI_BOT_TOKEN }}
+  VERSION: v0.0-${{ github.sha }}
+jobs:
+  build:
+    uses: ./.github/workflows/build.yaml
+    secrets: inherit
+    with:
+      repository: ${{ github.repository }}
+      ref: ${{ github.ref_name }}
+      version: v0.0-${{ github.sha }}
+
+  lint:
+    uses: ./.github/workflows/lint.yaml
+    secrets: inherit
+
+  unit-tests:
+    uses: ./.github/workflows/unit-tests.yaml
+    secrets: inherit
+
+  e2e-tests:
+    uses: ./.github/workflows/e2e-tests.yaml
+    secrets: inherit
