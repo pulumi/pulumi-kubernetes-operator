@@ -291,6 +291,15 @@ var _ = Describe("Stack Controller", func() {
 		Expect(stalled).To(BeNil(), "expected Stalled to be nil")
 	}
 
+	beStalled := func(reason string, msg gtypes.GomegaMatcher) {
+		GinkgoHelper()
+		It("reconciles", func(ctx context.Context) {
+			_, err := reconcileF(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			ByMarkingAsStalled(reason, msg)
+		})
+	}
+
 	Describe("Finalization", func() {
 		useFluxSource()
 		BeforeEach(func(ctx context.Context) {
@@ -1289,15 +1298,6 @@ var _ = Describe("Stack Controller", func() {
 				}))
 			})
 
-			beStalled := func(reason string, msg gtypes.GomegaMatcher) {
-				GinkgoHelper()
-				It("reconciles", func(ctx context.Context) {
-					_, err := reconcileF(ctx)
-					Expect(err).NotTo(HaveOccurred())
-					ByMarkingAsStalled(reason, msg)
-				})
-			}
-
 			When("the flux source is not found", func() {
 				JustBeforeEach(func(ctx context.Context) {
 					Expect(k8sClient.Delete(ctx, fluxRepo)).To(Succeed())
@@ -1520,6 +1520,38 @@ var _ = Describe("Stack Controller", func() {
 					},
 				))
 			})
+
+			Describe("deprecated ref type: Env", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.EnvRefs = map[string]shared.ResourceRef{
+						"foo": {
+							SelectorType: shared.ResourceSelectorEnv,
+							ResourceSelector: shared.ResourceSelector{
+								Env: &shared.EnvSelector{
+									Name: "FOO",
+								},
+							},
+						},
+					}
+				})
+				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "Env" is deprecated`))
+			})
+
+			Describe("deprecated ref type: FS", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.EnvRefs = map[string]shared.ResourceRef{
+						"foo": {
+							SelectorType: shared.ResourceSelectorFS,
+							ResourceSelector: shared.ResourceSelector{
+								FileSystem: &shared.FSSelector{
+									Path: "foo",
+								},
+							},
+						},
+					}
+				})
+				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "FS" is deprecated`))
+			})
 		})
 	})
 
@@ -1641,6 +1673,38 @@ var _ = Describe("Stack Controller", func() {
 					Name:      "secret-" + secret.Name,
 					MountPath: "/var/run/secrets/stacks.pulumi.com/secrets/" + secret.Name,
 				}))
+			})
+
+			Describe("deprecated ref type: Env", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.SecretRefs = map[string]shared.ResourceRef{
+						"foo": {
+							SelectorType: shared.ResourceSelectorEnv,
+							ResourceSelector: shared.ResourceSelector{
+								Env: &shared.EnvSelector{
+									Name: "FOO",
+								},
+							},
+						},
+					}
+				})
+				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "Env" is deprecated`))
+			})
+
+			Describe("deprecated ref type: FS", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.SecretRefs = map[string]shared.ResourceRef{
+						"foo": {
+							SelectorType: shared.ResourceSelectorFS,
+							ResourceSelector: shared.ResourceSelector{
+								FileSystem: &shared.FSSelector{
+									Path: "foo",
+								},
+							},
+						},
+					}
+				})
+				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "FS" is deprecated`))
 			})
 		})
 	})

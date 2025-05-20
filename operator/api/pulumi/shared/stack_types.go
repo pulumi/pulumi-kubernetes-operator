@@ -334,9 +334,9 @@ func NewLiteralResourceRef(value string) ResourceRef {
 type ResourceSelectorType string
 
 const (
-	// ResourceSelectorEnv indicates the resource is an environment variable
+	// Deprecated: ResourceSelectorEnv indicates the resource is an environment variable
 	ResourceSelectorEnv = ResourceSelectorType("Env")
-	// ResourceSelectorFS indicates the resource is on the filesystem
+	// Deprecated: ResourceSelectorFS indicates the resource is on the filesystem
 	ResourceSelectorFS = ResourceSelectorType("FS")
 	// ResourceSelectorSecret indicates the resource is a Kubernetes Secret
 	ResourceSelectorSecret = ResourceSelectorType("Secret")
