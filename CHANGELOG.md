@@ -6,7 +6,8 @@ CHANGELOG
 - Fixed `rbac.extraRules` in Helm chart [#875](https://github.com/pulumi/pulumi-kubernetes-operator/pull/875)
 - New example: pulumi-ts [#843](https://github.com/pulumi/pulumi-kubernetes-operator/pull/843)
 - Use optimized binaries in container images [#852](https://github.com/pulumi/pulumi-kubernetes-operator/pull/852)
-
+- Helm: configure the agent image [#919](https://github.com/pulumi/pulumi-kubernetes-operator/pull/919)
+ 
 ## 2.0.0 (2025-02-18)
 
 - Sample network policies [#839](https://github.com/pulumi/pulumi-kubernetes-operator/pull/839)
