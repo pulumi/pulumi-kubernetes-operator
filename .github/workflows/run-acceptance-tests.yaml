@@ -43,15 +43,24 @@ jobs:
   lint:
     uses: ./.github/workflows/lint.yaml
     secrets: inherit
+    with:
+      repository: ${{ github.event.client_payload.pull_request.head.repo.full_name }}
+      ref: ${{ github.event.client_payload.pull_request.head.ref }}
 
   unit-tests:
     uses: ./.github/workflows/unit-tests.yaml
     secrets: inherit
     if: github.event_name == 'repository_dispatch' ||
       github.event.pull_request.head.repo.full_name == github.repository
-      
+    with:
+      repository: ${{ github.event.client_payload.pull_request.head.repo.full_name }}
+      ref: ${{ github.event.client_payload.pull_request.head.ref }}
+
   e2e-tests:
     uses: ./.github/workflows/e2e-tests.yaml
     secrets: inherit
     if: github.event_name == 'repository_dispatch' ||
       github.event.pull_request.head.repo.full_name == github.repository
+    with:
+      repository: ${{ github.event.client_payload.pull_request.head.repo.full_name }}
+      ref: ${{ github.event.client_payload.pull_request.head.ref }}

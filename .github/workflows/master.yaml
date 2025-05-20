@@ -21,11 +21,20 @@ jobs:
   lint:
     uses: ./.github/workflows/lint.yaml
     secrets: inherit
+    with:
+      repository: ${{ github.repository }}
+      ref: ${{ github.ref_name }}
 
   unit-tests:
     uses: ./.github/workflows/unit-tests.yaml
     secrets: inherit
+    with:
+      repository: ${{ github.repository }}
+      ref: ${{ github.ref_name }}
 
   e2e-tests:
     uses: ./.github/workflows/e2e-tests.yaml
     secrets: inherit
+    with:
+      repository: ${{ github.repository }}
+      ref: ${{ github.ref_name }}

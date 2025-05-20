@@ -2,6 +2,13 @@
 name: E2E Tests
 on:
   workflow_call:
+    inputs:
+      repository:
+        required: true
+        type: string
+      ref:
+        required: true
+        type: string
 jobs:
   e2e-tests:
     runs-on: ubuntu-latest
@@ -14,6 +21,8 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
         with:
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
           fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@v5
