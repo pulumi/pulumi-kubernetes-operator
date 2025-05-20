@@ -13,9 +13,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Comment PR
-        uses: thollander/actions-comment-pull-request@main
+        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
         with:
           message: |
             PR is now waiting for a maintainer to run the acceptance tests. This PR will only perform build and linting.
             **Note for the maintainer:** To run the acceptance tests, please comment */run-acceptance-tests* on the PR
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
