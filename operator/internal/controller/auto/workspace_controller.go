@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
@@ -445,12 +446,28 @@ func labelsForStatefulSet(w *autov1alpha1.Workspace) map[string]string {
 	}
 }
 
-func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.StatefulSet, error) {
+func agentImage() (string, corev1.PullPolicy) {
 	image := os.Getenv("AGENT_IMAGE")
 	if image == "" {
 		image = "pulumi/pulumi-kubernetes-operator:" + version.Version
 	}
+	policy := os.Getenv("AGENT_IMAGE_PULL_POLICY")
+	var imagePullPolicy corev1.PullPolicy
+	switch {
+	case strings.EqualFold(policy, string(corev1.PullAlways)):
+		imagePullPolicy = corev1.PullAlways
+	case strings.EqualFold(policy, string(corev1.PullNever)):
+		imagePullPolicy = corev1.PullNever
+	case strings.EqualFold(policy, string(corev1.PullIfNotPresent)):
+		imagePullPolicy = corev1.PullIfNotPresent
+	default:
+		imagePullPolicy = corev1.PullIfNotPresent
+	}
+	return image, imagePullPolicy
+}
 
+func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.StatefulSet, error) {
+	image, imagePullPolicy := agentImage()
 	labels := labelsForStatefulSet(w)
 
 	command := []string{
@@ -537,7 +554,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 						{
 							Name:            "bootstrap",
 							Image:           image,
-							ImagePullPolicy: corev1.PullIfNotPresent,
+							ImagePullPolicy: imagePullPolicy,
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      WorkspaceShareVolumeName,
@@ -646,7 +663,7 @@ ln -s /share/source/$GIT_DIR /share/workspace
 		container := corev1.Container{
 			Name:            "fetch",
 			Image:           image,
-			ImagePullPolicy: corev1.PullIfNotPresent,
+			ImagePullPolicy: imagePullPolicy,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      WorkspaceShareVolumeName,
@@ -667,7 +684,7 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 		container := corev1.Container{
 			Name:            "fetch",
 			Image:           image,
-			ImagePullPolicy: corev1.PullIfNotPresent,
+			ImagePullPolicy: imagePullPolicy,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      WorkspaceShareVolumeName,
@@ -698,7 +715,7 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 		container := corev1.Container{
 			Name:            "fetch",
 			Image:           image,
-			ImagePullPolicy: corev1.PullIfNotPresent,
+			ImagePullPolicy: imagePullPolicy,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      WorkspaceShareVolumeName,
