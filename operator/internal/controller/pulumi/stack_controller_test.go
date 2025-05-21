@@ -1591,6 +1591,19 @@ var _ = Describe("Stack Controller", func() {
 			})
 		})
 
+		Describe("environment", func() {
+			BeforeEach(func(ctx context.Context) {
+				obj.Spec.Environment = []string{"test/test"}
+			})
+			It("reconciles", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				actual := ws.Spec.Stacks[0]
+				By("applying workspace stack environment")
+				Expect(actual.Environment).To(Equal([]string{"test/test"}))
+			})
+		})
+
 		Describe("secrets", func() {
 			BeforeEach(func(ctx context.Context) {
 				obj.Spec.Secrets = map[string]string{

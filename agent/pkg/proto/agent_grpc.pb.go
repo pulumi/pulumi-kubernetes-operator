@@ -19,15 +19,16 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AutomationService_WhoAmI_FullMethodName       = "/agent.AutomationService/WhoAmI"
-	AutomationService_SelectStack_FullMethodName  = "/agent.AutomationService/SelectStack"
-	AutomationService_Info_FullMethodName         = "/agent.AutomationService/Info"
-	AutomationService_SetAllConfig_FullMethodName = "/agent.AutomationService/SetAllConfig"
-	AutomationService_Install_FullMethodName      = "/agent.AutomationService/Install"
-	AutomationService_Preview_FullMethodName      = "/agent.AutomationService/Preview"
-	AutomationService_Refresh_FullMethodName      = "/agent.AutomationService/Refresh"
-	AutomationService_Up_FullMethodName           = "/agent.AutomationService/Up"
-	AutomationService_Destroy_FullMethodName      = "/agent.AutomationService/Destroy"
+	AutomationService_WhoAmI_FullMethodName          = "/agent.AutomationService/WhoAmI"
+	AutomationService_SelectStack_FullMethodName     = "/agent.AutomationService/SelectStack"
+	AutomationService_Info_FullMethodName            = "/agent.AutomationService/Info"
+	AutomationService_SetAllConfig_FullMethodName    = "/agent.AutomationService/SetAllConfig"
+	AutomationService_AddEnvironments_FullMethodName = "/agent.AutomationService/AddEnvironments"
+	AutomationService_Install_FullMethodName         = "/agent.AutomationService/Install"
+	AutomationService_Preview_FullMethodName         = "/agent.AutomationService/Preview"
+	AutomationService_Refresh_FullMethodName         = "/agent.AutomationService/Refresh"
+	AutomationService_Up_FullMethodName              = "/agent.AutomationService/Up"
+	AutomationService_Destroy_FullMethodName         = "/agent.AutomationService/Destroy"
 )
 
 // AutomationServiceClient is the client API for AutomationService service.
@@ -47,6 +48,9 @@ type AutomationServiceClient interface {
 	// *
 	// SetAllConfig sets multiple configuration values for a stack.
 	SetAllConfig(ctx context.Context, in *SetAllConfigRequest, opts ...grpc.CallOption) (*SetAllConfigResult, error)
+	// *
+	// AddEnvironments adds environments to the end of a stack's import list.
+	AddEnvironments(ctx context.Context, in *AddEnvironmentsRequest, opts ...grpc.CallOption) (*AddEnvironmentsResult, error)
 	// *
 	// Install installs the Pulumi plugins and dependencies.
 	Install(ctx context.Context, in *InstallRequest, opts ...grpc.CallOption) (*InstallResult, error)
@@ -109,6 +113,16 @@ func (c *automationServiceClient) SetAllConfig(ctx context.Context, in *SetAllCo
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SetAllConfigResult)
 	err := c.cc.Invoke(ctx, AutomationService_SetAllConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *automationServiceClient) AddEnvironments(ctx context.Context, in *AddEnvironmentsRequest, opts ...grpc.CallOption) (*AddEnvironmentsResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddEnvironmentsResult)
+	err := c.cc.Invoke(ctx, AutomationService_AddEnvironments_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -219,6 +233,9 @@ type AutomationServiceServer interface {
 	// SetAllConfig sets multiple configuration values for a stack.
 	SetAllConfig(context.Context, *SetAllConfigRequest) (*SetAllConfigResult, error)
 	// *
+	// AddEnvironments adds environments to the end of a stack's import list.
+	AddEnvironments(context.Context, *AddEnvironmentsRequest) (*AddEnvironmentsResult, error)
+	// *
 	// Install installs the Pulumi plugins and dependencies.
 	Install(context.Context, *InstallRequest) (*InstallResult, error)
 	// *
@@ -257,6 +274,9 @@ func (UnimplementedAutomationServiceServer) Info(context.Context, *InfoRequest) 
 }
 func (UnimplementedAutomationServiceServer) SetAllConfig(context.Context, *SetAllConfigRequest) (*SetAllConfigResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetAllConfig not implemented")
+}
+func (UnimplementedAutomationServiceServer) AddEnvironments(context.Context, *AddEnvironmentsRequest) (*AddEnvironmentsResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddEnvironments not implemented")
 }
 func (UnimplementedAutomationServiceServer) Install(context.Context, *InstallRequest) (*InstallResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Install not implemented")
@@ -366,6 +386,24 @@ func _AutomationService_SetAllConfig_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AutomationService_AddEnvironments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddEnvironmentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AutomationServiceServer).AddEnvironments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AutomationService_AddEnvironments_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AutomationServiceServer).AddEnvironments(ctx, req.(*AddEnvironmentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AutomationService_Install_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(InstallRequest)
 	if err := dec(in); err != nil {
@@ -450,6 +488,10 @@ var AutomationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetAllConfig",
 			Handler:    _AutomationService_SetAllConfig_Handler,
+		},
+		{
+			MethodName: "AddEnvironments",
+			Handler:    _AutomationService_AddEnvironments_Handler,
 		},
 		{
 			MethodName: "Install",

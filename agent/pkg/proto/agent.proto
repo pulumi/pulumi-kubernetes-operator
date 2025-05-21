@@ -31,6 +31,11 @@ service AutomationService {
   rpc SetAllConfig(SetAllConfigRequest) returns (SetAllConfigResult) {}
 
   /**
+   * AddEnvironments adds environments to the end of a stack's import list.
+   */
+  rpc AddEnvironments(AddEnvironmentsRequest) returns (AddEnvironmentsResult) {}
+
+  /**
    * Install installs the Pulumi plugins and dependencies.
    */
   rpc Install(InstallRequest) returns (InstallResult) {}
@@ -91,7 +96,7 @@ message StackSummary {
 }
 
 message SetAllConfigRequest {
-  repeated ConfigItem config = 1;
+  repeated ConfigItem config = 1; // The config items to add to the configuration.
 }
 
 message ConfigItem {
@@ -112,6 +117,12 @@ message ConfigValueFrom {
 }
 
 message SetAllConfigResult {}
+
+message AddEnvironmentsRequest {
+  repeated string environment = 1; // The ESC environment(s) to add to the configuration.
+}
+
+message AddEnvironmentsResult {}
 
 message InstallRequest {}
 

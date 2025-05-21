@@ -314,6 +314,20 @@ func unmarshalConfigItems(project string, items []*pb.ConfigItem) (auto.ConfigMa
 	return out, nil
 }
 
+func (s *Server) AddEnvironments(ctx context.Context, in *pb.AddEnvironmentsRequest) (*pb.AddEnvironmentsResult, error) {
+	stack, err := s.ensureStack(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = stack.AddEnvironments(ctx, in.Environment...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.AddEnvironmentsResult{}, nil
+}
+
 func (s *Server) Install(ctx context.Context, in *pb.InstallRequest) (*pb.InstallResult, error) {
 	stdout := &zapio.Writer{Log: s.plog, Level: zap.InfoLevel}
 	defer stdout.Close()
