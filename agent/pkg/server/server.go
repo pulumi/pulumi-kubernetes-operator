@@ -251,6 +251,11 @@ func (s *Server) SetAllConfig(ctx context.Context, in *pb.SetAllConfigRequest) (
 		return nil, err
 	}
 
+	err = stack.AddEnvironments(ctx, in.Environment...)
+	if err != nil {
+		return nil, err
+	}
+
 	p, err := stack.Workspace().ProjectSettings(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting project settings: %w", err)

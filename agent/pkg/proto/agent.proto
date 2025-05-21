@@ -91,7 +91,8 @@ message StackSummary {
 }
 
 message SetAllConfigRequest {
-  repeated ConfigItem config = 1;
+  repeated ConfigItem config = 1; // The config items to add to the configuration.
+  repeated string environment = 2; // The ESC environment(s) to add to the configuration.
 }
 
 message ConfigItem {
