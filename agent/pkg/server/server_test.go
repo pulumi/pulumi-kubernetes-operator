@@ -433,6 +433,51 @@ func TestSetAllConfig(t *testing.T) {
 	}
 }
 
+func TestSetEnvironments(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		stacks  []string
+		req     *pb.AddEnvironmentsRequest
+		wantErr error
+		want    []string
+	}{
+		{
+			name:    "no active stack",
+			stacks:  []string{},
+			req:     &pb.AddEnvironmentsRequest{},
+			wantErr: status.Error(codes.FailedPrecondition, "no stack is selected"),
+		},
+		{
+			name:   "added environment",
+			stacks: []string{TestStackName},
+			req: &pb.AddEnvironmentsRequest{
+				Environment: []string{"test"},
+			},
+			want: []string{"test"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := newContext(t)
+			tc := newTC(ctx, t, tcOptions{ProjectDir: "./testdata/simple", Stacks: tt.stacks})
+			_, err := tc.server.AddEnvironments(ctx, tt.req)
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+
+			// note: the file backend does not support environments
+			assert.ErrorContains(t, err, "does not support environments")
+			// actual, err := tc.ws.ListEnvironments(ctx, tc.stack.Name())
+			// assert.NoError(t, err)
+			// assert.Equal(t, tt.want, actual)
+		})
+	}
+}
+
 func TestInstall(t *testing.T) {
 	t.Parallel()
 
