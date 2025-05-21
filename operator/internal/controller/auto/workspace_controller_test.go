@@ -643,7 +643,8 @@ func TestMergePodTemplateSpec(t *testing.T) {
 			base: &corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
-						{Name: "base", Image: "base"},
+						{Name: "bootstrap", Image: "bootstrap"},
+						{Name: "fetch", Image: "fetch"},
 					},
 				},
 			},
@@ -658,7 +659,8 @@ func TestMergePodTemplateSpec(t *testing.T) {
 			expected: &corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
-						{Name: "base", Image: "base"},
+						{Name: "bootstrap", Image: "bootstrap"},
+						{Name: "fetch", Image: "fetch"},
 						{Name: "overlay", Image: "overlay"},
 						{Name: "another", Image: "another"},
 					},
