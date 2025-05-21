@@ -53,6 +53,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: AGENT_IMAGE
+          value: {{ include "pulumi-kubernetes-operator.imageName" . | quote }}
+        - name: AGENT_IMAGE_PULL_POLICY
+          value: {{ .Values.image.pullPolicy | quote }}
         ports:
         - containerPort: 8383
           name: http-metrics
@@ -63,7 +67,7 @@ spec:
         {{- if .Values.extraPorts }}
         {{- toYaml .Values.extraPorts  | nindent 8 }}
         {{- end }}
-        image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        image: {{ include "pulumi-kubernetes-operator.imageName" . | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         {{- if .Values.securityContext }}
         securityContext:
