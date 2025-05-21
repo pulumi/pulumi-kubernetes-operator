@@ -868,13 +868,13 @@ func mergePodTemplateSpec(_ context.Context, base *corev1.PodTemplateSpec, patch
 	if err != nil {
 		return nil, err
 	}
-	jsonResultBytes, err := strategicpatch.StrategicMergeMapPatchUsingLookupPatchMeta(baseData, patchData, schema)
+	mergedData, err := strategicpatch.StrategicMergeMapPatchUsingLookupPatchMeta(baseData, patchData, schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate merge patch for pod template: %w", err)
 	}
 
 	patchResult := &corev1.PodTemplateSpec{}
-	if err := unmarshalJSON(jsonResultBytes, patchResult); err != nil {
+	if err := unmarshalJSON(mergedData, patchResult); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal merged pod template: %w", err)
 	}
 
