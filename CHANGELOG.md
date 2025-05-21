@@ -6,6 +6,7 @@ CHANGELOG
 - Fixed `rbac.extraRules` in Helm chart [#875](https://github.com/pulumi/pulumi-kubernetes-operator/pull/875)
 - New example: pulumi-ts [#843](https://github.com/pulumi/pulumi-kubernetes-operator/pull/843)
 - Use optimized binaries in container images [#852](https://github.com/pulumi/pulumi-kubernetes-operator/pull/852)
+- Deprecate ResourceSelectorType "FS" and "Env" [#920](https://github.com/pulumi/pulumi-kubernetes-operator/pull/920)
 
 ## 2.0.0 (2025-02-18)
 

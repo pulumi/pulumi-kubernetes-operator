@@ -82,8 +82,6 @@ const (
 	StalledSourceUnavailableReason = "SourceUnavailable"
 	// Stalled because there was a conflict with another update, and retryOnConflict was not set.
 	StalledConflictReason = "UpdateConflict"
-	// Stalled because a cross-namespace ref is used, and namespace isolation is in effect.
-	StalledCrossNamespaceRefForbiddenReason = "CrossNamespaceRefForbidden"
 
 	// Ready because processing has completed
 	ReadyCompletedReason = "ProcessingCompleted"

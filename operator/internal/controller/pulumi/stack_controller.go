@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"maps"
 	"math"
-	"os"
 	"path"
 	"slices"
 	"strings"
@@ -475,13 +474,10 @@ func newStallErrorf(format string, args ...interface{}) error {
 	return StallError{fmt.Errorf(format, args...)}
 }
 
-func isStalledError(e error) bool {
-	var s StallError
-	return errors.As(e, &s)
-}
-
 var (
 	errNamespaceIsolation          = newStallErrorf(`cross-namespace refs are not allowed`)
+	errDeprecatedResourceRefEnv    = newStallErrorf(`ref type "Env" is deprecated`)
+	errDeprecatedResourceRefFS     = newStallErrorf(`ref type "FS" is deprecated`)
 	errOtherThanOneSourceSpecified = newStallErrorf(`exactly one source (.spec.fluxSource, .spec.projectRepo, or .spec.programRef) for the stack must be given`)
 )
 
@@ -737,8 +733,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	// If there are extra environment variables, read them in now and use them for subsequent commands.
 	err = sess.setupWorkspace(ctx)
 	if err != nil {
-		if errors.Is(err, errNamespaceIsolation) {
-			instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
+		var s StallError
+		if errors.As(err, &s) {
+			emitEvent(r.Recorder, instance, pulumiv1.StackConfigInvalidEvent(), s.Error())
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, s.Error())
 			return reconcile.Result{}, saveStatus()
 		}
 		log.Error(err, "Failed to setup Pulumi workspace")
@@ -1174,31 +1172,11 @@ func (sess *stackReconcilerSession) SetEnvRefsForWorkspace(ctx context.Context) 
 
 func (sess *stackReconcilerSession) resolveResourceRefAsEnvVar(_ context.Context, ref *shared.ResourceRef) (string, *corev1.EnvVarSource, error) {
 	switch ref.SelectorType {
-	case shared.ResourceSelectorEnv:
-		// DEPRECATED: this reads from the operator's own environment
-		if ref.Env != nil {
-			resolved := os.Getenv(ref.Env.Name)
-			if resolved == "" {
-				return "", nil, fmt.Errorf("missing value for environment variable: %s", ref.Env.Name)
-			}
-			return resolved, nil, nil
-		}
-		return "", nil, errors.New("missing env reference in ResourceRef")
 	case shared.ResourceSelectorLiteral:
 		if ref.LiteralRef != nil {
 			return ref.LiteralRef.Value, nil, nil
 		}
 		return "", nil, errors.New("missing literal reference in ResourceRef")
-	case shared.ResourceSelectorFS:
-		// DEPRECATED: this reads from the operator's own filesystem
-		if ref.FileSystem != nil {
-			contents, err := os.ReadFile(ref.FileSystem.Path)
-			if err != nil {
-				return "", nil, fmt.Errorf("reading path %q: %w", ref.FileSystem.Path, err)
-			}
-			return string(contents), nil, nil
-		}
-		return "", nil, errors.New("Missing filesystem reference in ResourceRef")
 	case shared.ResourceSelectorSecret:
 		if ref.SecretRef != nil {
 			// enforce namespace isolation
@@ -1213,6 +1191,12 @@ func (sess *stackReconcilerSession) resolveResourceRefAsEnvVar(_ context.Context
 			}, nil
 		}
 		return "", nil, errors.New("Missing secret reference in ResourceRef")
+	case shared.ResourceSelectorEnv:
+		// secure-by-default: do not read from the operator's own environment
+		return "", nil, errDeprecatedResourceRefEnv
+	case shared.ResourceSelectorFS:
+		// secure-by-default: do not read from the operator's own filesystem
+		return "", nil, errDeprecatedResourceRefFS
 	default:
 		return "", nil, fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
 	}
@@ -1224,31 +1208,11 @@ func makeSecretRefMountPath(secretRef *shared.SecretSelector) string {
 
 func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(_ context.Context, ref *shared.ResourceRef) (*string, *autov1alpha1.ConfigValueFrom, error) {
 	switch ref.SelectorType {
-	case shared.ResourceSelectorEnv:
-		// DEPRECATED: this reads from the operator's own environment
-		if ref.Env != nil {
-			resolved := os.Getenv(ref.Env.Name)
-			if resolved == "" {
-				return nil, nil, fmt.Errorf("missing value for environment variable: %s", ref.Env.Name)
-			}
-			return &resolved, nil, nil
-		}
-		return nil, nil, errors.New("missing env reference in ResourceRef")
 	case shared.ResourceSelectorLiteral:
 		if ref.LiteralRef != nil {
 			return ptr.To(ref.LiteralRef.Value), nil, nil
 		}
 		return nil, nil, errors.New("missing literal reference in ResourceRef")
-	case shared.ResourceSelectorFS:
-		// DEPRECATED: this reads from the operator's own filesystem
-		if ref.FileSystem != nil {
-			contents, err := os.ReadFile(ref.FileSystem.Path)
-			if err != nil {
-				return nil, nil, fmt.Errorf("reading path %q: %w", ref.FileSystem.Path, err)
-			}
-			return ptr.To(string(contents)), nil, nil
-		}
-		return nil, nil, errors.New("Missing filesystem reference in ResourceRef")
 	case shared.ResourceSelectorSecret:
 		if ref.SecretRef != nil {
 			// enforce namespace isolation
@@ -1280,6 +1244,12 @@ func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(_ context.Con
 			}, nil
 		}
 		return nil, nil, errors.New("Missing secret reference in ResourceRef")
+	case shared.ResourceSelectorEnv:
+		// secure-by-default: do not read from the operator's own environment
+		return nil, nil, errDeprecatedResourceRefEnv
+	case shared.ResourceSelectorFS:
+		// secure-by-default: do not read from the operator's own filesystem
+		return nil, nil, errDeprecatedResourceRefFS
 	default:
 		return nil, nil, fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
 	}
