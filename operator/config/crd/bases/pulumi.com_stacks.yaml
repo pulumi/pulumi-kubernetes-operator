@@ -193,6 +193,13 @@ spec:
                 items:
                   type: string
                 type: array
+              environment:
+                description: (optional) Environment specifies the Pulumi ESC environment(s)
+                  to use for this stack.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: atomic
               envs:
                 description: |-
                   (optional) Envs is an optional array of config maps containing environment variables to set.
@@ -9832,6 +9839,13 @@ spec:
                 items:
                   type: string
                 type: array
+              environment:
+                description: (optional) Environment specifies the Pulumi ESC environment(s)
+                  to use for this stack.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: atomic
               envs:
                 description: |-
                   (optional) Envs is an optional array of config maps containing environment variables to set.

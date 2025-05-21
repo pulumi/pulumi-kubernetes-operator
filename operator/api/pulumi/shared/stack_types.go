@@ -159,6 +159,11 @@ type StackSpec struct {
 	// The default behavior is to retain the workspace. Valid values are one of "Retain" or "Delete".
 	// +optional
 	WorkspaceReclaimPolicy WorkspaceReclaimPolicy `json:"workspaceReclaimPolicy,omitempty"`
+
+	// (optional) Environment specifies the Pulumi ESC environment(s) to use for this stack.
+	// +listType=atomic
+	// +optional
+	Environment []string `json:"environment,omitempty"`
 }
 
 // GitSource specifies how to fetch from a git repository directly.

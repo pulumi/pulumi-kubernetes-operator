@@ -1389,8 +1389,9 @@ func (sess *stackReconcilerSession) setupWorkspace(ctx context.Context) error {
 	}
 
 	wss := &autov1alpha1.WorkspaceStack{
-		Name:   sess.stack.Stack,
-		Create: ptr.To(!sess.stack.UseLocalStackOnly),
+		Name:        sess.stack.Stack,
+		Create:      ptr.To(!sess.stack.UseLocalStackOnly),
+		Environment: sess.stack.Environment,
 	}
 	// Prefer the secretsProvider in the stack config. To override an existing stack to the default
 	// secret provider, the stack's secretsProvider field needs to be set to 'default'
