@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto/md5" //nolint:gosec
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -35,6 +34,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -843,24 +843,38 @@ func mergePodTemplateSpec(_ context.Context, base *corev1.PodTemplateSpec, patch
 	if patch == nil {
 		return base, nil
 	}
-
-	baseBytes, err := json.Marshal(base)
+	baseData, err := marshalJSON(base)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal JSON for base: %w", err)
 	}
-	patchBytes, err := json.Marshal(patch)
+	patchData, err := marshalJSON(patch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal JSON for pod template: %w", err)
 	}
 
+	// Set the ordering of the init containers such that the base init containers come first.
+	// https://github.com/kubernetes/design-proposals-archive/blob/main/cli/preserve-order-in-strategic-merge-patch.md
+	setElementOrder := []any{}
+	for _, v := range base.Spec.InitContainers {
+		setElementOrder = append(setElementOrder, map[string]any{"name": v.Name})
+	}
+	for _, v := range patch.Spec.InitContainers {
+		setElementOrder = append(setElementOrder, map[string]any{"name": v.Name})
+	}
+	_ = unstructured.SetNestedSlice(patchData, setElementOrder, "spec", "$setElementOrder/initContainers")
+
 	// Calculate the patch result.
-	jsonResultBytes, err := strategicpatch.StrategicMergePatch(baseBytes, patchBytes, &corev1.PodTemplateSpec{})
+	schema, err := strategicpatch.NewPatchMetaFromStruct(&corev1.PodTemplateSpec{})
+	if err != nil {
+		return nil, err
+	}
+	jsonResultBytes, err := strategicpatch.StrategicMergeMapPatchUsingLookupPatchMeta(baseData, patchData, schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate merge patch for pod template: %w", err)
 	}
 
 	patchResult := &corev1.PodTemplateSpec{}
-	if err := json.Unmarshal(jsonResultBytes, patchResult); err != nil {
+	if err := unmarshalJSON(jsonResultBytes, patchResult); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal merged pod template: %w", err)
 	}
 

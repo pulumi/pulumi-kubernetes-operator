@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -22,6 +23,8 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"google.golang.org/protobuf/types/known/structpb"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/mergepatch"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -115,4 +118,31 @@ type Event interface {
 
 func emitEvent(recorder record.EventRecorder, object runtime.Object, event Event, messageFmt string, args ...interface{}) {
 	recorder.Eventf(object, event.EventType(), event.Reason(), messageFmt, args...)
+}
+
+func marshalJSON(v any) (strategicpatch.JSONMap, error) {
+	bytes, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+	data := map[string]interface{}{}
+	if len(bytes) > 0 {
+		if err := json.Unmarshal(bytes, &data); err != nil {
+			return nil, mergepatch.ErrBadJSONDoc
+		}
+	}
+	return data, nil
+}
+
+func unmarshalJSON(data strategicpatch.JSONMap, v any) error {
+	bytes, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+	if len(bytes) > 0 {
+		if err := json.Unmarshal(bytes, v); err != nil {
+			return fmt.Errorf("failed to unmarshal JSON: %w", err)
+		}
+	}
+	return nil
 }
