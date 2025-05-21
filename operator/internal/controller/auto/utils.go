@@ -125,7 +125,7 @@ func marshalJSON(v any) (strategicpatch.JSONMap, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal JSON: %w", err)
 	}
-	data := map[string]interface{}{}
+	data := map[string]any{}
 	if len(bytes) > 0 {
 		if err := json.Unmarshal(bytes, &data); err != nil {
 			return nil, mergepatch.ErrBadJSONDoc
