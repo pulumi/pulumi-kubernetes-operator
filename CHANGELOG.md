@@ -8,6 +8,7 @@ CHANGELOG
 - Use optimized binaries in container images [#852](https://github.com/pulumi/pulumi-kubernetes-operator/pull/852)
 - Deprecate ResourceSelectorType "FS" and "Env" [#920](https://github.com/pulumi/pulumi-kubernetes-operator/pull/920)
 - Helm: configure the agent image [#919](https://github.com/pulumi/pulumi-kubernetes-operator/pull/919)
+- Stabilize the ordering of workspace initContainers [#923](https://github.com/pulumi/pulumi-kubernetes-operator/pull/923)
 
 ## 2.0.0 (2025-02-18)
 
