@@ -111,6 +111,7 @@ type UpdateStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
+//+genclient
 //+kubebuilder:object:root=true
 //+kubebuilder:resource:categories=pulumi
 //+kubebuilder:subresource:status
