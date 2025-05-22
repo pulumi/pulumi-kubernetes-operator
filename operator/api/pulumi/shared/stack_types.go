@@ -150,7 +150,7 @@ type StackSpec struct {
 
 	// WorkspaceTemplate customizes the Workspace generated for this Stack. It
 	// is applied as a strategic merge patch on top of the underlying
-	// Workspace. Use this to customize the Workspace's image, resources,
+	// Workspace. Use this to customize the Workspace's metadata, image, resources,
 	// volumes, etc.
 	// +optional
 	WorkspaceTemplate *WorkspaceApplyConfiguration `json:"workspaceTemplate,omitempty"`
@@ -164,6 +164,12 @@ type StackSpec struct {
 	// +listType=atomic
 	// +optional
 	Environment []string `json:"environment,omitempty"`
+
+	// UpdateTemplate customizes the Updates generated for this Stack. It
+	// is applied as a strategic merge patch on top of the underlying
+	// Update. Use this to customize the Updates's metadata, retention policy, etc.
+	// +optional
+	UpdateTemplate *UpdateApplyConfiguration `json:"updateTemplate,omitempty"`
 }
 
 // GitSource specifies how to fetch from a git repository directly.
@@ -494,3 +500,15 @@ const (
 	// WorkspaceReclaimDelete deletes the workspace after the Stack is synced.
 	WorkspaceReclaimDelete WorkspaceReclaimPolicy = "Delete"
 )
+
+// UpdateApplyConfiguration defines DeepCopy on the underlying applyconfiguration.
+// TODO(https://github.com/kubernetes-sigs/kubebuilder/issues/3692)
+type UpdateApplyConfiguration autov1alpha1apply.UpdateApplyConfiguration
+
+// DeepCopy round-trips the object.
+func (ac *UpdateApplyConfiguration) DeepCopy() *UpdateApplyConfiguration {
+	out := new(UpdateApplyConfiguration)
+	bytes, _ := json.Marshal(ac)
+	_ = json.Unmarshal(bytes, out)
+	return out
+}
