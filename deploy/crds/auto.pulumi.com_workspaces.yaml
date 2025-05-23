@@ -8585,6 +8585,13 @@ spec:
                     create:
                       description: Create the stack if it does not exist.
                       type: boolean
+                    environment:
+                      description: Environment is a list of Pulumi ESC environments
+                        to import into the stack.
+                      items:
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: atomic
                     name:
                       type: string
                     secretsProvider:
