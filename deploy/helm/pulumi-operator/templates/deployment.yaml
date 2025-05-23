@@ -40,6 +40,7 @@ spec:
         - --metrics-bind-address=:8383
         - --program-fs-adv-addr={{ include "pulumi-kubernetes-operator.advertisedAddress" . }}:80
         - --zap-log-level={{ .Values.controller.logLevel }}
+        - --zap-encoder={{ .Values.controller.logFormat }}
         - --zap-time-encoding=iso8601
         env:
         {{- if .Values.extraEnv }}
