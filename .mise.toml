@@ -6,6 +6,7 @@ protoc-gen-go = "1.36.4"
 protoc-gen-go-grpc = "1.5.1"
 kubebuilder = "4.2.0"
 envsubst = "1.4.2"
+go = "1.24"
 
 [settings]
 experimental = true    # Enable Go backend.
