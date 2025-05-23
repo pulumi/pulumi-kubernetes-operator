@@ -23,6 +23,7 @@ type WorkspaceStackApplyConfiguration struct {
 	Create          *bool                          `json:"create,omitempty"`
 	SecretsProvider *string                        `json:"secretsProvider,omitempty"`
 	Config          []ConfigItemApplyConfiguration `json:"config,omitempty"`
+	Environment     []string                       `json:"environment,omitempty"`
 }
 
 // WorkspaceStackApplyConfiguration constructs a declarative configuration of the WorkspaceStack type for use with
@@ -64,6 +65,16 @@ func (b *WorkspaceStackApplyConfiguration) WithConfig(values ...*ConfigItemApply
 			panic("nil value passed to WithConfig")
 		}
 		b.Config = append(b.Config, *values[i])
+	}
+	return b
+}
+
+// WithEnvironment adds the given value to the Environment field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Environment field.
+func (b *WorkspaceStackApplyConfiguration) WithEnvironment(values ...string) *WorkspaceStackApplyConfiguration {
+	for i := range values {
+		b.Environment = append(b.Environment, values[i])
 	}
 	return b
 }

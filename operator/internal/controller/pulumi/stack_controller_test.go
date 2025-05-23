@@ -29,6 +29,7 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	autov1alpha1apply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -419,6 +420,23 @@ var _ = Describe("Stack Controller", func() {
 						LastSuccessfulCommit: "abcdef",
 					}),
 				)
+
+				Describe("updateTemplate", func() {
+					BeforeEach(func(ctx context.Context) {
+						obj.Spec.UpdateTemplate = &shared.UpdateApplyConfiguration{
+							Spec: &autov1alpha1apply.UpdateSpecApplyConfiguration{
+								TtlAfterCompleted: &metav1.Duration{Duration: 42 * time.Minute},
+							},
+						}
+					})
+					It("reconciles", func(ctx context.Context) {
+						_, err := reconcileF(ctx)
+						Expect(err).NotTo(HaveOccurred())
+
+						By("applying the update template")
+						Expect(currentUpdate.Spec.TtlAfterCompleted).To(Equal(&metav1.Duration{Duration: 42 * time.Minute}))
+					})
+				})
 			})
 
 			When("the destroy op was successful", func() {
@@ -1067,6 +1085,23 @@ var _ = Describe("Stack Controller", func() {
 				By("not requeuing")
 				Expect(result).To(Equal(reconcile.Result{}))
 				By("watching for a workspace status update")
+			})
+
+			Describe("updateTemplate", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.UpdateTemplate = &shared.UpdateApplyConfiguration{
+						Spec: &autov1alpha1apply.UpdateSpecApplyConfiguration{
+							TtlAfterCompleted: &metav1.Duration{Duration: 42 * time.Minute},
+						},
+					}
+				})
+				It("reconciles", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("applying the update template")
+					Expect(currentUpdate.Spec.TtlAfterCompleted).To(Equal(&metav1.Duration{Duration: 42 * time.Minute}))
+				})
 			})
 		})
 	})

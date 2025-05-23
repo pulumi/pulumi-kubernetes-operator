@@ -1492,6 +1492,11 @@ func (sess *stackReconcilerSession) newUp(_ context.Context, o *pulumiv1.Stack, 
 		},
 	}
 
+	update, err := applyUpdateTemplate(o, update)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := sess.setOwnerReferences(o, update); err != nil {
 		return nil, err
 	}
@@ -1521,10 +1526,27 @@ func (sess *stackReconcilerSession) newDestroy(_ context.Context, o *pulumiv1.St
 		},
 	}
 
+	update, err := applyUpdateTemplate(o, update)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := sess.setOwnerReferences(o, update); err != nil {
 		return nil, err
 	}
 
+	return update, nil
+}
+
+func applyUpdateTemplate(stack *pulumiv1.Stack, update *autov1alpha1.Update) (*autov1alpha1.Update, error) {
+	// Apply the user's update spec as a merge patch on top of what we've already generated.
+	if stack.Spec.UpdateTemplate != nil {
+		patched, err := patchObject(*update, *stack.Spec.UpdateTemplate)
+		if err != nil {
+			return nil, fmt.Errorf("patching update spec: %w", err)
+		}
+		return patched, nil
+	}
 	return update, nil
 }
 
