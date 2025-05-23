@@ -33,13 +33,10 @@ var _ = Describe("Program Controller", func() {
 		program               v1.Program
 		r                     *ProgramReconciler
 		programNamespacedName types.NamespacedName
-		ctx                   context.Context
 		advertisedAddress     string
 	)
 
-	BeforeEach(func() {
-		ctx = context.Background()
-
+	BeforeEach(func(ctx context.Context) {
 		advertisedAddress = "http://fake-svc.fake-namespace"
 
 		r = &ProgramReconciler{
@@ -74,7 +71,7 @@ var _ = Describe("Program Controller", func() {
 		Expect(k8sClient.Create(ctx, &program)).Should(Succeed())
 	})
 
-	AfterEach(func() {
+	AfterEach(func(ctx context.Context) {
 		Expect(k8sClient.Delete(ctx, &program)).Should(Succeed())
 	})
 
@@ -83,7 +80,7 @@ var _ = Describe("Program Controller", func() {
 	}
 
 	When("reconciling a resource", func() {
-		It("should generate an artifact URL in the status", func() {
+		It("should generate an artifact URL in the status", func(ctx context.Context) {
 			By("not expecting a status to be present before first reconciliation")
 			program := v1.Program{}
 			Expect(k8sClient.Get(ctx, programNamespacedName, &program)).Should(Succeed())
@@ -135,7 +132,7 @@ var _ = Describe("Program Controller", func() {
 				To(Equal(fmt.Sprintf("https://fake-address/programs/%s/%s", programNamespacedName.Namespace, programNamespacedName.Name)))
 		})
 
-		It("should generate a URL with the correct 'http://' scheme if the advertised address does not include one", func() {
+		It("should generate a URL with the correct 'http://' scheme if the advertised address does not include one", func(ctx context.Context) {
 			advertisedAddress = "fake-address"
 			r.ProgramHandler.address = advertisedAddress
 

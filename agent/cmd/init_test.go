@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"context"
 	"testing"
 
 	"github.com/go-git/go-git/v5"
@@ -39,7 +38,7 @@ func TestInitFluxSource(t *testing.T) {
 	f.EXPECT().Digest().Return(digest).AnyTimes()
 	f.EXPECT().FetchWithContext(gomock.Any(), url, digest, dir).Return(nil)
 
-	err := runInit(context.Background(), log, dir, f, nil)
+	err := runInit(t.Context(), log, dir, f, nil)
 	assert.NoError(t, err)
 }
 
@@ -60,10 +59,10 @@ func TestInitGitSource(t *testing.T) {
 		g.EXPECT().NewLocalWorkspace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, git.ErrRepositoryAlreadyExists),
 	)
 
-	err := runInit(context.Background(), log, dir, nil, g)
+	err := runInit(t.Context(), log, dir, nil, g)
 	assert.NoError(t, err)
 
-	err = runInit(context.Background(), log, dir, nil, g)
+	err = runInit(t.Context(), log, dir, nil, g)
 	assert.NoError(t, err)
 }
 
