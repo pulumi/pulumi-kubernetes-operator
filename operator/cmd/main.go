@@ -33,9 +33,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -90,13 +92,17 @@ func main() {
 		"The address the static file server binds to.")
 	flag.StringVar(&programFSAdvAddr, "program-fs-adv-addr", envOrDefault("PROGRAM_FS_ADV_ADDR", ""),
 		"The advertised address of the static file server.")
+
+	// Configure Zap-based logging for klog/v2 and for the controller manager.
+	// Write to stdout by default.
 	opts := zap.Options{
-		Development: true,
+		DestWriter: os.Stdout,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
-
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	logger := zap.New(zap.UseFlagOptions(&opts))
+	klog.SetLogger(logger)
+	ctrllog.SetLogger(logger)
 
 	setupLog.Info("Pulumi Kubernetes Operator Manager",
 		"version", version.Version,
