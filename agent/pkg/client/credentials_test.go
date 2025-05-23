@@ -158,7 +158,7 @@ func TestServiceAccountTokenSource(t *testing.T) {
 				audience:           "audience",
 			}
 
-			got, err := ts.Token(context.Background())
+			got, err := ts.Token(t.Context())
 			g.Expect(creator.serviceAccountName).To(gomega.Equal("test"))
 			g.Expect(creator.audiences).To(gomega.ConsistOf("audience"))
 			if tc.wantErr {
@@ -263,7 +263,7 @@ func TestCachingTokenSource(t *testing.T) {
 				now:    func() time.Time { return start.Add(tc.wait) },
 			}
 
-			gotTok, gotErr := ts.Token(context.Background())
+			gotTok, gotErr := ts.Token(t.Context())
 			if got, want := gotTok, tc.wantTok; !reflect.DeepEqual(got, want) {
 				t.Errorf("unexpected token:\n\tgot:\t%#v\n\twant:\t%#v", got, want)
 			}
@@ -349,7 +349,7 @@ func TestTokenCredentials(t *testing.T) {
 
 			g.Expect(creds.RequireTransportSecurity()).To(gomega.BeFalse())
 
-			got, err := creds.GetRequestMetadata(context.Background())
+			got, err := creds.GetRequestMetadata(t.Context())
 			if tc.wantErr {
 				g.Expect(err).To(gomega.HaveOccurred())
 				g.Expect(got).To(gomega.BeNil())

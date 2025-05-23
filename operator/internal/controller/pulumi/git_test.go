@@ -15,7 +15,6 @@
 package pulumi
 
 import (
-	"context"
 	"testing"
 
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
@@ -122,7 +121,7 @@ func TestCurrentCommit(t *testing.T) {
 			gs, err := NewGitSource(tt.source, nil /* auth */)
 			require.NoError(t, err)
 
-			commit, err := gs.CurrentCommit(context.Background())
+			commit, err := gs.CurrentCommit(t.Context())
 			if tt.wantErr != "" {
 				assert.ErrorContains(t, err, tt.wantErr)
 				return

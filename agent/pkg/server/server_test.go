@@ -867,13 +867,7 @@ func (m *destroyStream) Send(resp *pb.DestroyStream) error {
 }
 
 func newContext(t *testing.T) context.Context {
-	ctx := context.Background()
-	if deadline, ok := t.Deadline(); ok {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithDeadline(ctx, deadline)
-		t.Cleanup(cancel)
-	}
-	return ctx
+	return t.Context()
 }
 
 func newWorkspace(ctx context.Context, t *testing.T, templateDir string) auto.Workspace {

@@ -673,7 +673,7 @@ func TestMergePodTemplateSpec(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			g := NewGomegaWithT(t)
-			merged, err := mergePodTemplateSpec(context.Background(), tc.base, tc.overlay)
+			merged, err := mergePodTemplateSpec(t.Context(), tc.base, tc.overlay)
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(merged).To(Equal(tc.expected))
 		})

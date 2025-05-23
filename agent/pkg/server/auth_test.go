@@ -246,7 +246,7 @@ func TestKubernetes(t *testing.T) {
 				md.Add("authorization", *tt.authHeaderValue)
 			}
 			tags := grpc_ctxtags.NewTags()
-			ctx := md.ToIncoming(context.Background())
+			ctx := md.ToIncoming(t.Context())
 			ctx = grpc_ctxtags.SetInContext(ctx, tags)
 
 			// execute the auth function
