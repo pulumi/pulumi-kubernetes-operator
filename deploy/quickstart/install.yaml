@@ -29196,6 +29196,7 @@ spec:
         - --health-probe-bind-address=:8081
         - --program-fs-adv-addr=pulumi-kubernetes-operator.$(POD_NAMESPACE):80
         - --zap-log-level=info
+        - --zap-encoder=console
         - --zap-time-encoding=iso8601
         env:
         - name: POD_NAMESPACE
