@@ -1,5 +1,5 @@
 # Build a base image with modules cached.
-FROM --platform=${BUILDPLATFORM} golang:1.23 AS base
+FROM --platform=${BUILDPLATFORM} golang:1.24 AS base
 ARG TARGETARCH
 
 # Install tini to reap zombie processes.
