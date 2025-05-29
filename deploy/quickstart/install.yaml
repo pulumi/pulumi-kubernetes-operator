@@ -214,13 +214,42 @@ spec:
                     description: Digest is the digest of the file in the form of '<algorithm>:<checksum>'.
                     pattern: ^[a-z0-9]+(?:[.+_-][a-z0-9]+)*:[a-zA-Z0-9=_-]+$
                     type: string
+                  lastUpdateTime:
+                    description: |-
+                      LastUpdateTime is the timestamp corresponding to the last update of the
+                      Artifact.
+                    format: date-time
+                    type: string
+                  metadata:
+                    additionalProperties:
+                      type: string
+                    description: Metadata holds upstream information such as OCI annotations.
+                    type: object
+                  path:
+                    description: |-
+                      Path is the relative file path of the Artifact. It can be used to locate
+                      the file in the root of the Artifact storage on the local file system of
+                      the controller managing the Source.
+                    type: string
+                  revision:
+                    description: |-
+                      Revision is a human-readable identifier traceable in the origin source
+                      system. It can be a Git commit SHA, Git tag, a Helm chart version, etc.
+                    type: string
+                  size:
+                    description: Size is the number of bytes in the file.
+                    format: int64
+                    type: integer
                   url:
                     description: |-
-                      URL is the HTTP address of the artifact as exposed by the controller
-                      managing the source spec. It can be used to retrieve the artifact for
-                      consumption, e.g. by another controller applying the artifact contents.
+                      URL is the HTTP address of the Artifact as exposed by the controller
+                      managing the Source. It can be used to retrieve the Artifact for
+                      consumption, e.g. by another controller applying the Artifact contents.
                     type: string
                 required:
+                - lastUpdateTime
+                - path
+                - revision
                 - url
                 type: object
               observedGeneration:
