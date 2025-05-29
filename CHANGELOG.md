@@ -13,6 +13,7 @@ CHANGELOG
 - Add an updateTemplate to the Stack spec [#925](https://github.com/pulumi/pulumi-kubernetes-operator/pull/925)
 - Update to Go 1.24 [#926](https://github.com/pulumi/pulumi-kubernetes-operator/pull/926)
 - More cloud logging options [#927](https://github.com/pulumi/pulumi-kubernetes-operator/pull/927)
+- Program status to be fully Flux-compatible [#928](https://github.com/pulumi/pulumi-kubernetes-operator/pull/928)
 
 ## 2.0.0 (2025-02-18)
 
