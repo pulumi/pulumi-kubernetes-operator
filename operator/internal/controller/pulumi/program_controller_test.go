@@ -17,6 +17,7 @@ package pulumi
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -80,7 +81,7 @@ var _ = Describe("Program Controller", func() {
 	}
 
 	When("reconciling a resource", func() {
-		It("should generate an artifact URL in the status", func(ctx context.Context) {
+		It("should generate an artifact in the status", func(ctx context.Context) {
 			By("not expecting a status to be present before first reconciliation")
 			program := v1.Program{}
 			Expect(k8sClient.Get(ctx, programNamespacedName, &program)).Should(Succeed())
@@ -94,12 +95,15 @@ var _ = Describe("Program Controller", func() {
 			program = v1.Program{}
 			Expect(k8sClient.Get(ctx, programNamespacedName, &program)).Should(Succeed())
 			Expect(program.Status.Artifact).NotTo(BeNil())
+			Expect(program.Status.Artifact.Path).To(Equal(fmt.Sprintf("programs/%s/%s/%d.tar.gz",
+				programNamespacedName.Namespace, programNamespacedName.Name, program.Generation)))
+			Expect(program.Status.Artifact.URL).To(Equal(fmt.Sprintf("%s/programs/%s/%s/%d", advertisedAddress,
+				programNamespacedName.Namespace, programNamespacedName.Name, program.Generation)))
+			Expect(program.Status.Artifact.Revision).To(Equal(strconv.FormatInt(program.GetGeneration(), 10)))
 			Expect(program.Status.Artifact.Digest).To(MatchRegexp(`^sha256:\w+$`))
 			Expect(program.Status.ObservedGeneration).To(Equal(program.GetGeneration()))
-			Expect(program.Status.Artifact.URL).
-				To(Equal(fmt.Sprintf("%s/programs/%s/%s", advertisedAddress, programNamespacedName.Namespace, programNamespacedName.Name)))
 
-			By("reconciling the same Program object but with a new spec change")
+			By("reconciling the same Program object but with a new generation")
 			program.Program.Resources = map[string]v1.Resource{
 				"test-resource": {
 					Type: "kubernetes:core/v1:Service",
@@ -113,10 +117,12 @@ var _ = Describe("Program Controller", func() {
 			program = v1.Program{}
 			Expect(k8sClient.Get(ctx, programNamespacedName, &program)).Should(Succeed())
 			Expect(program.Status.Artifact).NotTo(BeNil())
-			Expect(program.Status.Artifact.URL).
-				To(Equal(fmt.Sprintf("%s/programs/%s/%s", advertisedAddress, programNamespacedName.Namespace, programNamespacedName.Name)))
+			Expect(program.Status.Artifact.Path).To(Equal(fmt.Sprintf("programs/%s/%s/%d.tar.gz",
+				programNamespacedName.Namespace, programNamespacedName.Name, program.Generation)))
+			Expect(program.Status.Artifact.URL).To(Equal(fmt.Sprintf("%s/programs/%s/%s/%d", advertisedAddress,
+				programNamespacedName.Namespace, programNamespacedName.Name, program.Generation)))
+			Expect(program.Status.Artifact.Revision).To(Equal(strconv.FormatInt(program.GetGeneration(), 10)))
 			Expect(program.Status.Artifact.Digest).To(MatchRegexp(`^sha256:\w+$`))
-			Expect(program.GetGeneration()).To(Equal(program.GetGeneration()))
 			Expect(program.Status.ObservedGeneration).To(Equal(program.GetGeneration()))
 
 			By("expecting the status to be updated with the new artifact URL when the host changes")
@@ -128,8 +134,8 @@ var _ = Describe("Program Controller", func() {
 			program = v1.Program{}
 			Expect(k8sClient.Get(ctx, programNamespacedName, &program)).Should(Succeed())
 			Expect(program.Status.Artifact).NotTo(BeNil())
-			Expect(program.Status.Artifact.URL).
-				To(Equal(fmt.Sprintf("https://fake-address/programs/%s/%s", programNamespacedName.Namespace, programNamespacedName.Name)))
+			Expect(program.Status.Artifact.URL).To(Equal(fmt.Sprintf("https://fake-address/programs/%s/%s/%d",
+				programNamespacedName.Namespace, programNamespacedName.Name, program.Generation)))
 		})
 
 		It("should generate a URL with the correct 'http://' scheme if the advertised address does not include one", func(ctx context.Context) {
@@ -148,8 +154,8 @@ var _ = Describe("Program Controller", func() {
 			program = v1.Program{}
 			Expect(k8sClient.Get(ctx, programNamespacedName, &program)).Should(Succeed())
 			Expect(program.Status.Artifact).NotTo(BeNil())
-			Expect(program.Status.Artifact.URL).
-				To(Equal(fmt.Sprintf("http://%s/programs/%s/%s", advertisedAddress, programNamespacedName.Namespace, programNamespacedName.Name)))
+			Expect(program.Status.Artifact.URL).To(Equal(fmt.Sprintf("http://%s/programs/%s/%s/%d", advertisedAddress,
+				programNamespacedName.Namespace, programNamespacedName.Name, program.Generation)))
 		})
 	})
 })
