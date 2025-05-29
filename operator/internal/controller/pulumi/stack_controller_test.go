@@ -805,7 +805,7 @@ var _ = Describe("Stack Controller", func() {
 					Name:                 "update-abcdef",
 					Type:                 autov1alpha1.UpType,
 					LastResyncTime:       metav1.Now(),
-					LastAttemptedCommit:  fluxRepo.Status.Artifact.Digest,
+					LastAttemptedCommit:  fluxRepo.Status.Artifact.Revision,
 					LastSuccessfulCommit: "",
 					Failures:             3,
 				}
@@ -853,8 +853,8 @@ var _ = Describe("Stack Controller", func() {
 					Name:                 "update-abcdef",
 					Type:                 autov1alpha1.UpType,
 					LastResyncTime:       metav1.Now(),
-					LastAttemptedCommit:  fluxRepo.Status.Artifact.Digest,
-					LastSuccessfulCommit: fluxRepo.Status.Artifact.Digest,
+					LastAttemptedCommit:  fluxRepo.Status.Artifact.Revision,
+					LastSuccessfulCommit: fluxRepo.Status.Artifact.Revision,
 				}
 			})
 			JustBeforeEach(func(ctx context.Context) {
@@ -883,8 +883,8 @@ var _ = Describe("Stack Controller", func() {
 					Name:                 "update-abcdef",
 					Type:                 autov1alpha1.UpType,
 					LastResyncTime:       metav1.Now(),
-					LastAttemptedCommit:  fluxRepo.Status.Artifact.Digest,
-					LastSuccessfulCommit: fluxRepo.Status.Artifact.Digest,
+					LastAttemptedCommit:  fluxRepo.Status.Artifact.Revision,
+					LastSuccessfulCommit: fluxRepo.Status.Artifact.Revision,
 				}
 			})
 			It("reconciles", func(ctx context.Context) {
@@ -919,8 +919,8 @@ var _ = Describe("Stack Controller", func() {
 
 			When("at latest commit", func() {
 				BeforeEach(func(ctx context.Context) {
-					obj.Status.LastUpdate.LastAttemptedCommit = fluxRepo.Status.Artifact.Digest
-					obj.Status.LastUpdate.LastSuccessfulCommit = fluxRepo.Status.Artifact.Digest
+					obj.Status.LastUpdate.LastAttemptedCommit = fluxRepo.Status.Artifact.Revision
+					obj.Status.LastUpdate.LastSuccessfulCommit = fluxRepo.Status.Artifact.Revision
 				})
 
 				When("the WorkspaceReclaimPolicy is set to Delete", func() {
@@ -1340,22 +1340,14 @@ var _ = Describe("Stack Controller", func() {
 				beStalled(pulumiv1.StalledSourceUnavailableReason, ContainSubstring("could not resolve sourceRef"))
 			})
 
-			When("the flux source is not ready", func() {
+			When("the flux source has no artifact", func() {
 				BeforeEach(func(ctx context.Context) {
-					fluxRepo.Status.Conditions = []metav1.Condition{
-						{Type: "Ready", Status: metav1.ConditionFalse, Reason: "Unknown", LastTransitionTime: metav1.Now()},
-					}
+					fluxRepo.Status.Artifact = nil
 				})
-				beStalled(pulumiv1.StalledSourceUnavailableReason, ContainSubstring("Flux source not ready"))
+				beStalled(pulumiv1.StalledSourceUnavailableReason, ContainSubstring("Flux source has no artifact"))
 			})
 
-			When("the flux source is ready", func() {
-				BeforeEach(func(ctx context.Context) {
-					fluxRepo.Status.Conditions = []metav1.Condition{
-						{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Succeeded", LastTransitionTime: metav1.Now()},
-					}
-				})
-
+			When("the flux source has an artifact", func() {
 				It("reconciles", func(ctx context.Context) {
 					_, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
