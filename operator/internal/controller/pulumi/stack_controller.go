@@ -188,12 +188,15 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return nil
 		}
 	}
-	blder = blder.Watches(&pulumiv1.Program{}, ctrlhandler.EnqueueRequestsFromMapFunc(
+	var program unstructured.Unstructured
+	program.SetAPIVersion(pulumiv1.GroupVersion.String())
+	program.SetKind("Program")
+	blder = blder.Watches(&program, ctrlhandler.EnqueueRequestsFromMapFunc(
 		enqueueStacksForSourceFunc(programRefIndexFieldName,
 			func(obj client.Object) string {
 				return obj.GetName()
 			})),
-		builder.WithPredicates(&auto.DebugPredicate{Controller: "stack-controller"}))
+		builder.WithPredicates(&SourceRevisionChangePredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
 
 	// Watch the stack's workspace and update objects
 	blder = blder.Watches(&autov1alpha1.Workspace{},
@@ -263,7 +266,7 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					enqueueStacksForSourceFunc(fluxSourceIndexFieldName, func(obj client.Object) string {
 						gvk := obj.GetObjectKind().GroupVersionKind()
 						return fluxSourceKey(gvk, obj.GetName())
-					})), &fluxSourceReadyPredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
+					})), &SourceRevisionChangePredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
 			if err != nil {
 				watchedMu.Lock()
 				delete(watched, gvk)
@@ -687,14 +690,14 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, err
 		}
 
-		if !checkFluxSourceReady(&sourceObject) {
-			// Wait until the source is ready, at which time the watch mechanism will requeue it.
-			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, "Flux source not ready")
+		artifact, _, _ := getArtifact(sourceObject)
+		if artifact == nil {
+			// Wait until the artifact is available, at which time the watch mechanism will requeue it.
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, "Flux source has no artifact")
 			return reconcile.Result{}, saveStatus()
 		}
-
-		currentCommit, err = sess.SetupWorkspaceFromFluxSource(ctx, sourceObject, fluxSource)
-		if err != nil {
+		currentCommit = artifact.Revision
+		if err := sess.SetupWorkspaceFromFluxSource(ctx, sourceObject, *artifact, fluxSource.Dir); err != nil {
 			log.Error(err, "Failed to setup Pulumi workspace with flux source")
 			return reconcile.Result{}, err
 		}
@@ -719,9 +722,15 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 		// The Program.status is setup to mimic a FluxSource, so we can use the same function to
 		// initiate the workspace.
-		currentCommit, err = sess.SetupWorkspaceFromFluxSource(ctx, program, &shared.FluxSource{})
-		if err != nil {
-			log.Error(err, "Failed to setup Pulumi workspace")
+		artifact, _, _ := getArtifact(program)
+		if artifact == nil {
+			// Wait until the artifact is available, at which time the watch mechanism will requeue it.
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, "Program has no artifact")
+			return reconcile.Result{}, saveStatus()
+		}
+		currentCommit = artifact.Revision
+		if err := sess.SetupWorkspaceFromFluxSource(ctx, program, *artifact, ""); err != nil {
+			log.Error(err, "Failed to setup Pulumi workspace with Program source")
 			return reconcile.Result{}, err
 		}
 
