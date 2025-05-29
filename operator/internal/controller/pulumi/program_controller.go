@@ -196,7 +196,7 @@ func getProjectFile(ctx context.Context, kubeClient client.Client, namespace, na
 	}
 
 	if program.GetGeneration() != generation {
-		return nil, fmt.Errorf("program %s/%s generation %d does not match requested generation %d", namespace, name, program.GetGeneration(), generation)
+		return nil, fmt.Errorf("program %s/%s with generation %d does not match requested generation %d", namespace, name, program.GetGeneration(), generation)
 	}
 
 	project := programToProject(program)
@@ -220,13 +220,14 @@ func programToProject(program *pulumiv1.Program) *ProjectFile {
 // Reconcile reconciles the Program object.
 func (r *ProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	log.Info("Reconciling Program")
 
 	// Fetch the Program object.
 	program := new(pulumiv1.Program)
 	if err := r.Get(ctx, req.NamespacedName, program); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	log = log.WithValues("generation", program.Generation)
+	log.Info("Reconciling Program")
 
 	// Calculate and store the sha256 digest of the tarball.
 	// This is necessary for the Flux fetcher to verify the integrity of the artifact.
@@ -245,7 +246,7 @@ func (r *ProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	tarSize := int64(tarData.Len())
 
-	digest, err := calculateDigest(tarData)
+	tarDigest, err := calculateDigest(tarData)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("unable to calculate digest hash for Program artifact: %w", err)
 	}
@@ -255,13 +256,13 @@ func (r *ProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		Path:           r.ProgramHandler.CreateProgramPath(program.Namespace, program.Name, program.GetGeneration()),
 		URL:            r.ProgramHandler.CreateProgramURL(program.Namespace, program.Name, program.GetGeneration()),
 		Revision:       strconv.FormatInt(program.GetGeneration(), 10),
-		Digest:         digest,
+		Digest:         tarDigest,
 		LastUpdateTime: metav1.Now(),
 		Size:           ptr.To(tarSize),
 	}
 	program.Status.ObservedGeneration = program.GetGeneration()
 
-	log.Info("Updating Program status")
+	log.Info("Updating Program status", "observedGeneration", program.Status.ObservedGeneration, "artifact", program.Status.Artifact)
 	if err := r.Status().Update(ctx, program, client.FieldOwner(FieldManager)); err != nil {
 		log.Error(err, "unable to update Program status")
 		return ctrl.Result{}, err

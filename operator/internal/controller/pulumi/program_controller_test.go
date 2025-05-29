@@ -154,9 +154,8 @@ var _ = Describe("Program Controller", func() {
 			program = v1.Program{}
 			Expect(k8sClient.Get(ctx, programNamespacedName, &program)).Should(Succeed())
 			Expect(program.Status.Artifact).NotTo(BeNil())
-			Expect(program.Status.Artifact.URL).
-				To(Equal(fmt.Sprintf("http://%s/programs/%s/%s/%d", advertisedAddress,
-					programNamespacedName.Namespace, programNamespacedName.Name, program.Generation)))
+			Expect(program.Status.Artifact.URL).To(Equal(fmt.Sprintf("http://%s/programs/%s/%s/%d", advertisedAddress,
+				programNamespacedName.Namespace, programNamespacedName.Name, program.Generation)))
 		})
 	})
 })
