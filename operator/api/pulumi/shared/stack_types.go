@@ -170,6 +170,11 @@ type StackSpec struct {
 	// Update. Use this to customize the Updates's metadata, retention policy, etc.
 	// +optional
 	UpdateTemplate *UpdateApplyConfiguration `json:"updateTemplate,omitempty"`
+
+	// RetryMaxBackoffDurationSeconds sets the maximum cooldown (backoff) duration in seconds after a failed update.
+	// If not set, defaults to 24 hours.
+	// +optional
+	RetryMaxBackoffDurationSeconds int64 `json:"retryMaxBackoffDurationSeconds,omitempty"`
 }
 
 // GitSource specifies how to fetch from a git repository directly.

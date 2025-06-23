@@ -177,6 +177,13 @@ Deprecated: use EnvRefs instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>environment</b></td>
+        <td>[]string</td>
+        <td>
+          (optional) Environment specifies the Pulumi ESC environment(s) to use for this stack.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>envs</b></td>
         <td>[]string</td>
         <td>
@@ -283,6 +290,16 @@ The minimal resync frequency supported is 60 seconds. The default value for this
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>retryMaxBackoffDurationSeconds</b></td>
+        <td>integer</td>
+        <td>
+          RetryMaxBackoffDurationSeconds sets the maximum cooldown (backoff) duration in seconds after a failed update.
+If not set, defaults to 24 hours.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>retryOnUpdateConflict</b></td>
         <td>boolean</td>
         <td>
@@ -356,6 +373,15 @@ resources mentioned will be updated.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#stackspecupdatetemplate">updateTemplate</a></b></td>
+        <td>object</td>
+        <td>
+          UpdateTemplate customizes the Updates generated for this Stack. It
+is applied as a strategic merge patch on top of the underlying
+Update. Use this to customize the Updates's metadata, retention policy, etc.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>useLocalStackOnly</b></td>
         <td>boolean</td>
         <td>
@@ -380,7 +406,7 @@ The default behavior is to retain the workspace. Valid values are one of "Retain
         <td>
           WorkspaceTemplate customizes the Workspace generated for this Stack. It
 is applied as a strategic merge patch on top of the underlying
-Workspace. Use this to customize the Workspace's image, resources,
+Workspace. Use this to customize the Workspace's metadata, image, resources,
 volumes, etc.<br/>
         </td>
         <td>false</td>
@@ -1955,6 +1981,510 @@ unless namespace isolation is disabled in the controller.<br/>
 </table>
 
 
+### Stack.spec.updateTemplate
+<sup><sup>[↩ Parent](#stackspec)</sup></sup>
+
+
+
+UpdateTemplate customizes the Updates generated for this Stack. It
+is applied as a strategic merge patch on top of the underlying
+Update. Use this to customize the Updates's metadata, retention policy, etc.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecupdatetemplatemetadata">metadata</a></b></td>
+        <td>object</td>
+        <td>
+          ObjectMetaApplyConfiguration represents a declarative configuration of the ObjectMeta type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecupdatetemplatespec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          UpdateSpecApplyConfiguration represents a declarative configuration of the UpdateSpec type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecupdatetemplatestatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          UpdateStatusApplyConfiguration represents a declarative configuration of the UpdateStatus type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.updateTemplate.metadata
+<sup><sup>[↩ Parent](#stackspecupdatetemplate)</sup></sup>
+
+
+
+ObjectMetaApplyConfiguration represents a declarative configuration of the ObjectMeta type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>annotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>creationTimestamp</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>deletionGracePeriodSeconds</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>deletionTimestamp</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>finalizers</b></td>
+        <td>[]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>generateName</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>generation</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>labels</b></td>
+        <td>map[string]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecupdatetemplatemetadataownerreferencesindex">ownerReferences</a></b></td>
+        <td>[]object</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>resourceVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>uid</b></td>
+        <td>string</td>
+        <td>
+          UID is a type that holds unique ID values, including UUIDs.  Because we
+don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+intent and helps make sure that UIDs and names do not get conflated.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.updateTemplate.metadata.ownerReferences[index]
+<sup><sup>[↩ Parent](#stackspecupdatetemplatemetadata)</sup></sup>
+
+
+
+OwnerReferenceApplyConfiguration represents a declarative configuration of the OwnerReference type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>blockOwnerDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>controller</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>uid</b></td>
+        <td>string</td>
+        <td>
+          UID is a type that holds unique ID values, including UUIDs.  Because we
+don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+intent and helps make sure that UIDs and names do not get conflated.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.updateTemplate.spec
+<sup><sup>[↩ Parent](#stackspecupdatetemplate)</sup></sup>
+
+
+
+UpdateSpecApplyConfiguration represents a declarative configuration of the UpdateSpec type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>continueOnError</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>expectNoChanges</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>parallel</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>refresh</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>remove</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>replace</b></td>
+        <td>[]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>stackName</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>target</b></td>
+        <td>[]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>targetDependents</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>ttlAfterCompleted</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>workspaceName</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.updateTemplate.status
+<sup><sup>[↩ Parent](#stackspecupdatetemplate)</sup></sup>
+
+
+
+UpdateStatusApplyConfiguration represents a declarative configuration of the UpdateStatus type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#stackspecupdatetemplatestatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>endTime</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>outputs</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>permalink</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>startTime</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.updateTemplate.status.conditions[index]
+<sup><sup>[↩ Parent](#stackspecupdatetemplatestatus)</sup></sup>
+
+
+
+ConditionApplyConfiguration represents a declarative configuration of the Condition type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate
 <sup><sup>[↩ Parent](#stackspec)</sup></sup>
 
@@ -1962,7 +2492,7 @@ unless namespace isolation is disabled in the controller.<br/>
 
 WorkspaceTemplate customizes the Workspace generated for this Stack. It
 is applied as a strategic merge patch on top of the underlying
-Workspace. Use this to customize the Workspace's image, resources,
+Workspace. Use this to customize the Workspace's metadata, image, resources,
 volumes, etc.
 
 <table>
@@ -18931,6 +19461,13 @@ with apply.
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>environment</b></td>
+        <td>[]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>name</b></td>
         <td>string</td>
         <td>
@@ -19621,6 +20158,13 @@ Deprecated: use EnvRefs instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>environment</b></td>
+        <td>[]string</td>
+        <td>
+          (optional) Environment specifies the Pulumi ESC environment(s) to use for this stack.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>envs</b></td>
         <td>[]string</td>
         <td>
@@ -19727,6 +20271,16 @@ The minimal resync frequency supported is 60 seconds. The default value for this
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>retryMaxBackoffDurationSeconds</b></td>
+        <td>integer</td>
+        <td>
+          RetryMaxBackoffDurationSeconds sets the maximum cooldown (backoff) duration in seconds after a failed update.
+If not set, defaults to 24 hours.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>retryOnUpdateConflict</b></td>
         <td>boolean</td>
         <td>
@@ -19800,6 +20354,15 @@ resources mentioned will be updated.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#stackspecupdatetemplate-1">updateTemplate</a></b></td>
+        <td>object</td>
+        <td>
+          UpdateTemplate customizes the Updates generated for this Stack. It
+is applied as a strategic merge patch on top of the underlying
+Update. Use this to customize the Updates's metadata, retention policy, etc.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>useLocalStackOnly</b></td>
         <td>boolean</td>
         <td>
@@ -19824,7 +20387,7 @@ The default behavior is to retain the workspace. Valid values are one of "Retain
         <td>
           WorkspaceTemplate customizes the Workspace generated for this Stack. It
 is applied as a strategic merge patch on top of the underlying
-Workspace. Use this to customize the Workspace's image, resources,
+Workspace. Use this to customize the Workspace's metadata, image, resources,
 volumes, etc.<br/>
         </td>
         <td>false</td>
@@ -21399,6 +21962,510 @@ unless namespace isolation is disabled in the controller.<br/>
 </table>
 
 
+### Stack.spec.updateTemplate
+<sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
+
+
+
+UpdateTemplate customizes the Updates generated for this Stack. It
+is applied as a strategic merge patch on top of the underlying
+Update. Use this to customize the Updates's metadata, retention policy, etc.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecupdatetemplatemetadata-1">metadata</a></b></td>
+        <td>object</td>
+        <td>
+          ObjectMetaApplyConfiguration represents a declarative configuration of the ObjectMeta type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecupdatetemplatespec-1">spec</a></b></td>
+        <td>object</td>
+        <td>
+          UpdateSpecApplyConfiguration represents a declarative configuration of the UpdateSpec type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecupdatetemplatestatus-1">status</a></b></td>
+        <td>object</td>
+        <td>
+          UpdateStatusApplyConfiguration represents a declarative configuration of the UpdateStatus type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.updateTemplate.metadata
+<sup><sup>[↩ Parent](#stackspecupdatetemplate-1)</sup></sup>
+
+
+
+ObjectMetaApplyConfiguration represents a declarative configuration of the ObjectMeta type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>annotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>creationTimestamp</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>deletionGracePeriodSeconds</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>deletionTimestamp</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>finalizers</b></td>
+        <td>[]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>generateName</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>generation</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>labels</b></td>
+        <td>map[string]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecupdatetemplatemetadataownerreferencesindex-1">ownerReferences</a></b></td>
+        <td>[]object</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>resourceVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>uid</b></td>
+        <td>string</td>
+        <td>
+          UID is a type that holds unique ID values, including UUIDs.  Because we
+don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+intent and helps make sure that UIDs and names do not get conflated.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.updateTemplate.metadata.ownerReferences[index]
+<sup><sup>[↩ Parent](#stackspecupdatetemplatemetadata-1)</sup></sup>
+
+
+
+OwnerReferenceApplyConfiguration represents a declarative configuration of the OwnerReference type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>blockOwnerDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>controller</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>uid</b></td>
+        <td>string</td>
+        <td>
+          UID is a type that holds unique ID values, including UUIDs.  Because we
+don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+intent and helps make sure that UIDs and names do not get conflated.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.updateTemplate.spec
+<sup><sup>[↩ Parent](#stackspecupdatetemplate-1)</sup></sup>
+
+
+
+UpdateSpecApplyConfiguration represents a declarative configuration of the UpdateSpec type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>continueOnError</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>expectNoChanges</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>parallel</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>refresh</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>remove</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>replace</b></td>
+        <td>[]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>stackName</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>target</b></td>
+        <td>[]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>targetDependents</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>ttlAfterCompleted</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>workspaceName</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.updateTemplate.status
+<sup><sup>[↩ Parent](#stackspecupdatetemplate-1)</sup></sup>
+
+
+
+UpdateStatusApplyConfiguration represents a declarative configuration of the UpdateStatus type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#stackspecupdatetemplatestatusconditionsindex-1">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>endTime</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>outputs</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>permalink</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>startTime</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.updateTemplate.status.conditions[index]
+<sup><sup>[↩ Parent](#stackspecupdatetemplatestatus-1)</sup></sup>
+
+
+
+ConditionApplyConfiguration represents a declarative configuration of the Condition type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate
 <sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
 
@@ -21406,7 +22473,7 @@ unless namespace isolation is disabled in the controller.<br/>
 
 WorkspaceTemplate customizes the Workspace generated for this Stack. It
 is applied as a strategic merge patch on top of the underlying
-Workspace. Use this to customize the Workspace's image, resources,
+Workspace. Use this to customize the Workspace's metadata, image, resources,
 volumes, etc.
 
 <table>
@@ -38370,6 +39437,13 @@ with apply.
       </tr><tr>
         <td><b>create</b></td>
         <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>environment</b></td>
+        <td>[]string</td>
         <td>
           <br/>
         </td>

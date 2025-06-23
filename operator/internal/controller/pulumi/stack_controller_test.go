@@ -844,6 +844,35 @@ var _ = Describe("Stack Controller", func() {
 			})
 		})
 
+		When("the last update was not successful and max retry cooldown is set", func() {
+			BeforeEach(func(ctx context.Context) {
+				obj.Status.LastUpdate = &shared.StackUpdateState{
+					Generation:           1,
+					State:                shared.FailedStackStateMessage,
+					Name:                 "update-abcdef",
+					Type:                 autov1alpha1.UpType,
+					LastResyncTime:       metav1.Now(),
+					LastAttemptedCommit:  fluxRepo.Status.Artifact.Revision,
+					LastSuccessfulCommit: "",
+					Failures:             10,
+				}
+				// Set a custom max backoff duration (e.g., 5 minutes)
+				obj.Spec.RetryMaxBackoffDurationSeconds = int64(300)
+			})
+			When("done cooling down with the custom duration", func() {
+				It("backs off according to the max backoff", func(ctx context.Context) {
+					res, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(res.RequeueAfter).To(BeNumerically("~", 5*time.Minute, time.Minute))
+				})
+				It("reconciles", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					ByResyncing()
+				})
+			})
+		})
+
 		When("the stack is a new generation", func() {
 			BeforeEach(func(ctx context.Context) {
 				// assume that the previous update was successful

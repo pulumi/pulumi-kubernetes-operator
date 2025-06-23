@@ -1104,9 +1104,9 @@ func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.St
 
 // cooldown returns the amount of time to wait before a failed Update should be
 // retried. We start with a 1-minute cooldown and double that for each failed
-// attempt, up to a max of 24 hours. Failed Updates are considered synced while
-// inside this cooldown period. A zero-value duration is returned if the update
-// succeeded.
+// attempt, up to a max of 24 hours or the value specified in RetryMaxBackoffDurationSeconds.
+// Failed Updates are considered synced while inside this cooldown period. A zero-value duration is returned if the
+// update succeeded.
 func cooldown(stack *pulumiv1.Stack) time.Duration {
 	cooldown := time.Duration(0)
 	if stack.Status.LastUpdate == nil {
@@ -1115,7 +1115,11 @@ func cooldown(stack *pulumiv1.Stack) time.Duration {
 	if stack.Status.LastUpdate.State == shared.FailedStackStateMessage {
 		cooldown = 1 * time.Minute
 		cooldown *= time.Duration(math.Exp2(float64(stack.Status.LastUpdate.Failures)))
-		cooldown = min(24*time.Hour, cooldown)
+		maxCooldown := 24 * time.Hour
+		if stack.Spec.RetryMaxBackoffDurationSeconds > 0 {
+			maxCooldown = time.Duration(stack.Spec.RetryMaxBackoffDurationSeconds) * time.Second
+		}
+		cooldown = min(maxCooldown, cooldown)
 	}
 	return cooldown
 }
