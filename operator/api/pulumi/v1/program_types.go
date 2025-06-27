@@ -43,6 +43,12 @@ type ProgramSpec struct {
 	// outputs specifies the Pulumi stack outputs of the program and how they are computed from the resources.
 	// +optional
 	Outputs map[string]Expression `json:"outputs,omitempty"`
+
+	// packages specifies external packages to be installed before running the program.
+	// This allows declaring parameterized packages and VCS-based components.
+	// Keys are package names, values are package specifications (URLs, versions, etc.).
+	// +optional
+	Packages map[string]string `json:"packages,omitempty"`
 }
 
 // +kubebuilder:validation:Enum={"String", "Number", "List<Number>", "List<String>"}

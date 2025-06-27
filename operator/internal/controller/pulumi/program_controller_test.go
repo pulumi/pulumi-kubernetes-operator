@@ -157,5 +157,74 @@ var _ = Describe("Program Controller", func() {
 			Expect(program.Status.Artifact.URL).To(Equal(fmt.Sprintf("http://%s/programs/%s/%s/%d", advertisedAddress,
 				programNamespacedName.Namespace, programNamespacedName.Name, program.Generation)))
 		})
+
+		It("should include packages in the generated Pulumi.yaml file", func(ctx context.Context) {
+			By("creating a Program with packages defined")
+			programWithPackages := program.DeepCopy()
+			programWithPackages.Name = fmt.Sprintf("test-program-with-packages-%s", utilrand.String(8))
+			programWithPackages.ResourceVersion = "" // Clear resource version for creation
+			programWithPackages.Program.Packages = map[string]string{
+				"talos-go-component":      "https://github.com/dirien/pulumi-talos-go-component@0.0.0-x5ed2a9a45c6d287bd2485f4db1e8c052b164a5ef",
+				"custom-component":        "file://./custom",
+				"parameterized-component": "https://example.com/pkg@v1.0.0",
+			}
+			Expect(k8sClient.Create(ctx, programWithPackages)).Should(Succeed())
+			defer func() {
+				Expect(k8sClient.Delete(ctx, programWithPackages)).Should(Succeed())
+			}()
+
+			packagesProgramNamespacedName := types.NamespacedName{
+				Name:      programWithPackages.Name,
+				Namespace: programWithPackages.Namespace,
+			}
+
+			By("reconciling the Program with packages")
+			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: packagesProgramNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(reconcile.Result{}))
+
+			By("verifying the artifact was generated successfully")
+			updatedProgram := v1.Program{}
+			Expect(k8sClient.Get(ctx, packagesProgramNamespacedName, &updatedProgram)).Should(Succeed())
+			Expect(updatedProgram.Status.Artifact).NotTo(BeNil())
+			Expect(updatedProgram.Status.Artifact.Digest).To(MatchRegexp(`^sha256:\w+$`))
+
+			By("verifying the packages field is properly included in the ProjectFile conversion")
+			project := programToProject(programWithPackages)
+			Expect(project.Packages).To(HaveLen(3))
+			Expect(project.Packages["talos-go-component"]).To(Equal("https://github.com/dirien/pulumi-talos-go-component@0.0.0-x5ed2a9a45c6d287bd2485f4db1e8c052b164a5ef"))
+			Expect(project.Packages["custom-component"]).To(Equal("file://./custom"))
+			Expect(project.Packages["parameterized-component"]).To(Equal("https://example.com/pkg@v1.0.0"))
+		})
+	})
+
+	Context("programToProject function", func() {
+		It("should include packages in the ProjectFile", func() {
+			program := &v1.Program{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-program",
+				},
+				Program: v1.ProgramSpec{
+					Packages: map[string]string{
+						"talos-go-component": "https://github.com/dirien/pulumi-talos-go-component@0.0.0-x5ed2a9a45c6d287bd2485f4db1e8c052b164a5ef",
+						"custom-component":   "file://./custom",
+					},
+					Resources: map[string]v1.Resource{
+						"test-resource": {
+							Type: "kubernetes:core/v1:Pod",
+						},
+					},
+				},
+			}
+
+			project := programToProject(program)
+
+			Expect(project.Name).To(Equal("test-program"))
+			Expect(project.Runtime).To(Equal("yaml"))
+			Expect(project.Packages).To(HaveLen(2))
+			Expect(project.Packages["talos-go-component"]).To(Equal("https://github.com/dirien/pulumi-talos-go-component@0.0.0-x5ed2a9a45c6d287bd2485f4db1e8c052b164a5ef"))
+			Expect(project.Packages["custom-component"]).To(Equal("file://./custom"))
+			Expect(project.Resources).To(HaveLen(1))
+		})
 	})
 })
