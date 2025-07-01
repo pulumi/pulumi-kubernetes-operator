@@ -653,6 +653,12 @@ spec:
                   The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.
                 format: int64
                 type: integer
+              retryMaxBackoffDurationSeconds:
+                description: |-
+                  RetryMaxBackoffDurationSeconds sets the maximum cooldown (backoff) duration in seconds after a failed update.
+                  If not set, defaults to 24 hours.
+                format: int64
+                type: integer
               retryOnUpdateConflict:
                 description: |-
                   (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop
@@ -10460,6 +10466,12 @@ spec:
                   the specified frequency even if no changes to the custom resource are detected.
                   If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency.
                   The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.
+                format: int64
+                type: integer
+              retryMaxBackoffDurationSeconds:
+                description: |-
+                  RetryMaxBackoffDurationSeconds sets the maximum cooldown (backoff) duration in seconds after a failed update.
+                  If not set, defaults to 24 hours.
                 format: int64
                 type: integer
               retryOnUpdateConflict:
