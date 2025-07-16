@@ -1930,6 +1930,20 @@ func TestIsSynced(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "last update failed and we're inside the cooldown interval, marked for deletion",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},
+				Status: pulumiv1.StackStatus{
+					
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.FailedStackStateMessage,
+						LastResyncTime:       metav1.Now(),
+					},
+				},
+			},
+			want: true,
+		},
+		{
 			name: "last update failed and we're outside the cooldown interval",
 			stack: pulumiv1.Stack{
 				Spec: shared.StackSpec{
@@ -1943,6 +1957,35 @@ func TestIsSynced(t *testing.T) {
 				},
 			},
 			want: false,
+		},
+		{
+			name: "last update failed and commit changed, inside cooldown interval",
+			stack: pulumiv1.Stack{
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.FailedStackStateMessage,
+						LastResyncTime:       metav1.Now(),
+						LastAttemptedCommit: "old-sha",
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			want:          false,
+		},
+		{
+			name: "last update failed and commit changed, marked for deletion",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.FailedStackStateMessage,
+						LastResyncTime:       metav1.Now(),
+						LastAttemptedCommit: "old-sha",
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			want: true,
 		},
 		{
 			name: "unrecognized state",
