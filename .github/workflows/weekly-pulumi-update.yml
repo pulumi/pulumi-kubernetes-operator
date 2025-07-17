@@ -28,7 +28,7 @@ jobs:
         with:
           repo: pulumi/pulumictl
       - name: Install Pulumi CLI
-        uses: pulumi/actions@df5a93ad715135263c732ba288301bd044c383c0 # v6.3.0
+        uses: pulumi/actions@1e05f8defdf9b836a8390236cbf121f4c20c4fd8 # v6.4.0
         with:
           pulumi-version-file: .pulumi.version
       - name: Preparing Git Branch
