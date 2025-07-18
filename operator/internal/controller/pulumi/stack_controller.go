@@ -1088,6 +1088,14 @@ func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.St
 	}
 
 	if stack.Status.LastUpdate.State == shared.FailedStackStateMessage {
+		if stack.DeletionTimestamp != nil { // Marked for deletion (and has already been destroyed).
+			return true
+		}
+		if stack.Status.LastUpdate.LastAttemptedCommit != currentCommit {
+			log.V(1).Info("Not synced: new commit on failure", "current", currentCommit, "last", stack.Status.LastUpdate.LastAttemptedCommit)
+			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), "New commit detected: %q", currentCommit)
+			return false
+		}
 		c := cooldown(stack)
 		if time.Since(stack.Status.LastUpdate.LastResyncTime.Time) >= c {
 			log.V(1).Info("Not synced: backoff time elapsed")
