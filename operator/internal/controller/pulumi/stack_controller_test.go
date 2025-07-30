@@ -1917,49 +1917,55 @@ func TestIsSynced(t *testing.T) {
 		{
 			name: "last update failed but we're inside the cooldown interval",
 			stack: pulumiv1.Stack{
-				Spec: shared.StackSpec{
-					ContinueResyncOnCommitMatch: true,
-				},
+				Spec: shared.StackSpec{},
 				Status: pulumiv1.StackStatus{
 					LastUpdate: &shared.StackUpdateState{
-						State:          shared.FailedStackStateMessage,
-						LastResyncTime: metav1.Now(),
+						State:               shared.FailedStackStateMessage,
+						LastAttemptedCommit: "sha",
+						LastResyncTime:      metav1.Now(),
 					},
 				},
 			},
-			want: true,
+			currentCommit: "sha",
+			want:          true,
 		},
 		{
 			name: "last update failed and we're inside the cooldown interval, marked for deletion",
 			stack: pulumiv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},
+				Spec: shared.StackSpec{
+					DestroyOnFinalize: true,
+				},
 				Status: pulumiv1.StackStatus{
 					LastUpdate: &shared.StackUpdateState{
-						State:          shared.FailedStackStateMessage,
-						LastResyncTime: metav1.Now(),
+						State:               shared.FailedStackStateMessage,
+						LastAttemptedCommit: "sha",
+						LastResyncTime:      metav1.Now(),
 					},
 				},
 			},
-			want: true,
+			currentCommit: "sha",
+			want:          true,
 		},
 		{
 			name: "last update failed and we're outside the cooldown interval",
 			stack: pulumiv1.Stack{
-				Spec: shared.StackSpec{
-					ContinueResyncOnCommitMatch: true,
-				},
+				Spec: shared.StackSpec{},
 				Status: pulumiv1.StackStatus{
 					LastUpdate: &shared.StackUpdateState{
-						State:          shared.FailedStackStateMessage,
-						LastResyncTime: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+						State:               shared.FailedStackStateMessage,
+						LastAttemptedCommit: "sha",
+						LastResyncTime:      metav1.NewTime(time.Now().Add(-1 * time.Hour)),
 					},
 				},
 			},
-			want: false,
+			currentCommit: "sha",
+			want:          false,
 		},
 		{
 			name: "last update failed and commit changed, inside cooldown interval",
 			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{},
 				Status: pulumiv1.StackStatus{
 					LastUpdate: &shared.StackUpdateState{
 						State:               shared.FailedStackStateMessage,
@@ -1975,6 +1981,9 @@ func TestIsSynced(t *testing.T) {
 			name: "last update failed and commit changed, marked for deletion",
 			stack: pulumiv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},
+				Spec: shared.StackSpec{
+					DestroyOnFinalize: true,
+				},
 				Status: pulumiv1.StackStatus{
 					LastUpdate: &shared.StackUpdateState{
 						State:               shared.FailedStackStateMessage,
@@ -1984,7 +1993,7 @@ func TestIsSynced(t *testing.T) {
 				},
 			},
 			currentCommit: "new-sha",
-			want:          true,
+			want:          false,
 		},
 		{
 			name: "unrecognized state",
@@ -2004,7 +2013,11 @@ func TestIsSynced(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			log := testr.New(t)
 			rec := record.NewFakeRecorder(10)
-			assert.Equal(t, tt.want, isSynced(log, rec, &tt.stack, tt.currentCommit))
+			if tt.want {
+				assert.True(t, isSynced(log, rec, &tt.stack, tt.currentCommit), "expected to be in sync (not necessitating an update)")
+			} else {
+				assert.False(t, isSynced(log, rec, &tt.stack, tt.currentCommit), "expected to NOT be in sync (necessitating an update)")
+			}
 		})
 	}
 }
