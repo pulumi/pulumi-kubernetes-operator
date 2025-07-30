@@ -1934,10 +1934,9 @@ func TestIsSynced(t *testing.T) {
 			stack: pulumiv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},
 				Status: pulumiv1.StackStatus{
-					
 					LastUpdate: &shared.StackUpdateState{
-						State:                shared.FailedStackStateMessage,
-						LastResyncTime:       metav1.Now(),
+						State:          shared.FailedStackStateMessage,
+						LastResyncTime: metav1.Now(),
 					},
 				},
 			},
@@ -1963,8 +1962,8 @@ func TestIsSynced(t *testing.T) {
 			stack: pulumiv1.Stack{
 				Status: pulumiv1.StackStatus{
 					LastUpdate: &shared.StackUpdateState{
-						State:                shared.FailedStackStateMessage,
-						LastResyncTime:       metav1.Now(),
+						State:               shared.FailedStackStateMessage,
+						LastResyncTime:      metav1.Now(),
 						LastAttemptedCommit: "old-sha",
 					},
 				},
@@ -1978,14 +1977,14 @@ func TestIsSynced(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},
 				Status: pulumiv1.StackStatus{
 					LastUpdate: &shared.StackUpdateState{
-						State:                shared.FailedStackStateMessage,
-						LastResyncTime:       metav1.Now(),
+						State:               shared.FailedStackStateMessage,
+						LastResyncTime:      metav1.Now(),
 						LastAttemptedCommit: "old-sha",
 					},
 				},
 			},
 			currentCommit: "new-sha",
-			want: true,
+			want:          true,
 		},
 		{
 			name: "unrecognized state",
