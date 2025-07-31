@@ -211,6 +211,17 @@ func TestE2E(t *testing.T) {
 				assert.False(t, found)
 			},
 		},
+		{
+			name: "issue-937",
+			f: func(t *testing.T) {
+				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/issue-937")
+				require.NoError(t, run(cmd))
+				dumpLogs(t, "issue-937", "pod/issue-937-workspace-0")
+
+				_, err := waitFor[pulumiv1.Stack]("stacks/issue-937", "issue-937", 5*time.Minute, "condition=Ready")
+				require.NoError(t, err)
+			},
+		},
 	}
 
 	for _, tt := range tests {

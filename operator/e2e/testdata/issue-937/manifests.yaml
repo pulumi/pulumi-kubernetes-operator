@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: issue-937
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: issue-937
+  namespace: issue-937
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: issue-937:system:auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: issue-937
+  namespace: issue-937
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: issue-937-state
+  namespace: issue-937
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: issue-937
+  namespace: issue-937
+spec:
+  projectRepo: https://github.com/pulumi/examples
+  commit: 1e2fc471709448f3c9f7a250f28f1eafcde7017b
+  shallow: true
+  repoDir: random-yaml/
+
+  stack: issue-937
+  refresh: false
+  continueResyncOnCommitMatch: false
+  resyncFrequencySeconds: 60
+  destroyOnFinalize: false
+
+  # Enable file state for testing.
+  envRefs:
+    PULUMI_BACKEND_URL:
+      type: Literal
+      literal:
+        value: "file:///state/"
+    # note: PULUMI_CONFIG_PASSPHRASE is set dynamically in the workspace template.
+  workspaceTemplate:
+    spec:
+      image: pulumi/pulumi:3.147.0-nonroot
+      serviceAccountName: issue-937
+      podTemplate:
+        spec:
+          initContainers:
+            - name: extra
+              image: busybox
+              command:
+                - sh
+                - -c
+                - |
+                    echo 'PULUMI_CONFIG_PASSPHRASE=test' > /share/.env
+                    echo 'Wrote dynamic environment variables'
+              volumeMounts:
+                - name: share
+                  mountPath: /share
+          containers:
+            - name: pulumi
+              volumeMounts:
+                - name: state
+                  mountPath: /state
+          volumes:
+            - name: state
+              persistentVolumeClaim:
+                claimName: issue-937-state
