@@ -483,7 +483,12 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 	labels := labelsForStatefulSet(w)
 
 	command := []string{
-		"/share/tini", "/share/agent", "--", "serve",
+		"/share/tini", "--", "sh", "-c",
+	}
+	args := []string{
+		`set -a; [ -f "$PULUMI_ENV" ] && . "$PULUMI_ENV"; set +a; exec /share/agent "$@"`,
+		"agent",
+		"serve",
 		"--workspace", "/share/workspace",
 		"--skip-install",
 	}
@@ -520,7 +525,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 	})
 
 	// enable workspace endpoint protection
-	command = append(command,
+	args = append(args,
 		"--auth-mode", "kube",
 		"--kube-audience", audienceForWorkspace(w),
 		"--kube-workspace-namespace", w.Namespace,
@@ -528,7 +533,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 
 	// increase Pulumi CLI log verbosity if provided
 	if w.Spec.PulumiLogVerbosity != 0 {
-		command = append(command, "--pulumi-log-level", strconv.Itoa(int(w.Spec.PulumiLogVerbosity)))
+		args = append(args, "--pulumi-log-level", strconv.Itoa(int(w.Spec.PulumiLogVerbosity)))
 	}
 
 	statefulset := &appsv1.StatefulSet{
@@ -597,6 +602,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 							Env:        env,
 							EnvFrom:    w.Spec.EnvFrom,
 							Command:    command,
+							Args:       args,
 							WorkingDir: "/share/workspace",
 						},
 					},
@@ -784,6 +790,23 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 			return nil, fmt.Errorf("failed to merge pod template: %w", err)
 		}
 		statefulset.Spec.Template = *podTemplate
+	}
+
+	// Add well-known environment variables to the containers and init containers.
+	common := []corev1.EnvVar{
+		{Name: "PULUMI_ENV", Value: "/share/.env"},
+	}
+	for i := range statefulset.Spec.Template.Spec.Containers {
+		statefulset.Spec.Template.Spec.Containers[i].Env = append(
+			statefulset.Spec.Template.Spec.Containers[i].Env,
+			common...,
+		)
+	}
+	for i := range statefulset.Spec.Template.Spec.InitContainers {
+		statefulset.Spec.Template.Spec.InitContainers[i].Env = append(
+			statefulset.Spec.Template.Spec.InitContainers[i].Env,
+			common...,
+		)
 	}
 
 	return statefulset, nil
