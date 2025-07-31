@@ -81,6 +81,14 @@ spec:
                 description: outputs specifies the Pulumi stack outputs of the program
                   and how they are computed from the resources.
                 type: object
+              packages:
+                additionalProperties:
+                  type: string
+                description: |-
+                  packages specifies external packages to be installed before running the program.
+                  This allows declaring parameterized packages and VCS-based components.
+                  Keys are package names, values are package specifications (URLs, versions, etc.).
+                type: object
               resources:
                 additionalProperties:
                   properties:

@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+## Unreleased
+
+- Fixed an issue where new commits wouldn't trigger updates. [#951](https://github.com/pulumi/pulumi-kubernetes-operator/issues/951)
+
 ## 2.1.0 (2025-05-29)
 
 - Fixed `rbac.extraRules` in Helm chart [#875](https://github.com/pulumi/pulumi-kubernetes-operator/pull/875)
