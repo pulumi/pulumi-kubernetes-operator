@@ -486,7 +486,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 		"/share/tini", "--", "sh", "-c",
 	}
 	args := []string{
-		`set -a; [[ -f "$PULUMI_ENV" ]] && . "$PULUMI_ENV"; set +a; exec /share/agent "$@"`,
+		`set -a; [ -f "$PULUMI_ENV" ] && . "$PULUMI_ENV"; set +a; exec /share/agent "$@"`,
 		"agent",
 		"serve",
 		"--workspace", "/share/workspace",
