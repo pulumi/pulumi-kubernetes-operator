@@ -71,7 +71,7 @@ spec:
                 - sh
                 - -c
                 - |
-                    echo 'PULUMI_CONFIG_PASSPHRASE=test' > /share/.env
+                    echo 'PULUMI_CONFIG_PASSPHRASE=test' >> $PULUMI_ENV
                     echo 'Wrote dynamic environment variables'
               volumeMounts:
                 - name: share

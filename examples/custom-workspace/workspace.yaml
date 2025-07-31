@@ -37,7 +37,7 @@ spec:
   # - pod tolerations
   # - extra init container(s)
   # - extra volume(s) and volume mounts onto the 'pulumi' container
-  # - dynamic environment variables passed to the pulumi CLI
+  # - dynamic environment variables passed to the pulumi CLI via $PULUMI_ENV
   podTemplate:
     metadata:
       labels:
@@ -56,7 +56,7 @@ spec:
             - -c
             - |
                 echo 'Hello, extra init container!'
-                echo 'PULUMI_CONFIG_PASSPHRASE=test' > /share/.env
+                echo 'PULUMI_CONFIG_PASSPHRASE=test' >> $PULUMI_ENV
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
