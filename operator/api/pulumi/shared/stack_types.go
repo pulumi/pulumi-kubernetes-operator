@@ -171,8 +171,10 @@ type StackSpec struct {
 	// +optional
 	UpdateTemplate *UpdateApplyConfiguration `json:"updateTemplate,omitempty"`
 
-	// RetryMaxBackoffDurationSeconds sets the maximum cooldown (backoff) duration in seconds after a failed update.
-	// If not set, defaults to 24 hours.
+	// RetryMaxBackoffDurationSeconds controls the maximum number of seconds to
+	// wait before retrying a failed update. Failures are retried with an
+	// exponentially increasing backoff until it reaches this maxium. Defaults
+	// to 3600 (1 hour).
 	// +optional
 	RetryMaxBackoffDurationSeconds int64 `json:"retryMaxBackoffDurationSeconds,omitempty"`
 }

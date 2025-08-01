@@ -929,8 +929,10 @@ spec:
                 type: integer
               retryMaxBackoffDurationSeconds:
                 description: |-
-                  RetryMaxBackoffDurationSeconds sets the maximum cooldown (backoff) duration in seconds after a failed update.
-                  If not set, defaults to 24 hours.
+                  RetryMaxBackoffDurationSeconds controls the maximum number of seconds to
+                  wait before retrying a failed update. Failures are retried with an
+                  exponentially increasing backoff until it reaches this maxium. Defaults
+                  to 3600 (1 hour).
                 format: int64
                 type: integer
               retryOnUpdateConflict:
@@ -10744,8 +10746,10 @@ spec:
                 type: integer
               retryMaxBackoffDurationSeconds:
                 description: |-
-                  RetryMaxBackoffDurationSeconds sets the maximum cooldown (backoff) duration in seconds after a failed update.
-                  If not set, defaults to 24 hours.
+                  RetryMaxBackoffDurationSeconds controls the maximum number of seconds to
+                  wait before retrying a failed update. Failures are retried with an
+                  exponentially increasing backoff until it reaches this maxium. Defaults
+                  to 3600 (1 hour).
                 format: int64
                 type: integer
               retryOnUpdateConflict:

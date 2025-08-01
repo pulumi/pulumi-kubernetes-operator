@@ -868,7 +868,7 @@ var _ = Describe("Stack Controller", func() {
 				It("reconciles", func(ctx context.Context) {
 					_, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
-					ByResyncing()
+					ByMarkingAsReconciling(pulumiv1.ReconcilingRetryReason, Equal("10 update failure(s)"))
 				})
 			})
 		})
