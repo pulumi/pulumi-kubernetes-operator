@@ -130,10 +130,12 @@ var serveCmd = &cobra.Command{
 
 		if _envFile != "" {
 			vars, err := godotenv.Read(_envFile)
-			if err != nil {
+			if err != nil && !os.IsNotExist(err) {
 				return fmt.Errorf("unable to read the environment file: %w", err)
 			}
-			workspaceOpts = append(workspaceOpts, auto.EnvVars(vars))
+			if !os.IsNotExist(err) {
+				workspaceOpts = append(workspaceOpts, auto.EnvVars(vars))
+			}
 		}
 
 		workspace, err := auto.NewLocalWorkspace(ctx, workspaceOpts...)
