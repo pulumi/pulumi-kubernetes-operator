@@ -25,6 +25,7 @@ import (
 	"syscall"
 
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
+	"github.com/joho/godotenv"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/server"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/version"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -44,6 +45,7 @@ var (
 	_workDir     string
 	_skipInstall bool
 	_stack       string
+	_envFile     string
 	_host        string
 	_port        int
 
@@ -119,15 +121,26 @@ var serveCmd = &cobra.Command{
 
 		// open the workspace using auto api
 		workspaceOpts := []auto.LocalWorkspaceOption{}
+
 		workDir, err := filepath.EvalSymlinks(_workDir) // resolve the true location of the workspace
 		if err != nil {
 			return fmt.Errorf("unable to resolve the workspace directory: %w", err)
 		}
 		workspaceOpts = append(workspaceOpts, auto.WorkDir(workDir))
+
+		if _envFile != "" {
+			vars, err := godotenv.Read(_envFile)
+			if err != nil {
+				return fmt.Errorf("unable to read the environment file: %w", err)
+			}
+			workspaceOpts = append(workspaceOpts, auto.EnvVars(vars))
+		}
+
 		workspace, err := auto.NewLocalWorkspace(ctx, workspaceOpts...)
 		if err != nil {
 			return fmt.Errorf("unable to open the workspace: %w", err)
 		}
+
 		proj, err := workspace.ProjectSettings(ctx)
 		if err != nil {
 			return fmt.Errorf("unable to get the project settings: %w", err)
@@ -212,6 +225,8 @@ func init() {
 	serveCmd.Flags().BoolVar(&_skipInstall, "skip-install", false, "Skip installation of project dependencies")
 
 	serveCmd.Flags().StringVarP(&_stack, "stack", "s", "", "Select (or create) the stack to use")
+
+	serveCmd.Flags().StringVar(&_envFile, "env-file", "", "An environment file to load (e.g. .env)")
 
 	serveCmd.Flags().StringVar(&_host, "host", "0.0.0.0", "Server bind address (default: 0.0.0.0)")
 	serveCmd.Flags().IntVar(&_port, "port", 50051, "Server port (default: 50051)")

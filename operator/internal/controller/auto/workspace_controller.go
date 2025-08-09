@@ -483,14 +483,10 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 	labels := labelsForStatefulSet(w)
 
 	command := []string{
-		"/share/tini", "--", "sh", "-c",
-	}
-	args := []string{
-		`set -a; [ -f "$PULUMI_ENV" ] && . "$PULUMI_ENV"; set +a; exec /share/agent "$@"`,
-		"agent",
-		"serve",
+		"/share/tini", "/share/agent", "--", "serve",
 		"--workspace", "/share/workspace",
 		"--skip-install",
+		"--env-file", "/share/.env",
 	}
 	env := w.Spec.Env
 
@@ -525,7 +521,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 	})
 
 	// enable workspace endpoint protection
-	args = append(args,
+	command = append(command,
 		"--auth-mode", "kube",
 		"--kube-audience", audienceForWorkspace(w),
 		"--kube-workspace-namespace", w.Namespace,
@@ -533,7 +529,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 
 	// increase Pulumi CLI log verbosity if provided
 	if w.Spec.PulumiLogVerbosity != 0 {
-		args = append(args, "--pulumi-log-level", strconv.Itoa(int(w.Spec.PulumiLogVerbosity)))
+		command = append(command, "--pulumi-log-level", strconv.Itoa(int(w.Spec.PulumiLogVerbosity)))
 	}
 
 	statefulset := &appsv1.StatefulSet{
@@ -602,7 +598,6 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 							Env:        env,
 							EnvFrom:    w.Spec.EnvFrom,
 							Command:    command,
-							Args:       args,
 							WorkingDir: "/share/workspace",
 						},
 					},

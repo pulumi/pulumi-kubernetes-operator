@@ -429,7 +429,7 @@ var _ = Describe("Workspace Controller", func() {
 					Expect(ss.Spec.Template.Spec.Containers).
 						To(
 							ConsistOf(
-								HaveField("Args", ContainElement("--pulumi-log-level")),
+								HaveField("Command", ContainElement("--pulumi-log-level")),
 							))
 				})
 			})
@@ -445,7 +445,7 @@ var _ = Describe("Workspace Controller", func() {
 					Expect(ss.Spec.Template.Spec.Containers).
 						ToNot(
 							ConsistOf(
-								HaveField("Args", ContainElement("--pulumi-log-level")),
+								HaveField("Command", ContainElement("--pulumi-log-level")),
 							))
 				})
 			})
