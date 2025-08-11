@@ -486,6 +486,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 		"/share/tini", "/share/agent", "--", "serve",
 		"--workspace", "/share/workspace",
 		"--skip-install",
+		"--env-file", "/share/.env",
 	}
 	env := w.Spec.Env
 
@@ -784,6 +785,23 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 			return nil, fmt.Errorf("failed to merge pod template: %w", err)
 		}
 		statefulset.Spec.Template = *podTemplate
+	}
+
+	// Add well-known environment variables to the containers and init containers.
+	common := []corev1.EnvVar{
+		{Name: "PULUMI_ENV", Value: "/share/.env"},
+	}
+	for i := range statefulset.Spec.Template.Spec.Containers {
+		statefulset.Spec.Template.Spec.Containers[i].Env = append(
+			statefulset.Spec.Template.Spec.Containers[i].Env,
+			common...,
+		)
+	}
+	for i := range statefulset.Spec.Template.Spec.InitContainers {
+		statefulset.Spec.Template.Spec.InitContainers[i].Env = append(
+			statefulset.Spec.Template.Spec.InitContainers[i].Env,
+			common...,
+		)
 	}
 
 	return statefulset, nil

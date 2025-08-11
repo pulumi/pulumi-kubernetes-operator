@@ -341,7 +341,7 @@ var _ = Describe("Workspace Controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					fetch := findContainer(ss.Spec.Template.Spec.InitContainers, "fetch")
 					Expect(fetch).NotTo(BeNil())
-					Expect(fetch.Env).To(ConsistOf(
+					Expect(fetch.Env).To(ContainElements(
 						corev1.EnvVar{Name: "GIT_URL", Value: TestGitSource.URL},
 						corev1.EnvVar{Name: "GIT_REVISION", Value: TestGitSource.Ref},
 						corev1.EnvVar{Name: "GIT_DIR", Value: TestGitSource.Dir},
@@ -360,7 +360,7 @@ var _ = Describe("Workspace Controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					fetch := findContainer(ss.Spec.Template.Spec.InitContainers, "fetch")
 					Expect(fetch).NotTo(BeNil())
-					Expect(fetch.Env).To(ConsistOf(
+					Expect(fetch.Env).To(ContainElements(
 						corev1.EnvVar{Name: "FLUX_URL", Value: TestFluxSource.Url},
 						corev1.EnvVar{Name: "FLUX_DIGEST", Value: TestFluxSource.Digest},
 						corev1.EnvVar{Name: "FLUX_DIR", Value: TestFluxSource.Dir},
@@ -380,7 +380,7 @@ var _ = Describe("Workspace Controller", func() {
 					fetch := findContainer(ss.Spec.Template.Spec.InitContainers, "fetch")
 					Expect(fetch).NotTo(BeNil())
 					Expect(fetch.Args).ToNot(BeEmpty())
-					Expect(fetch.Env).To(ConsistOf(
+					Expect(fetch.Env).To(ContainElements(
 						corev1.EnvVar{Name: "LOCAL_DIR", Value: TestLocalSource.Dir},
 					))
 				})
