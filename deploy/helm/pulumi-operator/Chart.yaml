@@ -9,7 +9,7 @@ icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
 
 type: application
 
-version: "2.1.0"
+version: "2.2.0"
 appVersion: "v2.2.0"
 
 keywords:
@@ -29,8 +29,7 @@ annotations:
   artifacthub.io/prerelease: "false"
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/changes: |
-    - Configure the agent image (#919)
-    - More cloud logging options (#927)
+    - New operator version
   artifacthub.io/images: |
     - name: pulumi-kubernetes-operator
       image: docker.io/pulumi/pulumi-kubernetes-operator:v2.2.0
