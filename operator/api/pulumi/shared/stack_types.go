@@ -174,7 +174,7 @@ type StackSpec struct {
 	// RetryMaxBackoffDurationSeconds controls the maximum number of seconds to
 	// wait before retrying a failed update. Failures are retried with an
 	// exponentially increasing backoff until it reaches this maxium. Defaults
-	// to 3600 (1 hour).
+	// to 86400 (24 hours).
 	// +optional
 	RetryMaxBackoffDurationSeconds int64 `json:"retryMaxBackoffDurationSeconds,omitempty"`
 }

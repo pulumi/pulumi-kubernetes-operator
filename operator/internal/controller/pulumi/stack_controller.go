@@ -1109,7 +1109,7 @@ func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.St
 }
 
 // cooldown returns the amount of time to wait before a failed Update should be
-// retried. We start with a 1-minute cooldown and double that for each failed
+// retried. We start with a 10-second cooldown and triple that for each failed
 // attempt, up to a max of 24 hours or the value specified in RetryMaxBackoffDurationSeconds.
 // Failed Updates are considered synced while inside this cooldown period. A zero-value duration is returned if the
 // update succeeded.
