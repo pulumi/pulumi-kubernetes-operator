@@ -815,8 +815,8 @@ var _ = Describe("Stack Controller", func() {
 				It("backs off exponentially", func(ctx context.Context) {
 					res, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
-					// 1 minute * 2^3
-					Expect(res.RequeueAfter).To(BeNumerically("~", 8*time.Minute, time.Minute))
+					// 10 seconds * 3^3 = 4m30s
+					Expect(res.RequeueAfter).To(BeNumerically("~", 4*time.Minute, time.Minute))
 					ByMarkingAsReconciling(pulumiv1.ReconcilingRetryReason, Equal("3 update failure(s)"))
 				})
 
