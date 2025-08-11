@@ -6,7 +6,7 @@ CHANGELOG
 - Fixed an issue where new commits wouldn't trigger updates. [#951](https://github.com/pulumi/pulumi-kubernetes-operator/issues/951)
 - New feature: Dynamic environment variables [#976](https://github.com/pulumi/pulumi-kubernetes-operator/pull/976)
 - Added `retryMaxBackoffDurationSeconds` to Stack spec [#827](https://github.com/pulumi/pulumi-kubernetes-operator/issues/827)
-- Changed the default maximum backoff from 24 hours to 1 hour
+- Adjusted the default retries to retry faster [#827](https://github.com/pulumi/pulumi-kubernetes-operator/issues/827)
 
 ## 2.1.0 (2025-05-29)
 
