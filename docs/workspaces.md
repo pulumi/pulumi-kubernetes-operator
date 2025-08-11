@@ -16834,6 +16834,13 @@ only the result of this request.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>environment</b></td>
+        <td>[]string</td>
+        <td>
+          Environment is a list of Pulumi ESC environments to import into the stack.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>secretsProvider</b></td>
         <td>string</td>
         <td>

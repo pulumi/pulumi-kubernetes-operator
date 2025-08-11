@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
@@ -1108,19 +1109,31 @@ func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.St
 }
 
 // cooldown returns the amount of time to wait before a failed Update should be
-// retried. We start with a 1-minute cooldown and double that for each failed
-// attempt, up to a max of 24 hours. Failed Updates are considered synced while
-// inside this cooldown period. A zero-value duration is returned if the update
-// succeeded.
+// retried. We start with a 10-second cooldown and triple that for each failed
+// attempt, up to a max of 24 hours or the value specified in RetryMaxBackoffDurationSeconds.
+// Failed Updates are considered synced while inside this cooldown period. A zero-value duration is returned if the
+// update succeeded.
 func cooldown(stack *pulumiv1.Stack) time.Duration {
 	cooldown := time.Duration(0)
 	if stack.Status.LastUpdate == nil {
 		return cooldown
 	}
 	if stack.Status.LastUpdate.State == shared.FailedStackStateMessage {
-		cooldown = 1 * time.Minute
-		cooldown *= time.Duration(math.Exp2(float64(stack.Status.LastUpdate.Failures)))
-		cooldown = min(24*time.Hour, cooldown)
+		// https://go.dev/play/p/1lZdyrI7wzc
+		backoff := wait.Backoff{
+			Duration: 10 * time.Second,
+			Factor:   3,
+			Cap:      24 * time.Hour,
+			Steps:    math.MaxInt,
+			Jitter:   0,
+		}
+		if stack.Spec.RetryMaxBackoffDurationSeconds > 0 {
+			backoff.Cap = time.Duration(stack.Spec.RetryMaxBackoffDurationSeconds) * time.Second
+		}
+		for f := stack.Status.LastUpdate.Failures; f > 0 && backoff.Steps > 0; f-- {
+			backoff.Step()
+		}
+		cooldown = backoff.Step()
 	}
 	return cooldown
 }

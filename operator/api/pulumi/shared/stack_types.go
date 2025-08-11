@@ -170,6 +170,13 @@ type StackSpec struct {
 	// Update. Use this to customize the Updates's metadata, retention policy, etc.
 	// +optional
 	UpdateTemplate *UpdateApplyConfiguration `json:"updateTemplate,omitempty"`
+
+	// RetryMaxBackoffDurationSeconds controls the maximum number of seconds to
+	// wait before retrying a failed update. Failures are retried with an
+	// exponentially increasing backoff until it reaches this maxium. Defaults
+	// to 86400 (24 hours).
+	// +optional
+	RetryMaxBackoffDurationSeconds int64 `json:"retryMaxBackoffDurationSeconds,omitempty"`
 }
 
 // GitSource specifies how to fetch from a git repository directly.
