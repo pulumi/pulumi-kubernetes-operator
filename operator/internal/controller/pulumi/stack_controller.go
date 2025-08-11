@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
@@ -1118,13 +1119,21 @@ func cooldown(stack *pulumiv1.Stack) time.Duration {
 		return cooldown
 	}
 	if stack.Status.LastUpdate.State == shared.FailedStackStateMessage {
-		cooldown = 1 * time.Minute
-		cooldown *= time.Duration(math.Exp2(float64(stack.Status.LastUpdate.Failures)))
-		maxCooldown := 24 * time.Hour
-		if stack.Spec.RetryMaxBackoffDurationSeconds > 0 {
-			maxCooldown = time.Duration(stack.Spec.RetryMaxBackoffDurationSeconds) * time.Second
+		// https://go.dev/play/p/1lZdyrI7wzc
+		backoff := wait.Backoff{
+			Duration: 10 * time.Second,
+			Factor:   3,
+			Cap:      24 * time.Hour,
+			Steps:    math.MaxInt,
+			Jitter:   0,
 		}
-		cooldown = min(maxCooldown, cooldown)
+		if stack.Spec.RetryMaxBackoffDurationSeconds > 0 {
+			backoff.Cap = time.Duration(stack.Spec.RetryMaxBackoffDurationSeconds) * time.Second
+		}
+		for f := stack.Status.LastUpdate.Failures; f > 0 && backoff.Steps > 0; f-- {
+			backoff.Step()
+		}
+		cooldown = backoff.Step()
 	}
 	return cooldown
 }
