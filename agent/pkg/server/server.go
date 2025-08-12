@@ -18,7 +18,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -261,7 +263,7 @@ func (s *Server) SetAllConfig(ctx context.Context, in *pb.SetAllConfigRequest) (
 		return nil, fmt.Errorf("config items: %w", err)
 	}
 
-	s.log.Debugw("setting all config", "config", config)
+	s.log.Debugw("setting all config", "keys", slices.Collect(maps.Keys(config)))
 
 	err = stack.SetAllConfigWithOptions(ctx, config, &auto.ConfigOptions{Path: true})
 	if err != nil {
@@ -424,7 +426,7 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 	}
 	stdout.Close() //nolint:gosec // Close always returns nil err
 	stderr.Close() //nolint:gosec // Close always returns nil err
-	s.log.Infow("preview completed", "summary", res.ChangeSummary)
+	s.log.Infow("preview completed")
 
 	resp := &pb.PreviewResult{
 		Stdout: res.StdOut,
@@ -509,7 +511,7 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 		st := status.Newf(codes.Unknown, "refresh failed: %v", err)
 		return withPulumiErrorInfo(st, err).Err()
 	}
-	s.log.Infow("refresh completed", "summary", res.Summary)
+	s.log.Infow("refresh completed", "result", res.Summary.Result, "message", res.Summary.Message)
 
 	resp := &pb.RefreshResult{
 		Stdout:  res.StdOut,
@@ -613,7 +615,7 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 	stdout.Close() //nolint:gosec // Close always returns nil err
 	stderr.Close() //nolint:gosec // Close always returns nil err
 
-	s.log.Infow("up completed", "summary", res.Summary)
+	s.log.Infow("up completed", "result", res.Summary.Result, "message", res.Summary.Message)
 
 	outputs, err := marshalOutputs(res.Outputs)
 	if err != nil {
@@ -715,7 +717,7 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 		st := status.Newf(codes.Unknown, "destroy failed: %v", err)
 		return withPulumiErrorInfo(st, err).Err()
 	}
-	s.log.Infow("destroy completed", "summary", res.Summary)
+	s.log.Infow("destroy completed", "result", res.Summary.Result, "message", res.Summary.Message)
 
 	if in.GetRemove() && res.Summary.Result == "succeeded" {
 		// the stack was removed, so unselect the current stack.

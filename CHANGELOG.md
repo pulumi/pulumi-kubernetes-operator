@@ -7,6 +7,7 @@ CHANGELOG
 - New feature: Dynamic environment variables [#976](https://github.com/pulumi/pulumi-kubernetes-operator/pull/976)
 - Added `retryMaxBackoffDurationSeconds` to Stack spec [#827](https://github.com/pulumi/pulumi-kubernetes-operator/issues/827)
 - Adjusted the default retries to retry faster [#827](https://github.com/pulumi/pulumi-kubernetes-operator/issues/827)
+- Avoid logging of config secrets [#990](https://github.com/pulumi/pulumi-kubernetes-operator/pull/990)
 
 ## 2.1.0 (2025-05-29)
 
