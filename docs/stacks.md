@@ -248,6 +248,14 @@ re-evaluated before running a stack that depends on it.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>preview</b></td>
+        <td>boolean</td>
+        <td>
+          (optional) Preview when set to true runs only preview operations, never actual updates.
+This allows seeing what changes would be made without applying them.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecprogramref">programRef</a></b></td>
         <td>object</td>
         <td>
@@ -293,8 +301,10 @@ The minimal resync frequency supported is 60 seconds. The default value for this
         <td><b>retryMaxBackoffDurationSeconds</b></td>
         <td>integer</td>
         <td>
-          RetryMaxBackoffDurationSeconds sets the maximum cooldown (backoff) duration in seconds after a failed update.
-If not set, defaults to 24 hours.<br/>
+          RetryMaxBackoffDurationSeconds controls the maximum number of seconds to
+wait before retrying a failed update. Failures are retried with an
+exponentially increasing backoff until it reaches this maxium. Defaults
+to 86400 (24 hours).<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -20229,6 +20239,14 @@ re-evaluated before running a stack that depends on it.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>preview</b></td>
+        <td>boolean</td>
+        <td>
+          (optional) Preview when set to true runs only preview operations, never actual updates.
+This allows seeing what changes would be made without applying them.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecprogramref-1">programRef</a></b></td>
         <td>object</td>
         <td>
@@ -20274,8 +20292,10 @@ The minimal resync frequency supported is 60 seconds. The default value for this
         <td><b>retryMaxBackoffDurationSeconds</b></td>
         <td>integer</td>
         <td>
-          RetryMaxBackoffDurationSeconds sets the maximum cooldown (backoff) duration in seconds after a failed update.
-If not set, defaults to 24 hours.<br/>
+          RetryMaxBackoffDurationSeconds controls the maximum number of seconds to
+wait before retrying a failed update. Failures are retried with an
+exponentially increasing backoff until it reaches this maxium. Defaults
+to 86400 (24 hours).<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
