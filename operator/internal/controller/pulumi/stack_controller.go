@@ -912,8 +912,13 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to prepare update (destroy) for stack: %w", err)
 		}
+	} else if instance.Spec.Preview {
+		update, err = sess.newUp(ctx, instance, autov1alpha1.PreviewType, "Stack Update (preview)")
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("unable to prepare update (preview) for stack: %w", err)
+		}
 	} else {
-		update, err = sess.newUp(ctx, instance, "Stack Update (up)")
+		update, err = sess.newUp(ctx, instance, autov1alpha1.UpType, "Stack Update (up)")
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to prepare update (up) for stack: %w", err)
 		}
@@ -1494,7 +1499,7 @@ func (sess *stackReconcilerSession) UpdateConfig(ctx context.Context) error {
 }
 
 // newUp runs `pulumi up` on the stack.
-func (sess *stackReconcilerSession) newUp(_ context.Context, o *pulumiv1.Stack, message string) (*autov1alpha1.Update, error) {
+func (sess *stackReconcilerSession) newUp(_ context.Context, o *pulumiv1.Stack, typ autov1alpha1.UpdateType, message string) (*autov1alpha1.Update, error) {
 	labels := labelsForWorkspace(&o.ObjectMeta)
 	update := &autov1alpha1.Update{
 		TypeMeta: metav1.TypeMeta{
@@ -1509,7 +1514,7 @@ func (sess *stackReconcilerSession) newUp(_ context.Context, o *pulumiv1.Stack, 
 		Spec: autov1alpha1.UpdateSpec{
 			WorkspaceName:     sess.ws.Name,
 			StackName:         sess.stack.Stack,
-			Type:              autov1alpha1.UpType,
+			Type:              typ,
 			TtlAfterCompleted: &metav1.Duration{Duration: ttlForCompletedUpdate},
 			Message:           ptr.To(message),
 			// ExpectNoChanges:  ptr.To(o.Spec.ExpectNoRefreshChanges),
