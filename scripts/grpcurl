@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Generate bearer token
+# Generate bearer token to impersonate the controller-manager service account
 export KUBERNETES_TOKEN=$(kubectl create token -n pulumi-kubernetes-operator controller-manager --audience=random-yaml-git.default)
 
 # Check if token generation was successful
