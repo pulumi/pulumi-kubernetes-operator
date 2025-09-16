@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Generate bearer token
+export KUBERNETES_TOKEN=$(kubectl create token -n pulumi-kubernetes-operator controller-manager --audience=random-yaml-git.default)
+
+# Check if token generation was successful
+if [ -z "$KUBERNETES_TOKEN" ]; then
+    echo "Error: Failed to generate Kubernetes token"
+    exit 1
+fi
+
+# Add authorization header to grpcurl arguments
+grpcurl -H "Authorization: Bearer $KUBERNETES_TOKEN" "$@"
