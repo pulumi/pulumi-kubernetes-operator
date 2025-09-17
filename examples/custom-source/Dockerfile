@@ -1,4 +1,4 @@
-FROM pulumi/pulumi:3.196.0-nonroot@sha256:4f511007ff79856f4f5ac956092375ccf43a640a0c9ba165f96b54017eab5f45
+FROM pulumi/pulumi:3.197.0-nonroot@sha256:f9de46431ab60872c874f2d1ca7155327a35876ff94d987cde357e38229ad135
 
 # Clone the git repository
 RUN git clone --depth 1 https://github.com/pulumi/examples.git /home/pulumi/examples
