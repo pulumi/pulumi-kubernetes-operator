@@ -2,6 +2,8 @@
 permissions: write-all # Equivalent to default permissions plus id-token: write
 name: Pulumi Kubernetes Operator PR Builds
 on:
+  repository_dispatch:
+    types: [run-acceptance-tests-command]
   push:
     branches:
       - master
@@ -17,9 +19,28 @@ env:
   ESC_ACTION_ENVIRONMENT: imports/github-secrets
   ESC_ACTION_EXPORT_ENVIRONMENT_VARIABLES: PULUMI_ACCESS_TOKEN,PULUMI_BOT_TOKEN
 jobs:
+  comment-notification:
+    runs-on: ubuntu-latest
+    name: comment-notification
+    if: github.event_name == 'repository_dispatch'
+    steps:
+    - name: Create URL to the run output
+      id: vars
+      run: echo
+        run-url=https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+        >> "$GITHUB_OUTPUT"
+    - name: Update with Result
+      uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+      with:
+        token: ${{ secrets.PULUMI_BOT_TOKEN }}
+        repository: ${{ github.event.client_payload.github.payload.repository.full_name }}
+        issue-number: ${{ github.event.client_payload.github.payload.issue.number }}
+        body: "Please view the PR build: ${{ steps.vars.outputs.run-url }}"
   build:
     runs-on: ubuntu-latest
     name: Build
+    if: github.event_name == 'repository_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Fetch secrets from ESC
         id: esc-secrets
@@ -31,7 +52,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.23.x
+          go-version-file: 'go.mod'
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -65,13 +86,15 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.23.x
+          go-version-file: 'go.mod'
       - name: Lint pulumi-kubernetes-operator codebase
         run: make lint
 
   unit-tests:
     runs-on: ubuntu-latest
     name: Unit tests
+    if: github.event_name == 'repository_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Fetch secrets from ESC
         id: esc-secrets
@@ -83,9 +106,9 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.23.x
+          go-version-file: 'go.mod'
       - name: Install Pulumi CLI
-        uses: pulumi/actions@df5a93ad715135263c732ba288301bd044c383c0 # v6.3.0
+        uses: pulumi/actions@cc7494be991dba0978f7ffafaf995b0449a0998e # v6.5.0
         with:
           pulumi-version-file: .pulumi.version
       - name: Run Tests (Agent)
@@ -102,6 +125,8 @@ jobs:
   e2e-tests:
     runs-on: ubuntu-latest
     name: E2E tests
+    if: github.event_name == 'repository_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Fetch secrets from ESC
         id: esc-secrets
@@ -118,7 +143,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.23.x
+          go-version-file: 'go.mod'
       - name: Run tests
         run: make -C operator test-e2e
       - name: 🐛 Debug Build

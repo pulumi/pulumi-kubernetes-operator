@@ -9,25 +9,9 @@
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "cmd/manager",
-			"env": {
-				"WATCH_NAMESPACE": "default",
-				// "INSECURE_NO_NAMESPACE_ISOLATION": "true",
-				"OPERATOR_NAME": "pulumi-kubernetes-operator",
-			},
-			"args": [
-				"--zap-level=debug"
-			]
-		},
-		{
-			"name": "Manager (v2)",
-			"type": "go",
-			"request": "launch",
-			"mode": "auto",
 			"program": "operator/cmd",
 			"args": [
-				"--zap-encoder=console",
-				"--zap-log-level=debug"
+				"--zap-devel",
 			],
 			"env": {
 				"WORKSPACE_LOCALHOST": "localhost:50051",
@@ -35,7 +19,7 @@
 			},
 		},
 		{
-			"name": "Agent (v2)",
+			"name": "Agent",
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",

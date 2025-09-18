@@ -355,7 +355,7 @@ func TestUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-			ctx := context.Background()
+			ctx := t.Context()
 			scheme.Scheme.AddKnownTypes(
 				schema.GroupVersion{Group: "auto.pulumi.com", Version: "v1alpha1"},
 				&autov1alpha1.Update{},

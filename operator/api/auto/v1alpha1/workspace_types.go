@@ -195,6 +195,11 @@ type WorkspaceStack struct {
 	// +listType=map
 	// +listMapKey=key
 	Config []ConfigItem `json:"config,omitempty"`
+
+	// Environment is a list of Pulumi ESC environments to import into the stack.
+	// +optional
+	// +listType=atomic
+	Environment []string `json:"environment,omitempty"`
 }
 
 // +structType=atomic

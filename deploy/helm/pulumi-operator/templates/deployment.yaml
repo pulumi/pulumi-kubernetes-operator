@@ -40,6 +40,7 @@ spec:
         - --metrics-bind-address=:8383
         - --program-fs-adv-addr={{ include "pulumi-kubernetes-operator.advertisedAddress" . }}:80
         - --zap-log-level={{ .Values.controller.logLevel }}
+        - --zap-encoder={{ .Values.controller.logFormat }}
         - --zap-time-encoding=iso8601
         env:
         {{- if .Values.extraEnv }}
@@ -53,6 +54,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: AGENT_IMAGE
+          value: {{ include "pulumi-kubernetes-operator.imageName" . | quote }}
+        - name: AGENT_IMAGE_PULL_POLICY
+          value: {{ .Values.image.pullPolicy | quote }}
         ports:
         - containerPort: 8383
           name: http-metrics
@@ -63,7 +68,7 @@ spec:
         {{- if .Values.extraPorts }}
         {{- toYaml .Values.extraPorts  | nindent 8 }}
         {{- end }}
-        image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        image: {{ include "pulumi-kubernetes-operator.imageName" . | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         {{- if .Values.securityContext }}
         securityContext:

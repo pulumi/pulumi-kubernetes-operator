@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"maps"
 	"math"
-	"os"
 	"path"
 	"slices"
 	"strings"
@@ -44,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
@@ -189,12 +189,15 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return nil
 		}
 	}
-	blder = blder.Watches(&pulumiv1.Program{}, ctrlhandler.EnqueueRequestsFromMapFunc(
+	var program unstructured.Unstructured
+	program.SetAPIVersion(pulumiv1.GroupVersion.String())
+	program.SetKind("Program")
+	blder = blder.Watches(&program, ctrlhandler.EnqueueRequestsFromMapFunc(
 		enqueueStacksForSourceFunc(programRefIndexFieldName,
 			func(obj client.Object) string {
 				return obj.GetName()
 			})),
-		builder.WithPredicates(&auto.DebugPredicate{Controller: "stack-controller"}))
+		builder.WithPredicates(&SourceRevisionChangePredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
 
 	// Watch the stack's workspace and update objects
 	blder = blder.Watches(&autov1alpha1.Workspace{},
@@ -264,7 +267,7 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					enqueueStacksForSourceFunc(fluxSourceIndexFieldName, func(obj client.Object) string {
 						gvk := obj.GetObjectKind().GroupVersionKind()
 						return fluxSourceKey(gvk, obj.GetName())
-					})), &fluxSourceReadyPredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
+					})), &SourceRevisionChangePredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
 			if err != nil {
 				watchedMu.Lock()
 				delete(watched, gvk)
@@ -475,13 +478,10 @@ func newStallErrorf(format string, args ...interface{}) error {
 	return StallError{fmt.Errorf(format, args...)}
 }
 
-func isStalledError(e error) bool {
-	var s StallError
-	return errors.As(e, &s)
-}
-
 var (
 	errNamespaceIsolation          = newStallErrorf(`cross-namespace refs are not allowed`)
+	errDeprecatedResourceRefEnv    = newStallErrorf(`ref type "Env" is deprecated`)
+	errDeprecatedResourceRefFS     = newStallErrorf(`ref type "FS" is deprecated`)
 	errOtherThanOneSourceSpecified = newStallErrorf(`exactly one source (.spec.fluxSource, .spec.projectRepo, or .spec.programRef) for the stack must be given`)
 )
 
@@ -691,14 +691,14 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, err
 		}
 
-		if !checkFluxSourceReady(&sourceObject) {
-			// Wait until the source is ready, at which time the watch mechanism will requeue it.
-			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, "Flux source not ready")
+		artifact, _, _ := getArtifact(sourceObject)
+		if artifact == nil {
+			// Wait until the artifact is available, at which time the watch mechanism will requeue it.
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, "Flux source has no artifact")
 			return reconcile.Result{}, saveStatus()
 		}
-
-		currentCommit, err = sess.SetupWorkspaceFromFluxSource(ctx, sourceObject, fluxSource)
-		if err != nil {
+		currentCommit = artifact.Revision
+		if err := sess.SetupWorkspaceFromFluxSource(ctx, sourceObject, *artifact, fluxSource.Dir); err != nil {
 			log.Error(err, "Failed to setup Pulumi workspace with flux source")
 			return reconcile.Result{}, err
 		}
@@ -723,9 +723,15 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 		// The Program.status is setup to mimic a FluxSource, so we can use the same function to
 		// initiate the workspace.
-		currentCommit, err = sess.SetupWorkspaceFromFluxSource(ctx, program, &shared.FluxSource{})
-		if err != nil {
-			log.Error(err, "Failed to setup Pulumi workspace")
+		artifact, _, _ := getArtifact(program)
+		if artifact == nil {
+			// Wait until the artifact is available, at which time the watch mechanism will requeue it.
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, "Program has no artifact")
+			return reconcile.Result{}, saveStatus()
+		}
+		currentCommit = artifact.Revision
+		if err := sess.SetupWorkspaceFromFluxSource(ctx, program, *artifact, ""); err != nil {
+			log.Error(err, "Failed to setup Pulumi workspace with Program source")
 			return reconcile.Result{}, err
 		}
 
@@ -737,8 +743,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	// If there are extra environment variables, read them in now and use them for subsequent commands.
 	err = sess.setupWorkspace(ctx)
 	if err != nil {
-		if errors.Is(err, errNamespaceIsolation) {
-			instance.Status.MarkStalledCondition(pulumiv1.StalledCrossNamespaceRefForbiddenReason, err.Error())
+		var s StallError
+		if errors.As(err, &s) {
+			emitEvent(r.Recorder, instance, pulumiv1.StackConfigInvalidEvent(), s.Error())
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, s.Error())
 			return reconcile.Result{}, saveStatus()
 		}
 		log.Error(err, "Failed to setup Pulumi workspace")
@@ -1081,6 +1089,11 @@ func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.St
 	}
 
 	if stack.Status.LastUpdate.State == shared.FailedStackStateMessage {
+		if stack.Status.LastUpdate.LastAttemptedCommit != currentCommit {
+			log.V(1).Info("Not synced: new commit after update failure(s)", "current", currentCommit, "last", stack.Status.LastUpdate.LastAttemptedCommit)
+			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), "New commit detected: %q", currentCommit)
+			return false
+		}
 		c := cooldown(stack)
 		if time.Since(stack.Status.LastUpdate.LastResyncTime.Time) >= c {
 			log.V(1).Info("Not synced: backoff time elapsed")
@@ -1096,19 +1109,31 @@ func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.St
 }
 
 // cooldown returns the amount of time to wait before a failed Update should be
-// retried. We start with a 1-minute cooldown and double that for each failed
-// attempt, up to a max of 24 hours. Failed Updates are considered synced while
-// inside this cooldown period. A zero-value duration is returned if the update
-// succeeded.
+// retried. We start with a 10-second cooldown and triple that for each failed
+// attempt, up to a max of 24 hours or the value specified in RetryMaxBackoffDurationSeconds.
+// Failed Updates are considered synced while inside this cooldown period. A zero-value duration is returned if the
+// update succeeded.
 func cooldown(stack *pulumiv1.Stack) time.Duration {
 	cooldown := time.Duration(0)
 	if stack.Status.LastUpdate == nil {
 		return cooldown
 	}
 	if stack.Status.LastUpdate.State == shared.FailedStackStateMessage {
-		cooldown = 1 * time.Minute
-		cooldown *= time.Duration(math.Exp2(float64(stack.Status.LastUpdate.Failures)))
-		cooldown = min(24*time.Hour, cooldown)
+		// https://go.dev/play/p/1lZdyrI7wzc
+		backoff := wait.Backoff{
+			Duration: 10 * time.Second,
+			Factor:   3,
+			Cap:      24 * time.Hour,
+			Steps:    math.MaxInt,
+			Jitter:   0,
+		}
+		if stack.Spec.RetryMaxBackoffDurationSeconds > 0 {
+			backoff.Cap = time.Duration(stack.Spec.RetryMaxBackoffDurationSeconds) * time.Second
+		}
+		for f := stack.Status.LastUpdate.Failures; f > 0 && backoff.Steps > 0; f-- {
+			backoff.Step()
+		}
+		cooldown = backoff.Step()
 	}
 	return cooldown
 }
@@ -1174,31 +1199,11 @@ func (sess *stackReconcilerSession) SetEnvRefsForWorkspace(ctx context.Context) 
 
 func (sess *stackReconcilerSession) resolveResourceRefAsEnvVar(_ context.Context, ref *shared.ResourceRef) (string, *corev1.EnvVarSource, error) {
 	switch ref.SelectorType {
-	case shared.ResourceSelectorEnv:
-		// DEPRECATED: this reads from the operator's own environment
-		if ref.Env != nil {
-			resolved := os.Getenv(ref.Env.Name)
-			if resolved == "" {
-				return "", nil, fmt.Errorf("missing value for environment variable: %s", ref.Env.Name)
-			}
-			return resolved, nil, nil
-		}
-		return "", nil, errors.New("missing env reference in ResourceRef")
 	case shared.ResourceSelectorLiteral:
 		if ref.LiteralRef != nil {
 			return ref.LiteralRef.Value, nil, nil
 		}
 		return "", nil, errors.New("missing literal reference in ResourceRef")
-	case shared.ResourceSelectorFS:
-		// DEPRECATED: this reads from the operator's own filesystem
-		if ref.FileSystem != nil {
-			contents, err := os.ReadFile(ref.FileSystem.Path)
-			if err != nil {
-				return "", nil, fmt.Errorf("reading path %q: %w", ref.FileSystem.Path, err)
-			}
-			return string(contents), nil, nil
-		}
-		return "", nil, errors.New("Missing filesystem reference in ResourceRef")
 	case shared.ResourceSelectorSecret:
 		if ref.SecretRef != nil {
 			// enforce namespace isolation
@@ -1213,6 +1218,12 @@ func (sess *stackReconcilerSession) resolveResourceRefAsEnvVar(_ context.Context
 			}, nil
 		}
 		return "", nil, errors.New("Missing secret reference in ResourceRef")
+	case shared.ResourceSelectorEnv:
+		// secure-by-default: do not read from the operator's own environment
+		return "", nil, errDeprecatedResourceRefEnv
+	case shared.ResourceSelectorFS:
+		// secure-by-default: do not read from the operator's own filesystem
+		return "", nil, errDeprecatedResourceRefFS
 	default:
 		return "", nil, fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
 	}
@@ -1224,31 +1235,11 @@ func makeSecretRefMountPath(secretRef *shared.SecretSelector) string {
 
 func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(_ context.Context, ref *shared.ResourceRef) (*string, *autov1alpha1.ConfigValueFrom, error) {
 	switch ref.SelectorType {
-	case shared.ResourceSelectorEnv:
-		// DEPRECATED: this reads from the operator's own environment
-		if ref.Env != nil {
-			resolved := os.Getenv(ref.Env.Name)
-			if resolved == "" {
-				return nil, nil, fmt.Errorf("missing value for environment variable: %s", ref.Env.Name)
-			}
-			return &resolved, nil, nil
-		}
-		return nil, nil, errors.New("missing env reference in ResourceRef")
 	case shared.ResourceSelectorLiteral:
 		if ref.LiteralRef != nil {
 			return ptr.To(ref.LiteralRef.Value), nil, nil
 		}
 		return nil, nil, errors.New("missing literal reference in ResourceRef")
-	case shared.ResourceSelectorFS:
-		// DEPRECATED: this reads from the operator's own filesystem
-		if ref.FileSystem != nil {
-			contents, err := os.ReadFile(ref.FileSystem.Path)
-			if err != nil {
-				return nil, nil, fmt.Errorf("reading path %q: %w", ref.FileSystem.Path, err)
-			}
-			return ptr.To(string(contents)), nil, nil
-		}
-		return nil, nil, errors.New("Missing filesystem reference in ResourceRef")
 	case shared.ResourceSelectorSecret:
 		if ref.SecretRef != nil {
 			// enforce namespace isolation
@@ -1280,6 +1271,12 @@ func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(_ context.Con
 			}, nil
 		}
 		return nil, nil, errors.New("Missing secret reference in ResourceRef")
+	case shared.ResourceSelectorEnv:
+		// secure-by-default: do not read from the operator's own environment
+		return nil, nil, errDeprecatedResourceRefEnv
+	case shared.ResourceSelectorFS:
+		// secure-by-default: do not read from the operator's own filesystem
+		return nil, nil, errDeprecatedResourceRefFS
 	default:
 		return nil, nil, fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
 	}
@@ -1419,8 +1416,9 @@ func (sess *stackReconcilerSession) setupWorkspace(ctx context.Context) error {
 	}
 
 	wss := &autov1alpha1.WorkspaceStack{
-		Name:   sess.stack.Stack,
-		Create: ptr.To(!sess.stack.UseLocalStackOnly),
+		Name:        sess.stack.Stack,
+		Create:      ptr.To(!sess.stack.UseLocalStackOnly),
+		Environment: sess.stack.Environment,
 	}
 	// Prefer the secretsProvider in the stack config. To override an existing stack to the default
 	// secret provider, the stack's secretsProvider field needs to be set to 'default'
@@ -1521,6 +1519,11 @@ func (sess *stackReconcilerSession) newUp(_ context.Context, o *pulumiv1.Stack, 
 		},
 	}
 
+	update, err := applyUpdateTemplate(o, update)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := sess.setOwnerReferences(o, update); err != nil {
 		return nil, err
 	}
@@ -1550,10 +1553,27 @@ func (sess *stackReconcilerSession) newDestroy(_ context.Context, o *pulumiv1.St
 		},
 	}
 
+	update, err := applyUpdateTemplate(o, update)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := sess.setOwnerReferences(o, update); err != nil {
 		return nil, err
 	}
 
+	return update, nil
+}
+
+func applyUpdateTemplate(stack *pulumiv1.Stack, update *autov1alpha1.Update) (*autov1alpha1.Update, error) {
+	// Apply the user's update spec as a merge patch on top of what we've already generated.
+	if stack.Spec.UpdateTemplate != nil {
+		patched, err := patchObject(*update, *stack.Spec.UpdateTemplate)
+		if err != nil {
+			return nil, fmt.Errorf("patching update spec: %w", err)
+		}
+		return patched, nil
+	}
 	return update, nil
 }
 

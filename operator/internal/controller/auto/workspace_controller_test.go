@@ -17,6 +17,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -340,7 +341,7 @@ var _ = Describe("Workspace Controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					fetch := findContainer(ss.Spec.Template.Spec.InitContainers, "fetch")
 					Expect(fetch).NotTo(BeNil())
-					Expect(fetch.Env).To(ConsistOf(
+					Expect(fetch.Env).To(ContainElements(
 						corev1.EnvVar{Name: "GIT_URL", Value: TestGitSource.URL},
 						corev1.EnvVar{Name: "GIT_REVISION", Value: TestGitSource.Ref},
 						corev1.EnvVar{Name: "GIT_DIR", Value: TestGitSource.Dir},
@@ -359,7 +360,7 @@ var _ = Describe("Workspace Controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 					fetch := findContainer(ss.Spec.Template.Spec.InitContainers, "fetch")
 					Expect(fetch).NotTo(BeNil())
-					Expect(fetch.Env).To(ConsistOf(
+					Expect(fetch.Env).To(ContainElements(
 						corev1.EnvVar{Name: "FLUX_URL", Value: TestFluxSource.Url},
 						corev1.EnvVar{Name: "FLUX_DIGEST", Value: TestFluxSource.Digest},
 						corev1.EnvVar{Name: "FLUX_DIR", Value: TestFluxSource.Dir},
@@ -379,7 +380,7 @@ var _ = Describe("Workspace Controller", func() {
 					fetch := findContainer(ss.Spec.Template.Spec.InitContainers, "fetch")
 					Expect(fetch).NotTo(BeNil())
 					Expect(fetch.Args).ToNot(BeEmpty())
-					Expect(fetch.Env).To(ConsistOf(
+					Expect(fetch.Env).To(ContainElements(
 						corev1.EnvVar{Name: "LOCAL_DIR", Value: TestLocalSource.Dir},
 					))
 				})
@@ -578,4 +579,103 @@ func findContainer(containers []corev1.Container, name string) *corev1.Container
 		}
 	}
 	return nil
+}
+
+func TestMergePodTemplateSpec(t *testing.T) {
+
+	tests := []struct {
+		name     string
+		base     *corev1.PodTemplateSpec
+		overlay  *autov1alpha1.EmbeddedPodTemplateSpec
+		expected *corev1.PodTemplateSpec
+	}{
+		{
+			name: "merges the pulumi container",
+			base: &corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "pulumi", Env: []corev1.EnvVar{{Name: "FOO", Value: "FOO"}}},
+					},
+				},
+			},
+			overlay: &autov1alpha1.EmbeddedPodTemplateSpec{
+				Spec: &corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "pulumi", Env: []corev1.EnvVar{{Name: "BAR", Value: "BAR"}}},
+					},
+				},
+			},
+			expected: &corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "pulumi", Env: []corev1.EnvVar{{Name: "BAR", Value: "BAR"}, {Name: "FOO", Value: "FOO"}}},
+					},
+				},
+			},
+		},
+		{
+			name: "adds extra container(s)",
+			base: &corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "pulumi"},
+					},
+				},
+			},
+			overlay: &autov1alpha1.EmbeddedPodTemplateSpec{
+				Spec: &corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "extra"},
+					},
+				},
+			},
+			expected: &corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "extra"},
+						{Name: "pulumi"},
+					},
+				},
+			},
+		},
+		{
+			name: "orders the initContainers",
+			base: &corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{
+						{Name: "bootstrap", Image: "bootstrap"},
+						{Name: "fetch", Image: "fetch"},
+					},
+				},
+			},
+			overlay: &autov1alpha1.EmbeddedPodTemplateSpec{
+				Spec: &corev1.PodSpec{
+					InitContainers: []corev1.Container{
+						{Name: "overlay", Image: "overlay"},
+						{Name: "another", Image: "another"},
+					},
+				},
+			},
+			expected: &corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{
+						{Name: "bootstrap", Image: "bootstrap"},
+						{Name: "fetch", Image: "fetch"},
+						{Name: "overlay", Image: "overlay"},
+						{Name: "another", Image: "another"},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g := NewGomegaWithT(t)
+			merged, err := mergePodTemplateSpec(t.Context(), tc.base, tc.overlay)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(merged).To(Equal(tc.expected))
+		})
+	}
 }

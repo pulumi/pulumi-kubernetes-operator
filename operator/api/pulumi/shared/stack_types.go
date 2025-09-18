@@ -150,7 +150,7 @@ type StackSpec struct {
 
 	// WorkspaceTemplate customizes the Workspace generated for this Stack. It
 	// is applied as a strategic merge patch on top of the underlying
-	// Workspace. Use this to customize the Workspace's image, resources,
+	// Workspace. Use this to customize the Workspace's metadata, image, resources,
 	// volumes, etc.
 	// +optional
 	WorkspaceTemplate *WorkspaceApplyConfiguration `json:"workspaceTemplate,omitempty"`
@@ -159,6 +159,24 @@ type StackSpec struct {
 	// The default behavior is to retain the workspace. Valid values are one of "Retain" or "Delete".
 	// +optional
 	WorkspaceReclaimPolicy WorkspaceReclaimPolicy `json:"workspaceReclaimPolicy,omitempty"`
+
+	// (optional) Environment specifies the Pulumi ESC environment(s) to use for this stack.
+	// +listType=atomic
+	// +optional
+	Environment []string `json:"environment,omitempty"`
+
+	// UpdateTemplate customizes the Updates generated for this Stack. It
+	// is applied as a strategic merge patch on top of the underlying
+	// Update. Use this to customize the Updates's metadata, retention policy, etc.
+	// +optional
+	UpdateTemplate *UpdateApplyConfiguration `json:"updateTemplate,omitempty"`
+
+	// RetryMaxBackoffDurationSeconds controls the maximum number of seconds to
+	// wait before retrying a failed update. Failures are retried with an
+	// exponentially increasing backoff until it reaches this maxium. Defaults
+	// to 86400 (24 hours).
+	// +optional
+	RetryMaxBackoffDurationSeconds int64 `json:"retryMaxBackoffDurationSeconds,omitempty"`
 }
 
 // GitSource specifies how to fetch from a git repository directly.
@@ -489,3 +507,15 @@ const (
 	// WorkspaceReclaimDelete deletes the workspace after the Stack is synced.
 	WorkspaceReclaimDelete WorkspaceReclaimPolicy = "Delete"
 )
+
+// UpdateApplyConfiguration defines DeepCopy on the underlying applyconfiguration.
+// TODO(https://github.com/kubernetes-sigs/kubebuilder/issues/3692)
+type UpdateApplyConfiguration autov1alpha1apply.UpdateApplyConfiguration
+
+// DeepCopy round-trips the object.
+func (ac *UpdateApplyConfiguration) DeepCopy() *UpdateApplyConfiguration {
+	out := new(UpdateApplyConfiguration)
+	bytes, _ := json.Marshal(ac)
+	_ = json.Unmarshal(bytes, out)
+	return out
+}

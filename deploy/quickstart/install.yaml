@@ -81,6 +81,14 @@ spec:
                 description: outputs specifies the Pulumi stack outputs of the program
                   and how they are computed from the resources.
                 type: object
+              packages:
+                additionalProperties:
+                  type: string
+                description: |-
+                  packages specifies external packages to be installed before running the program.
+                  This allows declaring parameterized packages and VCS-based components.
+                  Keys are package names, values are package specifications (URLs, versions, etc.).
+                type: object
               resources:
                 additionalProperties:
                   properties:
@@ -214,13 +222,42 @@ spec:
                     description: Digest is the digest of the file in the form of '<algorithm>:<checksum>'.
                     pattern: ^[a-z0-9]+(?:[.+_-][a-z0-9]+)*:[a-zA-Z0-9=_-]+$
                     type: string
+                  lastUpdateTime:
+                    description: |-
+                      LastUpdateTime is the timestamp corresponding to the last update of the
+                      Artifact.
+                    format: date-time
+                    type: string
+                  metadata:
+                    additionalProperties:
+                      type: string
+                    description: Metadata holds upstream information such as OCI annotations.
+                    type: object
+                  path:
+                    description: |-
+                      Path is the relative file path of the Artifact. It can be used to locate
+                      the file in the root of the Artifact storage on the local file system of
+                      the controller managing the Source.
+                    type: string
+                  revision:
+                    description: |-
+                      Revision is a human-readable identifier traceable in the origin source
+                      system. It can be a Git commit SHA, Git tag, a Helm chart version, etc.
+                    type: string
+                  size:
+                    description: Size is the number of bytes in the file.
+                    format: int64
+                    type: integer
                   url:
                     description: |-
-                      URL is the HTTP address of the artifact as exposed by the controller
-                      managing the source spec. It can be used to retrieve the artifact for
-                      consumption, e.g. by another controller applying the artifact contents.
+                      URL is the HTTP address of the Artifact as exposed by the controller
+                      managing the Source. It can be used to retrieve the Artifact for
+                      consumption, e.g. by another controller applying the Artifact contents.
                     type: string
                 required:
+                - lastUpdateTime
+                - path
+                - revision
                 - url
                 type: object
               observedGeneration:
@@ -430,6 +467,13 @@ spec:
                 items:
                   type: string
                 type: array
+              environment:
+                description: (optional) Environment specifies the Pulumi ESC environment(s)
+                  to use for this stack.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: atomic
               envs:
                 description: |-
                   (optional) Envs is an optional array of config maps containing environment variables to set.
@@ -883,6 +927,14 @@ spec:
                   The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.
                 format: int64
                 type: integer
+              retryMaxBackoffDurationSeconds:
+                description: |-
+                  RetryMaxBackoffDurationSeconds controls the maximum number of seconds to
+                  wait before retrying a failed update. Failures are retried with an
+                  exponentially increasing backoff until it reaches this maxium. Defaults
+                  to 86400 (24 hours).
+                format: int64
+                type: integer
               retryOnUpdateConflict:
                 description: |-
                   (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop
@@ -1002,6 +1054,165 @@ spec:
                 items:
                   type: string
                 type: array
+              updateTemplate:
+                description: |-
+                  UpdateTemplate customizes the Updates generated for this Stack. It
+                  is applied as a strategic merge patch on top of the underlying
+                  Update. Use this to customize the Updates's metadata, retention policy, etc.
+                properties:
+                  apiVersion:
+                    type: string
+                  kind:
+                    type: string
+                  metadata:
+                    description: |-
+                      ObjectMetaApplyConfiguration represents a declarative configuration of the ObjectMeta type for use
+                      with apply.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      creationTimestamp:
+                        format: date-time
+                        type: string
+                      deletionGracePeriodSeconds:
+                        format: int64
+                        type: integer
+                      deletionTimestamp:
+                        format: date-time
+                        type: string
+                      finalizers:
+                        items:
+                          type: string
+                        type: array
+                      generateName:
+                        type: string
+                      generation:
+                        format: int64
+                        type: integer
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      ownerReferences:
+                        items:
+                          description: |-
+                            OwnerReferenceApplyConfiguration represents a declarative configuration of the OwnerReference type for use
+                            with apply.
+                          properties:
+                            apiVersion:
+                              type: string
+                            blockOwnerDeletion:
+                              type: boolean
+                            controller:
+                              type: boolean
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            uid:
+                              description: |-
+                                UID is a type that holds unique ID values, including UUIDs.  Because we
+                                don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                                intent and helps make sure that UIDs and names do not get conflated.
+                              type: string
+                          type: object
+                        type: array
+                      resourceVersion:
+                        type: string
+                      uid:
+                        description: |-
+                          UID is a type that holds unique ID values, including UUIDs.  Because we
+                          don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                          intent and helps make sure that UIDs and names do not get conflated.
+                        type: string
+                    type: object
+                  spec:
+                    description: |-
+                      UpdateSpecApplyConfiguration represents a declarative configuration of the UpdateSpec type for use
+                      with apply.
+                    properties:
+                      continueOnError:
+                        type: boolean
+                      expectNoChanges:
+                        type: boolean
+                      message:
+                        type: string
+                      parallel:
+                        format: int32
+                        type: integer
+                      refresh:
+                        type: boolean
+                      remove:
+                        type: boolean
+                      replace:
+                        items:
+                          type: string
+                        type: array
+                      stackName:
+                        type: string
+                      target:
+                        items:
+                          type: string
+                        type: array
+                      targetDependents:
+                        type: boolean
+                      ttlAfterCompleted:
+                        type: string
+                      type:
+                        type: string
+                      workspaceName:
+                        type: string
+                    type: object
+                  status:
+                    description: |-
+                      UpdateStatusApplyConfiguration represents a declarative configuration of the UpdateStatus type for use
+                      with apply.
+                    properties:
+                      conditions:
+                        items:
+                          description: |-
+                            ConditionApplyConfiguration represents a declarative configuration of the Condition type for use
+                            with apply.
+                          properties:
+                            lastTransitionTime:
+                              format: date-time
+                              type: string
+                            message:
+                              type: string
+                            observedGeneration:
+                              format: int64
+                              type: integer
+                            reason:
+                              type: string
+                            status:
+                              type: string
+                            type:
+                              type: string
+                          type: object
+                        type: array
+                      endTime:
+                        format: date-time
+                        type: string
+                      message:
+                        type: string
+                      observedGeneration:
+                        format: int64
+                        type: integer
+                      outputs:
+                        type: string
+                      permalink:
+                        type: string
+                      startTime:
+                        format: date-time
+                        type: string
+                    type: object
+                type: object
               useLocalStackOnly:
                 description: |-
                   (optional) UseLocalStackOnly can be set to true to prevent the operator from
@@ -1020,7 +1231,7 @@ spec:
                 description: |-
                   WorkspaceTemplate customizes the Workspace generated for this Stack. It
                   is applied as a strategic merge patch on top of the underlying
-                  Workspace. Use this to customize the Workspace's image, resources,
+                  Workspace. Use this to customize the Workspace's metadata, image, resources,
                   volumes, etc.
                 properties:
                   apiVersion:
@@ -9721,6 +9932,10 @@ spec:
                               type: array
                             create:
                               type: boolean
+                            environment:
+                              items:
+                                type: string
+                              type: array
                             name:
                               type: string
                             secretsProvider:
@@ -10069,6 +10284,13 @@ spec:
                 items:
                   type: string
                 type: array
+              environment:
+                description: (optional) Environment specifies the Pulumi ESC environment(s)
+                  to use for this stack.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: atomic
               envs:
                 description: |-
                   (optional) Envs is an optional array of config maps containing environment variables to set.
@@ -10522,6 +10744,14 @@ spec:
                   The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.
                 format: int64
                 type: integer
+              retryMaxBackoffDurationSeconds:
+                description: |-
+                  RetryMaxBackoffDurationSeconds controls the maximum number of seconds to
+                  wait before retrying a failed update. Failures are retried with an
+                  exponentially increasing backoff until it reaches this maxium. Defaults
+                  to 86400 (24 hours).
+                format: int64
+                type: integer
               retryOnUpdateConflict:
                 description: |-
                   (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop
@@ -10641,6 +10871,165 @@ spec:
                 items:
                   type: string
                 type: array
+              updateTemplate:
+                description: |-
+                  UpdateTemplate customizes the Updates generated for this Stack. It
+                  is applied as a strategic merge patch on top of the underlying
+                  Update. Use this to customize the Updates's metadata, retention policy, etc.
+                properties:
+                  apiVersion:
+                    type: string
+                  kind:
+                    type: string
+                  metadata:
+                    description: |-
+                      ObjectMetaApplyConfiguration represents a declarative configuration of the ObjectMeta type for use
+                      with apply.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      creationTimestamp:
+                        format: date-time
+                        type: string
+                      deletionGracePeriodSeconds:
+                        format: int64
+                        type: integer
+                      deletionTimestamp:
+                        format: date-time
+                        type: string
+                      finalizers:
+                        items:
+                          type: string
+                        type: array
+                      generateName:
+                        type: string
+                      generation:
+                        format: int64
+                        type: integer
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      ownerReferences:
+                        items:
+                          description: |-
+                            OwnerReferenceApplyConfiguration represents a declarative configuration of the OwnerReference type for use
+                            with apply.
+                          properties:
+                            apiVersion:
+                              type: string
+                            blockOwnerDeletion:
+                              type: boolean
+                            controller:
+                              type: boolean
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            uid:
+                              description: |-
+                                UID is a type that holds unique ID values, including UUIDs.  Because we
+                                don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                                intent and helps make sure that UIDs and names do not get conflated.
+                              type: string
+                          type: object
+                        type: array
+                      resourceVersion:
+                        type: string
+                      uid:
+                        description: |-
+                          UID is a type that holds unique ID values, including UUIDs.  Because we
+                          don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                          intent and helps make sure that UIDs and names do not get conflated.
+                        type: string
+                    type: object
+                  spec:
+                    description: |-
+                      UpdateSpecApplyConfiguration represents a declarative configuration of the UpdateSpec type for use
+                      with apply.
+                    properties:
+                      continueOnError:
+                        type: boolean
+                      expectNoChanges:
+                        type: boolean
+                      message:
+                        type: string
+                      parallel:
+                        format: int32
+                        type: integer
+                      refresh:
+                        type: boolean
+                      remove:
+                        type: boolean
+                      replace:
+                        items:
+                          type: string
+                        type: array
+                      stackName:
+                        type: string
+                      target:
+                        items:
+                          type: string
+                        type: array
+                      targetDependents:
+                        type: boolean
+                      ttlAfterCompleted:
+                        type: string
+                      type:
+                        type: string
+                      workspaceName:
+                        type: string
+                    type: object
+                  status:
+                    description: |-
+                      UpdateStatusApplyConfiguration represents a declarative configuration of the UpdateStatus type for use
+                      with apply.
+                    properties:
+                      conditions:
+                        items:
+                          description: |-
+                            ConditionApplyConfiguration represents a declarative configuration of the Condition type for use
+                            with apply.
+                          properties:
+                            lastTransitionTime:
+                              format: date-time
+                              type: string
+                            message:
+                              type: string
+                            observedGeneration:
+                              format: int64
+                              type: integer
+                            reason:
+                              type: string
+                            status:
+                              type: string
+                            type:
+                              type: string
+                          type: object
+                        type: array
+                      endTime:
+                        format: date-time
+                        type: string
+                      message:
+                        type: string
+                      observedGeneration:
+                        format: int64
+                        type: integer
+                      outputs:
+                        type: string
+                      permalink:
+                        type: string
+                      startTime:
+                        format: date-time
+                        type: string
+                    type: object
+                type: object
               useLocalStackOnly:
                 description: |-
                   (optional) UseLocalStackOnly can be set to true to prevent the operator from
@@ -10659,7 +11048,7 @@ spec:
                 description: |-
                   WorkspaceTemplate customizes the Workspace generated for this Stack. It
                   is applied as a strategic merge patch on top of the underlying
-                  Workspace. Use this to customize the Workspace's image, resources,
+                  Workspace. Use this to customize the Workspace's metadata, image, resources,
                   volumes, etc.
                 properties:
                   apiVersion:
@@ -19360,6 +19749,10 @@ spec:
                               type: array
                             create:
                               type: boolean
+                            environment:
+                              items:
+                                type: string
+                              type: array
                             name:
                               type: string
                             secretsProvider:
@@ -28275,6 +28668,13 @@ spec:
                     create:
                       description: Create the stack if it does not exist.
                       type: boolean
+                    environment:
+                      description: Environment is a list of Pulumi ESC environments
+                        to import into the stack.
+                      items:
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: atomic
                     name:
                       type: string
                     secretsProvider:
@@ -28849,6 +29249,7 @@ spec:
         - --health-probe-bind-address=:8081
         - --program-fs-adv-addr=pulumi-kubernetes-operator.$(POD_NAMESPACE):80
         - --zap-log-level=info
+        - --zap-encoder=console
         - --zap-time-encoding=iso8601
         env:
         - name: POD_NAMESPACE
@@ -28859,7 +29260,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
-        image: pulumi/pulumi-kubernetes-operator:v2.0.0
+        image: pulumi/pulumi-kubernetes-operator:v2.2.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:

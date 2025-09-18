@@ -449,7 +449,7 @@ func TestSetupWorkspace(t *testing.T) {
 				Spec: session.stack,
 			}))
 
-			err := session.setupWorkspace(context.Background())
+			err := session.setupWorkspace(t.Context())
 			if test.err != nil {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.err.Error())

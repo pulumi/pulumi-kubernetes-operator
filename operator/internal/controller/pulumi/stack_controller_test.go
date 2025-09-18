@@ -29,6 +29,7 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	autov1alpha1apply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -291,6 +292,15 @@ var _ = Describe("Stack Controller", func() {
 		Expect(stalled).To(BeNil(), "expected Stalled to be nil")
 	}
 
+	beStalled := func(reason string, msg gtypes.GomegaMatcher) {
+		GinkgoHelper()
+		It("reconciles", func(ctx context.Context) {
+			_, err := reconcileF(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			ByMarkingAsStalled(reason, msg)
+		})
+	}
+
 	Describe("Finalization", func() {
 		useFluxSource()
 		BeforeEach(func(ctx context.Context) {
@@ -410,6 +420,23 @@ var _ = Describe("Stack Controller", func() {
 						LastSuccessfulCommit: "abcdef",
 					}),
 				)
+
+				Describe("updateTemplate", func() {
+					BeforeEach(func(ctx context.Context) {
+						obj.Spec.UpdateTemplate = &shared.UpdateApplyConfiguration{
+							Spec: &autov1alpha1apply.UpdateSpecApplyConfiguration{
+								TtlAfterCompleted: &metav1.Duration{Duration: 42 * time.Minute},
+							},
+						}
+					})
+					It("reconciles", func(ctx context.Context) {
+						_, err := reconcileF(ctx)
+						Expect(err).NotTo(HaveOccurred())
+
+						By("applying the update template")
+						Expect(currentUpdate.Spec.TtlAfterCompleted).To(Equal(&metav1.Duration{Duration: 42 * time.Minute}))
+					})
+				})
 			})
 
 			When("the destroy op was successful", func() {
@@ -778,7 +805,7 @@ var _ = Describe("Stack Controller", func() {
 					Name:                 "update-abcdef",
 					Type:                 autov1alpha1.UpType,
 					LastResyncTime:       metav1.Now(),
-					LastAttemptedCommit:  fluxRepo.Status.Artifact.Digest,
+					LastAttemptedCommit:  fluxRepo.Status.Artifact.Revision,
 					LastSuccessfulCommit: "",
 					Failures:             3,
 				}
@@ -788,8 +815,8 @@ var _ = Describe("Stack Controller", func() {
 				It("backs off exponentially", func(ctx context.Context) {
 					res, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
-					// 1 minute * 2^3
-					Expect(res.RequeueAfter).To(BeNumerically("~", 8*time.Minute, time.Minute))
+					// 10 seconds * 3^3 = 4m30s
+					Expect(res.RequeueAfter).To(BeNumerically("~", 4*time.Minute, time.Minute))
 					ByMarkingAsReconciling(pulumiv1.ReconcilingRetryReason, Equal("3 update failure(s)"))
 				})
 
@@ -817,6 +844,35 @@ var _ = Describe("Stack Controller", func() {
 			})
 		})
 
+		When("the last update was not successful and max retry cooldown is set", func() {
+			BeforeEach(func(ctx context.Context) {
+				obj.Status.LastUpdate = &shared.StackUpdateState{
+					Generation:           1,
+					State:                shared.FailedStackStateMessage,
+					Name:                 "update-abcdef",
+					Type:                 autov1alpha1.UpType,
+					LastResyncTime:       metav1.Now(),
+					LastAttemptedCommit:  fluxRepo.Status.Artifact.Revision,
+					LastSuccessfulCommit: "",
+					Failures:             10,
+				}
+				// Set a custom max backoff duration (e.g., 5 minutes)
+				obj.Spec.RetryMaxBackoffDurationSeconds = int64(300)
+			})
+			When("done cooling down with the custom duration", func() {
+				It("backs off according to the max backoff", func(ctx context.Context) {
+					res, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(res.RequeueAfter).To(BeNumerically("~", 5*time.Minute, time.Minute))
+				})
+				It("reconciles", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					ByMarkingAsReconciling(pulumiv1.ReconcilingRetryReason, Equal("10 update failure(s)"))
+				})
+			})
+		})
+
 		When("the stack is a new generation", func() {
 			BeforeEach(func(ctx context.Context) {
 				// assume that the previous update was successful
@@ -826,8 +882,8 @@ var _ = Describe("Stack Controller", func() {
 					Name:                 "update-abcdef",
 					Type:                 autov1alpha1.UpType,
 					LastResyncTime:       metav1.Now(),
-					LastAttemptedCommit:  fluxRepo.Status.Artifact.Digest,
-					LastSuccessfulCommit: fluxRepo.Status.Artifact.Digest,
+					LastAttemptedCommit:  fluxRepo.Status.Artifact.Revision,
+					LastSuccessfulCommit: fluxRepo.Status.Artifact.Revision,
 				}
 			})
 			JustBeforeEach(func(ctx context.Context) {
@@ -856,8 +912,8 @@ var _ = Describe("Stack Controller", func() {
 					Name:                 "update-abcdef",
 					Type:                 autov1alpha1.UpType,
 					LastResyncTime:       metav1.Now(),
-					LastAttemptedCommit:  fluxRepo.Status.Artifact.Digest,
-					LastSuccessfulCommit: fluxRepo.Status.Artifact.Digest,
+					LastAttemptedCommit:  fluxRepo.Status.Artifact.Revision,
+					LastSuccessfulCommit: fluxRepo.Status.Artifact.Revision,
 				}
 			})
 			It("reconciles", func(ctx context.Context) {
@@ -892,8 +948,8 @@ var _ = Describe("Stack Controller", func() {
 
 			When("at latest commit", func() {
 				BeforeEach(func(ctx context.Context) {
-					obj.Status.LastUpdate.LastAttemptedCommit = fluxRepo.Status.Artifact.Digest
-					obj.Status.LastUpdate.LastSuccessfulCommit = fluxRepo.Status.Artifact.Digest
+					obj.Status.LastUpdate.LastAttemptedCommit = fluxRepo.Status.Artifact.Revision
+					obj.Status.LastUpdate.LastSuccessfulCommit = fluxRepo.Status.Artifact.Revision
 				})
 
 				When("the WorkspaceReclaimPolicy is set to Delete", func() {
@@ -1058,6 +1114,23 @@ var _ = Describe("Stack Controller", func() {
 				By("not requeuing")
 				Expect(result).To(Equal(reconcile.Result{}))
 				By("watching for a workspace status update")
+			})
+
+			Describe("updateTemplate", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.UpdateTemplate = &shared.UpdateApplyConfiguration{
+						Spec: &autov1alpha1apply.UpdateSpecApplyConfiguration{
+							TtlAfterCompleted: &metav1.Duration{Duration: 42 * time.Minute},
+						},
+					}
+				})
+				It("reconciles", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("applying the update template")
+					Expect(currentUpdate.Spec.TtlAfterCompleted).To(Equal(&metav1.Duration{Duration: 42 * time.Minute}))
+				})
 			})
 		})
 	})
@@ -1289,15 +1362,6 @@ var _ = Describe("Stack Controller", func() {
 				}))
 			})
 
-			beStalled := func(reason string, msg gtypes.GomegaMatcher) {
-				GinkgoHelper()
-				It("reconciles", func(ctx context.Context) {
-					_, err := reconcileF(ctx)
-					Expect(err).NotTo(HaveOccurred())
-					ByMarkingAsStalled(reason, msg)
-				})
-			}
-
 			When("the flux source is not found", func() {
 				JustBeforeEach(func(ctx context.Context) {
 					Expect(k8sClient.Delete(ctx, fluxRepo)).To(Succeed())
@@ -1305,22 +1369,14 @@ var _ = Describe("Stack Controller", func() {
 				beStalled(pulumiv1.StalledSourceUnavailableReason, ContainSubstring("could not resolve sourceRef"))
 			})
 
-			When("the flux source is not ready", func() {
+			When("the flux source has no artifact", func() {
 				BeforeEach(func(ctx context.Context) {
-					fluxRepo.Status.Conditions = []metav1.Condition{
-						{Type: "Ready", Status: metav1.ConditionFalse, Reason: "Unknown", LastTransitionTime: metav1.Now()},
-					}
+					fluxRepo.Status.Artifact = nil
 				})
-				beStalled(pulumiv1.StalledSourceUnavailableReason, ContainSubstring("Flux source not ready"))
+				beStalled(pulumiv1.StalledSourceUnavailableReason, ContainSubstring("Flux source has no artifact"))
 			})
 
-			When("the flux source is ready", func() {
-				BeforeEach(func(ctx context.Context) {
-					fluxRepo.Status.Conditions = []metav1.Condition{
-						{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Succeeded", LastTransitionTime: metav1.Now()},
-					}
-				})
-
+			When("the flux source has an artifact", func() {
 				It("reconciles", func(ctx context.Context) {
 					_, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
@@ -1520,6 +1576,38 @@ var _ = Describe("Stack Controller", func() {
 					},
 				))
 			})
+
+			Describe("deprecated ref type: Env", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.EnvRefs = map[string]shared.ResourceRef{
+						"foo": {
+							SelectorType: shared.ResourceSelectorEnv,
+							ResourceSelector: shared.ResourceSelector{
+								Env: &shared.EnvSelector{
+									Name: "FOO",
+								},
+							},
+						},
+					}
+				})
+				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "Env" is deprecated`))
+			})
+
+			Describe("deprecated ref type: FS", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.EnvRefs = map[string]shared.ResourceRef{
+						"foo": {
+							SelectorType: shared.ResourceSelectorFS,
+							ResourceSelector: shared.ResourceSelector{
+								FileSystem: &shared.FSSelector{
+									Path: "foo",
+								},
+							},
+						},
+					}
+				})
+				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "FS" is deprecated`))
+			})
 		})
 	})
 
@@ -1556,6 +1644,19 @@ var _ = Describe("Stack Controller", func() {
 					autov1alpha1.ConfigItem{Key: "b", Secret: ptr.To(false), Value: ptr.To("b")},
 					autov1alpha1.ConfigItem{Key: "c", Secret: ptr.To(false), Value: ptr.To("c")},
 				))
+			})
+		})
+
+		Describe("environment", func() {
+			BeforeEach(func(ctx context.Context) {
+				obj.Spec.Environment = []string{"test/test"}
+			})
+			It("reconciles", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				actual := ws.Spec.Stacks[0]
+				By("applying workspace stack environment")
+				Expect(actual.Environment).To(Equal([]string{"test/test"}))
 			})
 		})
 
@@ -1641,6 +1742,38 @@ var _ = Describe("Stack Controller", func() {
 					Name:      "secret-" + secret.Name,
 					MountPath: "/var/run/secrets/stacks.pulumi.com/secrets/" + secret.Name,
 				}))
+			})
+
+			Describe("deprecated ref type: Env", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.SecretRefs = map[string]shared.ResourceRef{
+						"foo": {
+							SelectorType: shared.ResourceSelectorEnv,
+							ResourceSelector: shared.ResourceSelector{
+								Env: &shared.EnvSelector{
+									Name: "FOO",
+								},
+							},
+						},
+					}
+				})
+				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "Env" is deprecated`))
+			})
+
+			Describe("deprecated ref type: FS", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.SecretRefs = map[string]shared.ResourceRef{
+						"foo": {
+							SelectorType: shared.ResourceSelectorFS,
+							ResourceSelector: shared.ResourceSelector{
+								FileSystem: &shared.FSSelector{
+									Path: "foo",
+								},
+							},
+						},
+					}
+				})
+				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "FS" is deprecated`))
 			})
 		})
 	})
@@ -1813,32 +1946,83 @@ func TestIsSynced(t *testing.T) {
 		{
 			name: "last update failed but we're inside the cooldown interval",
 			stack: pulumiv1.Stack{
-				Spec: shared.StackSpec{
-					ContinueResyncOnCommitMatch: true,
-				},
+				Spec: shared.StackSpec{},
 				Status: pulumiv1.StackStatus{
 					LastUpdate: &shared.StackUpdateState{
-						State:          shared.FailedStackStateMessage,
-						LastResyncTime: metav1.Now(),
+						State:               shared.FailedStackStateMessage,
+						LastAttemptedCommit: "sha",
+						LastResyncTime:      metav1.Now(),
 					},
 				},
 			},
-			want: true,
+			currentCommit: "sha",
+			want:          true,
+		},
+		{
+			name: "last update failed and we're inside the cooldown interval, marked for deletion",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},
+				Spec: shared.StackSpec{
+					DestroyOnFinalize: true,
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:               shared.FailedStackStateMessage,
+						LastAttemptedCommit: "sha",
+						LastResyncTime:      metav1.Now(),
+					},
+				},
+			},
+			currentCommit: "sha",
+			want:          true,
 		},
 		{
 			name: "last update failed and we're outside the cooldown interval",
 			stack: pulumiv1.Stack{
-				Spec: shared.StackSpec{
-					ContinueResyncOnCommitMatch: true,
-				},
+				Spec: shared.StackSpec{},
 				Status: pulumiv1.StackStatus{
 					LastUpdate: &shared.StackUpdateState{
-						State:          shared.FailedStackStateMessage,
-						LastResyncTime: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+						State:               shared.FailedStackStateMessage,
+						LastAttemptedCommit: "sha",
+						LastResyncTime:      metav1.NewTime(time.Now().Add(-1 * time.Hour)),
 					},
 				},
 			},
-			want: false,
+			currentCommit: "sha",
+			want:          false,
+		},
+		{
+			name: "last update failed and commit changed, inside cooldown interval",
+			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:               shared.FailedStackStateMessage,
+						LastResyncTime:      metav1.Now(),
+						LastAttemptedCommit: "old-sha",
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			want:          false,
+		},
+		{
+			name: "last update failed and commit changed, marked for deletion",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},
+				Spec: shared.StackSpec{
+					DestroyOnFinalize: true,
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:               shared.FailedStackStateMessage,
+						LastResyncTime:      metav1.Now(),
+						LastAttemptedCommit: "old-sha",
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			want:          false,
 		},
 		{
 			name: "unrecognized state",
@@ -1858,7 +2042,11 @@ func TestIsSynced(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			log := testr.New(t)
 			rec := record.NewFakeRecorder(10)
-			assert.Equal(t, tt.want, isSynced(log, rec, &tt.stack, tt.currentCommit))
+			if tt.want {
+				assert.True(t, isSynced(log, rec, &tt.stack, tt.currentCommit), "expected to be in sync (not necessitating an update)")
+			} else {
+				assert.False(t, isSynced(log, rec, &tt.stack, tt.currentCommit), "expected to NOT be in sync (necessitating an update)")
+			}
 		})
 	}
 }

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -62,6 +63,7 @@ func NewConnectionManager(config *rest.Config, opts ConnectionManagerOptions) (*
 }
 
 func (cm *ConnectionManager) Connect(ctx context.Context, w *autov1alpha1.Workspace) (*grpc.ClientConn, error) {
+	l := log.FromContext(ctx)
 	audience := audienceForWorkspace(w)
 	creds := client.NewTokenCredentials(cm.factory.TokenSource(audience))
 

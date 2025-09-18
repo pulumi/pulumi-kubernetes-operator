@@ -9,8 +9,8 @@ icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
 
 type: application
 
-version: "2.0.0"
-appVersion: "v2.0.0"
+version: "2.2.0"
+appVersion: "v2.2.0"
 
 keywords:
   - pulumi
@@ -18,30 +18,32 @@ keywords:
   - operator
 
 maintainers:
+  - name: Bryce Lampe
+    email: bryce@pulumi.com
   - name: dirien
     email: engin@pulumi.com
-    url: https://pulumi.com
   - name: Eron Wright
     email: eron@pulumi.com
-  - name: Ramon Quitales
-    email: ramon@pulumi.com
 
 annotations:
   artifacthub.io/prerelease: "false"
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/changes: |
-    - Major version bump to 2.0.0
+    - New operator version
   artifacthub.io/images: |
     - name: pulumi-kubernetes-operator
-      image: docker.io/pulumi/pulumi-kubernetes-operator:v2.0.0
+      image: docker.io/pulumi/pulumi-kubernetes-operator:v2.2.0
+      platforms:
+        - linux/amd64
+        - linux/arm64
   artifacthub.io/license: Apache-2.0
   artifacthub.io/links: |
     - name: website
       url: https://pulumi.com
   artifacthub.io/maintainers: |
+    - name: Bryce Lampe
+      email: bryce@pulumi.com
     - name: dirien
       email: engin@pulumi.com
     - name: Eron Wright
       email: eron@pulumi.com
-    - name: Ramon Quitales
-      email: ramon@pulumi.com

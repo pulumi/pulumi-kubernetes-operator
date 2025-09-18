@@ -24,13 +24,16 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/opencontainers/go-digest"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -93,13 +96,14 @@ func createProgramArtifact(data []byte, w io.Writer) error {
 }
 
 // urlPathToProgramIdentifier converts a URL path to a Program identifier.
-func urlPathToProgramIdentifier(urlPath string) (namespace string, name string, err error) {
+func urlPathToProgramIdentifier(urlPath string) (namespace string, name string, generation int64, err error) {
 	pathComp := strings.Split(urlPath, "/")
-	if len(pathComp) != 2 {
-		return "", "", errors.New("invalid program identifier, unable to locate Program")
+	if len(pathComp) != 3 {
+		return "", "", 0, errors.New("invalid program identifier, unable to locate Program")
 	}
 
-	return pathComp[0], pathComp[1], nil
+	generation, _ = strconv.ParseInt(pathComp[2], 10, 64)
+	return pathComp[0], pathComp[1], generation, nil
 }
 
 type ProgramHandler struct {
@@ -121,15 +125,19 @@ func (p *ProgramHandler) Address() string {
 }
 
 // CreateProgramURL creates a URL path for a Program.
-func (p *ProgramHandler) CreateProgramURL(namespace, name string) string {
+func (p *ProgramHandler) CreateProgramURL(namespace, name string, generation int64) string {
 	address := p.address
 
 	if !(strings.HasPrefix(address, "http://") || strings.HasPrefix(address, "https://")) {
 		address = "http://" + address
 	}
 
-	path, _ := url.JoinPath(address, "programs", namespace, name)
+	path, _ := url.JoinPath(address, "programs", namespace, name, strconv.FormatInt(generation, 10))
 	return path
+}
+
+func (p *ProgramHandler) CreateProgramPath(namespace, name string, generation int64) string {
+	return fmt.Sprintf("programs/%s/%s/%d.tar.gz", namespace, name, generation)
 }
 
 // HandleProgramServing is a HTTP handler for serving a Program as a valid Pulumi project.
@@ -143,13 +151,13 @@ func (p *ProgramHandler) HandleProgramServing() http.HandlerFunc {
 			return
 		}
 
-		namespace, name, err := urlPathToProgramIdentifier(programIdentifier)
+		namespace, name, generation, err := urlPathToProgramIdentifier(programIdentifier)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		proj, err := getProjectFile(context.Background(), p.k8sClient, namespace, name)
+		proj, err := getProjectFile(r.Context(), p.k8sClient, namespace, name, generation)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -175,7 +183,7 @@ func (p *ProgramHandler) HandleProgramServing() http.HandlerFunc {
 }
 
 // getProjectFile retrieves a Program object from the Kubernetes API server and returns a valid Pulumi Yaml project file from it.
-func getProjectFile(ctx context.Context, kubeClient client.Client, namespace, name string) (*ProjectFile, error) {
+func getProjectFile(ctx context.Context, kubeClient client.Client, namespace, name string, generation int64) (*ProjectFile, error) {
 	program := new(pulumiv1.Program)
 	programKey := client.ObjectKey{
 		Name:      name,
@@ -185,6 +193,10 @@ func getProjectFile(ctx context.Context, kubeClient client.Client, namespace, na
 	err := kubeClient.Get(ctx, programKey, program)
 	if err != nil {
 		return nil, err
+	}
+
+	if program.GetGeneration() != generation {
+		return nil, fmt.Errorf("program %s/%s with generation %d does not match requested generation %d", namespace, name, program.GetGeneration(), generation)
 	}
 
 	project := programToProject(program)
@@ -208,19 +220,14 @@ func programToProject(program *pulumiv1.Program) *ProjectFile {
 // Reconcile reconciles the Program object.
 func (r *ProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	log.Info("Reconciling Program")
 
 	// Fetch the Program object.
 	program := new(pulumiv1.Program)
 	if err := r.Get(ctx, req.NamespacedName, program); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-
-	// Update the status of the Program object to contain an updated URL.
-	program.Status.Artifact = &pulumiv1.Artifact{
-		URL: r.ProgramHandler.CreateProgramURL(program.Namespace, program.Name),
-	}
-	program.Status.ObservedGeneration = program.GetGeneration()
+	log = log.WithValues("generation", program.Generation)
+	log.Info("Reconciling Program")
 
 	// Calculate and store the sha256 digest of the tarball.
 	// This is necessary for the Flux fetcher to verify the integrity of the artifact.
@@ -237,15 +244,25 @@ func (r *ProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("unable to create tarball of project file: %w", err)
 	}
-	dig, err := calculateDigest(tarData)
+	tarSize := int64(tarData.Len())
+
+	tarDigest, err := calculateDigest(tarData)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("unable to calculate digest hash for Program artifact: %w", err)
 	}
 
-	program.Status.Artifact.Digest = dig
-
 	// Update the status of the Program object.
-	log.Info("Updating Program status")
+	program.Status.Artifact = &pulumiv1.Artifact{
+		Path:           r.ProgramHandler.CreateProgramPath(program.Namespace, program.Name, program.GetGeneration()),
+		URL:            r.ProgramHandler.CreateProgramURL(program.Namespace, program.Name, program.GetGeneration()),
+		Revision:       strconv.FormatInt(program.GetGeneration(), 10),
+		Digest:         tarDigest,
+		LastUpdateTime: metav1.Now(),
+		Size:           ptr.To(tarSize),
+	}
+	program.Status.ObservedGeneration = program.GetGeneration()
+
+	log.Info("Updating Program status", "observedGeneration", program.Status.ObservedGeneration, "artifact", program.Status.Artifact)
 	if err := r.Status().Update(ctx, program, client.FieldOwner(FieldManager)); err != nil {
 		log.Error(err, "unable to update Program status")
 		return ctrl.Result{}, err

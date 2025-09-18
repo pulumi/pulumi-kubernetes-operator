@@ -34,7 +34,7 @@ import (
 func TestGracefulShutdown(t *testing.T) {
 	// Give this test 10 seconds to spin up and shut down gracefully. Should be
 	// more than enough -- typically takes ~2s.
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
 	// Setup the server using an in-memory listener.
@@ -60,7 +60,7 @@ func TestGracefulShutdown(t *testing.T) {
 	client := pb.NewAutomationServiceClient(conn)
 
 	// Initiate an update using a context separate from the server's.
-	stream, err := client.Up(context.Background(), &pb.UpRequest{})
+	stream, err := client.Up(t.Context(), &pb.UpRequest{})
 	require.NoError(t, err)
 
 	// Stream events from our update. We will cause the server to shut down

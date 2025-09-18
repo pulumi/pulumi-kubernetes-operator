@@ -18,9 +18,8 @@ jobs:
       - name: Fetch secrets from ESC
         id: esc-secrets
         uses: pulumi/esc-action@v1
-      - uses: actions/checkout@v2
-      - name: Run Build
-        uses: peter-evans/slash-command-dispatch@v2
+      - uses: actions/checkout@v4
+      - uses: peter-evans/slash-command-dispatch@13bc09769d122a64f75aa5037256f6f2d78be8c4 # v4.0.0
         with:
           token: ${{ steps.esc-secrets.outputs.PULUMI_BOT_TOKEN }}
           reaction-token: ${{ secrets.GITHUB_TOKEN }}
@@ -28,3 +27,4 @@ jobs:
           permission: write
           issue-type: pull-request
           repository: pulumi/pulumi-kubernetes-operator
+        if: ${{ github.event.issue.pull_request }}

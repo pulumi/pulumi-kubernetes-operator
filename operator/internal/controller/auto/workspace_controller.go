@@ -18,10 +18,10 @@ import (
 	"context"
 	"crypto/md5" //nolint:gosec
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
@@ -34,6 +34,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -320,19 +321,31 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 					return err
 				}
 
-				if len(stack.Config) == 0 {
-					l.V(1).Info("No stack configuration to set")
-					return nil
+				if len(stack.Config) != 0 {
+					l.V(1).Info("Setting the stack configuration")
+					config := make([]*agentpb.ConfigItem, 0, len(stack.Config))
+					for _, item := range stack.Config {
+						config = append(config, marshalConfigItem(item))
+					}
+					_, err := wc.SetAllConfig(ctx, &agentpb.SetAllConfigRequest{
+						Config: config,
+					})
+					if err != nil {
+						return err
+					}
 				}
 
-				l.V(1).Info("Setting the stack configuration")
-
-				config := make([]*agentpb.ConfigItem, 0, len(stack.Config))
-				for _, item := range stack.Config {
-					config = append(config, marshalConfigItem(item))
+				if len(stack.Environment) != 0 {
+					l.V(1).Info("Setting the stack environment")
+					_, err := wc.AddEnvironments(ctx, &agentpb.AddEnvironmentsRequest{
+						Environment: stack.Environment,
+					})
+					if err != nil {
+						return err
+					}
 				}
-				_, err = wc.SetAllConfig(ctx, &agentpb.SetAllConfigRequest{Config: config})
-				return err
+
+				return nil
 			}()
 			if err != nil {
 				l.Error(err, "unable to initialize the Pulumi stack")
@@ -445,18 +458,35 @@ func labelsForStatefulSet(w *autov1alpha1.Workspace) map[string]string {
 	}
 }
 
-func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.StatefulSet, error) {
+func agentImage() (string, corev1.PullPolicy) {
 	image := os.Getenv("AGENT_IMAGE")
 	if image == "" {
 		image = "pulumi/pulumi-kubernetes-operator:" + version.Version
 	}
+	policy := os.Getenv("AGENT_IMAGE_PULL_POLICY")
+	var imagePullPolicy corev1.PullPolicy
+	switch {
+	case strings.EqualFold(policy, string(corev1.PullAlways)):
+		imagePullPolicy = corev1.PullAlways
+	case strings.EqualFold(policy, string(corev1.PullNever)):
+		imagePullPolicy = corev1.PullNever
+	case strings.EqualFold(policy, string(corev1.PullIfNotPresent)):
+		imagePullPolicy = corev1.PullIfNotPresent
+	default:
+		imagePullPolicy = corev1.PullIfNotPresent
+	}
+	return image, imagePullPolicy
+}
 
+func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sourceSpec) (*appsv1.StatefulSet, error) {
+	image, imagePullPolicy := agentImage()
 	labels := labelsForStatefulSet(w)
 
 	command := []string{
 		"/share/tini", "/share/agent", "--", "serve",
 		"--workspace", "/share/workspace",
 		"--skip-install",
+		"--env-file", "/share/.env",
 	}
 	env := w.Spec.Env
 
@@ -537,7 +567,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 						{
 							Name:            "bootstrap",
 							Image:           image,
-							ImagePullPolicy: corev1.PullIfNotPresent,
+							ImagePullPolicy: imagePullPolicy,
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      WorkspaceShareVolumeName,
@@ -646,7 +676,7 @@ ln -s /share/source/$GIT_DIR /share/workspace
 		container := corev1.Container{
 			Name:            "fetch",
 			Image:           image,
-			ImagePullPolicy: corev1.PullIfNotPresent,
+			ImagePullPolicy: imagePullPolicy,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      WorkspaceShareVolumeName,
@@ -667,7 +697,7 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 		container := corev1.Container{
 			Name:            "fetch",
 			Image:           image,
-			ImagePullPolicy: corev1.PullIfNotPresent,
+			ImagePullPolicy: imagePullPolicy,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      WorkspaceShareVolumeName,
@@ -698,7 +728,7 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 		container := corev1.Container{
 			Name:            "fetch",
 			Image:           image,
-			ImagePullPolicy: corev1.PullIfNotPresent,
+			ImagePullPolicy: imagePullPolicy,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      WorkspaceShareVolumeName,
@@ -755,6 +785,23 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 			return nil, fmt.Errorf("failed to merge pod template: %w", err)
 		}
 		statefulset.Spec.Template = *podTemplate
+	}
+
+	// Add well-known environment variables to the containers and init containers.
+	common := []corev1.EnvVar{
+		{Name: "PULUMI_ENV", Value: "/share/.env"},
+	}
+	for i := range statefulset.Spec.Template.Spec.Containers {
+		statefulset.Spec.Template.Spec.Containers[i].Env = append(
+			statefulset.Spec.Template.Spec.Containers[i].Env,
+			common...,
+		)
+	}
+	for i := range statefulset.Spec.Template.Spec.InitContainers {
+		statefulset.Spec.Template.Spec.InitContainers[i].Env = append(
+			statefulset.Spec.Template.Spec.InitContainers[i].Env,
+			common...,
+		)
 	}
 
 	return statefulset, nil
@@ -826,24 +873,38 @@ func mergePodTemplateSpec(_ context.Context, base *corev1.PodTemplateSpec, patch
 	if patch == nil {
 		return base, nil
 	}
-
-	baseBytes, err := json.Marshal(base)
+	baseData, err := marshalJSON(base)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal JSON for base: %w", err)
 	}
-	patchBytes, err := json.Marshal(patch)
+	patchData, err := marshalJSON(patch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal JSON for pod template: %w", err)
 	}
 
+	// Set the ordering of the init containers such that the base init containers come first.
+	// https://github.com/kubernetes/design-proposals-archive/blob/main/cli/preserve-order-in-strategic-merge-patch.md
+	setElementOrder := []any{}
+	for _, v := range base.Spec.InitContainers {
+		setElementOrder = append(setElementOrder, map[string]any{"name": v.Name})
+	}
+	for _, v := range patch.Spec.InitContainers {
+		setElementOrder = append(setElementOrder, map[string]any{"name": v.Name})
+	}
+	_ = unstructured.SetNestedSlice(patchData, setElementOrder, "spec", "$setElementOrder/initContainers")
+
 	// Calculate the patch result.
-	jsonResultBytes, err := strategicpatch.StrategicMergePatch(baseBytes, patchBytes, &corev1.PodTemplateSpec{})
+	schema, err := strategicpatch.NewPatchMetaFromStruct(&corev1.PodTemplateSpec{})
+	if err != nil {
+		return nil, err
+	}
+	mergedData, err := strategicpatch.StrategicMergeMapPatchUsingLookupPatchMeta(baseData, patchData, schema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate merge patch for pod template: %w", err)
 	}
 
 	patchResult := &corev1.PodTemplateSpec{}
-	if err := json.Unmarshal(jsonResultBytes, patchResult); err != nil {
+	if err := unmarshalJSON(mergedData, patchResult); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal merged pod template: %w", err)
 	}
 

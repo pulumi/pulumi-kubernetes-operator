@@ -71,3 +71,11 @@ Create the advertised address for the controller
 {{- include "pulumi-kubernetes-operator.fullname" . }}.$(POD_NAMESPACE)
 {{- end }}
 {{- end }}
+
+
+{{/*
+Create the name of the image to use
+*/}}
+{{- define "pulumi-kubernetes-operator.imageName" -}}
+{{- .Values.image.registry }}/{{- .Values.image.repository }}:{{- .Values.image.tag | default .Chart.AppVersion }}
+{{- end }}

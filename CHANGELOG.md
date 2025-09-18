@@ -1,9 +1,28 @@
 CHANGELOG
 =========
 
-## Unreleased
+## 2.2.0 (2025-08-11)
 
+- Fixed an issue where new commits wouldn't trigger updates. [#951](https://github.com/pulumi/pulumi-kubernetes-operator/issues/951)
+- New feature: Dynamic environment variables [#976](https://github.com/pulumi/pulumi-kubernetes-operator/pull/976)
+- Added `retryMaxBackoffDurationSeconds` to Stack spec [#827](https://github.com/pulumi/pulumi-kubernetes-operator/issues/827)
+- Adjusted the default retries to retry faster [#827](https://github.com/pulumi/pulumi-kubernetes-operator/issues/827)
+- Avoid logging of config secrets [#990](https://github.com/pulumi/pulumi-kubernetes-operator/pull/990)
+
+## 2.1.0 (2025-05-29)
+
+- Fixed `rbac.extraRules` in Helm chart [#875](https://github.com/pulumi/pulumi-kubernetes-operator/pull/875)
 - New example: pulumi-ts [#843](https://github.com/pulumi/pulumi-kubernetes-operator/pull/843)
+- Use optimized binaries in container images [#852](https://github.com/pulumi/pulumi-kubernetes-operator/pull/852)
+- Deprecate ResourceSelectorType "FS" and "Env" [#920](https://github.com/pulumi/pulumi-kubernetes-operator/pull/920)
+- Helm: configure the agent image [#919](https://github.com/pulumi/pulumi-kubernetes-operator/pull/919)
+- Stabilize the ordering of workspace initContainers [#923](https://github.com/pulumi/pulumi-kubernetes-operator/pull/923)
+- Support for ESC environments in the Stack resource [#924](https://github.com/pulumi/pulumi-kubernetes-operator/pull/924)
+- Add an updateTemplate to the Stack spec [#925](https://github.com/pulumi/pulumi-kubernetes-operator/pull/925)
+- Update to Go 1.24 [#926](https://github.com/pulumi/pulumi-kubernetes-operator/pull/926)
+- More cloud logging options [#927](https://github.com/pulumi/pulumi-kubernetes-operator/pull/927)
+- Program status to be fully Flux-compatible [#928](https://github.com/pulumi/pulumi-kubernetes-operator/pull/928)
+- Improved Flux compatibility for Stack controller [#929](https://github.com/pulumi/pulumi-kubernetes-operator/pull/929)
 
 ## 2.0.0 (2025-02-18)
 
