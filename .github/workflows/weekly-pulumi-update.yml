@@ -1,3 +1,4 @@
+permissions: write-all # Equivalent to default permissions plus id-token: write
 name: weekly-pulumi-update
 "on":
   schedule:
@@ -5,7 +6,11 @@ name: weekly-pulumi-update
   workflow_dispatch: {}
 
 env:
-  GITHUB_TOKEN: ${{ secrets.PULUMI_BOT_TOKEN }}
+  ESC_ACTION_OIDC_AUTH: true
+  ESC_ACTION_OIDC_ORGANIZATION: pulumi
+  ESC_ACTION_OIDC_REQUESTED_TOKEN_TYPE: urn:pulumi:token-type:access_token:organization
+  ESC_ACTION_ENVIRONMENT: github-secrets/pulumi-pulumi-kubernetes-operator
+  ESC_ACTION_EXPORT_ENVIRONMENT_VARIABLES: GITHUB_TOKEN=PULUMI_BOT_TOKEN
 
 jobs:
   update-go-mod:
@@ -15,6 +20,9 @@ jobs:
       matrix:
         goversion: [1.24.x]
     steps:
+      - name: Fetch secrets from ESC
+        id: esc-secrets
+        uses: pulumi/esc-action@v1
       - name: Checkout Repo
         uses: actions/checkout@v4
       - name: Unshallow clone for tags
@@ -63,4 +71,4 @@ jobs:
           pr_title: "Automated pulumi/pulumi upgrade"
           pr_label: "automation/merge"
           pr_allow_empty: true
-          github_token: ${{ secrets.PULUMI_BOT_TOKEN }}
+          github_token: ${{ steps.esc-secrets.outputs.PULUMI_BOT_TOKEN }}

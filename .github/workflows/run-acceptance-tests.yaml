@@ -1,4 +1,5 @@
 ---
+permissions: write-all # Equivalent to default permissions plus id-token: write
 name: Pulumi Kubernetes Operator PR Builds
 on:
   repository_dispatch:
@@ -10,10 +11,13 @@ on:
     branches:
       - master
 env:
-  PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  PULUMI_BOT_TOKEN: ${{ secrets.PULUMI_BOT_TOKEN }}
   VERSION: v0.0-${{ github.sha }}
+  ESC_ACTION_OIDC_AUTH: true
+  ESC_ACTION_OIDC_ORGANIZATION: pulumi
+  ESC_ACTION_OIDC_REQUESTED_TOKEN_TYPE: urn:pulumi:token-type:access_token:organization
+  ESC_ACTION_ENVIRONMENT: github-secrets/pulumi-pulumi-kubernetes-operator
+  ESC_ACTION_EXPORT_ENVIRONMENT_VARIABLES: PULUMI_ACCESS_TOKEN,PULUMI_BOT_TOKEN
 jobs:
   comment-notification:
     runs-on: ubuntu-latest
@@ -38,6 +42,9 @@ jobs:
     if: github.event_name == 'repository_dispatch' ||
       github.event.pull_request.head.repo.full_name == github.repository
     steps:
+      - name: Fetch secrets from ESC
+        id: esc-secrets
+        uses: pulumi/esc-action@v1
       - name: Check out code
         uses: actions/checkout@v4
         with:
@@ -49,8 +56,8 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ steps.esc-secrets.outputs.DOCKER_USERNAME }}
+          password: ${{ steps.esc-secrets.outputs.DOCKER_PASSWORD }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Build
@@ -63,11 +70,15 @@ jobs:
             pulumi/pulumi-kubernetes-operator:${{ env.VERSION }}
           build-args: |
             VERSION=${{ env.VERSION }}
-  
+
+
   lint:
     runs-on: ubuntu-latest
     name: Lint
     steps:
+      - name: Fetch secrets from ESC
+        id: esc-secrets
+        uses: pulumi/esc-action@v1
       - name: Check out code
         uses: actions/checkout@v4
         with:
@@ -85,6 +96,9 @@ jobs:
     if: github.event_name == 'repository_dispatch' ||
       github.event.pull_request.head.repo.full_name == github.repository
     steps:
+      - name: Fetch secrets from ESC
+        id: esc-secrets
+        uses: pulumi/esc-action@v1
       - name: Check out code
         uses: actions/checkout@v4
         with:
@@ -106,7 +120,7 @@ jobs:
         with:
           files: agent/coverage.out,operator/coverage.out
         env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          CODECOV_TOKEN: ${{ steps.esc-secrets.outputs.CODECOV_TOKEN }}
 
   e2e-tests:
     runs-on: ubuntu-latest
@@ -114,6 +128,9 @@ jobs:
     if: github.event_name == 'repository_dispatch' ||
       github.event.pull_request.head.repo.full_name == github.repository
     steps:
+      - name: Fetch secrets from ESC
+        id: esc-secrets
+        uses: pulumi/esc-action@v1
       - name: Setup cluster
         uses: helm/kind-action@v1
         with:
@@ -133,4 +150,4 @@ jobs:
         uses: stateful/vscode-server-action@v1
         if: failure()
         with:
-          timeout: '360000'       # milliseconds
+          timeout: '360000' # milliseconds
