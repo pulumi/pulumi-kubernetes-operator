@@ -616,7 +616,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	}
 
 	// We can exit early if there is no clean-up to do.
-	if isStackMarkedToBeDeleted && !stack.DestroyOnFinalize {
+	// Preview stacks never create resources, so there's nothing to destroy.
+	if isStackMarkedToBeDeleted && (!stack.DestroyOnFinalize || stack.Preview) {
 		instance.Status.MarkReadyCondition()
 		if err = saveStatus(); err != nil {
 			return reconcile.Result{}, err
