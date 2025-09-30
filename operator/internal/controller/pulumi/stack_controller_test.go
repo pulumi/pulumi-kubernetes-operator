@@ -1920,6 +1920,22 @@ func TestIsSynced(t *testing.T) {
 			wantMessage: "New stack generation: 2",
 		},
 		{
+			name: "generation mismatch (deletion case)",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation:        int64(2),
+					DeletionTimestamp: ptr.To(metav1.Now()),
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						Generation: int64(1),
+					},
+				},
+			},
+			want:        false,
+			wantMessage: "Stack marked for deletion",
+		},
+		{
 			name: "marked for deletion",
 			stack: pulumiv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},

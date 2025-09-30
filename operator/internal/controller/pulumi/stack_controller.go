@@ -1066,6 +1066,9 @@ func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.St
 	if stack.Status.LastUpdate.Generation != stack.Generation {
 		log.V(1).Info("Not synced: new generation")
 		msg := fmt.Sprintf("New stack generation: %d", stack.Generation)
+		if stack.DeletionTimestamp != nil {
+			msg = "Stack marked for deletion"
+		}
 		emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), msg)
 		return false, msg
 	}
