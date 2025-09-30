@@ -664,7 +664,7 @@ func (s streamReader[T]) Result() (result, error) {
 			default:
 				s.u.failed.Status = metav1.ConditionTrue
 				s.u.failed.Reason = UpdateConditionReasonUpdateFailed
-				s.u.failed.Message = "Update failed"
+				s.u.failed.Message = ""
 			}
 		} else {
 			s.obj.Status.StartTime = metav1.NewTime(startTime)
@@ -701,7 +701,7 @@ func (s streamReader[T]) setStatusBlockFromGRPCErr(grpcErr error) {
 	s.obj.Status.Message = st.Message()
 	s.u.failed.Status = metav1.ConditionTrue
 	s.u.failed.Reason = "Unknown"
-	s.u.failed.Message = st.Message()
+	s.u.failed.Message = ""
 
 	if len(st.Details()) == 0 {
 		return
@@ -715,7 +715,7 @@ func (s streamReader[T]) setStatusBlockFromGRPCErr(grpcErr error) {
 		s.obj.Status.Message = info.GetMessage()
 		s.u.failed.Status = metav1.ConditionTrue
 		s.u.failed.Reason = info.GetReason()
-		s.u.failed.Message = info.GetMessage()
+		s.u.failed.Message = ""
 	}
 }
 

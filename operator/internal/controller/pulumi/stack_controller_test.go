@@ -1133,6 +1133,52 @@ var _ = Describe("Stack Controller", func() {
 				})
 			})
 		})
+
+		Describe("Preview mode", func() {
+			BeforeEach(func(ctx context.Context) {
+				obj.Spec.Preview = true
+
+				// make the workspace be ready for an update
+				ws.Status.ObservedGeneration = 1
+				ws.Status.Conditions = []metav1.Condition{
+					{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Succeeded", LastTransitionTime: metav1.Now()},
+				}
+			})
+
+			It("creates a preview update", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				ByMarkingAsReconciling(pulumiv1.ReconcilingProcessingReason, Equal(pulumiv1.ReconcilingProcessingUpdateMessage))
+
+				By("creating a preview update op")
+				Expect(currentUpdate).ToNot(BeNil())
+				Expect(currentUpdate.Spec.Type).To(Equal(autov1alpha1.PreviewType))
+			})
+
+			When("marked for deletion with destroyOnFinalize", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.DestroyOnFinalize = true
+					controllerutil.AddFinalizer(obj, pulumiFinalizer)
+				})
+
+				JustBeforeEach(func(ctx context.Context) {
+					Expect(k8sClient.Delete(ctx, obj)).To(Succeed())
+					obj = &pulumiv1.Stack{}
+					_ = k8sClient.Get(ctx, objName, obj)
+				})
+
+				It("finalizes without creating a destroy operation", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("finalizing the object")
+					Expect(obj.Finalizers).ToNot(ContainElement(pulumiFinalizer))
+
+					By("not creating a destroy update")
+					Expect(currentUpdate.Spec.Type).ToNot(Equal(autov1alpha1.DestroyType))
+				})
+			})
+		})
 	})
 
 	Describe("Prerequisites", func() {
