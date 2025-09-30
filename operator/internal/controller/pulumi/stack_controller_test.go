@@ -1895,12 +1895,14 @@ func TestIsSynced(t *testing.T) {
 		stack         pulumiv1.Stack
 		currentCommit string
 
-		want bool
+		want        bool
+		wantMessage string
 	}{
 		{
-			name:  "no update yet",
-			stack: pulumiv1.Stack{},
-			want:  false,
+			name:        "no update yet",
+			stack:       pulumiv1.Stack{},
+			want:        false,
+			wantMessage: "Initial stack update",
 		},
 		{
 			name: "generation mismatch",
@@ -1914,7 +1916,8 @@ func TestIsSynced(t *testing.T) {
 					},
 				},
 			},
-			want: false,
+			want:        false,
+			wantMessage: "New stack generation: 2",
 		},
 		{
 			name: "marked for deletion",
@@ -1927,7 +1930,8 @@ func TestIsSynced(t *testing.T) {
 					},
 				},
 			},
-			want: true,
+			want:        true,
+			wantMessage: "",
 		},
 		{
 			name: "last update succeeeded but a new commit is available",
@@ -1941,6 +1945,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "new-sha",
 			want:          false,
+			wantMessage:   "New commit detected: \"new-sha\"",
 		},
 		{
 			name: "last update succeeeded and we don't continue on commit match",
@@ -1954,6 +1959,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "sha",
 			want:          true,
+			wantMessage:   "",
 		},
 		{
 			name: "last update succeeeded and we continue on commit match but we're inside the resync interval",
@@ -1971,6 +1977,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "sha",
 			want:          true,
+			wantMessage:   "",
 		},
 		{
 			name: "last update succeeeded and we continue on commit match and we're outside the resync interval",
@@ -1988,6 +1995,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "sha",
 			want:          false,
+			wantMessage:   "Resync time elapsed: 1m0s",
 		},
 		{
 			name: "last update failed but we're inside the cooldown interval",
@@ -2003,6 +2011,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "sha",
 			want:          true,
+			wantMessage:   "",
 		},
 		{
 			name: "last update failed and we're inside the cooldown interval, marked for deletion",
@@ -2021,6 +2030,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "sha",
 			want:          true,
+			wantMessage:   "",
 		},
 		{
 			name: "last update failed and we're outside the cooldown interval",
@@ -2036,6 +2046,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "sha",
 			want:          false,
+			wantMessage:   "Backoff time elapsed: 10s",
 		},
 		{
 			name: "last update failed and commit changed, inside cooldown interval",
@@ -2051,6 +2062,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "new-sha",
 			want:          false,
+			wantMessage:   "New commit detected: \"new-sha\"",
 		},
 		{
 			name: "last update failed and commit changed, marked for deletion",
@@ -2069,6 +2081,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "new-sha",
 			want:          false,
+			wantMessage:   "New commit detected: \"new-sha\"",
 		},
 		{
 			name: "unrecognized state",
@@ -2080,7 +2093,8 @@ func TestIsSynced(t *testing.T) {
 					},
 				},
 			},
-			want: true,
+			want:        true,
+			wantMessage: "",
 		},
 	}
 
@@ -2088,11 +2102,13 @@ func TestIsSynced(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			log := testr.New(t)
 			rec := record.NewFakeRecorder(10)
+			synced, message := isSynced(log, rec, &tt.stack, tt.currentCommit)
 			if tt.want {
-				assert.True(t, isSynced(log, rec, &tt.stack, tt.currentCommit), "expected to be in sync (not necessitating an update)")
+				assert.True(t, synced, "expected to be in sync (not necessitating an update)")
 			} else {
-				assert.False(t, isSynced(log, rec, &tt.stack, tt.currentCommit), "expected to NOT be in sync (necessitating an update)")
+				assert.False(t, synced, "expected to NOT be in sync (necessitating an update)")
 			}
+			assert.Equal(t, tt.wantMessage, message, "expected message to match")
 		})
 	}
 }
