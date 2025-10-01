@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+## Unreleased
+
+- Add validation to limit Stack name to 42 characters [#899](https://github.com/pulumi/pulumi-kubernetes-operator/issues/899)
+
 ## 2.2.0 (2025-08-11)
 
 - Fixed an issue where new commits wouldn't trigger updates. [#951](https://github.com/pulumi/pulumi-kubernetes-operator/issues/951)
