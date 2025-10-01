@@ -29,7 +29,7 @@ metadata:
   name: issue-801
   namespace: issue-801
 spec:
-  image: pulumi/pulumi:3.147.0-nonroot
+  image: pulumi/pulumi:3.197.0-nonroot
   securityProfile: restricted
   serviceAccountName: issue-801
   git:

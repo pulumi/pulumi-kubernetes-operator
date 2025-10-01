@@ -39,5 +39,5 @@ spec:
         key: accessToken
   workspaceTemplate:
     spec:
-      image: pulumi/pulumi:3.147.0-nonroot
+      image: pulumi/pulumi:3.197.0-nonroot
 

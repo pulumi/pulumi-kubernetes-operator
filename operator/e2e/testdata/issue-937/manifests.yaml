@@ -60,7 +60,7 @@ spec:
     # note: PULUMI_CONFIG_PASSPHRASE is set dynamically in the workspace template.
   workspaceTemplate:
     spec:
-      image: pulumi/pulumi:3.147.0-nonroot
+      image: pulumi/pulumi:3.197.0-nonroot
       serviceAccountName: issue-937
       podTemplate:
         spec:
