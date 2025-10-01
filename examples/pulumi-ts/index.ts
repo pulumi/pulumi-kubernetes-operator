@@ -53,7 +53,7 @@ const stack = new k8s.apiextensions.CustomResource("random-yaml", {
         },
         workspaceTemplate: {
             spec: {
-                image: "pulumi/pulumi:3.147.0-nonroot",
+                image: "pulumi/pulumi:3.198.0-nonroot",
             },
         },
     },
