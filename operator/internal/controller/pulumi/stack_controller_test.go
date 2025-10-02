@@ -1133,6 +1133,52 @@ var _ = Describe("Stack Controller", func() {
 				})
 			})
 		})
+
+		Describe("Preview mode", func() {
+			BeforeEach(func(ctx context.Context) {
+				obj.Spec.Preview = true
+
+				// make the workspace be ready for an update
+				ws.Status.ObservedGeneration = 1
+				ws.Status.Conditions = []metav1.Condition{
+					{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Succeeded", LastTransitionTime: metav1.Now()},
+				}
+			})
+
+			It("creates a preview update", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				ByMarkingAsReconciling(pulumiv1.ReconcilingProcessingReason, Equal(pulumiv1.ReconcilingProcessingUpdateMessage))
+
+				By("creating a preview update op")
+				Expect(currentUpdate).ToNot(BeNil())
+				Expect(currentUpdate.Spec.Type).To(Equal(autov1alpha1.PreviewType))
+			})
+
+			When("marked for deletion with destroyOnFinalize", func() {
+				BeforeEach(func(ctx context.Context) {
+					obj.Spec.DestroyOnFinalize = true
+					controllerutil.AddFinalizer(obj, pulumiFinalizer)
+				})
+
+				JustBeforeEach(func(ctx context.Context) {
+					Expect(k8sClient.Delete(ctx, obj)).To(Succeed())
+					obj = &pulumiv1.Stack{}
+					_ = k8sClient.Get(ctx, objName, obj)
+				})
+
+				It("finalizes without creating a destroy operation", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("finalizing the object")
+					Expect(obj.Finalizers).ToNot(ContainElement(pulumiFinalizer))
+
+					By("not creating a destroy update")
+					Expect(currentUpdate.Spec.Type).ToNot(Equal(autov1alpha1.DestroyType))
+				})
+			})
+		})
 	})
 
 	Describe("Prerequisites", func() {
@@ -1849,12 +1895,14 @@ func TestIsSynced(t *testing.T) {
 		stack         pulumiv1.Stack
 		currentCommit string
 
-		want bool
+		want        bool
+		wantMessage string
 	}{
 		{
-			name:  "no update yet",
-			stack: pulumiv1.Stack{},
-			want:  false,
+			name:        "no update yet",
+			stack:       pulumiv1.Stack{},
+			want:        false,
+			wantMessage: "Initial stack update",
 		},
 		{
 			name: "generation mismatch",
@@ -1868,7 +1916,24 @@ func TestIsSynced(t *testing.T) {
 					},
 				},
 			},
-			want: false,
+			want:        false,
+			wantMessage: "New stack generation: 2",
+		},
+		{
+			name: "generation mismatch (deletion case)",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation:        int64(2),
+					DeletionTimestamp: ptr.To(metav1.Now()),
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						Generation: int64(1),
+					},
+				},
+			},
+			want:        false,
+			wantMessage: "Stack marked for deletion",
 		},
 		{
 			name: "marked for deletion",
@@ -1881,7 +1946,8 @@ func TestIsSynced(t *testing.T) {
 					},
 				},
 			},
-			want: true,
+			want:        true,
+			wantMessage: "",
 		},
 		{
 			name: "last update succeeeded but a new commit is available",
@@ -1895,6 +1961,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "new-sha",
 			want:          false,
+			wantMessage:   "New commit detected: \"new-sha\"",
 		},
 		{
 			name: "last update succeeeded and we don't continue on commit match",
@@ -1908,6 +1975,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "sha",
 			want:          true,
+			wantMessage:   "",
 		},
 		{
 			name: "last update succeeeded and we continue on commit match but we're inside the resync interval",
@@ -1925,6 +1993,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "sha",
 			want:          true,
+			wantMessage:   "",
 		},
 		{
 			name: "last update succeeeded and we continue on commit match and we're outside the resync interval",
@@ -1942,6 +2011,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "sha",
 			want:          false,
+			wantMessage:   "Resync time elapsed: 1m0s",
 		},
 		{
 			name: "last update failed but we're inside the cooldown interval",
@@ -1957,6 +2027,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "sha",
 			want:          true,
+			wantMessage:   "",
 		},
 		{
 			name: "last update failed and we're inside the cooldown interval, marked for deletion",
@@ -1975,6 +2046,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "sha",
 			want:          true,
+			wantMessage:   "",
 		},
 		{
 			name: "last update failed and we're outside the cooldown interval",
@@ -1990,6 +2062,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "sha",
 			want:          false,
+			wantMessage:   "Backoff time elapsed: 10s",
 		},
 		{
 			name: "last update failed and commit changed, inside cooldown interval",
@@ -2005,6 +2078,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "new-sha",
 			want:          false,
+			wantMessage:   "New commit detected: \"new-sha\"",
 		},
 		{
 			name: "last update failed and commit changed, marked for deletion",
@@ -2023,6 +2097,7 @@ func TestIsSynced(t *testing.T) {
 			},
 			currentCommit: "new-sha",
 			want:          false,
+			wantMessage:   "New commit detected: \"new-sha\"",
 		},
 		{
 			name: "unrecognized state",
@@ -2034,7 +2109,8 @@ func TestIsSynced(t *testing.T) {
 					},
 				},
 			},
-			want: true,
+			want:        true,
+			wantMessage: "",
 		},
 	}
 
@@ -2042,11 +2118,13 @@ func TestIsSynced(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			log := testr.New(t)
 			rec := record.NewFakeRecorder(10)
+			synced, message := isSynced(log, rec, &tt.stack, tt.currentCommit)
 			if tt.want {
-				assert.True(t, isSynced(log, rec, &tt.stack, tt.currentCommit), "expected to be in sync (not necessitating an update)")
+				assert.True(t, synced, "expected to be in sync (not necessitating an update)")
 			} else {
-				assert.False(t, isSynced(log, rec, &tt.stack, tt.currentCommit), "expected to NOT be in sync (necessitating an update)")
+				assert.False(t, synced, "expected to NOT be in sync (necessitating an update)")
 			}
+			assert.Equal(t, tt.wantMessage, message, "expected message to match")
 		})
 	}
 }

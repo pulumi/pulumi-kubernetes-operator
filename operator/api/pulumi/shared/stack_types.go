@@ -177,6 +177,11 @@ type StackSpec struct {
 	// to 86400 (24 hours).
 	// +optional
 	RetryMaxBackoffDurationSeconds int64 `json:"retryMaxBackoffDurationSeconds,omitempty"`
+
+	// (optional) Preview when set to true runs only preview operations, never actual updates.
+	// This allows seeing what changes would be made without applying them.
+	// +optional
+	Preview bool `json:"preview,omitempty"`
 }
 
 // GitSource specifies how to fetch from a git repository directly.

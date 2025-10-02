@@ -1,0 +1,118 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nginx-preview-demo
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: nginx-preview-demo:system:auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: nginx-preview-demo
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: nginx-preview-demo
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: admin
+subjects:
+- kind: ServiceAccount
+  name: nginx-preview-demo
+  namespace: default
+---
+apiVersion: pulumi.com/v1
+kind: Program
+metadata:
+  name: nginx-deployment
+  namespace: default
+program:
+  resources:
+    nginx-deployment:
+      type: kubernetes:apps/v1:Deployment
+      properties:
+        metadata:
+          name: nginx
+        spec:
+          replicas: ${replicas}
+          selector:
+            matchLabels:
+              app: nginx
+          template:
+            metadata:
+              labels:
+                app: nginx
+            spec:
+              containers:
+                - name: nginx
+                  image: nginx:1.27-alpine
+                  ports:
+                    - containerPort: 80
+  configuration:
+    replicas:
+      type: Number
+      default: 2
+---
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: nginx-current
+  namespace: default
+spec:
+  serviceAccountName: nginx-preview-demo
+  programRef:
+    name: nginx-deployment
+  stack: nginx-preview-demo
+  config:
+    replicas: "2"
+  refresh: true
+  continueResyncOnCommitMatch: false
+  destroyOnFinalize: false
+  envRefs:
+    PULUMI_ACCESS_TOKEN:
+      type: Secret
+      secret:
+        name: pulumi-api-secret
+        key: accessToken
+  workspaceTemplate:
+    spec:
+      image: pulumi/pulumi:3.198.0-nonroot
+---
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: nginx-next
+  namespace: default
+spec:
+  serviceAccountName: nginx-preview-demo
+  programRef:
+    name: nginx-deployment
+  stack: nginx-preview-demo
+  config:
+    replicas: "3"   # note the configuration change here
+  prerequisites:
+  - name: nginx-current
+  preview: true     # note that preview mode is enabled here; no resources will ever be created by this Stack object!
+  refresh: true
+  continueResyncOnCommitMatch: true    # preview periodically, not just once per commit
+  resyncFrequencySeconds: 300          # preview every 5 minutes
+  destroyOnFinalize: false             # do not destroy the stack on deletion; it is a preview only
+  envRefs:
+    PULUMI_ACCESS_TOKEN:
+      type: Secret
+      secret:
+        name: pulumi-api-secret
+        key: accessToken
+  workspaceTemplate:
+    spec:
+      image: pulumi/pulumi:3.198.0-nonroot

@@ -625,6 +625,7 @@ func (s streamReader[T]) Recv() (getResulter[T], error) {
 func (s streamReader[T]) Result() (result, error) {
 	var res result
 
+	startTime := time.Now()
 	for {
 		stream, err := s.Recv()
 		if err == io.EOF {
@@ -643,26 +644,38 @@ func (s streamReader[T]) Result() (result, error) {
 
 		s.l.Info("Update complete", "result", res)
 
-		s.obj.Status.StartTime = metav1.NewTime(res.GetSummary().StartTime.AsTime())
-		s.obj.Status.EndTime = metav1.NewTime(res.GetSummary().EndTime.AsTime())
 		if link := res.GetPermalink(); link != "" {
 			s.obj.Status.Permalink = link
 		}
-		s.obj.Status.Message = res.GetSummary().Message
 		s.u.progressing.Status = metav1.ConditionFalse
 		s.u.progressing.Reason = UpdateConditionReasonComplete
 		s.u.complete.Status = metav1.ConditionTrue
 		s.u.complete.Reason = UpdateConditionReasonUpdated
-		switch res.GetSummary().Result {
-		case string(apitype.StatusSucceeded):
+
+		if summary := res.GetSummary(); summary != nil {
+			s.obj.Status.StartTime = metav1.NewTime(summary.StartTime.AsTime())
+			s.obj.Status.EndTime = metav1.NewTime(summary.EndTime.AsTime())
+			s.obj.Status.Message = summary.Message
+			switch summary.Result {
+			case string(apitype.StatusSucceeded):
+				s.u.failed.Status = metav1.ConditionFalse
+				s.u.failed.Reason = UpdateConditionReasonUpdateSucceeded
+				s.u.failed.Message = ""
+			default:
+				s.u.failed.Status = metav1.ConditionTrue
+				s.u.failed.Reason = UpdateConditionReasonUpdateFailed
+				s.u.failed.Message = ""
+			}
+		} else {
+			s.obj.Status.StartTime = metav1.NewTime(startTime)
+			s.obj.Status.EndTime = metav1.NewTime(time.Now())
+			s.obj.Status.Message = ""
+
 			s.u.failed.Status = metav1.ConditionFalse
 			s.u.failed.Reason = UpdateConditionReasonUpdateSucceeded
-			s.u.failed.Message = res.GetSummary().Message
-		default:
-			s.u.failed.Status = metav1.ConditionTrue
-			s.u.failed.Reason = UpdateConditionReasonUpdateFailed
-			s.u.failed.Message = res.GetSummary().Message
+			s.u.failed.Message = ""
 		}
+
 		return res, nil
 	}
 
@@ -688,7 +701,7 @@ func (s streamReader[T]) setStatusBlockFromGRPCErr(grpcErr error) {
 	s.obj.Status.Message = st.Message()
 	s.u.failed.Status = metav1.ConditionTrue
 	s.u.failed.Reason = "Unknown"
-	s.u.failed.Message = st.Message()
+	s.u.failed.Message = ""
 
 	if len(st.Details()) == 0 {
 		return
@@ -702,7 +715,7 @@ func (s streamReader[T]) setStatusBlockFromGRPCErr(grpcErr error) {
 		s.obj.Status.Message = info.GetMessage()
 		s.u.failed.Status = metav1.ConditionTrue
 		s.u.failed.Reason = info.GetReason()
-		s.u.failed.Message = info.GetMessage()
+		s.u.failed.Message = ""
 	}
 }
 

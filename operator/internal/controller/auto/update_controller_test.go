@@ -243,7 +243,7 @@ func TestUpdate(t *testing.T) {
 						Type:    "Failed",
 						Status:  "True",
 						Reason:  "UpdateFailed",
-						Message: "something went wrong",
+						Message: "",
 					},
 					{Type: "Complete", Status: "True", Reason: "Updated"},
 				},
