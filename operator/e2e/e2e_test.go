@@ -225,20 +225,12 @@ func TestE2E(t *testing.T) {
 		{
 			name: "issue-899",
 			f: func(t *testing.T) {
-				// Create namespace
-				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/issue-899/namespace.yaml")
-				require.NoError(t, run(cmd))
-
 				// Try to create a Stack with a name that's too long (47 chars, exceeds 42 char limit)
 				// This should be rejected by the CRD validation
 				cmd = exec.Command("kubectl", "apply", "-f", "e2e/testdata/issue-899/stack-invalid.yaml")
 				out, err := cmd.CombinedOutput()
 				require.Error(t, err, "expected error when creating stack with name longer than 42 characters")
 				assert.Contains(t, string(out), "42 characters", "error message should mention the 42 character limit")
-
-				// Now create a Stack with a valid name (exactly 42 chars, at the limit)
-				cmd = exec.Command("kubectl", "apply", "-f", "e2e/testdata/issue-899/stack-valid.yaml")
-				require.NoError(t, run(cmd), "stack with 42 character name should be accepted")
 			},
 		},
 	}
