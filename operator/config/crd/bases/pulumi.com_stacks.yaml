@@ -9854,9 +9854,7 @@ spec:
             type: object
         type: object
         x-kubernetes-validations:
-        - message: Stack name must be no more than 42 characters to accommodate workspace
-            pod naming (name + '-workspace' + 10-char hash must fit within Kubernetes'
-            63-character label limit)
+        - message: Stack name must be no more than 42 characters in length.
           rule: size(self.metadata.name) <= 42
     served: true
     storage: true
