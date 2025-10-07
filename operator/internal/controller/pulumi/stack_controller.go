@@ -616,7 +616,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	}
 
 	// We can exit early if there is no clean-up to do.
-	if isStackMarkedToBeDeleted && !stack.DestroyOnFinalize {
+	// Preview stacks never create resources, so there's nothing to destroy.
+	if isStackMarkedToBeDeleted && (!stack.DestroyOnFinalize || stack.Preview) {
 		instance.Status.MarkReadyCondition()
 		if err = saveStatus(); err != nil {
 			return reconcile.Result{}, err
@@ -756,7 +757,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	sess.SetSecretEnvs(ctx, stack.SecretEnvs, request.Namespace)
 
 	// Step 2: Evaluate whether an update is needed. If not, we transition to Ready.
-	if isSynced(log, r.Recorder, instance, currentCommit) {
+	synced, updateMessage := isSynced(log, r.Recorder, instance, currentCommit)
+	if synced {
 		// We don't mark the stack as ready if its update failed so downstream
 		// Stack dependencies aren't triggered.
 		if instance.Status.LastUpdate.State == shared.SucceededStackStateMessage {
@@ -908,12 +910,17 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 	var update *autov1alpha1.Update
 	if isStackMarkedToBeDeleted {
-		update, err = sess.newDestroy(ctx, instance, "Stack Update (destroy)")
+		update, err = sess.newDestroy(ctx, instance, updateMessage)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to prepare update (destroy) for stack: %w", err)
 		}
+	} else if instance.Spec.Preview {
+		update, err = sess.newUp(ctx, instance, autov1alpha1.PreviewType, updateMessage)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("unable to prepare update (preview) for stack: %w", err)
+		}
 	} else {
-		update, err = sess.newUp(ctx, instance, "Stack Update (up)")
+		update, err = sess.newUp(ctx, instance, autov1alpha1.UpType, updateMessage)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to prepare update (up) for stack: %w", err)
 		}
@@ -1047,65 +1054,76 @@ func newStackReconcilerSession(
 // specification. i.e. the current spec generation has been applied, the update
 // was successful, the latest commit has been applied, and (if resync is
 // enabled) has been resynced recently.
-func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.Stack, currentCommit string) bool {
+// Returns true if synced, and a message describing the reason for the update if not synced.
+func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.Stack, currentCommit string) (bool, string) {
 	if stack.Status.LastUpdate == nil {
 		log.V(1).Info("Not synced: no last update")
-		emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), "Initial stack update")
-		return false
+		msg := "Initial stack update"
+		emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), msg)
+		return false, msg
 	}
 
 	if stack.Status.LastUpdate.Generation != stack.Generation {
 		log.V(1).Info("Not synced: new generation")
-		emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), "New stack generation: %d", stack.Generation)
-		return false
+		msg := fmt.Sprintf("New stack generation: %d", stack.Generation)
+		if stack.DeletionTimestamp != nil {
+			msg = "Stack marked for deletion"
+		}
+		emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), msg)
+		return false, msg
 	}
 
 	syncRequest, _ := getReconcileRequestAnnotation(stack)
 	if stack.Status.LastUpdate.ReconcileRequest != syncRequest {
 		log.V(1).Info("Not synced: new sync request")
-		emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), "Sync request: %q", syncRequest)
-		return false
+		msg := fmt.Sprintf("Sync request: %q", syncRequest)
+		emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), msg)
+		return false, msg
 	}
 
 	if stack.Status.LastUpdate.State == shared.SucceededStackStateMessage {
 		if stack.DeletionTimestamp != nil { // Marked for deletion (and has already been destroyed).
-			return true
+			return true, ""
 		}
 		if stack.Status.LastUpdate.LastSuccessfulCommit != currentCommit {
 			log.V(1).Info("Not synced: new commit", "current", currentCommit, "last", stack.Status.LastUpdate.LastSuccessfulCommit)
-			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), "New commit detected: %q", currentCommit)
-			return false
+			msg := fmt.Sprintf("New commit detected: %q", currentCommit)
+			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), msg)
+			return false, msg
 		}
 		if !stack.Spec.ContinueResyncOnCommitMatch {
-			return true
+			return true, ""
 		}
 		freq := resyncFreq(stack)
 		if !(time.Since(stack.Status.LastUpdate.LastResyncTime.Time) < freq) {
 			log.V(1).Info("Not synced: resync time elapsed")
-			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), "Resync time %v elapsed", freq)
-			return false
+			msg := fmt.Sprintf("Resync time elapsed: %v", freq)
+			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), msg)
+			return false, msg
 		}
-		return true
+		return true, ""
 	}
 
 	if stack.Status.LastUpdate.State == shared.FailedStackStateMessage {
 		if stack.Status.LastUpdate.LastAttemptedCommit != currentCommit {
 			log.V(1).Info("Not synced: new commit after update failure(s)", "current", currentCommit, "last", stack.Status.LastUpdate.LastAttemptedCommit)
-			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), "New commit detected: %q", currentCommit)
-			return false
+			msg := fmt.Sprintf("New commit detected: %q", currentCommit)
+			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), msg)
+			return false, msg
 		}
 		c := cooldown(stack)
 		if time.Since(stack.Status.LastUpdate.LastResyncTime.Time) >= c {
 			log.V(1).Info("Not synced: backoff time elapsed")
-			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), "Backoff time %v elapsed", c)
-			return false
+			msg := fmt.Sprintf("Backoff time elapsed: %v", c)
+			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), msg)
+			return false, msg
 		}
-		return true
+		return true, ""
 	}
 
 	// We should never get here; if we do the Update is in an unknown state so
 	// don't trigger work for it.
-	return true
+	return true, ""
 }
 
 // cooldown returns the amount of time to wait before a failed Update should be
@@ -1494,7 +1512,7 @@ func (sess *stackReconcilerSession) UpdateConfig(ctx context.Context) error {
 }
 
 // newUp runs `pulumi up` on the stack.
-func (sess *stackReconcilerSession) newUp(_ context.Context, o *pulumiv1.Stack, message string) (*autov1alpha1.Update, error) {
+func (sess *stackReconcilerSession) newUp(_ context.Context, o *pulumiv1.Stack, typ autov1alpha1.UpdateType, message string) (*autov1alpha1.Update, error) {
 	labels := labelsForWorkspace(&o.ObjectMeta)
 	update := &autov1alpha1.Update{
 		TypeMeta: metav1.TypeMeta{
@@ -1509,7 +1527,7 @@ func (sess *stackReconcilerSession) newUp(_ context.Context, o *pulumiv1.Stack, 
 		Spec: autov1alpha1.UpdateSpec{
 			WorkspaceName:     sess.ws.Name,
 			StackName:         sess.stack.Stack,
-			Type:              autov1alpha1.UpType,
+			Type:              typ,
 			TtlAfterCompleted: &metav1.Duration{Duration: ttlForCompletedUpdate},
 			Message:           ptr.To(message),
 			// ExpectNoChanges:  ptr.To(o.Spec.ExpectNoRefreshChanges),

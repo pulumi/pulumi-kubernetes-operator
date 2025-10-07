@@ -146,8 +146,3 @@ jobs:
           go-version-file: 'go.mod'
       - name: Run tests
         run: make -C operator test-e2e
-      - name: 🐛 Debug Build
-        uses: stateful/vscode-server-action@v1
-        if: failure()
-        with:
-          timeout: '360000' # milliseconds

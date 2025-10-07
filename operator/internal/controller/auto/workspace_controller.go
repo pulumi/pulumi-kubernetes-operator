@@ -617,8 +617,8 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 	// apply the 'fetch' init container
 	if source.Git != nil {
 		script := `
-/share/agent init -t /share/source --git-url $GIT_URL --git-revision $GIT_REVISION &&
-ln -s /share/source/$GIT_DIR /share/workspace
+/share/agent init -t /share/source --git-url "$GIT_URL" --git-revision "$GIT_REVISION" &&
+ln -s "/share/source/$GIT_DIR" /share/workspace
 		`
 		env := []corev1.EnvVar{
 			{
@@ -691,8 +691,8 @@ ln -s /share/source/$GIT_DIR /share/workspace
 
 	if source.Flux != nil {
 		script := `
-/share/agent init -t /share/source --flux-url $FLUX_URL --flux-digest $FLUX_DIGEST &&
-ln -s /share/source/$FLUX_DIR /share/workspace
+/share/agent init -t /share/source --flux-url "$FLUX_URL" --flux-digest "$FLUX_DIGEST" &&
+ln -s "/share/source/$FLUX_DIR" /share/workspace
 		`
 		container := corev1.Container{
 			Name:            "fetch",
@@ -724,7 +724,7 @@ ln -s /share/source/$FLUX_DIR /share/workspace
 	}
 
 	if source.Local != nil {
-		script := `ln -s $LOCAL_DIR /share/workspace`
+		script := `ln -s "$LOCAL_DIR" /share/workspace`
 		container := corev1.Container{
 			Name:            "fetch",
 			Image:           image,

@@ -896,6 +896,11 @@ spec:
                   - name
                   type: object
                 type: array
+              preview:
+                description: |-
+                  (optional) Preview when set to true runs only preview operations, never actual updates.
+                  This allows seeing what changes would be made without applying them.
+                type: boolean
               programRef:
                 description: ProgramRef refers to a Program object, to be used as
                   the source for the stack.
@@ -10716,6 +10721,11 @@ spec:
                   - name
                   type: object
                 type: array
+              preview:
+                description: |-
+                  (optional) Preview when set to true runs only preview operations, never actual updates.
+                  This allows seeing what changes would be made without applying them.
+                type: boolean
               programRef:
                 description: ProgramRef refers to a Program object, to be used as
                   the source for the stack.
