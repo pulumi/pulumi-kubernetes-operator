@@ -25,6 +25,7 @@ import (
 type WorkspaceStatusApplyConfiguration struct {
 	ObservedGeneration *int64                           `json:"observedGeneration,omitempty"`
 	Address            *string                          `json:"address,omitempty"`
+	PulumiVersion      *string                          `json:"pulumiVersion,omitempty"`
 	Conditions         []v1.ConditionApplyConfiguration `json:"conditions,omitempty"`
 }
 
@@ -47,6 +48,14 @@ func (b *WorkspaceStatusApplyConfiguration) WithObservedGeneration(value int64) 
 // If called multiple times, the Address field is set to the value of the last call.
 func (b *WorkspaceStatusApplyConfiguration) WithAddress(value string) *WorkspaceStatusApplyConfiguration {
 	b.Address = &value
+	return b
+}
+
+// WithPulumiVersion sets the PulumiVersion field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the PulumiVersion field is set to the value of the last call.
+func (b *WorkspaceStatusApplyConfiguration) WithPulumiVersion(value string) *WorkspaceStatusApplyConfiguration {
+	b.PulumiVersion = &value
 	return b
 }
 

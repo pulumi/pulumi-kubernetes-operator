@@ -114,6 +114,7 @@ message ConfigValueFrom {
     string env = 1;  // The name of an environment variable to read>
     string path = 2; // The path to a file to read.
   }
+  optional bool json = 3; // Parse value as JSON
 }
 
 message SetAllConfigResult {}

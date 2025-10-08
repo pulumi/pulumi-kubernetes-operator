@@ -21,6 +21,7 @@ package v1alpha1
 type ConfigValueFromApplyConfiguration struct {
 	Env  *string `json:"env,omitempty"`
 	Path *string `json:"path,omitempty"`
+	JSON *bool   `json:"json,omitempty"`
 }
 
 // ConfigValueFromApplyConfiguration constructs a declarative configuration of the ConfigValueFrom type for use with
@@ -42,5 +43,13 @@ func (b *ConfigValueFromApplyConfiguration) WithEnv(value string) *ConfigValueFr
 // If called multiple times, the Path field is set to the value of the last call.
 func (b *ConfigValueFromApplyConfiguration) WithPath(value string) *ConfigValueFromApplyConfiguration {
 	b.Path = &value
+	return b
+}
+
+// WithJSON sets the JSON field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the JSON field is set to the value of the last call.
+func (b *ConfigValueFromApplyConfiguration) WithJSON(value bool) *ConfigValueFromApplyConfiguration {
+	b.JSON = &value
 	return b
 }
