@@ -325,7 +325,11 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 					l.V(1).Info("Setting the stack configuration")
 					config := make([]*agentpb.ConfigItem, 0, len(stack.Config))
 					for _, item := range stack.Config {
-						config = append(config, marshalConfigItem(item))
+						configItem, err := marshalConfigItem(item)
+						if err != nil {
+							return err
+						}
+						config = append(config, configItem)
 					}
 					_, err := wc.SetAllConfig(ctx, &agentpb.SetAllConfigRequest{
 						Config: config,

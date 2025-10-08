@@ -1034,6 +1034,12 @@ type stackReconcilerSession struct {
 	update     *autov1alpha1.Update
 }
 
+// stringToJSON converts a string value to apiextensionsv1.JSON
+func stringToJSON(s string) *apiextensionsv1.JSON {
+	raw, _ := json.Marshal(s)
+	return &apiextensionsv1.JSON{Raw: raw}
+}
+
 func newStackReconcilerSession(
 	logger logr.Logger,
 	stack shared.StackSpec,
@@ -1251,11 +1257,11 @@ func makeSecretRefMountPath(secretRef *shared.SecretSelector) string {
 	return "/var/run/secrets/stacks.pulumi.com/secrets/" + secretRef.Name
 }
 
-func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(_ context.Context, ref *shared.ResourceRef) (*string, *autov1alpha1.ConfigValueFrom, error) {
+func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(_ context.Context, ref *shared.ResourceRef) (*apiextensionsv1.JSON, *autov1alpha1.ConfigValueFrom, error) {
 	switch ref.SelectorType {
 	case shared.ResourceSelectorLiteral:
 		if ref.LiteralRef != nil {
-			return ptr.To(ref.LiteralRef.Value), nil, nil
+			return stringToJSON(ref.LiteralRef.Value), nil, nil
 		}
 		return nil, nil, errors.New("missing literal reference in ResourceRef")
 	case shared.ResourceSelectorSecret:
@@ -1482,14 +1488,14 @@ func (sess *stackReconcilerSession) UpdateConfig(ctx context.Context) error {
 	for _, k := range slices.Sorted(maps.Keys(sess.stack.Config)) {
 		ws.Config = append(ws.Config, autov1alpha1.ConfigItem{
 			Key:    k,
-			Value:  ptr.To(sess.stack.Config[k]),
+			Value:  stringToJSON(sess.stack.Config[k]),
 			Secret: ptr.To(false),
 		})
 	}
 	for _, k := range slices.Sorted(maps.Keys(sess.stack.Secrets)) {
 		ws.Config = append(ws.Config, autov1alpha1.ConfigItem{
 			Key:    k,
-			Value:  ptr.To(sess.stack.Secrets[k]),
+			Value:  stringToJSON(sess.stack.Secrets[k]),
 			Secret: ptr.To(true),
 		})
 	}

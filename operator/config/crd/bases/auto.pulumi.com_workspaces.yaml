@@ -8550,16 +8550,19 @@ spec:
                             description: Key is the configuration key or path to set.
                             type: string
                           path:
-                            description: The key contains a path to a property in
-                              a map or list to set
+                            description: |-
+                              Path indicates the key contains a path to a property in a map or list.
+                              Incompatible with structured values (objects, arrays).
                             type: boolean
                           secret:
                             description: Secret marks the configuration value as a
                               secret.
                             type: boolean
                           value:
-                            description: Value is the configuration value to set.
-                            type: string
+                            description: |-
+                              Value is the configuration value to set.
+                              Supports strings, numbers, booleans, objects, and arrays.
+                            x-kubernetes-preserve-unknown-fields: true
                           valueFrom:
                             description: ValueFrom is a reference to a value from
                               the environment or from a file.
@@ -8568,6 +8571,12 @@ spec:
                                 description: Env is an environment variable in the
                                   pulumi container to use as the value.
                                 type: string
+                              json:
+                                description: |-
+                                  JSON indicates the referenced value should be parsed as JSON.
+                                  When true, the value is treated as structured data (object/array/etc).
+                                  When false, the value is treated as a raw string.
+                                type: boolean
                               path:
                                 description: Path is a path to a file in the pulumi
                                   container containing the value.
@@ -8679,6 +8688,10 @@ spec:
                 format: int64
                 minimum: 0
                 type: integer
+              pulumiVersion:
+                description: PulumiVersion is the version of the Pulumi CLI in the
+                  workspace.
+                type: string
             type: object
         type: object
     served: true
