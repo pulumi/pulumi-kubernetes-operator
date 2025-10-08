@@ -9648,7 +9648,7 @@ spec:
                                   secret:
                                     type: boolean
                                   value:
-                                    type: string
+                                    x-kubernetes-preserve-unknown-fields: true
                                   valueFrom:
                                     description: |-
                                       ConfigValueFromApplyConfiguration represents a declarative configuration of the ConfigValueFrom type for use
@@ -9656,6 +9656,8 @@ spec:
                                     properties:
                                       env:
                                         type: string
+                                      json:
+                                        type: boolean
                                       path:
                                         type: string
                                     type: object
@@ -9706,6 +9708,8 @@ spec:
                       observedGeneration:
                         format: int64
                         type: integer
+                      pulumiVersion:
+                        type: string
                     type: object
                 type: object
             required:
@@ -19470,7 +19474,7 @@ spec:
                                   secret:
                                     type: boolean
                                   value:
-                                    type: string
+                                    x-kubernetes-preserve-unknown-fields: true
                                   valueFrom:
                                     description: |-
                                       ConfigValueFromApplyConfiguration represents a declarative configuration of the ConfigValueFrom type for use
@@ -19478,6 +19482,8 @@ spec:
                                     properties:
                                       env:
                                         type: string
+                                      json:
+                                        type: boolean
                                       path:
                                         type: string
                                     type: object
@@ -19528,6 +19534,8 @@ spec:
                       observedGeneration:
                         format: int64
                         type: integer
+                      pulumiVersion:
+                        type: string
                     type: object
                 type: object
             required:
