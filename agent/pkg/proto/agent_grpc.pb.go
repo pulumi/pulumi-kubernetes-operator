@@ -29,6 +29,7 @@ const (
 	AutomationService_Refresh_FullMethodName         = "/agent.AutomationService/Refresh"
 	AutomationService_Up_FullMethodName              = "/agent.AutomationService/Up"
 	AutomationService_Destroy_FullMethodName         = "/agent.AutomationService/Destroy"
+	AutomationService_PulumiVersion_FullMethodName   = "/agent.AutomationService/PulumiVersion"
 )
 
 // AutomationServiceClient is the client API for AutomationService service.
@@ -69,6 +70,9 @@ type AutomationServiceClient interface {
 	// *
 	// Destroy deletes all resources in a stack.
 	Destroy(ctx context.Context, in *DestroyRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DestroyStream], error)
+	// *
+	// PulumiVersion returns the version of the Pulumi CLI.
+	PulumiVersion(ctx context.Context, in *PulumiVersionRequest, opts ...grpc.CallOption) (*PulumiVersionResult, error)
 }
 
 type automationServiceClient struct {
@@ -215,6 +219,16 @@ func (c *automationServiceClient) Destroy(ctx context.Context, in *DestroyReques
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type AutomationService_DestroyClient = grpc.ServerStreamingClient[DestroyStream]
 
+func (c *automationServiceClient) PulumiVersion(ctx context.Context, in *PulumiVersionRequest, opts ...grpc.CallOption) (*PulumiVersionResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PulumiVersionResult)
+	err := c.cc.Invoke(ctx, AutomationService_PulumiVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AutomationServiceServer is the server API for AutomationService service.
 // All implementations must embed UnimplementedAutomationServiceServer
 // for forward compatibility.
@@ -253,6 +267,9 @@ type AutomationServiceServer interface {
 	// *
 	// Destroy deletes all resources in a stack.
 	Destroy(*DestroyRequest, grpc.ServerStreamingServer[DestroyStream]) error
+	// *
+	// PulumiVersion returns the version of the Pulumi CLI.
+	PulumiVersion(context.Context, *PulumiVersionRequest) (*PulumiVersionResult, error)
 	mustEmbedUnimplementedAutomationServiceServer()
 }
 
@@ -292,6 +309,9 @@ func (UnimplementedAutomationServiceServer) Up(*UpRequest, grpc.ServerStreamingS
 }
 func (UnimplementedAutomationServiceServer) Destroy(*DestroyRequest, grpc.ServerStreamingServer[DestroyStream]) error {
 	return status.Errorf(codes.Unimplemented, "method Destroy not implemented")
+}
+func (UnimplementedAutomationServiceServer) PulumiVersion(context.Context, *PulumiVersionRequest) (*PulumiVersionResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PulumiVersion not implemented")
 }
 func (UnimplementedAutomationServiceServer) mustEmbedUnimplementedAutomationServiceServer() {}
 func (UnimplementedAutomationServiceServer) testEmbeddedByValue()                           {}
@@ -466,6 +486,24 @@ func _AutomationService_Destroy_Handler(srv interface{}, stream grpc.ServerStrea
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type AutomationService_DestroyServer = grpc.ServerStreamingServer[DestroyStream]
 
+func _AutomationService_PulumiVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PulumiVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AutomationServiceServer).PulumiVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AutomationService_PulumiVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AutomationServiceServer).PulumiVersion(ctx, req.(*PulumiVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AutomationService_ServiceDesc is the grpc.ServiceDesc for AutomationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -496,6 +534,10 @@ var AutomationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Install",
 			Handler:    _AutomationService_Install_Handler,
+		},
+		{
+			MethodName: "PulumiVersion",
+			Handler:    _AutomationService_PulumiVersion_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
