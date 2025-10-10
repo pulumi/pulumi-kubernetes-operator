@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/blang/semver"
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-lib/handler"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
@@ -497,6 +498,7 @@ var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;update;patch
 
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
@@ -904,6 +906,12 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		return reconcile.Result{}, nil
 	}
 
+	// Check Pulumi version compatibility for JSON configuration
+	if err := checkPulumiVersionForJsonConfig(sess.ws, stack); err != nil {
+		instance.Status.MarkStalledCondition(pulumiv1.StalledPulumiVersionTooLowReason, err.Error())
+		return reconcile.Result{}, saveStatus()
+	}
+
 	// Step 5: Create an Update object to run the update asynchronously
 
 	instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingProcessingReason, pulumiv1.ReconcilingProcessingUpdateMessage)
@@ -1172,6 +1180,53 @@ func resyncFreq(stack *pulumiv1.Stack) time.Duration {
 	return resyncFreq
 }
 
+// hasJsonConfig checks if the stack uses JSON configuration values that require
+// Pulumi CLI >= v3.200.0.
+func hasJsonConfig(stack shared.StackSpec) bool {
+	// Check if Config field has any non-string values
+	for _, v := range stack.Config {
+		// A simple string will have quotes around it when marshaled
+		// Any other JSON type (object, array, number, boolean) will not start with a quote
+		if len(v.Raw) > 0 && v.Raw[0] != '"' {
+			return true
+		}
+	}
+	// Check if ConfigRef has any JSON parsing flags set
+	for _, ref := range stack.ConfigRef {
+		if ref.JSON != nil && *ref.JSON {
+			return true
+		}
+	}
+	return false
+}
+
+// checkPulumiVersionForJsonConfig validates that the Pulumi CLI version in the workspace
+// supports JSON configuration if the stack uses it. Returns an error if the version is too low.
+func checkPulumiVersionForJsonConfig(ws *autov1alpha1.Workspace, stack shared.StackSpec) error {
+	// Only check if JSON config is actually being used
+	if !hasJsonConfig(stack) {
+		return nil
+	}
+
+	if ws.Status.PulumiVersion == "" {
+		return fmt.Errorf("Pulumi version not yet determined")
+	}
+
+	// Parse the version string (tolerant of 'v' prefix and other variations)
+	version, err := semver.ParseTolerant(ws.Status.PulumiVersion)
+	if err != nil {
+		return fmt.Errorf("failed to parse Pulumi version %q: %w", ws.Status.PulumiVersion, err)
+	}
+
+	// Minimum required version is 3.202.0
+	minVersion := semver.MustParse("3.202.0")
+	if version.LT(minVersion) {
+		return fmt.Errorf("Pulumi CLI version %s is too old for JSON configuration support, require >= v3.202.0", ws.Status.PulumiVersion)
+	}
+
+	return nil
+}
+
 // SetEnvs populates the environment the stack run with values
 // from an array of Kubernetes ConfigMaps in a Namespace.
 func (sess *stackReconcilerSession) SetEnvs(ctx context.Context, configMapNames []string, _ string) {
@@ -1304,6 +1359,41 @@ func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(_ context.Con
 	default:
 		return nil, nil, fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
 	}
+}
+
+func makeConfigMapRefMountPath(configMapRef *shared.ConfigMapRef) string {
+	return "/var/run/configmaps/stacks.pulumi.com/configmaps/" + configMapRef.Name
+}
+
+func (sess *stackReconcilerSession) resolveConfigMapRefAsConfigItem(_ context.Context, ref *shared.ConfigMapRef) (*apiextensionsv1.JSON, *autov1alpha1.ConfigValueFrom, error) {
+	if ref == nil {
+		return nil, nil, errors.New("missing ConfigMap reference")
+	}
+
+	// mount the configmap into the pulumi container
+	volumeName := "configmap-" + ref.Name
+	mountPath := makeConfigMapRefMountPath(ref)
+	if !slices.ContainsFunc(sess.wspc.VolumeMounts, func(mnt corev1.VolumeMount) bool {
+		return mnt.Name == volumeName
+	}) {
+		sess.wspc.VolumeMounts = append(sess.wspc.VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: mountPath,
+		})
+		sess.ws.Spec.PodTemplate.Spec.Volumes = append(sess.ws.Spec.PodTemplate.Spec.Volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: ref.Name},
+				},
+			},
+		})
+	}
+
+	return nil, &autov1alpha1.ConfigValueFrom{
+		Path: path.Join(mountPath, ref.Key),
+		JSON: ref.JSON,
+	}, nil
 }
 
 // resolveSecretResourceRef reads a referenced object and returns its value as
@@ -1485,13 +1575,32 @@ func (sess *stackReconcilerSession) setupWorkspace(ctx context.Context) error {
 func (sess *stackReconcilerSession) UpdateConfig(ctx context.Context) error {
 	ws := sess.wss
 
+	// Handle inline config values (now supports JSON)
 	for _, k := range slices.Sorted(maps.Keys(sess.stack.Config)) {
+		jsonValue := sess.stack.Config[k]
 		ws.Config = append(ws.Config, autov1alpha1.ConfigItem{
 			Key:    k,
-			Value:  stringToJSON(sess.stack.Config[k]),
+			Value:  &jsonValue,
 			Secret: ptr.To(false),
 		})
 	}
+
+	// Handle ConfigMap references (new field)
+	for _, k := range slices.Sorted(maps.Keys(sess.stack.ConfigRef)) {
+		ref := sess.stack.ConfigRef[k]
+		value, valueFrom, err := sess.resolveConfigMapRefAsConfigItem(ctx, &ref)
+		if err != nil {
+			return fmt.Errorf("updating configRef for %q: %w", k, err)
+		}
+		ws.Config = append(ws.Config, autov1alpha1.ConfigItem{
+			Key:       k,
+			Value:     value,
+			ValueFrom: valueFrom,
+			Secret:    ptr.To(false),
+		})
+	}
+
+	// Handle deprecated inline secrets
 	for _, k := range slices.Sorted(maps.Keys(sess.stack.Secrets)) {
 		ws.Config = append(ws.Config, autov1alpha1.ConfigItem{
 			Key:    k,
@@ -1499,6 +1608,8 @@ func (sess *stackReconcilerSession) UpdateConfig(ctx context.Context) error {
 			Secret: ptr.To(true),
 		})
 	}
+
+	// Handle secret references
 	for _, k := range slices.Sorted(maps.Keys(sess.stack.SecretRefs)) {
 		ref := sess.stack.SecretRefs[k]
 		value, valueFrom, err := sess.resolveResourceRefAsConfigItem(ctx, &ref)
