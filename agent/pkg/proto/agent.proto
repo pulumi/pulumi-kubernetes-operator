@@ -62,6 +62,11 @@ service AutomationService {
    * Destroy deletes all resources in a stack.
    */
   rpc Destroy(DestroyRequest) returns (stream DestroyStream) {}
+
+  /**
+   * PulumiVersion returns the version of the Pulumi CLI.
+   */
+  rpc PulumiVersion(PulumiVersionRequest) returns (PulumiVersionResult) {}
 }
 
 message WhoAmIRequest {}
@@ -114,6 +119,7 @@ message ConfigValueFrom {
     string env = 1;  // The name of an environment variable to read>
     string path = 2; // The path to a file to read.
   }
+  optional bool json = 3; // Parse value as JSON
 }
 
 message SetAllConfigResult {}
@@ -292,4 +298,10 @@ message PulumiErrorInfo {
   int32 code = 1;
   string reason = 2;
   string message = 3;
+}
+
+message PulumiVersionRequest {}
+
+message PulumiVersionResult {
+  string version = 1; // e.g., "v3.200.0"
 }

@@ -99,11 +99,34 @@ spec:
                   is mutually exclusive with the Branch setting. Either value needs to be specified.
                 type: string
               config:
-                additionalProperties:
-                  type: string
                 description: |-
                   (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
                   is omitted, configuration is assumed to be checked in and taken from the source repository.
+                  Supports both simple string values and structured values (objects, arrays, numbers, booleans).
+                x-kubernetes-preserve-unknown-fields: true
+              configRef:
+                additionalProperties:
+                  description: ConfigMapRef identifies information to load from a
+                    Kubernetes ConfigMap.
+                  properties:
+                    json:
+                      description: |-
+                        JSON indicates the referenced value should be parsed as JSON.
+                        When true, the value is treated as structured data (object/array/etc).
+                        When false, the value is treated as a raw string.
+                      type: boolean
+                    key:
+                      description: Key within the ConfigMap to use
+                      type: string
+                    name:
+                      description: Name of the ConfigMap
+                      type: string
+                  required:
+                  - key
+                  - name
+                  type: object
+                description: (optional) ConfigRef allows specifying configuration
+                  values from ConfigMaps.
                 type: object
               continueResyncOnCommitMatch:
                 description: |-
@@ -9648,7 +9671,7 @@ spec:
                                   secret:
                                     type: boolean
                                   value:
-                                    type: string
+                                    x-kubernetes-preserve-unknown-fields: true
                                   valueFrom:
                                     description: |-
                                       ConfigValueFromApplyConfiguration represents a declarative configuration of the ConfigValueFrom type for use
@@ -9656,6 +9679,8 @@ spec:
                                     properties:
                                       env:
                                         type: string
+                                      json:
+                                        type: boolean
                                       path:
                                         type: string
                                     type: object
@@ -9706,6 +9731,8 @@ spec:
                       observedGeneration:
                         format: int64
                         type: integer
+                      pulumiVersion:
+                        type: string
                     type: object
                 type: object
             required:
@@ -9921,11 +9948,34 @@ spec:
                   is mutually exclusive with the Branch setting. Either value needs to be specified.
                 type: string
               config:
-                additionalProperties:
-                  type: string
                 description: |-
                   (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
                   is omitted, configuration is assumed to be checked in and taken from the source repository.
+                  Supports both simple string values and structured values (objects, arrays, numbers, booleans).
+                x-kubernetes-preserve-unknown-fields: true
+              configRef:
+                additionalProperties:
+                  description: ConfigMapRef identifies information to load from a
+                    Kubernetes ConfigMap.
+                  properties:
+                    json:
+                      description: |-
+                        JSON indicates the referenced value should be parsed as JSON.
+                        When true, the value is treated as structured data (object/array/etc).
+                        When false, the value is treated as a raw string.
+                      type: boolean
+                    key:
+                      description: Key within the ConfigMap to use
+                      type: string
+                    name:
+                      description: Name of the ConfigMap
+                      type: string
+                  required:
+                  - key
+                  - name
+                  type: object
+                description: (optional) ConfigRef allows specifying configuration
+                  values from ConfigMaps.
                 type: object
               continueResyncOnCommitMatch:
                 description: |-
@@ -19470,7 +19520,7 @@ spec:
                                   secret:
                                     type: boolean
                                   value:
-                                    type: string
+                                    x-kubernetes-preserve-unknown-fields: true
                                   valueFrom:
                                     description: |-
                                       ConfigValueFromApplyConfiguration represents a declarative configuration of the ConfigValueFrom type for use
@@ -19478,6 +19528,8 @@ spec:
                                     properties:
                                       env:
                                         type: string
+                                      json:
+                                        type: boolean
                                       path:
                                         type: string
                                     type: object
@@ -19528,6 +19580,8 @@ spec:
                       observedGeneration:
                         format: int64
                         type: integer
+                      pulumiVersion:
+                        type: string
                     type: object
                 type: object
             required:

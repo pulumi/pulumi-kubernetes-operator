@@ -16,12 +16,16 @@
 
 package v1alpha1
 
+import (
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+)
+
 // ConfigItemApplyConfiguration represents a declarative configuration of the ConfigItem type for use
 // with apply.
 type ConfigItemApplyConfiguration struct {
 	Key       *string                            `json:"key,omitempty"`
 	Path      *bool                              `json:"path,omitempty"`
-	Value     *string                            `json:"value,omitempty"`
+	Value     *v1.JSON                           `json:"value,omitempty"`
 	ValueFrom *ConfigValueFromApplyConfiguration `json:"valueFrom,omitempty"`
 	Secret    *bool                              `json:"secret,omitempty"`
 }
@@ -51,7 +55,7 @@ func (b *ConfigItemApplyConfiguration) WithPath(value bool) *ConfigItemApplyConf
 // WithValue sets the Value field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Value field is set to the value of the last call.
-func (b *ConfigItemApplyConfiguration) WithValue(value string) *ConfigItemApplyConfiguration {
+func (b *ConfigItemApplyConfiguration) WithValue(value v1.JSON) *ConfigItemApplyConfiguration {
 	b.Value = &value
 	return b
 }

@@ -258,16 +258,43 @@ func (s *Server) SetAllConfig(ctx context.Context, in *pb.SetAllConfigRequest) (
 		return nil, fmt.Errorf("getting project settings: %w", err)
 	}
 
-	config, err := unmarshalConfigItems(p.Name.String(), in.Config)
-	if err != nil {
-		return nil, fmt.Errorf("config items: %w", err)
+	// Check if any config items contain JSON values
+	hasJson := false
+	for _, item := range in.Config {
+		if hasJsonValue(item) {
+			hasJson = true
+			break
+		}
 	}
 
-	s.log.Debugw("setting all config", "keys", slices.Collect(maps.Keys(config)))
+	s.log.Debugw("setting all config", "count", len(in.Config), "hasJson", hasJson)
 
-	err = stack.SetAllConfigWithOptions(ctx, config, &auto.ConfigOptions{Path: true})
-	if err != nil {
-		return nil, err
+	if hasJson {
+		// Use JSON-aware config setting
+		config, err := unmarshalConfigItemsJson(p.Name.String(), in.Config)
+		if err != nil {
+			return nil, fmt.Errorf("config items: %w", err)
+		}
+
+		s.log.Debugw("setting config with JSON values", "keys", slices.Collect(maps.Keys(config)))
+
+		// TODO: This requires the automation API to be updated with SetAllConfigJsonWithOptions
+		// For now, return an error indicating JSON config is not yet supported
+		return nil, status.Error(codes.Unimplemented,
+			"JSON configuration values require Pulumi CLI v3.200.0+ and automation API support (not yet available)")
+	} else {
+		// Use legacy path-based config setting
+		config, err := unmarshalConfigItems(p.Name.String(), in.Config)
+		if err != nil {
+			return nil, fmt.Errorf("config items: %w", err)
+		}
+
+		s.log.Debugw("setting config with path support", "keys", slices.Collect(maps.Keys(config)))
+
+		err = stack.SetAllConfigWithOptions(ctx, config, &auto.ConfigOptions{Path: true})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &pb.SetAllConfigResult{}, nil
@@ -277,10 +304,19 @@ func (s *Server) SetAllConfig(ctx context.Context, in *pb.SetAllConfigRequest) (
 // structure is appropriate for invoking with `pulumi config set-all --path`
 // for efficiency. Config items whose keys are not meant to be treated as paths
 // are escaped so they are treated as verbatim property paths.
+//
+// If any ConfigItem contains JSON values, this function will detect that and
+// return an error, signaling the caller should use unmarshalConfigItemsJson instead.
 func unmarshalConfigItems(project string, items []*pb.ConfigItem) (auto.ConfigMap, error) {
 	out := auto.ConfigMap{}
+	hasJsonValues := false
 
 	for _, item := range items {
+		// Check if this item has JSON values
+		if hasJsonValue(item) {
+			hasJsonValues = true
+		}
+
 		v, err := unmarshalConfigItem(item) // Resolves valueFrom.
 		if err != nil {
 			return nil, fmt.Errorf("unmarshalling %q config: %w", item.Key, err)
@@ -311,6 +347,117 @@ func unmarshalConfigItems(project string, items []*pb.ConfigItem) (auto.ConfigMa
 		}
 
 		out[k.String()] = v
+	}
+
+	if hasJsonValues {
+		return nil, status.Error(codes.FailedPrecondition, "config contains JSON values, use SetAllConfigJsonWithOptions")
+	}
+
+	return out, nil
+}
+
+// hasJsonValue checks if a ConfigItem contains or should be treated as a JSON value
+func hasJsonValue(item *pb.ConfigItem) bool {
+	switch vv := item.V.(type) {
+	case *pb.ConfigItem_Value:
+		// Check if the value is not a simple string (i.e., it's a structured value)
+		val := vv.Value.AsInterface()
+		switch val.(type) {
+		case string, nil:
+			return false
+		default:
+			// Maps, arrays, numbers, booleans are JSON values
+			return true
+		}
+	case *pb.ConfigItem_ValueFrom:
+		// Check if json flag is set
+		return vv.ValueFrom.GetJson()
+	}
+	return false
+}
+
+// unmarshalConfigItemsJson builds a JSON configuration document for use with
+// SetAllConfigJsonWithOptions. This is used when at least one config item
+// contains a structured (JSON) value.
+func unmarshalConfigItemsJson(project string, items []*pb.ConfigItem) (map[string]auto.ConfigValue, error) {
+	out := make(map[string]auto.ConfigValue)
+
+	for _, item := range items {
+		// Validate: path and json are incompatible
+		if item.GetPath() && hasJsonValue(item) {
+			return nil, status.Errorf(codes.InvalidArgument,
+				"config item %q: path=true is incompatible with JSON values", item.Key)
+		}
+
+		// ParseKey requires all keys to be explicitly namespaced
+		key := item.Key
+		if !strings.Contains(key, tokens.TokenDelimiter) {
+			key = project + ":" + key
+		}
+		k, err := config.ParseKey(key)
+		if err != nil {
+			return nil, fmt.Errorf("parsing %q key: %w", key, err)
+		}
+
+		var cv auto.ConfigValue
+		cv.Secret = item.GetSecret()
+
+		switch vv := item.V.(type) {
+		case *pb.ConfigItem_Value:
+			val := vv.Value.AsInterface()
+			switch v := val.(type) {
+			case string:
+				// Simple string value
+				cv.Value = v
+			default:
+				// Structured value (object, array, number, boolean)
+				// TODO: When automation API supports Object field, uncomment:
+				// cv.Object = val
+				jsonBytes, err := json.Marshal(val)
+				if err != nil {
+					return nil, fmt.Errorf("marshaling %q value to JSON: %w", item.Key, err)
+				}
+				cv.Value = string(jsonBytes)
+			}
+		case *pb.ConfigItem_ValueFrom:
+			// Read the value from environment or filesystem
+			var data string
+			switch from := vv.ValueFrom.F.(type) {
+			case *pb.ConfigValueFrom_Env:
+				envData, ok := os.LookupEnv(from.Env)
+				if !ok {
+					return nil, status.Errorf(codes.InvalidArgument,
+						"missing value for environment variable: %s", from.Env)
+				}
+				data = envData
+			case *pb.ConfigValueFrom_Path:
+				fileData, err := os.ReadFile(from.Path)
+				if err != nil {
+					return nil, status.Errorf(codes.InvalidArgument,
+						"unreadable path: %s", from.Path)
+				}
+				data = string(fileData)
+			default:
+				return nil, status.Error(codes.InvalidArgument, "invalid config value")
+			}
+
+			// If json flag is set, parse as JSON
+			if vv.ValueFrom.GetJson() {
+				var obj interface{}
+				if err := json.Unmarshal([]byte(data), &obj); err != nil {
+					return nil, fmt.Errorf("parsing %q as JSON: %w", item.Key, err)
+				}
+				cv.Value = data
+				// TODO: When automation API supports Object field, uncomment:
+				// cv.Object = obj
+			} else {
+				cv.Value = data
+			}
+		default:
+			return nil, status.Error(codes.InvalidArgument, "invalid config value")
+		}
+
+		out[k.String()] = cv
 	}
 
 	return out, nil
@@ -646,6 +793,11 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 }
 
 // Destroy implements proto.AutomationServiceServer.
+func (s *Server) PulumiVersion(ctx context.Context, in *pb.PulumiVersionRequest) (*pb.PulumiVersionResult, error) {
+	version := s.ws.PulumiVersion()
+	return &pb.PulumiVersionResult{Version: version}, nil
+}
+
 func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_DestroyServer) error {
 	ctx := srv.Context()
 	stack, err := s.ensureStack(ctx)

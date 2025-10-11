@@ -31,19 +31,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-func marshalConfigItem(item autov1alpha1.ConfigItem) *agentpb.ConfigItem {
+func marshalConfigItem(item autov1alpha1.ConfigItem) (*agentpb.ConfigItem, error) {
 	v := &agentpb.ConfigItem{
 		Key:    item.Key,
 		Path:   item.Path,
 		Secret: item.Secret,
 	}
 	if item.Value != nil {
+		// Convert apiextensionsv1.JSON to structpb.Value
+		var val interface{}
+		if err := json.Unmarshal(item.Value.Raw, &val); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal config value: %w", err)
+		}
+		pbValue, err := structpb.NewValue(val)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert config value to protobuf: %w", err)
+		}
 		v.V = &agentpb.ConfigItem_Value{
-			Value: structpb.NewStringValue(*item.Value),
+			Value: pbValue,
 		}
 	}
 	if item.ValueFrom != nil {
-		f := &agentpb.ConfigValueFrom{}
+		f := &agentpb.ConfigValueFrom{
+			Json: item.ValueFrom.JSON,
+		}
 		if item.ValueFrom.Env != "" {
 			f.F = &agentpb.ConfigValueFrom_Env{
 				Env: item.ValueFrom.Env,
@@ -57,7 +68,7 @@ func marshalConfigItem(item autov1alpha1.ConfigItem) *agentpb.ConfigItem {
 			ValueFrom: f,
 		}
 	}
-	return v
+	return v, nil
 }
 
 var l = log.Log.WithName("predicate").WithName("debug")

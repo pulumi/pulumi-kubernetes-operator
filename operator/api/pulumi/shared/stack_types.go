@@ -63,11 +63,19 @@ type StackSpec struct {
 	Stack string `json:"stack"`
 	// (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, configuration is assumed to be checked in and taken from the source repository.
-	Config map[string]string `json:"config,omitempty"`
+	// Supports both simple string values and structured values (objects, arrays, numbers, booleans).
+	// +optional
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Config map[string]apiextensionsv1.JSON `json:"config,omitempty"`
 	// (optional) Secrets is the secret configuration for this stack, which can be optionally specified inline. If this
 	// is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
 	// Deprecated: use SecretRefs instead.
 	Secrets map[string]string `json:"secrets,omitempty"`
+
+	// (optional) ConfigRef allows specifying configuration values from ConfigMaps.
+	// +optional
+	ConfigRef map[string]ConfigMapRef `json:"configRef,omitempty"`
 
 	// (optional) SecretRefs is the secret configuration for this stack which can be specified through ResourceRef.
 	// If this is omitted, secrets configuration is assumed to be checked in and taken from the source repository.
@@ -407,6 +415,19 @@ type SecretSelector struct {
 type LiteralRef struct {
 	// Value to load
 	Value string `json:"value"`
+}
+
+// ConfigMapRef identifies information to load from a Kubernetes ConfigMap.
+type ConfigMapRef struct {
+	// Name of the ConfigMap
+	Name string `json:"name"`
+	// Key within the ConfigMap to use
+	Key string `json:"key"`
+	// JSON indicates the referenced value should be parsed as JSON.
+	// When true, the value is treated as structured data (object/array/etc).
+	// When false, the value is treated as a raw string.
+	// +optional
+	JSON *bool `json:"json,omitempty"`
 }
 
 // StackStatus defines the observed state of Stack
