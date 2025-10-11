@@ -383,6 +383,17 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		emitEvent(r.Recorder, w, autov1alpha1.InitializedEvent(), "Initialized workspace pod %q", pod.Name)
 	}
 
+	// Query the Pulumi CLI version from the workspace
+	l.V(1).Info("Querying Pulumi version")
+	versionResp, err := wc.PulumiVersion(ctx, &agentpb.PulumiVersionRequest{})
+	if err != nil {
+		l.Error(err, "unable to query Pulumi version; proceeding anyway")
+		// Don't fail the reconciliation if we can't get the version
+	} else {
+		w.Status.PulumiVersion = versionResp.Version
+		l.Info("Pulumi version detected", "version", versionResp.Version)
+	}
+
 	ready.Status = metav1.ConditionTrue
 	ready.Reason = "Succeeded"
 	ready.Message = ""

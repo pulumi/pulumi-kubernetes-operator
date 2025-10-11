@@ -43,6 +43,15 @@ func marshalConfigItem(item autov1alpha1.ConfigItem) (*agentpb.ConfigItem, error
 		if err := json.Unmarshal(item.Value.Raw, &val); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal config value: %w", err)
 		}
+
+		// Validate: path=true is incompatible with structured values (non-strings)
+		if item.Path != nil && *item.Path {
+			// Check if the value is not a simple string
+			if _, isString := val.(string); !isString && val != nil {
+				return nil, fmt.Errorf("path=true is incompatible with structured values (objects, arrays, etc.) for key %q", item.Key)
+			}
+		}
+
 		pbValue, err := structpb.NewValue(val)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert config value to protobuf: %w", err)
