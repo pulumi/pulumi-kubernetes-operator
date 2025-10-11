@@ -51,6 +51,17 @@ import (
 
 var _userAgent = fmt.Sprintf("pulumi-kubernetes-operator/%s", version.Version)
 
+// configValueJSON is the shape of the --json output for a configuration value.
+// This matches the format expected by `pulumi config set-all --json`.
+// When the value is a simple string, only Value is set.
+// When the value is a structured type (object, array, number, boolean), both
+// Value (JSON-encoded string) and ObjectValue (natural value) are set.
+type configValueJSON struct {
+	Value       *string `json:"value,omitempty"`
+	ObjectValue any     `json:"objectValue,omitempty"`
+	Secret      bool    `json:"secret"`
+}
+
 type Server struct {
 	log            *zap.SugaredLogger
 	plog           *zap.Logger
@@ -384,10 +395,10 @@ func hasJsonValue(item *pb.ConfigItem) bool {
 }
 
 // unmarshalConfigItemsJson builds a JSON configuration document for use with
-// SetAllConfigJsonWithOptions. This is used when at least one config item
+// SetAllConfigJson. This is used when at least one config item
 // contains a structured (JSON) value.
-func unmarshalConfigItemsJson(project string, items []*pb.ConfigItem) (map[string]auto.ConfigValue, error) {
-	out := make(map[string]auto.ConfigValue)
+func unmarshalConfigItemsJson(project string, items []*pb.ConfigItem) (map[string]configValueJSON, error) {
+	out := make(map[string]configValueJSON)
 
 	for _, item := range items {
 		// Validate: path and json are incompatible
@@ -406,7 +417,7 @@ func unmarshalConfigItemsJson(project string, items []*pb.ConfigItem) (map[strin
 			return nil, fmt.Errorf("parsing %q key: %w", key, err)
 		}
 
-		var cv auto.ConfigValue
+		var cv configValueJSON
 		cv.Secret = item.GetSecret()
 
 		switch vv := item.V.(type) {
@@ -414,17 +425,18 @@ func unmarshalConfigItemsJson(project string, items []*pb.ConfigItem) (map[strin
 			val := vv.Value.AsInterface()
 			switch v := val.(type) {
 			case string:
-				// Simple string value
-				cv.Value = v
+				// Simple string value - set only Value field
+				cv.Value = &v
 			default:
 				// Structured value (object, array, number, boolean)
-				// TODO: When automation API supports Object field, uncomment:
-				// cv.Object = val
+				// Set both Value (JSON string) and ObjectValue (natural value)
 				jsonBytes, err := json.Marshal(val)
 				if err != nil {
 					return nil, fmt.Errorf("marshaling %q value to JSON: %w", item.Key, err)
 				}
-				cv.Value = string(jsonBytes)
+				jsonStr := string(jsonBytes)
+				cv.Value = &jsonStr
+				cv.ObjectValue = val
 			}
 		case *pb.ConfigItem_ValueFrom:
 			// Read the value from environment or filesystem
@@ -448,17 +460,17 @@ func unmarshalConfigItemsJson(project string, items []*pb.ConfigItem) (map[strin
 				return nil, status.Error(codes.InvalidArgument, "invalid config value")
 			}
 
-			// If json flag is set, parse as JSON
+			// If json flag is set, parse as JSON and set both Value and ObjectValue
 			if vv.ValueFrom.GetJson() {
 				var obj interface{}
 				if err := json.Unmarshal([]byte(data), &obj); err != nil {
 					return nil, fmt.Errorf("parsing %q as JSON: %w", item.Key, err)
 				}
-				cv.Value = data
-				// TODO: When automation API supports Object field, uncomment:
-				// cv.Object = obj
+				cv.Value = &data
+				cv.ObjectValue = obj
 			} else {
-				cv.Value = data
+				// Simple string - set only Value field
+				cv.Value = &data
 			}
 		default:
 			return nil, status.Error(codes.InvalidArgument, "invalid config value")
