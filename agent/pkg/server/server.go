@@ -278,10 +278,17 @@ func (s *Server) SetAllConfig(ctx context.Context, in *pb.SetAllConfigRequest) (
 
 		s.log.Debugw("setting config with JSON values", "keys", slices.Collect(maps.Keys(config)))
 
-		// TODO: This requires the automation API to be updated with SetAllConfigJsonWithOptions
-		// For now, return an error indicating JSON config is not yet supported
-		return nil, status.Error(codes.Unimplemented,
-			"JSON configuration values require Pulumi CLI v3.200.0+ and automation API support (not yet available)")
+		// Marshal the config map to JSON string for the new API method
+		configJson, err := json.Marshal(config)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling config to JSON: %w", err)
+		}
+
+		// Use the new JSON config method (requires Pulumi CLI v3.200.0+)
+		err = stack.SetAllConfigJson(ctx, string(configJson), &auto.ConfigOptions{})
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		// Use legacy path-based config setting
 		config, err := unmarshalConfigItems(p.Name.String(), in.Config)

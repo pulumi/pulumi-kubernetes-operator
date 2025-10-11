@@ -86,7 +86,7 @@ spec:
         key: accessToken
   workspaceTemplate:
     spec:
-      image: pulumi/pulumi:3.198.0-nonroot
+      image: pulumi/pulumi:3.202.0-nonroot
 ---
 apiVersion: pulumi.com/v1
 kind: Stack
@@ -115,4 +115,4 @@ spec:
         key: accessToken
   workspaceTemplate:
     spec:
-      image: pulumi/pulumi:3.198.0-nonroot
+      image: pulumi/pulumi:3.202.0-nonroot
