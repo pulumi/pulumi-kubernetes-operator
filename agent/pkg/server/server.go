@@ -295,7 +295,7 @@ func (s *Server) SetAllConfig(ctx context.Context, in *pb.SetAllConfigRequest) (
 			return nil, fmt.Errorf("marshaling config to JSON: %w", err)
 		}
 
-		// Use the new JSON config method (requires Pulumi CLI v3.200.0+)
+		// Use the new JSON config method (requires Pulumi CLI v3.202.0+)
 		err = stack.SetAllConfigJson(ctx, string(configJson), &auto.ConfigOptions{})
 		if err != nil {
 			return nil, err
