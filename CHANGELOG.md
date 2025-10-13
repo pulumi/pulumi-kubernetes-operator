@@ -4,7 +4,8 @@ CHANGELOG
 ## Unreleased
 
 - New feature: preview mode [#1012](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1012)
-
+- New feature: structured configuration [#1023](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1023)
+- 
 ## 2.2.0 (2025-08-11)
 
 - Fixed an issue where new commits wouldn't trigger updates. [#951](https://github.com/pulumi/pulumi-kubernetes-operator/issues/951)
