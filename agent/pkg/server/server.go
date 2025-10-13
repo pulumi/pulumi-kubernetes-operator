@@ -289,7 +289,7 @@ func (s *Server) SetAllConfig(ctx context.Context, in *pb.SetAllConfigRequest) (
 
 		s.log.Debugw("setting config with JSON values", "keys", slices.Collect(maps.Keys(config)))
 
-		// Marshal the config map to JSON string for the new API method
+		// Marshal the config map to a JSON string
 		configJson, err := json.Marshal(config)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling config to JSON: %w", err)
@@ -301,7 +301,7 @@ func (s *Server) SetAllConfig(ctx context.Context, in *pb.SetAllConfigRequest) (
 			return nil, err
 		}
 	} else {
-		// Use legacy path-based config setting
+		// Use path-based config setting
 		config, err := unmarshalConfigItems(p.Name.String(), in.Config)
 		if err != nil {
 			return nil, fmt.Errorf("config items: %w", err)
@@ -327,12 +327,10 @@ func (s *Server) SetAllConfig(ctx context.Context, in *pb.SetAllConfigRequest) (
 // return an error, signaling the caller should use unmarshalConfigItemsJson instead.
 func unmarshalConfigItems(project string, items []*pb.ConfigItem) (auto.ConfigMap, error) {
 	out := auto.ConfigMap{}
-	hasJsonValues := false
 
 	for _, item := range items {
-		// Check if this item has JSON values
 		if hasJsonValue(item) {
-			hasJsonValues = true
+			return nil, fmt.Errorf("config contains JSON values")
 		}
 
 		v, err := unmarshalConfigItem(item) // Resolves valueFrom.
@@ -365,10 +363,6 @@ func unmarshalConfigItems(project string, items []*pb.ConfigItem) (auto.ConfigMa
 		}
 
 		out[k.String()] = v
-	}
-
-	if hasJsonValues {
-		return nil, status.Error(codes.FailedPrecondition, "config contains JSON values, use SetAllConfigJsonWithOptions")
 	}
 
 	return out, nil
