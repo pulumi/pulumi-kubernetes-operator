@@ -27,7 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/blang/semver"
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-lib/handler"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
@@ -901,15 +900,17 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		return reconcile.Result{}, fmt.Errorf("unable to create workspace: %w", err)
 	}
 	if !isWorkspaceReady(sess.ws) {
+		// Check if workspace is stalled with incompatible configuration
+		stalledCond := meta.FindStatusCondition(sess.ws.Status.Conditions, autov1alpha1.WorkspaceStalled)
+		if stalledCond != nil && stalledCond.Status == metav1.ConditionTrue && stalledCond.Reason == "IncompatibleConfiguration" {
+			// Propagate the workspace stalled condition to the stack
+			log.Info("Workspace is stalled due to incompatible configuration", "message", stalledCond.Message)
+			instance.Status.MarkStalledCondition(pulumiv1.StalledPulumiVersionTooLowReason, stalledCond.Message)
+			return reconcile.Result{}, saveStatus()
+		}
 		// watch the workspace for status updates
 		log.V(1).Info("waiting for workspace to be ready")
 		return reconcile.Result{}, nil
-	}
-
-	// Check Pulumi version compatibility for JSON configuration
-	if err := checkPulumiVersionForJsonConfig(sess.ws, stack); err != nil {
-		instance.Status.MarkStalledCondition(pulumiv1.StalledPulumiVersionTooLowReason, err.Error())
-		return reconcile.Result{}, saveStatus()
 	}
 
 	// Step 5: Create an Update object to run the update asynchronously
@@ -1178,53 +1179,6 @@ func resyncFreq(stack *pulumiv1.Stack) time.Duration {
 		resyncFreq = 60 * time.Second
 	}
 	return resyncFreq
-}
-
-// hasJsonConfig checks if the stack uses JSON configuration values that require
-// Pulumi CLI >= v3.200.0.
-func hasJsonConfig(stack shared.StackSpec) bool {
-	// Check if Config field has any non-string values
-	for _, v := range stack.Config {
-		// A simple string will have quotes around it when marshaled
-		// Any other JSON type (object, array, number, boolean) will not start with a quote
-		if len(v.Raw) > 0 && v.Raw[0] != '"' {
-			return true
-		}
-	}
-	// Check if ConfigRef has any JSON parsing flags set
-	for _, ref := range stack.ConfigRef {
-		if ref.JSON != nil && *ref.JSON {
-			return true
-		}
-	}
-	return false
-}
-
-// checkPulumiVersionForJsonConfig validates that the Pulumi CLI version in the workspace
-// supports JSON configuration if the stack uses it. Returns an error if the version is too low.
-func checkPulumiVersionForJsonConfig(ws *autov1alpha1.Workspace, stack shared.StackSpec) error {
-	// Only check if JSON config is actually being used
-	if !hasJsonConfig(stack) {
-		return nil
-	}
-
-	if ws.Status.PulumiVersion == "" {
-		return fmt.Errorf("Pulumi version not yet determined")
-	}
-
-	// Parse the version string (tolerant of 'v' prefix and other variations)
-	version, err := semver.ParseTolerant(ws.Status.PulumiVersion)
-	if err != nil {
-		return fmt.Errorf("failed to parse Pulumi version %q: %w", ws.Status.PulumiVersion, err)
-	}
-
-	// Minimum required version is 3.202.0
-	minVersion := semver.MustParse("3.202.0")
-	if version.LT(minVersion) {
-		return fmt.Errorf("Pulumi CLI version %s is too old for JSON configuration support, require >= v3.202.0", ws.Status.PulumiVersion)
-	}
-
-	return nil
 }
 
 // SetEnvs populates the environment the stack run with values

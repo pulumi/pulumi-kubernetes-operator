@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blang/semver"
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	autov1alpha1webhook "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/webhook/auto/v1alpha1"
@@ -253,10 +254,10 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	initializedV, ok := pod.Annotations[PodAnnotationInitialized]
 	initialized, _ := strconv.ParseBool(initializedV)
 	if !ok || !initialized {
-		l.Info("Running whoami to ensure authentication is setup correctly with the workspace pod")
-		_, err = wc.WhoAmI(ctx, &agentpb.WhoAmIRequest{})
+		l.Info("Querying Pulumi version to validate workspace connectivity")
+		versionResp, err := wc.PulumiVersion(ctx, &agentpb.PulumiVersionRequest{})
 		if err != nil {
-			l.Error(err, "unable to run whoami; retaining the workspace pod to retry later")
+			l.Error(err, "unable to query Pulumi version; retaining the workspace pod to retry later")
 			emitEvent(r.Recorder, w, autov1alpha1.ConnectionFailureEvent(), err.Error())
 
 			st := status.Convert(err)
@@ -278,6 +279,48 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 
 			return ctrl.Result{}, err
+		}
+
+		// Store the Pulumi version immediately
+		w.Status.PulumiVersion = versionResp.Version
+		l.Info("Pulumi version detected", "version", versionResp.Version)
+
+		// Check version compatibility with JSON configuration before attempting to apply it
+		if hasJsonConfigInWorkspace(w.Spec.Stacks) {
+			version, err := semver.ParseTolerant(w.Status.PulumiVersion)
+			if err != nil {
+				l.Error(err, "failed to parse Pulumi version", "version", w.Status.PulumiVersion)
+				meta.SetStatusCondition(&w.Status.Conditions, metav1.Condition{
+					Type:               autov1alpha1.WorkspaceStalled,
+					Status:             metav1.ConditionTrue,
+					Reason:             "IncompatibleConfiguration",
+					Message:            fmt.Sprintf("Failed to parse Pulumi version %q: %v", w.Status.PulumiVersion, err),
+					ObservedGeneration: w.Generation,
+				})
+				ready.Status = metav1.ConditionFalse
+				ready.Reason = "IncompatibleConfiguration"
+				ready.Message = fmt.Sprintf("Failed to parse Pulumi version %q", w.Status.PulumiVersion)
+				return ctrl.Result{}, updateStatus()
+			}
+
+			// Minimum required version is 3.202.0 for JSON configuration support
+			minVersion := semver.MustParse("3.202.0")
+			if version.LT(minVersion) {
+				l.Info("Pulumi version too low for JSON configuration", "version", w.Status.PulumiVersion, "minVersion", minVersion.String())
+				meta.SetStatusCondition(&w.Status.Conditions, metav1.Condition{
+					Type:               autov1alpha1.WorkspaceStalled,
+					Status:             metav1.ConditionTrue,
+					Reason:             "IncompatibleConfiguration",
+					Message:            fmt.Sprintf("Pulumi CLI version %s does not support JSON configuration, require >= v%s", w.Status.PulumiVersion, minVersion.String()),
+					ObservedGeneration: w.Generation,
+				})
+				ready.Status = metav1.ConditionFalse
+				ready.Reason = "IncompatibleConfiguration"
+				ready.Message = fmt.Sprintf("Pulumi CLI version %s does not support JSON configuration, require >= v%s", w.Status.PulumiVersion, minVersion.String())
+				emitEvent(r.Recorder, w, autov1alpha1.StackInitializationFailureEvent(),
+					"Pulumi CLI version %s is too old for JSON configuration support, require >= v%s", w.Status.PulumiVersion, minVersion.String())
+				return ctrl.Result{}, updateStatus()
+			}
 		}
 
 		l.Info("Running pulumi install")
@@ -381,17 +424,6 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		l.Info("workspace pod initialized")
 		emitEvent(r.Recorder, w, autov1alpha1.InitializedEvent(), "Initialized workspace pod %q", pod.Name)
-	}
-
-	// Query the Pulumi CLI version from the workspace
-	l.V(1).Info("Querying Pulumi version")
-	versionResp, err := wc.PulumiVersion(ctx, &agentpb.PulumiVersionRequest{})
-	if err != nil {
-		l.Error(err, "unable to query Pulumi version; proceeding anyway")
-		// Don't fail the reconciliation if we can't get the version
-	} else {
-		w.Status.PulumiVersion = versionResp.Version
-		l.Info("Pulumi version detected", "version", versionResp.Version)
 	}
 
 	ready.Status = metav1.ConditionTrue
@@ -924,4 +956,26 @@ func mergePodTemplateSpec(_ context.Context, base *corev1.PodTemplateSpec, patch
 	}
 
 	return patchResult, nil
+}
+
+// hasJsonConfigInWorkspace checks if any stack in the workspace uses JSON configuration values
+// that require Pulumi CLI >= v3.202.0.
+func hasJsonConfigInWorkspace(stacks []autov1alpha1.WorkspaceStack) bool {
+	for _, stack := range stacks {
+		for _, item := range stack.Config {
+			// Check if the value field contains non-string JSON
+			if item.Value != nil && len(item.Value.Raw) > 0 {
+				// A simple string will have quotes around it when marshaled
+				// Any other JSON type (object, array, number, boolean) will not start with a quote
+				if item.Value.Raw[0] != '"' {
+					return true
+				}
+			}
+			// Check if valueFrom has JSON parsing enabled
+			if item.ValueFrom != nil && item.ValueFrom.JSON != nil && *item.ValueFrom.JSON {
+				return true
+			}
+		}
+	}
+	return false
 }

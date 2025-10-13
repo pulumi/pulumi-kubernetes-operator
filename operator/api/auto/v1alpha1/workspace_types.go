@@ -21,7 +21,8 @@ import (
 )
 
 const (
-	WorkspaceReady = "Ready"
+	WorkspaceReady   = "Ready"
+	WorkspaceStalled = "Stalled"
 )
 
 // SecurityProfile declares the security profile of the workspace, either baseline or restricted.
@@ -286,7 +287,7 @@ type WorkspaceStatus struct {
 	PulumiVersion string `json:"pulumiVersion,omitempty"`
 
 	// Represents the observations of a workspace's current state.
-	// Known .status.conditions.type are: "Ready"
+	// Known .status.conditions.type are: "Ready", "Stalled"
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	// +listType=map
