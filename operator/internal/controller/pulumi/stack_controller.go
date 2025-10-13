@@ -401,6 +401,13 @@ func isWorkspaceReady(ws *autov1alpha1.Workspace) bool {
 	return meta.IsStatusConditionTrue(ws.Status.Conditions, autov1alpha1.WorkspaceReady)
 }
 
+func isWorkspaceStalled(ws *autov1alpha1.Workspace) bool {
+	if ws == nil {
+		return false
+	}
+	return meta.IsStatusConditionTrue(ws.Status.Conditions, autov1alpha1.WorkspaceStalled)
+}
+
 type workspaceReadyPredicate struct{}
 
 var _ predicate.Predicate = &workspaceReadyPredicate{}
@@ -417,7 +424,20 @@ func (workspaceReadyPredicate) Update(e event.UpdateEvent) bool {
 	if e.ObjectOld == nil || e.ObjectNew == nil {
 		return false
 	}
-	return !isWorkspaceReady(e.ObjectOld.(*autov1alpha1.Workspace)) && isWorkspaceReady(e.ObjectNew.(*autov1alpha1.Workspace))
+	oldWs := e.ObjectOld.(*autov1alpha1.Workspace)
+	newWs := e.ObjectNew.(*autov1alpha1.Workspace)
+
+	// Trigger reconciliation when workspace becomes ready
+	if !isWorkspaceReady(oldWs) && isWorkspaceReady(newWs) {
+		return true
+	}
+
+	// Trigger reconciliation when workspace becomes stalled
+	if !isWorkspaceStalled(oldWs) && isWorkspaceStalled(newWs) {
+		return true
+	}
+
+	return false
 }
 
 func (workspaceReadyPredicate) Generic(_ event.GenericEvent) bool {
