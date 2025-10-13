@@ -123,7 +123,7 @@ jobs:
           CODECOV_TOKEN: ${{ steps.esc-secrets.outputs.CODECOV_TOKEN }}
 
   e2e-tests:
-    runs-on: ubuntu-latest-4-cores
+    runs-on: pulumi-ubuntu-8core
     name: E2E tests
     if: github.event_name == 'repository_dispatch' ||
       github.event.pull_request.head.repo.full_name == github.repository
