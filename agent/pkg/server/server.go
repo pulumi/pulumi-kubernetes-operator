@@ -33,6 +33,7 @@ import (
 	"go.uber.org/zap/zapio"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/utils/ptr"
@@ -424,7 +425,8 @@ func unmarshalConfigItemsJson(project string, items []*pb.ConfigItem) (map[strin
 			default:
 				// Structured value (object, array, number, boolean)
 				// Set both Value (JSON string) and ObjectValue (natural value)
-				jsonBytes, err := json.Marshal(val)
+				// Use protojson to properly handle protobuf semantics
+				jsonBytes, err := protojson.Marshal(vv.Value)
 				if err != nil {
 					return nil, fmt.Errorf("marshaling %q value to JSON: %w", item.Key, err)
 				}

@@ -21,6 +21,7 @@ import (
 
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/mergepatch"
@@ -39,23 +40,21 @@ func marshalConfigItem(item autov1alpha1.ConfigItem) (*agentpb.ConfigItem, error
 	}
 	if item.Value != nil {
 		// Convert apiextensionsv1.JSON to structpb.Value
-		var val interface{}
-		if err := json.Unmarshal(item.Value.Raw, &val); err != nil {
+		// Use protojson to properly handle protobuf semantics
+		pbValue := &structpb.Value{}
+		if err := protojson.Unmarshal(item.Value.Raw, pbValue); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal config value: %w", err)
 		}
 
 		// Validate: path=true is incompatible with structured values (non-strings)
 		if item.Path != nil && *item.Path {
 			// Check if the value is not a simple string
+			val := pbValue.AsInterface()
 			if _, isString := val.(string); !isString && val != nil {
 				return nil, fmt.Errorf("path=true is incompatible with structured values (objects, arrays, etc.) for key %q", item.Key)
 			}
 		}
 
-		pbValue, err := structpb.NewValue(val)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert config value to protobuf: %w", err)
-		}
 		v.V = &agentpb.ConfigItem_Value{
 			Value: pbValue,
 		}
