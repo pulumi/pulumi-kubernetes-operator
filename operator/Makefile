@@ -97,7 +97,7 @@ help: ## Display this help.
 
 .PHONY: manifests
 manifests: controller-gen kustomize ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=pulumi-kubernetes-operator-controller-manager crd:crdVersions=v1,generateEmbeddedObjectMeta=true webhook paths="./api/..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=pulumi-kubernetes-operator-controller-manager crd:crdVersions=v1,generateEmbeddedObjectMeta=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases output:rbac:artifacts:config=config/rbac
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 
 .PHONY: generate

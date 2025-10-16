@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -220,6 +221,142 @@ func TestE2E(t *testing.T) {
 
 				_, err := waitFor[pulumiv1.Stack]("stacks/issue-937", "issue-937", 5*time.Minute, "condition=Ready")
 				require.NoError(t, err)
+			},
+		},
+		{
+			name: "structured-config",
+			f: func(t *testing.T) {
+				// Test comprehensive structured configuration including:
+				// - Inline JSON config (objects, arrays, numbers, booleans)
+				// - JSON config from ConfigMap
+				// - Mixed string and JSON config
+				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/structured-config")
+				require.NoError(t, run(cmd))
+				dumpLogs(t, "structured-config", "pod/structured-config-workspace-0")
+				dumpEvents(t, "structured-config")
+
+				stack, err := waitFor[pulumiv1.Stack](
+					"stacks/structured-config",
+					"structured-config",
+					5*time.Minute,
+					"condition=Ready")
+				require.NoError(t, err)
+
+				// Verify the stack is ready and outputs are available
+				assert.NotNil(t, stack)
+				assert.NotEmpty(t, stack.Status.Outputs)
+
+				// Helper to unmarshal JSON output
+				getOutput := func(key string) interface{} {
+					var val interface{}
+					err := json.Unmarshal(stack.Status.Outputs[key].Raw, &val)
+					require.NoError(t, err, "failed to unmarshal output %s", key)
+					return val
+				}
+
+				// Verify inline string value
+				assert.Equal(t, "hello-world", getOutput("simpleString"))
+
+				// Verify inline object value (databaseConfig)
+				databaseConfig := getOutput("databaseConfig").(map[string]interface{})
+				assert.Equal(t, "db.example.com", databaseConfig["host"])
+				assert.Equal(t, float64(5432), databaseConfig["port"])
+				assert.Equal(t, "myapp", databaseConfig["database"])
+				assert.Equal(t, true, databaseConfig["ssl"])
+				assert.Equal(t, float64(100), databaseConfig["maxConnections"])
+
+				// Verify inline array value (allowedRegions)
+				allowedRegions := getOutput("allowedRegions").([]interface{})
+				assert.Len(t, allowedRegions, 3)
+				assert.Equal(t, "us-west-2", allowedRegions[0])
+				assert.Equal(t, "us-east-1", allowedRegions[1])
+				assert.Equal(t, "eu-west-1", allowedRegions[2])
+
+				// Verify inline number values
+				assert.Equal(t, float64(3), getOutput("maxRetries"))
+				assert.Equal(t, 30.5, getOutput("timeout"))
+
+				// Verify inline boolean values
+				assert.Equal(t, true, getOutput("enableCaching"))
+				assert.Equal(t, false, getOutput("debugMode"))
+
+				// Verify nested object (oauth)
+				oauth := getOutput("oauth").(map[string]interface{})
+				assert.Equal(t, "my-client-id", oauth["clientId"])
+
+				scopes := oauth["scopes"].([]interface{})
+				assert.Len(t, scopes, 2)
+				assert.Equal(t, "read", scopes[0])
+				assert.Equal(t, "write", scopes[1])
+
+				endpoints := oauth["endpoints"].(map[string]interface{})
+				assert.Equal(t, "https://auth.example.com/token", endpoints["token"])
+				assert.Equal(t, "https://auth.example.com/authorize", endpoints["authorize"])
+
+				// Verify JSON config from ConfigMap (appSettings)
+				appSettings := getOutput("appSettings").(map[string]interface{})
+				assert.Equal(t, "https://api.example.com", appSettings["apiEndpoint"])
+				assert.Equal(t, float64(30), appSettings["timeout"])
+				assert.Equal(t, true, appSettings["retryEnabled"])
+
+				features := appSettings["features"].(map[string]interface{})
+				assert.Equal(t, true, features["authentication"])
+				assert.Equal(t, float64(1000), features["rateLimit"])
+
+				regions := appSettings["regions"].([]interface{})
+				assert.Len(t, regions, 2)
+				assert.Equal(t, "us-west-1", regions[0])
+				assert.Equal(t, "us-east-1", regions[1])
+
+				// Verify plain text from ConfigMap (appVersion)
+				assert.Equal(t, "v1.2.3", getOutput("appVersion"))
+			},
+		},
+		{
+			name: "structured-config-version",
+			f: func(t *testing.T) {
+				// Test version compatibility:
+				// 1. Deploy stack with structured config using old Pulumi image (< v3.202.0)
+				// 2. Verify stack enters Stalled state
+				// 3. Update to new image (>= v3.202.0)
+				// 4. Verify stack transitions to Ready state
+
+				cmd := exec.Command("kubectl", "apply", "-f", "e2e/testdata/structured-config-version")
+				require.NoError(t, run(cmd))
+				dumpLogs(t, "structured-config-version", "pod/structured-config-version-workspace-0")
+				dumpEvents(t, "structured-config-version")
+
+				// Wait for the Stack to enter Stalled state due to old Pulumi version
+				_, err := waitFor[pulumiv1.Stack](
+					"stacks/structured-config-version",
+					"structured-config-version",
+					5*time.Minute,
+					"condition=Stalled",
+					`jsonpath={.status.conditions[?(@.type=="Stalled")].reason}=PulumiVersionTooLow`)
+				require.NoError(t, err)
+
+				// Update the Stack to use a newer Pulumi image
+				cmd = exec.Command("kubectl", "apply", "-f", "e2e/testdata/structured-config-version/step2")
+				require.NoError(t, run(cmd))
+
+				// Wait for the workspace to be ready with the new image
+				_, err = waitFor[autov1alpha1.Workspace](
+					"workspaces/structured-config-version",
+					"structured-config-version",
+					5*time.Minute,
+					"condition=Ready")
+				require.NoError(t, err)
+
+				// Wait for the Stack to transition to Ready state
+				stack, err := waitFor[pulumiv1.Stack](
+					"stacks/structured-config-version",
+					"structured-config-version",
+					5*time.Minute,
+					"condition=Ready")
+				require.NoError(t, err)
+
+				// Verify the stack is now ready
+				assert.NotNil(t, stack)
 			},
 		},
 	}

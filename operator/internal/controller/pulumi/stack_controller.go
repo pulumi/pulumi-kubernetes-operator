@@ -401,6 +401,13 @@ func isWorkspaceReady(ws *autov1alpha1.Workspace) bool {
 	return meta.IsStatusConditionTrue(ws.Status.Conditions, autov1alpha1.WorkspaceReady)
 }
 
+func isWorkspaceStalled(ws *autov1alpha1.Workspace) bool {
+	if ws == nil {
+		return false
+	}
+	return meta.IsStatusConditionTrue(ws.Status.Conditions, autov1alpha1.WorkspaceStalled)
+}
+
 type workspaceReadyPredicate struct{}
 
 var _ predicate.Predicate = &workspaceReadyPredicate{}
@@ -417,7 +424,20 @@ func (workspaceReadyPredicate) Update(e event.UpdateEvent) bool {
 	if e.ObjectOld == nil || e.ObjectNew == nil {
 		return false
 	}
-	return !isWorkspaceReady(e.ObjectOld.(*autov1alpha1.Workspace)) && isWorkspaceReady(e.ObjectNew.(*autov1alpha1.Workspace))
+	oldWs := e.ObjectOld.(*autov1alpha1.Workspace)
+	newWs := e.ObjectNew.(*autov1alpha1.Workspace)
+
+	// Trigger reconciliation when workspace becomes ready
+	if !isWorkspaceReady(oldWs) && isWorkspaceReady(newWs) {
+		return true
+	}
+
+	// Trigger reconciliation when workspace becomes stalled
+	if !isWorkspaceStalled(oldWs) && isWorkspaceStalled(newWs) {
+		return true
+	}
+
+	return false
 }
 
 func (workspaceReadyPredicate) Generic(_ event.GenericEvent) bool {
@@ -497,6 +517,7 @@ var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;update;patch
 
 // Reconcile reads that state of the cluster for a Stack object and makes changes based on the state read
@@ -899,6 +920,14 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		return reconcile.Result{}, fmt.Errorf("unable to create workspace: %w", err)
 	}
 	if !isWorkspaceReady(sess.ws) {
+		// Check if workspace is stalled with incompatible configuration
+		stalledCond := meta.FindStatusCondition(sess.ws.Status.Conditions, autov1alpha1.WorkspaceStalled)
+		if stalledCond != nil && stalledCond.Status == metav1.ConditionTrue && stalledCond.Reason == "IncompatibleConfiguration" {
+			// Propagate the workspace stalled condition to the stack
+			log.Info("Workspace is stalled due to incompatible configuration", "message", stalledCond.Message)
+			instance.Status.MarkStalledCondition(pulumiv1.StalledPulumiVersionTooLowReason, stalledCond.Message)
+			return reconcile.Result{}, saveStatus()
+		}
 		// watch the workspace for status updates
 		log.V(1).Info("waiting for workspace to be ready")
 		return reconcile.Result{}, nil
@@ -1032,6 +1061,12 @@ type stackReconcilerSession struct {
 	wss        *autov1alpha1.WorkspaceStack
 	wspc       *corev1.Container
 	update     *autov1alpha1.Update
+}
+
+// stringToJSON converts a string value to apiextensionsv1.JSON
+func stringToJSON(s string) *apiextensionsv1.JSON {
+	raw, _ := json.Marshal(s)
+	return &apiextensionsv1.JSON{Raw: raw}
 }
 
 func newStackReconcilerSession(
@@ -1251,11 +1286,11 @@ func makeSecretRefMountPath(secretRef *shared.SecretSelector) string {
 	return "/var/run/secrets/stacks.pulumi.com/secrets/" + secretRef.Name
 }
 
-func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(_ context.Context, ref *shared.ResourceRef) (*string, *autov1alpha1.ConfigValueFrom, error) {
+func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(_ context.Context, ref *shared.ResourceRef) (*apiextensionsv1.JSON, *autov1alpha1.ConfigValueFrom, error) {
 	switch ref.SelectorType {
 	case shared.ResourceSelectorLiteral:
 		if ref.LiteralRef != nil {
-			return ptr.To(ref.LiteralRef.Value), nil, nil
+			return stringToJSON(ref.LiteralRef.Value), nil, nil
 		}
 		return nil, nil, errors.New("missing literal reference in ResourceRef")
 	case shared.ResourceSelectorSecret:
@@ -1298,6 +1333,41 @@ func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(_ context.Con
 	default:
 		return nil, nil, fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
 	}
+}
+
+func makeConfigMapRefMountPath(configMapRef *shared.ConfigMapRef) string {
+	return "/var/run/configmaps/stacks.pulumi.com/configmaps/" + configMapRef.Name
+}
+
+func (sess *stackReconcilerSession) resolveConfigMapRefAsConfigItem(_ context.Context, ref *shared.ConfigMapRef) (*apiextensionsv1.JSON, *autov1alpha1.ConfigValueFrom, error) {
+	if ref == nil {
+		return nil, nil, errors.New("missing ConfigMap reference")
+	}
+
+	// mount the configmap into the pulumi container
+	volumeName := "configmap-" + ref.Name
+	mountPath := makeConfigMapRefMountPath(ref)
+	if !slices.ContainsFunc(sess.wspc.VolumeMounts, func(mnt corev1.VolumeMount) bool {
+		return mnt.Name == volumeName
+	}) {
+		sess.wspc.VolumeMounts = append(sess.wspc.VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: mountPath,
+		})
+		sess.ws.Spec.PodTemplate.Spec.Volumes = append(sess.ws.Spec.PodTemplate.Spec.Volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: ref.Name},
+				},
+			},
+		})
+	}
+
+	return nil, &autov1alpha1.ConfigValueFrom{
+		Path: path.Join(mountPath, ref.Key),
+		JSON: ref.JSON,
+	}, nil
 }
 
 // resolveSecretResourceRef reads a referenced object and returns its value as
@@ -1479,20 +1549,41 @@ func (sess *stackReconcilerSession) setupWorkspace(ctx context.Context) error {
 func (sess *stackReconcilerSession) UpdateConfig(ctx context.Context) error {
 	ws := sess.wss
 
+	// Handle inline config values (now supports JSON)
 	for _, k := range slices.Sorted(maps.Keys(sess.stack.Config)) {
+		jsonValue := sess.stack.Config[k]
 		ws.Config = append(ws.Config, autov1alpha1.ConfigItem{
 			Key:    k,
-			Value:  ptr.To(sess.stack.Config[k]),
+			Value:  &jsonValue,
 			Secret: ptr.To(false),
 		})
 	}
+
+	// Handle ConfigMap references (new field)
+	for _, k := range slices.Sorted(maps.Keys(sess.stack.ConfigRef)) {
+		ref := sess.stack.ConfigRef[k]
+		value, valueFrom, err := sess.resolveConfigMapRefAsConfigItem(ctx, &ref)
+		if err != nil {
+			return fmt.Errorf("updating configRef for %q: %w", k, err)
+		}
+		ws.Config = append(ws.Config, autov1alpha1.ConfigItem{
+			Key:       k,
+			Value:     value,
+			ValueFrom: valueFrom,
+			Secret:    ptr.To(false),
+		})
+	}
+
+	// Handle deprecated inline secrets
 	for _, k := range slices.Sorted(maps.Keys(sess.stack.Secrets)) {
 		ws.Config = append(ws.Config, autov1alpha1.ConfigItem{
 			Key:    k,
-			Value:  ptr.To(sess.stack.Secrets[k]),
+			Value:  stringToJSON(sess.stack.Secrets[k]),
 			Secret: ptr.To(true),
 		})
 	}
+
+	// Handle secret references
 	for _, k := range slices.Sorted(maps.Keys(sess.stack.SecretRefs)) {
 		ref := sess.stack.SecretRefs[k]
 		value, valueFrom, err := sess.resolveResourceRefAsConfigItem(ctx, &ref)

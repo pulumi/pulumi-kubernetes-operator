@@ -1,0 +1,53 @@
+---
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: structured-config-version
+  namespace: structured-config-version
+spec:
+  programRef:
+    name: structured-config-version
+
+  stack: dev
+  refresh: false
+  continueResyncOnCommitMatch: false
+  resyncFrequencySeconds: 60
+  destroyOnFinalize: false
+
+  # Configuration with structured values (same as step 1)
+  config:
+    databaseConfig:
+      host: localhost
+      port: 5432
+    regions:
+      - us-west-2
+      - us-east-1
+
+  # Enable file state for testing
+  envRefs:
+    PULUMI_BACKEND_URL:
+      type: Literal
+      literal:
+        value: "file:///state/"
+    PULUMI_CONFIG_PASSPHRASE:
+      type: Literal
+      literal:
+        value: "test"
+
+  workspaceTemplate:
+    spec:
+      # Update to a newer Pulumi CLI version that supports JSON config
+      # This should allow the stack to proceed
+      image: pulumi/pulumi:3.202.0-nonroot
+      serviceAccountName: structured-config-version
+      podTemplate:
+        spec:
+          containers:
+            - name: pulumi
+              volumeMounts:
+                - name: state
+                  mountPath: /state
+          volumes:
+            - name: state
+              persistentVolumeClaim:
+                claimName: state

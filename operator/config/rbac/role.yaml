@@ -7,11 +7,32 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - events
   verbs:
   - create
   - patch
   - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -37,31 +58,6 @@ rules:
   - auto.pulumi.com
   resources:
   - updates
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - auto.pulumi.com
-  resources:
-  - updates/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - auto.pulumi.com
-  resources:
-  - updates/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - auto.pulumi.com
-  resources:
   - workspaces
   verbs:
   - create
@@ -74,8 +70,18 @@ rules:
 - apiGroups:
   - auto.pulumi.com
   resources:
+  - updates/finalizers
   - workspaces/finalizers
   verbs:
+  - update
+- apiGroups:
+  - auto.pulumi.com
+  resources:
+  - updates/status
+  - workspaces/status
+  verbs:
+  - get
+  - patch
   - update
 - apiGroups:
   - auto.pulumi.com
@@ -84,66 +90,9 @@ rules:
   verbs:
   - use
 - apiGroups:
-  - auto.pulumi.com
-  resources:
-  - workspaces/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - pulumi.com
   resources:
   - programs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - pulumi.com
-  resources:
-  - programs/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - pulumi.com
-  resources:
-  - programs/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - pulumi.com
-  resources:
   - stacks
   verbs:
   - create
@@ -156,12 +105,14 @@ rules:
 - apiGroups:
   - pulumi.com
   resources:
+  - programs/finalizers
   - stacks/finalizers
   verbs:
   - update
 - apiGroups:
   - pulumi.com
   resources:
+  - programs/status
   - stacks/status
   verbs:
   - get
@@ -171,21 +122,7 @@ rules:
   - source.toolkit.fluxcd.io
   resources:
   - buckets
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - source.toolkit.fluxcd.io
-  resources:
   - gitrepositories
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - source.toolkit.fluxcd.io
-  resources:
   - ocirepositories
   verbs:
   - get
