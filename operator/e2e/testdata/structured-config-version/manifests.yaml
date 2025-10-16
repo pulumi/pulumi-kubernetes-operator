@@ -1,0 +1,104 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: structured-config-version
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: structured-config-version
+  namespace: structured-config-version
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: structured-config-version:system:auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: structured-config-version
+  namespace: structured-config-version
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: state
+  namespace: structured-config-version
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+---
+apiVersion: pulumi.com/v1
+kind: Program
+metadata:
+  name: structured-config-version
+  namespace: structured-config-version
+program:
+  # The program simply exposes the Stack configuration as outputs so the e2e
+  # test can validate structured configuration handling with version checking.
+  outputs:
+    databaseConfig: ${databaseConfig}
+    regions: ${regions}
+---
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: structured-config-version
+  namespace: structured-config-version
+spec:
+  programRef:
+    name: structured-config-version
+
+  stack: dev
+  refresh: false
+  continueResyncOnCommitMatch: false
+  resyncFrequencySeconds: 60
+  destroyOnFinalize: false
+
+  # Configuration with structured values
+  config:
+    # Object value requiring Pulumi CLI v3.202.0+
+    databaseConfig:
+      host: localhost
+      port: 5432
+
+    # Array value
+    regions:
+      - us-west-2
+      - us-east-1
+
+  # Enable file state for testing
+  envRefs:
+    PULUMI_BACKEND_URL:
+      type: Literal
+      literal:
+        value: "file:///state/"
+    PULUMI_CONFIG_PASSPHRASE:
+      type: Literal
+      literal:
+        value: "test"
+
+  workspaceTemplate:
+    spec:
+      # Use an old Pulumi CLI version that doesn't support JSON config
+      # This should cause the stack to stall
+      image: pulumi/pulumi:3.197.0-nonroot
+      serviceAccountName: structured-config-version
+      podTemplate:
+        spec:
+          containers:
+            - name: pulumi
+              volumeMounts:
+                - name: state
+                  mountPath: /state
+          volumes:
+            - name: state
+              persistentVolumeClaim:
+                claimName: state

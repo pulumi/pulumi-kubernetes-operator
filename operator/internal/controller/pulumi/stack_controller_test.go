@@ -32,6 +32,7 @@ import (
 	autov1alpha1apply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,6 +47,11 @@ import (
 const (
 	testFinalizer = "test.finalizer.pulumi.com"
 )
+
+// jsonValue creates a JSON value from a string for testing
+func jsonValue(s string) *apiextensionsv1.JSON {
+	return &apiextensionsv1.JSON{Raw: []byte(`"` + s + `"`)}
+}
 
 func makeFluxGitRepository(name types.NamespacedName) *fluxsourcev1.GitRepository {
 	return &fluxsourcev1.GitRepository{
@@ -1676,9 +1682,9 @@ var _ = Describe("Stack Controller", func() {
 
 		Describe("config", func() {
 			BeforeEach(func(ctx context.Context) {
-				obj.Spec.Config = map[string]string{
-					"c": "c",
-					"b": "b",
+				obj.Spec.Config = map[string]apiextensionsv1.JSON{
+					"c": {Raw: []byte(`"c"`)},
+					"b": {Raw: []byte(`"b"`)},
 				}
 			})
 			It("reconciles", func(ctx context.Context) {
@@ -1687,8 +1693,8 @@ var _ = Describe("Stack Controller", func() {
 				actual := ws.Spec.Stacks[0]
 				By("applying workspace config values (in key order)")
 				Expect(actual.Config).To(HaveExactElements(
-					autov1alpha1.ConfigItem{Key: "b", Secret: ptr.To(false), Value: ptr.To("b")},
-					autov1alpha1.ConfigItem{Key: "c", Secret: ptr.To(false), Value: ptr.To("c")},
+					autov1alpha1.ConfigItem{Key: "b", Secret: ptr.To(false), Value: jsonValue("b")},
+					autov1alpha1.ConfigItem{Key: "c", Secret: ptr.To(false), Value: jsonValue("c")},
 				))
 			})
 		})
@@ -1719,8 +1725,8 @@ var _ = Describe("Stack Controller", func() {
 				actual := ws.Spec.Stacks[0]
 				By("applying workspace config values (in key order and marked as secrets)")
 				Expect(actual.Config).To(HaveExactElements(
-					autov1alpha1.ConfigItem{Key: "b", Secret: ptr.To(true), Value: ptr.To("b")},
-					autov1alpha1.ConfigItem{Key: "c", Secret: ptr.To(true), Value: ptr.To("c")},
+					autov1alpha1.ConfigItem{Key: "b", Secret: ptr.To(true), Value: jsonValue("b")},
+					autov1alpha1.ConfigItem{Key: "c", Secret: ptr.To(true), Value: jsonValue("c")},
 				))
 			})
 		})
@@ -1770,7 +1776,7 @@ var _ = Describe("Stack Controller", func() {
 					autov1alpha1.ConfigItem{Key: "b", Secret: ptr.To(true), ValueFrom: &autov1alpha1.ConfigValueFrom{
 						Path: "/var/run/secrets/stacks.pulumi.com/secrets/" + secret.Name + "/foo",
 					}},
-					autov1alpha1.ConfigItem{Key: "c", Secret: ptr.To(true), Value: ptr.To("c")},
+					autov1alpha1.ConfigItem{Key: "c", Secret: ptr.To(true), Value: jsonValue("c")},
 				))
 				By("attaching the secret(s) as a volume")
 				Expect(ws.Spec.PodTemplate.Spec.Volumes).To(ContainElement(corev1.Volume{

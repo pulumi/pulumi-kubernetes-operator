@@ -16,11 +16,13 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	WorkspaceReady = "Ready"
+	WorkspaceReady   = "Ready"
+	WorkspaceStalled = "Stalled"
 )
 
 // SecurityProfile declares the security profile of the workspace, either baseline or restricted.
@@ -206,16 +208,21 @@ type WorkspaceStack struct {
 type ConfigItem struct {
 	// Key is the configuration key or path to set.
 	Key string `json:"key"`
-	// The key contains a path to a property in a map or list to set
+	// Path indicates the key contains a path to a property in a map or list.
+	// Incompatible with structured values (objects, arrays).
 	// +optional
 	Path *bool `json:"path,omitempty"`
 	// Value is the configuration value to set.
+	// Supports strings, numbers, booleans, objects, and arrays.
 	// +optional
-	Value *string `json:"value,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Value *apiextensionsv1.JSON `json:"value,omitempty"`
 	// ValueFrom is a reference to a value from the environment or from a file.
 	// +optional
 	ValueFrom *ConfigValueFrom `json:"valueFrom,omitempty"`
 	// Secret marks the configuration value as a secret.
+	// +optional
 	Secret *bool `json:"secret,omitempty"`
 }
 
@@ -225,7 +232,13 @@ type ConfigValueFrom struct {
 	// +optional
 	Env string `json:"env,omitempty"`
 	// Path is a path to a file in the pulumi container containing the value.
+	// +optional
 	Path string `json:"path,omitempty"`
+	// JSON indicates the referenced value should be parsed as JSON.
+	// When true, the value is treated as structured data (object/array/etc).
+	// When false, the value is treated as a raw string.
+	// +optional
+	JSON *bool `json:"json,omitempty"`
 }
 
 // EmbeddedPodTemplateSpec is an embedded version of k8s.io/api/core/v1.PodTemplateSpec.
@@ -269,8 +282,12 @@ type WorkspaceStatus struct {
 	// +optional
 	Address string `json:"address,omitempty"`
 
+	// PulumiVersion is the version of the Pulumi CLI in the workspace.
+	// +optional
+	PulumiVersion string `json:"pulumiVersion,omitempty"`
+
 	// Represents the observations of a workspace's current state.
-	// Known .status.conditions.type are: "Ready"
+	// Known .status.conditions.type are: "Ready", "Stalled"
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	// +listType=map

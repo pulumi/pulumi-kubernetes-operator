@@ -1,0 +1,169 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: structured-config
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: structured-config
+  namespace: structured-config
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: structured-config:system:auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: structured-config
+  namespace: structured-config
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: state
+  namespace: structured-config
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: structured-config
+data:
+  # JSON configuration that will be parsed
+  settings.json: |
+    {
+      "apiEndpoint": "https://api.example.com",
+      "timeout": 30,
+      "retryEnabled": true,
+      "features": {
+        "authentication": true,
+        "rateLimit": 1000
+      },
+      "regions": ["us-west-1", "us-east-1"]
+    }
+  # Plain text that will be read as a string
+  version.txt: "v1.2.3"
+---
+apiVersion: pulumi.com/v1
+kind: Program
+metadata:
+  name: structured-config
+  namespace: structured-config
+program:
+  # The program simply exposes the Stack configuration as outputs so the e2e
+  # test can validate structured configuration handling.
+  outputs:
+    simpleString: ${simpleString}
+    databaseConfig: ${databaseConfig}
+    allowedRegions: ${allowedRegions}
+    maxRetries: ${maxRetries}
+    timeout: ${timeout}
+    enableCaching: ${enableCaching}
+    debugMode: ${debugMode}
+    oauth: ${oauth}
+    appSettings: ${appSettings}
+    appVersion: ${appVersion}
+---
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: structured-config
+  namespace: structured-config
+spec:
+  programRef:
+    name: structured-config
+
+  stack: dev
+  refresh: false
+  continueResyncOnCommitMatch: false
+  resyncFrequencySeconds: 60
+  destroyOnFinalize: true
+
+  # Configuration demonstrating inline, ConfigMap, and mixed config
+  config:
+    # Traditional string value (existing behavior)
+    simpleString: "hello-world"
+
+    # Inline object value (NEW!)
+    databaseConfig:
+      host: db.example.com
+      port: 5432
+      database: myapp
+      ssl: true
+      maxConnections: 100
+
+    # Inline array value (NEW!)
+    allowedRegions:
+      - us-west-2
+      - us-east-1
+      - eu-west-1
+
+    # Inline number value (NEW!)
+    maxRetries: 3
+    timeout: 30.5
+
+    # Inline boolean value (NEW!)
+    enableCaching: true
+    debugMode: false
+
+    # Nested object (NEW!)
+    oauth:
+      clientId: my-client-id
+      scopes:
+        - read
+        - write
+      endpoints:
+        token: https://auth.example.com/token
+        authorize: https://auth.example.com/authorize
+
+  # ConfigMap references with JSON parsing
+  configRef:
+    # JSON config from ConfigMap (NEW!)
+    appSettings:
+      name: app-config
+      key: settings.json
+      json: true  # Parse as JSON
+
+    # Plain text from ConfigMap (existing behavior)
+    appVersion:
+      name: app-config
+      key: version.txt
+      # No json flag - treated as string
+
+  # Enable file state for testing
+  envRefs:
+    PULUMI_BACKEND_URL:
+      type: Literal
+      literal:
+        value: "file:///state/"
+    PULUMI_CONFIG_PASSPHRASE:
+      type: Literal
+      literal:
+        value: "test"
+
+  workspaceTemplate:
+    spec:
+      image: pulumi/pulumi:3.202.0-nonroot
+      serviceAccountName: structured-config
+      podTemplate:
+        spec:
+          containers:
+            - name: pulumi
+              volumeMounts:
+                - name: state
+                  mountPath: /state
+          volumes:
+            - name: state
+              persistentVolumeClaim:
+                claimName: state

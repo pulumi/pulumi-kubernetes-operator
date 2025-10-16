@@ -82,6 +82,8 @@ const (
 	StalledSourceUnavailableReason = "SourceUnavailable"
 	// Stalled because there was a conflict with another update, and retryOnConflict was not set.
 	StalledConflictReason = "UpdateConflict"
+	// Stalled because the Pulumi CLI version is too old for the requested features.
+	StalledPulumiVersionTooLowReason = "PulumiVersionTooLow"
 
 	// Ready because processing has completed
 	ReadyCompletedReason = "ProcessingCompleted"

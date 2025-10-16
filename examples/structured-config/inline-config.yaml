@@ -1,0 +1,100 @@
+---
+# Example: Inline Structured Configuration
+#
+# This example demonstrates using structured configuration values directly
+# in the Stack spec. You can use objects, arrays, numbers, and booleans
+# alongside traditional string values.
+#
+# Requirements:
+# - Pulumi Kubernetes Operator v2.0.0+
+# - Pulumi CLI v3.200.0+ in the workspace image
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: structured-config-inline
+  namespace: default
+stringData:
+  accessToken: xoxb-123-secret-token
+
+---
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: structured-config-inline
+  namespace: default
+spec:
+  # Use a Pulumi CLI image that supports JSON config (v3.200.0+)
+  workspaceTemplate:
+    spec:
+      image: pulumi/pulumi:3.202.0-nonroot
+
+  # Configure access to Pulumi Cloud
+  envRefs:
+    PULUMI_ACCESS_TOKEN:
+      type: Secret
+      secret:
+        name: structured-config-inline
+        key: accessToken
+
+  stack: <your-org>/structured-config-example/dev
+  projectRepo: https://github.com/pulumi/examples
+  repoDir: aws-ts-s3-folder
+  branch: refs/heads/master
+  destroyOnFinalize: true
+
+  # Configuration with structured values
+  config:
+    # Traditional string value - still works!
+    aws:region: us-west-2
+
+    # String value that happens to be JSON - also works!
+    simpleKey: "simpleValue"
+
+    # Object/map value - NEW!
+    databaseConfig:
+      host: db.example.com
+      port: 5432
+      database: myapp
+      ssl: true
+      maxConnections: 100
+
+    # Array value - NEW!
+    allowedRegions:
+      - us-west-2
+      - us-east-1
+      - eu-west-1
+
+    # Number value - NEW!
+    maxRetries: 3
+    timeout: 30.5
+
+    # Boolean value - NEW!
+    enableCaching: true
+    debugMode: false
+
+    # Nested object - NEW!
+    oauth:
+      clientId: my-client-id
+      scopes:
+        - read
+        - write
+        - admin
+      endpoints:
+        token: https://auth.example.com/token
+        authorize: https://auth.example.com/authorize
+        userInfo: https://auth.example.com/userinfo
+      retryConfig:
+        maxAttempts: 5
+        backoffMs: 1000
+
+    # Complex nested structure - NEW!
+    featureFlags:
+      features:
+        - name: newUI
+          enabled: true
+          rolloutPercentage: 50
+        - name: betaAPI
+          enabled: false
+          rolloutPercentage: 0
+      defaultEnabled: false

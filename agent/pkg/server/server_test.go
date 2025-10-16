@@ -433,6 +433,355 @@ func TestSetAllConfig(t *testing.T) {
 	}
 }
 
+func TestUnmarshalConfigItemsJson(t *testing.T) {
+	strVal := structpb.NewStringValue("bar")
+	numVal := structpb.NewNumberValue(42)
+	boolVal := structpb.NewBoolValue(true)
+	objVal, _ := structpb.NewValue(map[string]interface{}{
+		"host": "localhost",
+		"port": float64(5432),
+	})
+	arrVal, _ := structpb.NewValue([]interface{}{"us-west-2", "us-east-1"})
+
+	tests := []struct {
+		name    string
+		project string
+		items   []*pb.ConfigItem
+		want    map[string]configValueJSON
+		wantErr bool
+	}{
+		{
+			name:    "string value",
+			project: "simple",
+			items: []*pb.ConfigItem{
+				{
+					Key: "foo",
+					V:   &pb.ConfigItem_Value{Value: strVal},
+				},
+			},
+			want: map[string]configValueJSON{
+				"simple:foo": {Value: ptr.To("bar"), Secret: false},
+			},
+		},
+		{
+			name:    "number value",
+			project: "simple",
+			items: []*pb.ConfigItem{
+				{
+					Key: "count",
+					V:   &pb.ConfigItem_Value{Value: numVal},
+				},
+			},
+			want: map[string]configValueJSON{
+				"simple:count": {Value: ptr.To("42"), ObjectValue: float64(42), Secret: false},
+			},
+		},
+		{
+			name:    "boolean value",
+			project: "simple",
+			items: []*pb.ConfigItem{
+				{
+					Key: "enabled",
+					V:   &pb.ConfigItem_Value{Value: boolVal},
+				},
+			},
+			want: map[string]configValueJSON{
+				"simple:enabled": {Value: ptr.To("true"), ObjectValue: true, Secret: false},
+			},
+		},
+		{
+			name:    "object value",
+			project: "simple",
+			items: []*pb.ConfigItem{
+				{
+					Key: "database",
+					V:   &pb.ConfigItem_Value{Value: objVal},
+				},
+			},
+			want: map[string]configValueJSON{
+				"simple:database": {
+					Value: ptr.To(`{"host":"localhost", "port":5432}`),
+					ObjectValue: map[string]interface{}{
+						"host": "localhost",
+						"port": float64(5432),
+					},
+					Secret: false,
+				},
+			},
+		},
+		{
+			name:    "array value",
+			project: "simple",
+			items: []*pb.ConfigItem{
+				{
+					Key: "regions",
+					V:   &pb.ConfigItem_Value{Value: arrVal},
+				},
+			},
+			want: map[string]configValueJSON{
+				"simple:regions": {
+					Value:       ptr.To(`["us-west-2", "us-east-1"]`),
+					ObjectValue: []interface{}{"us-west-2", "us-east-1"},
+					Secret:      false,
+				},
+			},
+		},
+		{
+			name:    "secret value",
+			project: "simple",
+			items: []*pb.ConfigItem{
+				{
+					Key:    "apiKey",
+					V:      &pb.ConfigItem_Value{Value: strVal},
+					Secret: ptr.To(true),
+				},
+			},
+			want: map[string]configValueJSON{
+				"simple:apiKey": {Value: ptr.To("bar"), Secret: true},
+			},
+		},
+		{
+			name:    "mixed string and json values",
+			project: "simple",
+			items: []*pb.ConfigItem{
+				{
+					Key: "stringKey",
+					V:   &pb.ConfigItem_Value{Value: strVal},
+				},
+				{
+					Key: "numberKey",
+					V:   &pb.ConfigItem_Value{Value: numVal},
+				},
+				{
+					Key: "objectKey",
+					V:   &pb.ConfigItem_Value{Value: objVal},
+				},
+			},
+			want: map[string]configValueJSON{
+				"simple:stringKey": {Value: ptr.To("bar"), Secret: false},
+				"simple:numberKey": {Value: ptr.To("42"), ObjectValue: float64(42), Secret: false},
+				"simple:objectKey": {
+					Value: ptr.To(`{"host":"localhost", "port":5432}`),
+					ObjectValue: map[string]interface{}{
+						"host": "localhost",
+						"port": float64(5432),
+					},
+					Secret: false,
+				},
+			},
+		},
+		{
+			name:    "valueFrom with json flag",
+			project: "simple",
+			items: []*pb.ConfigItem{
+				{
+					Key: "settings",
+					V: &pb.ConfigItem_ValueFrom{
+						ValueFrom: &pb.ConfigValueFrom{
+							F:    &pb.ConfigValueFrom_Env{Env: "JSON_CONFIG"},
+							Json: ptr.To(true),
+						},
+					},
+				},
+			},
+			want: map[string]configValueJSON{
+				"simple:settings": {
+					Value:       ptr.To(`{"key":"value"}`),
+					ObjectValue: map[string]interface{}{"key": "value"},
+					Secret:      false,
+				},
+			},
+		},
+		{
+			name:    "valueFrom without json flag",
+			project: "simple",
+			items: []*pb.ConfigItem{
+				{
+					Key: "plain",
+					V: &pb.ConfigItem_ValueFrom{
+						ValueFrom: &pb.ConfigValueFrom{
+							F: &pb.ConfigValueFrom_Env{Env: "FOO"},
+						},
+					},
+				},
+			},
+			want: map[string]configValueJSON{
+				"simple:plain": {Value: ptr.To("bar"), Secret: false},
+			},
+		},
+		{
+			name:    "path=true with json value should error",
+			project: "simple",
+			items: []*pb.ConfigItem{
+				{
+					Key:  "database",
+					Path: ptr.To(true),
+					V:    &pb.ConfigItem_Value{Value: objVal},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name:    "missing environment variable should error",
+			project: "simple",
+			items: []*pb.ConfigItem{
+				{
+					Key: "missing",
+					V: &pb.ConfigItem_ValueFrom{
+						ValueFrom: &pb.ConfigValueFrom{
+							F: &pb.ConfigValueFrom_Env{Env: "NONEXISTENT_VAR"},
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name:    "invalid json in valueFrom should error",
+			project: "simple",
+			items: []*pb.ConfigItem{
+				{
+					Key: "invalid",
+					V: &pb.ConfigItem_ValueFrom{
+						ValueFrom: &pb.ConfigValueFrom{
+							F:    &pb.ConfigValueFrom_Env{Env: "INVALID_JSON"},
+							Json: ptr.To(true),
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name:    "namespaced key",
+			project: "simple",
+			items: []*pb.ConfigItem{
+				{
+					Key: "aws:region",
+					V:   &pb.ConfigItem_Value{Value: strVal},
+				},
+			},
+			want: map[string]configValueJSON{
+				"aws:region": {Value: ptr.To("bar"), Secret: false},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set up test environment variables using t.Setenv
+			t.Setenv("JSON_CONFIG", `{"key":"value"}`)
+			t.Setenv("INVALID_JSON", `{invalid json}`)
+
+			got, err := unmarshalConfigItemsJson(tt.project, tt.items)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestHasJsonValue(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		item *pb.ConfigItem
+		want bool
+	}{
+		{
+			name: "string value returns false",
+			item: &pb.ConfigItem{
+				Key: "foo",
+				V:   &pb.ConfigItem_Value{Value: structpb.NewStringValue("bar")},
+			},
+			want: false,
+		},
+		{
+			name: "number value returns true",
+			item: &pb.ConfigItem{
+				Key: "count",
+				V:   &pb.ConfigItem_Value{Value: structpb.NewNumberValue(42)},
+			},
+			want: true,
+		},
+		{
+			name: "boolean value returns true",
+			item: &pb.ConfigItem{
+				Key: "enabled",
+				V:   &pb.ConfigItem_Value{Value: structpb.NewBoolValue(true)},
+			},
+			want: true,
+		},
+		{
+			name: "object value returns true",
+			item: func() *pb.ConfigItem {
+				val, _ := structpb.NewValue(map[string]interface{}{"key": "value"})
+				return &pb.ConfigItem{
+					Key: "config",
+					V:   &pb.ConfigItem_Value{Value: val},
+				}
+			}(),
+			want: true,
+		},
+		{
+			name: "array value returns true",
+			item: func() *pb.ConfigItem {
+				val, _ := structpb.NewValue([]interface{}{"a", "b", "c"})
+				return &pb.ConfigItem{
+					Key: "list",
+					V:   &pb.ConfigItem_Value{Value: val},
+				}
+			}(),
+			want: true,
+		},
+		{
+			name: "valueFrom with json flag returns true",
+			item: &pb.ConfigItem{
+				Key: "settings",
+				V: &pb.ConfigItem_ValueFrom{
+					ValueFrom: &pb.ConfigValueFrom{
+						F:    &pb.ConfigValueFrom_Env{Env: "FOO"},
+						Json: ptr.To(true),
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "valueFrom without json flag returns false",
+			item: &pb.ConfigItem{
+				Key: "plain",
+				V: &pb.ConfigItem_ValueFrom{
+					ValueFrom: &pb.ConfigValueFrom{
+						F: &pb.ConfigValueFrom_Env{Env: "FOO"},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "nil value returns false",
+			item: &pb.ConfigItem{
+				Key: "nil",
+				V:   &pb.ConfigItem_Value{Value: structpb.NewNullValue()},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := hasJsonValue(tt.item)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestSetEnvironments(t *testing.T) {
 	t.Parallel()
 

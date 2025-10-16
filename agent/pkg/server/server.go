@@ -33,6 +33,7 @@ import (
 	"go.uber.org/zap/zapio"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/utils/ptr"
@@ -50,6 +51,17 @@ import (
 )
 
 var _userAgent = fmt.Sprintf("pulumi-kubernetes-operator/%s", version.Version)
+
+// configValueJSON is the shape of the --json output for a configuration value.
+// This matches the format expected by `pulumi config set-all --json`.
+// When the value is a simple string, only Value is set.
+// When the value is a structured type (object, array, number, boolean), both
+// Value (JSON-encoded string) and ObjectValue (natural value) are set.
+type configValueJSON struct {
+	Value       *string `json:"value,omitempty"`
+	ObjectValue any     `json:"objectValue,omitempty"`
+	Secret      bool    `json:"secret"`
+}
 
 type Server struct {
 	log            *zap.SugaredLogger
@@ -258,16 +270,50 @@ func (s *Server) SetAllConfig(ctx context.Context, in *pb.SetAllConfigRequest) (
 		return nil, fmt.Errorf("getting project settings: %w", err)
 	}
 
-	config, err := unmarshalConfigItems(p.Name.String(), in.Config)
-	if err != nil {
-		return nil, fmt.Errorf("config items: %w", err)
+	// Check if any config items contain JSON values
+	hasJson := false
+	for _, item := range in.Config {
+		if hasJsonValue(item) {
+			hasJson = true
+			break
+		}
 	}
 
-	s.log.Debugw("setting all config", "keys", slices.Collect(maps.Keys(config)))
+	s.log.Debugw("setting all config", "count", len(in.Config), "hasJson", hasJson)
 
-	err = stack.SetAllConfigWithOptions(ctx, config, &auto.ConfigOptions{Path: true})
-	if err != nil {
-		return nil, err
+	if hasJson {
+		// Use JSON-aware config setting
+		config, err := unmarshalConfigItemsJson(p.Name.String(), in.Config)
+		if err != nil {
+			return nil, fmt.Errorf("config items: %w", err)
+		}
+
+		s.log.Debugw("setting config with JSON values", "keys", slices.Collect(maps.Keys(config)))
+
+		// Marshal the config map to a JSON string
+		configJson, err := json.Marshal(config)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling config to JSON: %w", err)
+		}
+
+		// Use the new JSON config method (requires Pulumi CLI v3.202.0+)
+		err = stack.SetAllConfigJson(ctx, string(configJson), &auto.ConfigOptions{})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Use path-based config setting
+		config, err := unmarshalConfigItems(p.Name.String(), in.Config)
+		if err != nil {
+			return nil, fmt.Errorf("config items: %w", err)
+		}
+
+		s.log.Debugw("setting config with path support", "keys", slices.Collect(maps.Keys(config)))
+
+		err = stack.SetAllConfigWithOptions(ctx, config, &auto.ConfigOptions{Path: true})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &pb.SetAllConfigResult{}, nil
@@ -277,10 +323,17 @@ func (s *Server) SetAllConfig(ctx context.Context, in *pb.SetAllConfigRequest) (
 // structure is appropriate for invoking with `pulumi config set-all --path`
 // for efficiency. Config items whose keys are not meant to be treated as paths
 // are escaped so they are treated as verbatim property paths.
+//
+// If any ConfigItem contains JSON values, this function will detect that and
+// return an error, signaling the caller should use unmarshalConfigItemsJson instead.
 func unmarshalConfigItems(project string, items []*pb.ConfigItem) (auto.ConfigMap, error) {
 	out := auto.ConfigMap{}
 
 	for _, item := range items {
+		if hasJsonValue(item) {
+			return nil, fmt.Errorf("config contains JSON values")
+		}
+
 		v, err := unmarshalConfigItem(item) // Resolves valueFrom.
 		if err != nil {
 			return nil, fmt.Errorf("unmarshalling %q config: %w", item.Key, err)
@@ -311,6 +364,115 @@ func unmarshalConfigItems(project string, items []*pb.ConfigItem) (auto.ConfigMa
 		}
 
 		out[k.String()] = v
+	}
+
+	return out, nil
+}
+
+// hasJsonValue checks if a ConfigItem contains or should be treated as a JSON value
+func hasJsonValue(item *pb.ConfigItem) bool {
+	switch vv := item.V.(type) {
+	case *pb.ConfigItem_Value:
+		// Check if the value is not a simple string (i.e., it's a structured value)
+		val := vv.Value.AsInterface()
+		switch val.(type) {
+		case string, nil:
+			return false
+		default:
+			// Maps, arrays, numbers, booleans are JSON values
+			return true
+		}
+	case *pb.ConfigItem_ValueFrom:
+		// Check if json flag is set
+		return vv.ValueFrom.GetJson()
+	}
+	return false
+}
+
+// unmarshalConfigItemsJson builds a JSON configuration document for use with
+// SetAllConfigJson. This is used when at least one config item
+// contains a structured (JSON) value.
+func unmarshalConfigItemsJson(project string, items []*pb.ConfigItem) (map[string]configValueJSON, error) {
+	out := make(map[string]configValueJSON)
+
+	for _, item := range items {
+		// Validate: path and json are incompatible
+		if item.GetPath() && hasJsonValue(item) {
+			return nil, status.Errorf(codes.InvalidArgument,
+				"config item %q: path=true is incompatible with JSON values", item.Key)
+		}
+
+		// ParseKey requires all keys to be explicitly namespaced
+		key := item.Key
+		if !strings.Contains(key, tokens.TokenDelimiter) {
+			key = project + ":" + key
+		}
+		k, err := config.ParseKey(key)
+		if err != nil {
+			return nil, fmt.Errorf("parsing %q key: %w", key, err)
+		}
+
+		var cv configValueJSON
+		cv.Secret = item.GetSecret()
+
+		switch vv := item.V.(type) {
+		case *pb.ConfigItem_Value:
+			val := vv.Value.AsInterface()
+			switch v := val.(type) {
+			case string:
+				// Simple string value - set only Value field
+				cv.Value = &v
+			default:
+				// Structured value (object, array, number, boolean)
+				// Set both Value (JSON string) and ObjectValue (natural value)
+				// Use protojson to properly handle protobuf semantics
+				jsonBytes, err := protojson.Marshal(vv.Value)
+				if err != nil {
+					return nil, fmt.Errorf("marshaling %q value to JSON: %w", item.Key, err)
+				}
+				jsonStr := string(jsonBytes)
+				cv.Value = &jsonStr
+				cv.ObjectValue = val
+			}
+		case *pb.ConfigItem_ValueFrom:
+			// Read the value from environment or filesystem
+			var data string
+			switch from := vv.ValueFrom.F.(type) {
+			case *pb.ConfigValueFrom_Env:
+				envData, ok := os.LookupEnv(from.Env)
+				if !ok {
+					return nil, status.Errorf(codes.InvalidArgument,
+						"missing value for environment variable: %s", from.Env)
+				}
+				data = envData
+			case *pb.ConfigValueFrom_Path:
+				fileData, err := os.ReadFile(from.Path)
+				if err != nil {
+					return nil, status.Errorf(codes.InvalidArgument,
+						"unreadable path: %s", from.Path)
+				}
+				data = string(fileData)
+			default:
+				return nil, status.Error(codes.InvalidArgument, "invalid config value")
+			}
+
+			// If json flag is set, parse as JSON and set both Value and ObjectValue
+			if vv.ValueFrom.GetJson() {
+				var obj interface{}
+				if err := json.Unmarshal([]byte(data), &obj); err != nil {
+					return nil, fmt.Errorf("parsing %q as JSON: %w", item.Key, err)
+				}
+				cv.Value = &data
+				cv.ObjectValue = obj
+			} else {
+				// Simple string - set only Value field
+				cv.Value = &data
+			}
+		default:
+			return nil, status.Error(codes.InvalidArgument, "invalid config value")
+		}
+
+		out[k.String()] = cv
 	}
 
 	return out, nil
@@ -646,6 +808,11 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 }
 
 // Destroy implements proto.AutomationServiceServer.
+func (s *Server) PulumiVersion(ctx context.Context, in *pb.PulumiVersionRequest) (*pb.PulumiVersionResult, error) {
+	version := s.ws.PulumiVersion()
+	return &pb.PulumiVersionResult{Version: version}, nil
+}
+
 func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_DestroyServer) error {
 	ctx := srv.Context()
 	stack, err := s.ensureStack(ctx)
