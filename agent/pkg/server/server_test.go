@@ -136,7 +136,6 @@ func TestWhoAmI(t *testing.T) {
 }
 
 func TestSelectStack(t *testing.T) {
-	t.Parallel()
 
 	// hasSummary := func(name string) types.GomegaMatcher {
 	// 	return gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -147,10 +146,11 @@ func TestSelectStack(t *testing.T) {
 	// }
 
 	tests := []struct {
-		name    string
-		stacks  []string
-		req     *pb.SelectStackRequest
-		wantErr any
+		name       string
+		stacks     []string
+		req        *pb.SelectStackRequest
+		wantErr    any
+		setPassenv bool // set PULUMI_CONFIG_PASSPHRASE to "test"
 	}{
 		{
 			name:   "already selected stack",
@@ -180,15 +180,25 @@ func TestSelectStack(t *testing.T) {
 				Create:    ptr.To(true),
 			},
 		},
-		// NOTE: Testing with secrets providers requires complex setup for each provider type
-		// (e.g., passphrase requires PULUMI_CONFIG_PASSPHRASE, vault requires vault setup, etc.)
-		// The implementation is tested via e2e tests and manual testing.
-		// The code path is the same as in NewServer which is already tested.
+		{
+			name:       "non-existent stack with create and passphrase secrets provider",
+			setPassenv: true,
+			req: &pb.SelectStackRequest{
+				StackName:       "passphrase-stack",
+				Create:          ptr.To(true),
+				SecretsProvider: ptr.To("passphrase"),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			g := gomega.NewWithT(t)
+
+			// Set passphrase environment variable for tests that require it
+			if tt.setPassenv {
+				t.Setenv("PULUMI_CONFIG_PASSPHRASE", "test")
+			}
+
 			ctx := newContext(t)
 			tc := newTC(ctx, t, tcOptions{ProjectDir: "./testdata/simple", Stacks: tt.stacks})
 
