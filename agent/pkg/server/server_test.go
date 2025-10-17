@@ -438,8 +438,24 @@ func TestUnmarshalConfigItemsJson(t *testing.T) {
 	numVal := structpb.NewNumberValue(42)
 	boolVal := structpb.NewBoolValue(true)
 	objVal, _ := structpb.NewValue(map[string]interface{}{
-		"host": "localhost",
-		"port": float64(5432),
+		"connection": map[string]interface{}{
+			"primary": map[string]interface{}{
+				"host": "localhost",
+				"port": float64(5432),
+				"ssl": map[string]interface{}{
+					"enabled": true,
+					"cert":    "/path/to/cert",
+				},
+			},
+			"replica": map[string]interface{}{
+				"host": "replica.localhost",
+				"port": float64(5433),
+			},
+		},
+		"pool": map[string]interface{}{
+			"maxSize": float64(10),
+			"minSize": float64(2),
+		},
 	})
 	arrVal, _ := structpb.NewValue([]interface{}{"us-west-2", "us-east-1"})
 
@@ -500,10 +516,26 @@ func TestUnmarshalConfigItemsJson(t *testing.T) {
 			},
 			want: map[string]configValueJSON{
 				"simple:database": {
-					Value: ptr.To(`{"host":"localhost", "port":5432}`),
+					Value: ptr.To(`{"connection":{"primary":{"host":"localhost","port":5432,"ssl":{"cert":"/path/to/cert","enabled":true}},"replica":{"host":"replica.localhost","port":5433}},"pool":{"maxSize":10,"minSize":2}}`),
 					ObjectValue: map[string]interface{}{
-						"host": "localhost",
-						"port": float64(5432),
+						"connection": map[string]interface{}{
+							"primary": map[string]interface{}{
+								"host": "localhost",
+								"port": float64(5432),
+								"ssl": map[string]interface{}{
+									"enabled": true,
+									"cert":    "/path/to/cert",
+								},
+							},
+							"replica": map[string]interface{}{
+								"host": "replica.localhost",
+								"port": float64(5433),
+							},
+						},
+						"pool": map[string]interface{}{
+							"maxSize": float64(10),
+							"minSize": float64(2),
+						},
 					},
 					Secret: false,
 				},
@@ -520,7 +552,7 @@ func TestUnmarshalConfigItemsJson(t *testing.T) {
 			},
 			want: map[string]configValueJSON{
 				"simple:regions": {
-					Value:       ptr.To(`["us-west-2", "us-east-1"]`),
+					Value:       ptr.To(`["us-west-2","us-east-1"]`),
 					ObjectValue: []interface{}{"us-west-2", "us-east-1"},
 					Secret:      false,
 				},
@@ -561,10 +593,26 @@ func TestUnmarshalConfigItemsJson(t *testing.T) {
 				"simple:stringKey": {Value: ptr.To("bar"), Secret: false},
 				"simple:numberKey": {Value: ptr.To("42"), ObjectValue: float64(42), Secret: false},
 				"simple:objectKey": {
-					Value: ptr.To(`{"host":"localhost", "port":5432}`),
+					Value: ptr.To(`{"connection":{"primary":{"host":"localhost","port":5432,"ssl":{"cert":"/path/to/cert","enabled":true}},"replica":{"host":"replica.localhost","port":5433}},"pool":{"maxSize":10,"minSize":2}}`),
 					ObjectValue: map[string]interface{}{
-						"host": "localhost",
-						"port": float64(5432),
+						"connection": map[string]interface{}{
+							"primary": map[string]interface{}{
+								"host": "localhost",
+								"port": float64(5432),
+								"ssl": map[string]interface{}{
+									"enabled": true,
+									"cert":    "/path/to/cert",
+								},
+							},
+							"replica": map[string]interface{}{
+								"host": "replica.localhost",
+								"port": float64(5433),
+							},
+						},
+						"pool": map[string]interface{}{
+							"maxSize": float64(10),
+							"minSize": float64(2),
+						},
 					},
 					Secret: false,
 				},
