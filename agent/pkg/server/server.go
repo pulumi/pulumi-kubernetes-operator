@@ -78,9 +78,12 @@ type Server struct {
 var _ = pb.AutomationServiceServer(&Server{})
 
 type Options struct {
-	// StackName is the name of the stack to upsert (optional).
+	// StackName is the name of the stack to select or create (optional).
+	// If the stack exists, it will be selected. If it doesn't exist, it will be created.
 	StackName string
-	// SecretsProvider is the secrets provider to use for new stacks (optional).
+	// SecretsProvider is the secrets provider to use when creating new stacks (optional).
+	// This is only applied when creating a new stack, not when selecting an existing stack.
+	// Examples: "passphrase", "awskms://...", "azurekeyvault://...", "gcpkms://...", "hashivault://..."
 	SecretsProvider string
 
 	// PulumiLogLevel is the log level to use for Pulumi CLI operations.
@@ -106,21 +109,33 @@ func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, 
 
 	// select the initial stack, if provided
 	if opts.StackName != "" {
-		stack, err := auto.UpsertStack(ctx, opts.StackName, ws)
+		stack, err := auto.SelectStack(ctx, opts.StackName, ws)
 		if err != nil {
-			return nil, fmt.Errorf("failed to select stack: %w", err)
-		}
-		if opts.SecretsProvider != "" {
-			// We must always make sure the secret provider is initialized in the workspace
-			// before we set any configs. Otherwise secret provider will mysteriously reset.
-			// https://github.com/pulumi/pulumi-kubernetes-operator/issues/135
-			err = stack.ChangeSecretsProvider(ctx, opts.SecretsProvider, &auto.ChangeSecretsProviderOptions{})
-			if err != nil {
-				return nil, fmt.Errorf("failed to set secrets provider: %w", err)
+			if auto.IsSelectStack404Error(err) {
+				// Stack doesn't exist, create it
+				stack, err = auto.NewStack(ctx, opts.StackName, ws)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create stack: %w", err)
+				}
+				// Apply secrets provider if specified for the new stack
+				if opts.SecretsProvider != "" {
+					// We must always make sure the secret provider is initialized in the workspace
+					// before we set any configs. Otherwise secret provider will mysteriously reset.
+					// https://github.com/pulumi/pulumi-kubernetes-operator/issues/135
+					err = stack.ChangeSecretsProvider(ctx, opts.SecretsProvider, &auto.ChangeSecretsProviderOptions{})
+					if err != nil {
+						return nil, fmt.Errorf("failed to set secrets provider: %w", err)
+					}
+				}
+				server.log.Infow("created and selected a stack", "name", stack.Name())
+			} else {
+				return nil, fmt.Errorf("failed to select stack: %w", err)
 			}
+		} else {
+			// Stack exists, just select it (don't change secrets provider)
+			server.log.Infow("selected existing stack", "name", stack.Name())
 		}
 		server.stack = &stack
-		server.log.Infow("selected a stack", "name", stack.Name())
 	}
 
 	proj, err := ws.ProjectSettings(ctx)
@@ -217,7 +232,21 @@ func (s *Server) SelectStack(ctx context.Context, in *pb.SelectStackRequest) (*p
 				if !in.GetCreate() {
 					return auto.Stack{}, status.Error(codes.NotFound, "stack not found")
 				}
-				return auto.NewStack(ctx, in.StackName, s.ws)
+				stack, err := auto.NewStack(ctx, in.StackName, s.ws)
+				if err != nil {
+					return auto.Stack{}, err
+				}
+				// Apply secrets provider if specified in the request
+				if in.GetSecretsProvider() != "" {
+					// We must always make sure the secret provider is initialized in the workspace
+					// before we set any configs. Otherwise secret provider will mysteriously reset.
+					// https://github.com/pulumi/pulumi-kubernetes-operator/issues/135
+					err = stack.ChangeSecretsProvider(ctx, in.GetSecretsProvider(), &auto.ChangeSecretsProviderOptions{})
+					if err != nil {
+						return auto.Stack{}, fmt.Errorf("failed to set secrets provider: %w", err)
+					}
+				}
+				return stack, nil
 			}
 			return auto.Stack{}, err
 		}
