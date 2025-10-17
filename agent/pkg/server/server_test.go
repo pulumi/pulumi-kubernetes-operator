@@ -180,6 +180,10 @@ func TestSelectStack(t *testing.T) {
 				Create:    ptr.To(true),
 			},
 		},
+		// NOTE: Testing with secrets providers requires complex setup for each provider type
+		// (e.g., passphrase requires PULUMI_CONFIG_PASSPHRASE, vault requires vault setup, etc.)
+		// The implementation is tested via e2e tests and manual testing.
+		// The code path is the same as in NewServer which is already tested.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
