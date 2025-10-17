@@ -425,14 +425,24 @@ func unmarshalConfigItemsJson(project string, items []*pb.ConfigItem) (map[strin
 			default:
 				// Structured value (object, array, number, boolean)
 				// Set both Value (JSON string) and ObjectValue (natural value)
-				// Use protojson to properly handle protobuf semantics
-				jsonBytes, err := protojson.Marshal(vv.Value)
+				// Use protojson to handle protobuf semantics, then normalize with json.Marshal
+				protoJsonBytes, err := protojson.Marshal(vv.Value)
 				if err != nil {
 					return nil, fmt.Errorf("marshaling %q value to JSON: %w", item.Key, err)
 				}
+				// Unmarshal to Go value to normalize the representation
+				var obj interface{}
+				if err := json.Unmarshal(protoJsonBytes, &obj); err != nil {
+					return nil, fmt.Errorf("unmarshaling %q protojson: %w", item.Key, err)
+				}
+				// Re-marshal with standard json.Marshal for deterministic compact output
+				jsonBytes, err := json.Marshal(obj)
+				if err != nil {
+					return nil, fmt.Errorf("re-marshaling %q value: %w", item.Key, err)
+				}
 				jsonStr := string(jsonBytes)
 				cv.Value = &jsonStr
-				cv.ObjectValue = val
+				cv.ObjectValue = obj
 			}
 		case *pb.ConfigItem_ValueFrom:
 			// Read the value from environment or filesystem

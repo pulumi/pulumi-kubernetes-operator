@@ -500,7 +500,7 @@ func TestUnmarshalConfigItemsJson(t *testing.T) {
 			},
 			want: map[string]configValueJSON{
 				"simple:database": {
-					Value: ptr.To(`{"host":"localhost", "port":5432}`),
+					Value: ptr.To(`{"host":"localhost","port":5432}`),
 					ObjectValue: map[string]interface{}{
 						"host": "localhost",
 						"port": float64(5432),
@@ -520,7 +520,7 @@ func TestUnmarshalConfigItemsJson(t *testing.T) {
 			},
 			want: map[string]configValueJSON{
 				"simple:regions": {
-					Value:       ptr.To(`["us-west-2", "us-east-1"]`),
+					Value:       ptr.To(`["us-west-2","us-east-1"]`),
 					ObjectValue: []interface{}{"us-west-2", "us-east-1"},
 					Secret:      false,
 				},
@@ -561,7 +561,7 @@ func TestUnmarshalConfigItemsJson(t *testing.T) {
 				"simple:stringKey": {Value: ptr.To("bar"), Secret: false},
 				"simple:numberKey": {Value: ptr.To("42"), ObjectValue: float64(42), Secret: false},
 				"simple:objectKey": {
-					Value: ptr.To(`{"host":"localhost", "port":5432}`),
+					Value: ptr.To(`{"host":"localhost","port":5432}`),
 					ObjectValue: map[string]interface{}{
 						"host": "localhost",
 						"port": float64(5432),
