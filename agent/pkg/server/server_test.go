@@ -47,13 +47,12 @@ const (
 )
 
 func TestNewServer(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name       string
 		projectDir string
 		opts       *Options
 		wantErr    any
+		setPassenv bool // set PULUMI_CONFIG_PASSPHRASE to "test"
 	}{
 		{
 			name:       "simple",
@@ -73,11 +72,21 @@ func TestNewServer(t *testing.T) {
 			projectDir: "./testdata/simple",
 			opts:       &Options{StackName: "new"},
 		},
+		{
+			name:       "new stack with passphrase secrets provider",
+			projectDir: "./testdata/simple",
+			opts:       &Options{StackName: "passphrase-stack", SecretsProvider: "passphrase"},
+			setPassenv: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			g := gomega.NewWithT(t)
+
+			// Set passphrase environment variable for tests that require it
+			if tt.setPassenv {
+				t.Setenv("PULUMI_CONFIG_PASSPHRASE", "test")
+			}
 
 			ctx := newContext(t)
 			ws := newWorkspace(ctx, t, tt.projectDir)

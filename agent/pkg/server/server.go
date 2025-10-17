@@ -113,19 +113,21 @@ func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, 
 		if err != nil {
 			if auto.IsSelectStack404Error(err) {
 				// Stack doesn't exist, create it
-				stack, err = auto.NewStack(ctx, opts.StackName, ws)
-				if err != nil {
-					return nil, fmt.Errorf("failed to create stack: %w", err)
-				}
-				// Apply secrets provider if specified for the new stack
+				// Use pulumi stack init with --secrets-provider to create the stack
+				// This is preferred over auto.NewStack + ChangeSecretsProvider because it
+				// properly initializes the secrets provider from the beginning.
+				args := []string{"stack", "init", opts.StackName}
 				if opts.SecretsProvider != "" {
-					// We must always make sure the secret provider is initialized in the workspace
-					// before we set any configs. Otherwise secret provider will mysteriously reset.
-					// https://github.com/pulumi/pulumi-kubernetes-operator/issues/135
-					err = stack.ChangeSecretsProvider(ctx, opts.SecretsProvider, &auto.ChangeSecretsProviderOptions{})
-					if err != nil {
-						return nil, fmt.Errorf("failed to set secrets provider: %w", err)
-					}
+					args = append(args, "--secrets-provider", opts.SecretsProvider)
+				}
+				_, _, errCode, err := ws.PulumiCommand().Run(ctx, ws.WorkDir(), nil, nil, nil, nil, args...)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create stack (exit code %d): %w", errCode, err)
+				}
+				// Now select the newly created stack
+				stack, err = auto.SelectStack(ctx, opts.StackName, ws)
+				if err != nil {
+					return nil, fmt.Errorf("failed to select newly created stack: %w", err)
 				}
 				server.log.Infow("created and selected a stack", "name", stack.Name())
 			} else {
