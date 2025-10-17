@@ -154,6 +154,7 @@ func (s *StackStatus) MarkReadyCondition() {
 // +kubebuilder:printcolumn:name="Reconciling",type=string,JSONPath=`.status.conditions[?(@.type=="Reconciling")].reason`
 // +kubebuilder:printcolumn:name="Stalled",type=string,JSONPath=`.status.conditions[?(@.type=="Stalled")].status`
 // +kubebuilder:printcolumn:name="Permalink",type="string",JSONPath=".status.lastUpdate.permalink"
+// +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 42",message="Stack name must be no more than 42 characters in length."
 // Stack is the Schema for the stacks API
 type Stack struct {
 	metav1.TypeMeta   `json:",inline"`
