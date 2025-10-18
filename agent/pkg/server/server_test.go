@@ -48,6 +48,7 @@ const (
 
 func TestNewServer(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name       string
 		projectDir string
@@ -149,7 +150,7 @@ func TestSelectStack(t *testing.T) {
 		wantErr any
 	}{
 		{
-			name:   "already selected stack",
+			name:   "existent stack (already selected)",
 			stacks: []string{"one"},
 			req: &pb.SelectStackRequest{
 				StackName: "one",
@@ -170,14 +171,14 @@ func TestSelectStack(t *testing.T) {
 			wantErr: status.Error(codes.NotFound, "stack not found"),
 		},
 		{
-			name: "non-existent stack with create",
+			name: "new stack with create",
 			req: &pb.SelectStackRequest{
 				StackName: "one",
 				Create:    ptr.To(true),
 			},
 		},
 		{
-			name: "non-existent stack with invalid secrets provider",
+			name: "new stack with invalid secrets provider",
 			req: &pb.SelectStackRequest{
 				StackName:       "bad-provider-stack",
 				Create:          ptr.To(true),
