@@ -112,29 +112,16 @@ func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, 
 		stack, err := auto.SelectStack(ctx, opts.StackName, ws)
 		if err != nil {
 			if auto.IsSelectStack404Error(err) {
-				// Stack doesn't exist, create it
-				// Use pulumi stack init with --secrets-provider to create the stack
-				// This is preferred over auto.NewStack + ChangeSecretsProvider because it
-				// properly initializes the secrets provider from the beginning.
-				args := []string{"stack", "init", opts.StackName}
-				if opts.SecretsProvider != "" {
-					args = append(args, "--secrets-provider", opts.SecretsProvider)
-				}
-				_, _, errCode, err := ws.PulumiCommand().Run(ctx, ws.WorkDir(), nil, nil, nil, nil, args...)
+				// Stack doesn't exist, create it with the specified secrets provider
+				stack, err = newStackWithOptions(ctx, ws, opts.StackName, opts.SecretsProvider)
 				if err != nil {
-					return nil, fmt.Errorf("failed to create stack (exit code %d): %w", errCode, err)
+					return nil, fmt.Errorf("failed to create stack: %w", err)
 				}
-				// Now select the newly created stack
-				stack, err = auto.SelectStack(ctx, opts.StackName, ws)
-				if err != nil {
-					return nil, fmt.Errorf("failed to select newly created stack: %w", err)
-				}
-				server.log.Infow("created and selected a stack", "name", stack.Name())
+				server.log.Infow("created and selected stack", "name", stack.Name())
 			} else {
 				return nil, fmt.Errorf("failed to select stack: %w", err)
 			}
 		} else {
-			// Stack exists, just select it (don't change secrets provider)
 			server.log.Infow("selected existing stack", "name", stack.Name())
 		}
 		server.stack = &stack
@@ -147,6 +134,37 @@ func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, 
 	log.Infow("project serving", "project", proj.Name, "runtime", proj.Runtime.Name())
 
 	return server, nil
+}
+
+const pulumiHomeEnv = "PULUMI_HOME"
+
+// newStackWithOptions creates a new stack with the specified secrets provider.
+// It uses `pulumi stack init --secrets-provider` to properly initialize the secrets provider from the beginning.
+// This is preferred over auto.NewStack because auto.NewStack does not support specifying a secrets provider
+// at creation time - it only uses the workspace's preconfigured secrets provider (from NewLocalWorkspace).
+func newStackWithOptions(ctx context.Context, ws auto.Workspace, stackName, secretsProvider string) (auto.Stack, error) {
+	// Create the stack with secrets provider using pulumi stack init
+	args := []string{"stack", "init", stackName}
+	if secretsProvider != "" {
+		args = append(args, "--secrets-provider", secretsProvider)
+	}
+	var env []string
+	if ws.PulumiHome() != "" {
+		homeEnv := fmt.Sprintf("%s=%s", pulumiHomeEnv, ws.PulumiHome())
+		env = append(env, homeEnv)
+	}
+	if envvars := ws.GetEnvVars(); envvars != nil {
+		for k, v := range envvars {
+			e := []string{k, v}
+			env = append(env, strings.Join(e, "="))
+		}
+	}
+	_, _, errCode, err := ws.PulumiCommand().Run(ctx, ws.WorkDir(), nil, nil, nil, env, args...)
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to create stack (exit code %d): %w", errCode, err)
+	}
+	// Now select the newly created stack
+	return auto.SelectStack(ctx, stackName, ws)
 }
 
 func (s *Server) ensureStack(ctx context.Context) (auto.Stack, error) {
@@ -234,19 +252,8 @@ func (s *Server) SelectStack(ctx context.Context, in *pb.SelectStackRequest) (*p
 				if !in.GetCreate() {
 					return auto.Stack{}, status.Error(codes.NotFound, "stack not found")
 				}
-				// Use pulumi stack init with --secrets-provider to create the stack
-				// This is preferred over auto.NewStack + ChangeSecretsProvider because it
-				// properly initializes the secrets provider from the beginning.
-				args := []string{"stack", "init", in.StackName}
-				if in.GetSecretsProvider() != "" {
-					args = append(args, "--secrets-provider", in.GetSecretsProvider())
-				}
-				_, _, errCode, err := s.ws.PulumiCommand().Run(ctx, s.ws.WorkDir(), nil, nil, nil, nil, args...)
-				if err != nil {
-					return auto.Stack{}, fmt.Errorf("failed to create stack (exit code %d): %w", errCode, err)
-				}
-				// Now select the newly created stack
-				return auto.SelectStack(ctx, in.StackName, s.ws)
+				// Stack doesn't exist, create it with the specified secrets provider
+				return newStackWithOptions(ctx, s.ws, in.StackName, in.GetSecretsProvider())
 			}
 			return auto.Stack{}, err
 		}
