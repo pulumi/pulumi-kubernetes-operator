@@ -78,9 +78,12 @@ type Server struct {
 var _ = pb.AutomationServiceServer(&Server{})
 
 type Options struct {
-	// StackName is the name of the stack to upsert (optional).
+	// StackName is the name of the stack to select or create (optional).
+	// If the stack exists, it will be selected. If it doesn't exist, it will be created.
 	StackName string
-	// SecretsProvider is the secrets provider to use for new stacks (optional).
+	// SecretsProvider is the secrets provider to use when creating new stacks (optional).
+	// This is only applied when creating a new stack, not when selecting an existing stack.
+	// Examples: "passphrase", "awskms://...", "azurekeyvault://...", "gcpkms://...", "hashivault://..."
 	SecretsProvider string
 
 	// PulumiLogLevel is the log level to use for Pulumi CLI operations.
@@ -106,21 +109,22 @@ func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, 
 
 	// select the initial stack, if provided
 	if opts.StackName != "" {
-		stack, err := auto.UpsertStack(ctx, opts.StackName, ws)
+		stack, err := auto.SelectStack(ctx, opts.StackName, ws)
 		if err != nil {
-			return nil, fmt.Errorf("failed to select stack: %w", err)
-		}
-		if opts.SecretsProvider != "" {
-			// We must always make sure the secret provider is initialized in the workspace
-			// before we set any configs. Otherwise secret provider will mysteriously reset.
-			// https://github.com/pulumi/pulumi-kubernetes-operator/issues/135
-			err = stack.ChangeSecretsProvider(ctx, opts.SecretsProvider, &auto.ChangeSecretsProviderOptions{})
-			if err != nil {
-				return nil, fmt.Errorf("failed to set secrets provider: %w", err)
+			if auto.IsSelectStack404Error(err) {
+				// Stack doesn't exist, create it with the specified secrets provider
+				stack, err = newStackWithOptions(ctx, ws, opts.StackName, opts.SecretsProvider)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create stack: %w", err)
+				}
+				server.log.Infow("created and selected stack", "name", stack.Name())
+			} else {
+				return nil, fmt.Errorf("failed to select stack: %w", err)
 			}
+		} else {
+			server.log.Infow("selected existing stack", "name", stack.Name())
 		}
 		server.stack = &stack
-		server.log.Infow("selected a stack", "name", stack.Name())
 	}
 
 	proj, err := ws.ProjectSettings(ctx)
@@ -130,6 +134,37 @@ func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, 
 	log.Infow("project serving", "project", proj.Name, "runtime", proj.Runtime.Name())
 
 	return server, nil
+}
+
+const pulumiHomeEnv = "PULUMI_HOME"
+
+// newStackWithOptions creates a new stack with the specified secrets provider.
+// It uses `pulumi stack init --secrets-provider` to properly initialize the secrets provider from the beginning.
+// This is preferred over auto.NewStack because auto.NewStack does not support specifying a secrets provider
+// at creation time - it only uses the workspace's preconfigured secrets provider (from NewLocalWorkspace).
+func newStackWithOptions(ctx context.Context, ws auto.Workspace, stackName, secretsProvider string) (auto.Stack, error) {
+	// Create the stack with secrets provider using pulumi stack init
+	args := []string{"stack", "init", stackName}
+	if secretsProvider != "" {
+		args = append(args, "--secrets-provider", secretsProvider)
+	}
+	var env []string
+	if ws.PulumiHome() != "" {
+		homeEnv := fmt.Sprintf("%s=%s", pulumiHomeEnv, ws.PulumiHome())
+		env = append(env, homeEnv)
+	}
+	if envvars := ws.GetEnvVars(); envvars != nil {
+		for k, v := range envvars {
+			e := []string{k, v}
+			env = append(env, strings.Join(e, "="))
+		}
+	}
+	_, _, errCode, err := ws.PulumiCommand().Run(ctx, ws.WorkDir(), nil, nil, nil, env, args...)
+	if err != nil {
+		return auto.Stack{}, fmt.Errorf("failed to create stack (exit code %d): %w", errCode, err)
+	}
+	// Now select the newly created stack
+	return auto.SelectStack(ctx, stackName, ws)
 }
 
 func (s *Server) ensureStack(ctx context.Context) (auto.Stack, error) {
@@ -217,7 +252,8 @@ func (s *Server) SelectStack(ctx context.Context, in *pb.SelectStackRequest) (*p
 				if !in.GetCreate() {
 					return auto.Stack{}, status.Error(codes.NotFound, "stack not found")
 				}
-				return auto.NewStack(ctx, in.StackName, s.ws)
+				// Stack doesn't exist, create it with the specified secrets provider
+				return newStackWithOptions(ctx, s.ws, in.StackName, in.GetSecretsProvider())
 			}
 			return auto.Stack{}, err
 		}

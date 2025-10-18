@@ -42,12 +42,13 @@ const (
 )
 
 var (
-	_workDir     string
-	_skipInstall bool
-	_stack       string
-	_envFile     string
-	_host        string
-	_port        int
+	_workDir         string
+	_skipInstall     bool
+	_stack           string
+	_secretsProvider string
+	_envFile         string
+	_host            string
+	_port            int
 
 	_authMode           string
 	_audiences          []string
@@ -172,8 +173,9 @@ var serveCmd = &cobra.Command{
 
 		// Create the automation service
 		autoServer, err := server.NewServer(ctx, workspace, &server.Options{
-			StackName:      _stack,
-			PulumiLogLevel: _pulumiLogLevel,
+			StackName:       _stack,
+			SecretsProvider: _secretsProvider,
+			PulumiLogLevel:  _pulumiLogLevel,
 		})
 		if err != nil {
 			return fmt.Errorf("unable to make an automation server: %w", err)
@@ -227,6 +229,8 @@ func init() {
 	serveCmd.Flags().BoolVar(&_skipInstall, "skip-install", false, "Skip installation of project dependencies")
 
 	serveCmd.Flags().StringVarP(&_stack, "stack", "s", "", "Select (or create) the stack to use")
+
+	serveCmd.Flags().StringVar(&_secretsProvider, "secrets-provider", "", "The secrets provider to use when creating the stack (passphrase, awskms, azurekeyvault, gcpkms, hashivault)")
 
 	serveCmd.Flags().StringVar(&_envFile, "env-file", "", "An environment file to load (e.g. .env)")
 

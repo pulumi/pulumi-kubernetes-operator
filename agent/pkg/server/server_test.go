@@ -47,8 +47,6 @@ const (
 )
 
 func TestNewServer(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name       string
 		projectDir string
@@ -73,10 +71,14 @@ func TestNewServer(t *testing.T) {
 			projectDir: "./testdata/simple",
 			opts:       &Options{StackName: "new"},
 		},
+		{
+			name:       "new stack with passphrase secrets provider",
+			projectDir: "./testdata/simple",
+			opts:       &Options{StackName: "passphrase-stack", SecretsProvider: "passphrase"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			g := gomega.NewWithT(t)
 
 			ctx := newContext(t)
@@ -92,6 +94,15 @@ func TestNewServer(t *testing.T) {
 					current, err := ws.Stack(ctx)
 					g.Expect(err).ToNot(gomega.HaveOccurred())
 					g.Expect(current.Name).To(gomega.Equal(tt.opts.StackName))
+
+					// If this is the passphrase secrets provider test, check the stack file
+					if tt.opts.StackName == "passphrase-stack" {
+						stackFile := filepath.Join(ws.WorkDir(), fmt.Sprintf("Pulumi.%s.yaml", tt.opts.StackName))
+						data, err := os.ReadFile(stackFile)
+						g.Expect(err).ToNot(gomega.HaveOccurred())
+						// Look for the encryptionsalt field in the stack file
+						g.Expect(string(data)).To(gomega.ContainSubstring("encryptionsalt"))
+					}
 				}
 			}
 		})
@@ -136,7 +147,6 @@ func TestWhoAmI(t *testing.T) {
 }
 
 func TestSelectStack(t *testing.T) {
-	t.Parallel()
 
 	// hasSummary := func(name string) types.GomegaMatcher {
 	// 	return gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -180,11 +190,19 @@ func TestSelectStack(t *testing.T) {
 				Create:    ptr.To(true),
 			},
 		},
+		{
+			name: "non-existent stack with create and passphrase secrets provider",
+			req: &pb.SelectStackRequest{
+				StackName:       "passphrase-stack",
+				Create:          ptr.To(true),
+				SecretsProvider: ptr.To("passphrase"),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			g := gomega.NewWithT(t)
+
 			ctx := newContext(t)
 			tc := newTC(ctx, t, tcOptions{ProjectDir: "./testdata/simple", Stacks: tt.stacks})
 
@@ -201,6 +219,15 @@ func TestSelectStack(t *testing.T) {
 				current, err := tc.ws.Stack(ctx)
 				g.Expect(err).ToNot(gomega.HaveOccurred())
 				g.Expect(current.Name).To(gomega.Equal(tt.req.StackName))
+
+				// If this is the passphrase secrets provider test, check the stack file
+				if tt.req.StackName == "passphrase-stack" {
+					stackFile := filepath.Join(tc.ws.WorkDir(), fmt.Sprintf("Pulumi.%s.yaml", tt.req.StackName))
+					data, err := os.ReadFile(stackFile)
+					g.Expect(err).ToNot(gomega.HaveOccurred())
+					// Look for the encryptionsalt field in the stack file
+					g.Expect(string(data)).To(gomega.ContainSubstring("encryptionsalt"))
+				}
 			}
 		})
 	}
