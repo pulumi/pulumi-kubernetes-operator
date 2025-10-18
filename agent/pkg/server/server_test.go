@@ -52,7 +52,6 @@ func TestNewServer(t *testing.T) {
 		projectDir string
 		opts       *Options
 		wantErr    any
-		setPassenv bool // set PULUMI_CONFIG_PASSPHRASE to "test"
 	}{
 		{
 			name:       "simple",
@@ -76,17 +75,11 @@ func TestNewServer(t *testing.T) {
 			name:       "new stack with passphrase secrets provider",
 			projectDir: "./testdata/simple",
 			opts:       &Options{StackName: "passphrase-stack", SecretsProvider: "passphrase"},
-			setPassenv: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
-
-			// Set passphrase environment variable for tests that require it
-			if tt.setPassenv {
-				t.Setenv("PULUMI_CONFIG_PASSPHRASE", "test")
-			}
 
 			ctx := newContext(t)
 			ws := newWorkspace(ctx, t, tt.projectDir)
@@ -101,6 +94,15 @@ func TestNewServer(t *testing.T) {
 					current, err := ws.Stack(ctx)
 					g.Expect(err).ToNot(gomega.HaveOccurred())
 					g.Expect(current.Name).To(gomega.Equal(tt.opts.StackName))
+
+					// If this is the passphrase secrets provider test, check the stack file
+					if tt.opts.StackName == "passphrase-stack" {
+						stackFile := filepath.Join(ws.WorkDir(), fmt.Sprintf("Pulumi.%s.yaml", tt.opts.StackName))
+						data, err := os.ReadFile(stackFile)
+						g.Expect(err).ToNot(gomega.HaveOccurred())
+						// Look for the encryptionsalt field in the stack file
+						g.Expect(string(data)).To(gomega.ContainSubstring("encryptionsalt"))
+					}
 				}
 			}
 		})
@@ -155,11 +157,10 @@ func TestSelectStack(t *testing.T) {
 	// }
 
 	tests := []struct {
-		name       string
-		stacks     []string
-		req        *pb.SelectStackRequest
-		wantErr    any
-		setPassenv bool // set PULUMI_CONFIG_PASSPHRASE to "test"
+		name    string
+		stacks  []string
+		req     *pb.SelectStackRequest
+		wantErr any
 	}{
 		{
 			name:   "already selected stack",
@@ -190,8 +191,7 @@ func TestSelectStack(t *testing.T) {
 			},
 		},
 		{
-			name:       "non-existent stack with create and passphrase secrets provider",
-			setPassenv: true,
+			name: "non-existent stack with create and passphrase secrets provider",
 			req: &pb.SelectStackRequest{
 				StackName:       "passphrase-stack",
 				Create:          ptr.To(true),
@@ -202,11 +202,6 @@ func TestSelectStack(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
-
-			// Set passphrase environment variable for tests that require it
-			if tt.setPassenv {
-				t.Setenv("PULUMI_CONFIG_PASSPHRASE", "test")
-			}
 
 			ctx := newContext(t)
 			tc := newTC(ctx, t, tcOptions{ProjectDir: "./testdata/simple", Stacks: tt.stacks})
@@ -224,6 +219,15 @@ func TestSelectStack(t *testing.T) {
 				current, err := tc.ws.Stack(ctx)
 				g.Expect(err).ToNot(gomega.HaveOccurred())
 				g.Expect(current.Name).To(gomega.Equal(tt.req.StackName))
+
+				// If this is the passphrase secrets provider test, check the stack file
+				if tt.req.StackName == "passphrase-stack" {
+					stackFile := filepath.Join(tc.ws.WorkDir(), fmt.Sprintf("Pulumi.%s.yaml", tt.req.StackName))
+					data, err := os.ReadFile(stackFile)
+					g.Expect(err).ToNot(gomega.HaveOccurred())
+					// Look for the encryptionsalt field in the stack file
+					g.Expect(string(data)).To(gomega.ContainSubstring("encryptionsalt"))
+				}
 			}
 		})
 	}

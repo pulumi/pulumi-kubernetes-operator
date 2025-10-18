@@ -42,13 +42,13 @@ const (
 )
 
 var (
-	_workDir        string
-	_skipInstall    bool
-	_stack          string
+	_workDir         string
+	_skipInstall     bool
+	_stack           string
 	_secretsProvider string
-	_envFile        string
-	_host           string
-	_port           int
+	_envFile         string
+	_host            string
+	_port            int
 
 	_authMode           string
 	_audiences          []string
@@ -230,7 +230,7 @@ func init() {
 
 	serveCmd.Flags().StringVarP(&_stack, "stack", "s", "", "Select (or create) the stack to use")
 
-	serveCmd.Flags().StringVar(&_secretsProvider, "secrets-provider", "", "The secrets provider to use when creating the stack (e.g., passphrase, awskms://..., azurekeyvault://..., gcpkms://..., hashivault://...)")
+	serveCmd.Flags().StringVar(&_secretsProvider, "secrets-provider", "", "The secrets provider to use when creating the stack (passphrase, awskms, azurekeyvault, gcpkms, hashivault)")
 
 	serveCmd.Flags().StringVar(&_envFile, "env-file", "", "An environment file to load (e.g. .env)")
 
