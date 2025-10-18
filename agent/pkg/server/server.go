@@ -135,8 +135,6 @@ func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, 
 	return server, nil
 }
 
-const pulumiHomeEnv = "PULUMI_HOME"
-
 func (s *Server) ensureStack(ctx context.Context) (auto.Stack, error) {
 	s.stackLock.Lock()
 	defer s.stackLock.Unlock()
@@ -262,7 +260,7 @@ func initStack(ctx context.Context, ws auto.Workspace, stackName, secretsProvide
 	}
 	var env []string
 	if ws.PulumiHome() != "" {
-		homeEnv := fmt.Sprintf("%s=%s", pulumiHomeEnv, ws.PulumiHome())
+		homeEnv := fmt.Sprintf("PULUMI_HOME=%s", ws.PulumiHome())
 		env = append(env, homeEnv)
 	}
 	if envvars := ws.GetEnvVars(); envvars != nil {
