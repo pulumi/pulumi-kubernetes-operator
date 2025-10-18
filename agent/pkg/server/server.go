@@ -112,8 +112,7 @@ func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, 
 		stack, err := auto.SelectStack(ctx, opts.StackName, ws)
 		if err != nil {
 			if auto.IsSelectStack404Error(err) {
-				// Stack doesn't exist, create it with the specified secrets provider
-				stack, err = newStackWithOptions(ctx, ws, opts.StackName, opts.SecretsProvider)
+				stack, err = initStack(ctx, ws, opts.StackName, opts.SecretsProvider)
 				if err != nil {
 					return nil, fmt.Errorf("failed to create stack: %w", err)
 				}
@@ -137,35 +136,6 @@ func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, 
 }
 
 const pulumiHomeEnv = "PULUMI_HOME"
-
-// newStackWithOptions creates a new stack with the specified secrets provider.
-// It uses `pulumi stack init --secrets-provider` to properly initialize the secrets provider from the beginning.
-// This is preferred over auto.NewStack because auto.NewStack does not support specifying a secrets provider
-// at creation time - it only uses the workspace's preconfigured secrets provider (from NewLocalWorkspace).
-func newStackWithOptions(ctx context.Context, ws auto.Workspace, stackName, secretsProvider string) (auto.Stack, error) {
-	// Create the stack with secrets provider using pulumi stack init
-	args := []string{"stack", "init", stackName}
-	if secretsProvider != "" {
-		args = append(args, "--secrets-provider", secretsProvider)
-	}
-	var env []string
-	if ws.PulumiHome() != "" {
-		homeEnv := fmt.Sprintf("%s=%s", pulumiHomeEnv, ws.PulumiHome())
-		env = append(env, homeEnv)
-	}
-	if envvars := ws.GetEnvVars(); envvars != nil {
-		for k, v := range envvars {
-			e := []string{k, v}
-			env = append(env, strings.Join(e, "="))
-		}
-	}
-	_, _, errCode, err := ws.PulumiCommand().Run(ctx, ws.WorkDir(), nil, nil, nil, env, args...)
-	if err != nil {
-		return auto.Stack{}, fmt.Errorf("failed to create stack (exit code %d): %w", errCode, err)
-	}
-	// Now select the newly created stack
-	return auto.SelectStack(ctx, stackName, ws)
-}
 
 func (s *Server) ensureStack(ctx context.Context) (auto.Stack, error) {
 	s.stackLock.Lock()
@@ -252,8 +222,7 @@ func (s *Server) SelectStack(ctx context.Context, in *pb.SelectStackRequest) (*p
 				if !in.GetCreate() {
 					return auto.Stack{}, status.Error(codes.NotFound, "stack not found")
 				}
-				// Stack doesn't exist, create it with the specified secrets provider
-				return newStackWithOptions(ctx, s.ws, in.StackName, in.GetSecretsProvider())
+				return initStack(ctx, s.ws, in.StackName, in.GetSecretsProvider())
 			}
 			return auto.Stack{}, err
 		}
@@ -276,6 +245,49 @@ func (s *Server) SelectStack(ctx context.Context, in *pb.SelectStackRequest) (*p
 		Summary: marshalStackSummary(info),
 	}
 	return resp, nil
+}
+
+// initStack creates a new stack with the specified secrets provider.
+// It uses `pulumi stack init --secrets-provider` to properly initialize the secrets provider from the beginning.
+// This is preferred over auto.NewStack which does not support specifying a secrets provider at creation time.
+func initStack(ctx context.Context, ws auto.Workspace, stackName, secretsProvider string) (auto.Stack, error) {
+	log := zap.L().Named("initStack").Sugar()
+
+	log.Debugw("initializing stack", "stackName", stackName, "secretsProvider", secretsProvider)
+
+	// Create the stack with secrets provider using pulumi stack init
+	args := []string{"stack", "init", stackName}
+	if secretsProvider != "" {
+		args = append(args, "--secrets-provider", secretsProvider)
+	}
+	var env []string
+	if ws.PulumiHome() != "" {
+		homeEnv := fmt.Sprintf("%s=%s", pulumiHomeEnv, ws.PulumiHome())
+		env = append(env, homeEnv)
+	}
+	if envvars := ws.GetEnvVars(); envvars != nil {
+		for k, v := range envvars {
+			e := []string{k, v}
+			env = append(env, strings.Join(e, "="))
+		}
+	}
+
+	_, _, errCode, err := ws.PulumiCommand().Run(ctx, ws.WorkDir(), nil, nil, nil, env, args...)
+	if err != nil {
+		log.Errorw("failed to create stack", "stackName", stackName, "exitCode", errCode, zap.Error(err))
+		return auto.Stack{}, fmt.Errorf("failed to create stack (exit code %d): %w", errCode, err)
+	}
+
+	log.Debugw("stack initialized successfully", "stackName", stackName)
+
+	// Now select the newly created stack
+	stack, err := auto.SelectStack(ctx, stackName, ws)
+	if err != nil {
+		log.Errorw("failed to select newly created stack", "stackName", stackName, zap.Error(err))
+		return auto.Stack{}, err
+	}
+
+	return stack, nil
 }
 
 func (s *Server) Info(ctx context.Context, in *pb.InfoRequest) (*pb.InfoResult, error) {
