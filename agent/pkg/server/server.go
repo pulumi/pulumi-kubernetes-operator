@@ -272,10 +272,10 @@ func initStack(ctx context.Context, ws auto.Workspace, stackName, secretsProvide
 		}
 	}
 
-	_, _, errCode, err := ws.PulumiCommand().Run(ctx, ws.WorkDir(), nil, nil, nil, env, args...)
+	_, stderr, errCode, err := ws.PulumiCommand().Run(ctx, ws.WorkDir(), nil, nil, nil, env, args...)
 	if err != nil {
-		log.Errorw("failed to create stack", "stackName", stackName, "exitCode", errCode, zap.Error(err))
-		return auto.Stack{}, fmt.Errorf("failed to create stack (exit code %d): %w", errCode, err)
+		log.Errorw("failed to create stack", "stackName", stackName, "exitCode", errCode, "stderr", stderr, zap.Error(err))
+		return auto.Stack{}, fmt.Errorf("failed to create stack: %w: %s", err, stderr)
 	}
 
 	log.Debugw("stack initialized successfully", "stackName", stackName)
