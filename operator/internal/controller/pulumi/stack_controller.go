@@ -855,6 +855,13 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	var failedPrereqErr error      // in caase there's just one, we report the specific error
 
 	for _, prereq := range instance.Spec.Prerequisites {
+		// Skip prerequisite checks during deletion since dependencies are not relevant during destroy
+		// (except if --run-program were used, but a missing prerequisite would block deletion forever).
+		// In the future, some prerequisites might be marked as blockers even during deletion.
+		if isStackMarkedToBeDeleted {
+			continue
+		}
+
 		prereqStack := &pulumiv1.Stack{}
 		key := types.NamespacedName{Name: prereq.Name, Namespace: instance.Namespace}
 		err := r.Client.Get(ctx, key, prereqStack)
