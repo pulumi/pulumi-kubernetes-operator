@@ -852,7 +852,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	// however, we go through all of the prerequisites anyway, so we can annotate all failing stacks
 	// to be requeued themselves.
 	var failedPrereqNames []string // in the case there's more than one, we report the names
-	var failedPrereqErr error      // in caase there's just one, we report the specific error
+	var failedPrereqErr error      // in case there's just one, we report the specific error
 
 	for _, prereq := range instance.Spec.Prerequisites {
 		// Skip prerequisite checks during deletion since dependencies are not relevant during destroy
