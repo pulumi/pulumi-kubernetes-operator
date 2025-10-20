@@ -73,6 +73,12 @@ func TestNewServer(t *testing.T) {
 			projectDir: "./testdata/simple",
 			opts:       &Options{StackName: "new"},
 		},
+		{
+			name:       "new stack with invalid secrets provider",
+			projectDir: "./testdata/simple",
+			opts:       &Options{StackName: "bad-provider-stack", SecretsProvider: "bad"},
+			wantErr:    gomega.ContainSubstring("unknown secrets provider type 'bad'"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -137,15 +143,6 @@ func TestWhoAmI(t *testing.T) {
 
 func TestSelectStack(t *testing.T) {
 	t.Parallel()
-
-	// hasSummary := func(name string) types.GomegaMatcher {
-	// 	return gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-	// 		"Summary": gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-	// 			"Name": gomega.Equal(name),
-	// 		})),
-	// 	})
-	// }
-
 	tests := []struct {
 		name    string
 		stacks  []string
@@ -153,7 +150,7 @@ func TestSelectStack(t *testing.T) {
 		wantErr any
 	}{
 		{
-			name:   "already selected stack",
+			name:   "existent stack (already selected)",
 			stacks: []string{"one"},
 			req: &pb.SelectStackRequest{
 				StackName: "one",
@@ -174,17 +171,27 @@ func TestSelectStack(t *testing.T) {
 			wantErr: status.Error(codes.NotFound, "stack not found"),
 		},
 		{
-			name: "non-existent stack with create",
+			name: "new stack with create",
 			req: &pb.SelectStackRequest{
 				StackName: "one",
 				Create:    ptr.To(true),
 			},
+		},
+		{
+			name: "new stack with invalid secrets provider",
+			req: &pb.SelectStackRequest{
+				StackName:       "bad-provider-stack",
+				Create:          ptr.To(true),
+				SecretsProvider: ptr.To("bad"),
+			},
+			wantErr: gomega.ContainSubstring("unknown secrets provider type 'bad'"),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			g := gomega.NewWithT(t)
+
 			ctx := newContext(t)
 			tc := newTC(ctx, t, tcOptions{ProjectDir: "./testdata/simple", Stacks: tt.stacks})
 

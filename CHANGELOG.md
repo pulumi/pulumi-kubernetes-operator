@@ -6,6 +6,7 @@ CHANGELOG
 - New feature: preview mode [#1012](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1012)
 - New feature: structured configuration [#1023](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1023)
 - Add validation to limit Stack name to 42 characters [#899](https://github.com/pulumi/pulumi-kubernetes-operator/issues/899)
+- Fix secretsProvider not being applied to new stacks [#935](https://github.com/pulumi/pulumi-kubernetes-operator/issues/935)
 
 ## 2.2.0 (2025-08-11)
 
