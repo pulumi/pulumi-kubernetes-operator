@@ -24,8 +24,8 @@ spec:
       {{- end }}
       labels:
       {{- include "pulumi-kubernetes-operator.selectorLabels" . | nindent 8 }}
-      {{- if .Values.podLabels }}
-        {{ toYaml .Values.podLabels | indent 8 }}
+      {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
       containers:
