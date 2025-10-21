@@ -522,7 +522,7 @@ func (updateCompletedPredicate) Update(e event.UpdateEvent) bool {
 	}
 	oldUpdate, okOld := e.ObjectOld.(*autov1alpha1.Update)
 	newUpdate, okNew := e.ObjectNew.(*autov1alpha1.Update)
-	if !okOld || !okNew {
+	if !okOld || !okNew || oldUpdate == nil || newUpdate == nil {
 		return false
 	}
 
