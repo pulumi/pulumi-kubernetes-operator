@@ -1366,6 +1366,48 @@ var _ = Describe("Stack Controller", func() {
 				beSatisfied()
 			})
 		})
+
+		When("the stack is being deleted", func() {
+			BeforeEach(func(ctx context.Context) {
+				obj.Spec.DestroyOnFinalize = true
+				controllerutil.AddFinalizer(obj, pulumiFinalizer)
+
+				// make the workspace be ready for an update
+				ws.Status.ObservedGeneration = 1
+				ws.Status.Conditions = []metav1.Condition{
+					{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Succeeded", LastTransitionTime: metav1.Now()},
+				}
+			})
+
+			JustBeforeEach(func(ctx context.Context) {
+				// mark the object for deletion
+				Expect(k8sClient.Delete(ctx, obj)).To(Succeed())
+				obj = &pulumiv1.Stack{}
+				_ = k8sClient.Get(ctx, objName, obj)
+			})
+
+			When("the prerequisite is missing", func() {
+				JustBeforeEach(func(ctx context.Context) {
+					Expect(k8sClient.Delete(ctx, prereq)).To(Succeed())
+				})
+
+				It("proceeds with deletion despite missing prerequisite", func(ctx context.Context) {
+					_, err := reconcileF(ctx)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("creating a destroy op even though prerequisite is missing")
+					Expect(currentUpdate).ToNot(BeNil())
+					Expect(currentUpdate.Spec.Type).To(Equal(autov1alpha1.DestroyType))
+
+					By("not marking as failed due to missing prerequisite")
+					for _, condition := range obj.Status.Conditions {
+						if condition.Type == "Reconciling" {
+							Expect(condition.Reason).NotTo(Equal(pulumiv1.ReconcilingPrerequisiteNotSatisfiedReason))
+						}
+					}
+				})
+			})
+		})
 	})
 
 	Describe("Sources", func() {

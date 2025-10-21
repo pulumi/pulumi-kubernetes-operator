@@ -8,6 +8,7 @@ CHANGELOG
 - Add validation to limit Stack name to 42 characters [#899](https://github.com/pulumi/pulumi-kubernetes-operator/issues/899)
 - Fix secretsProvider not being applied to new stacks [#935](https://github.com/pulumi/pulumi-kubernetes-operator/issues/935)
 - Fix Helm template YAML parsing error for podLabels [#1014](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1014)
+- Fix Stack deletion being blocked by missing prerequisites [#751](https://github.com/pulumi/pulumi-kubernetes-operator/issues/751)
 
 ## 2.2.0 (2025-08-11)
 
