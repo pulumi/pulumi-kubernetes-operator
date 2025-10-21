@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -129,6 +130,64 @@ var _ = Describe("Update Controller", func() {
 			Entry("TTL has expired", &metav1.Duration{Duration: 1 * time.Minute}, true),
 		)
 	})
+
+})
+
+var _ = Describe("updateCompletedPredicate", func() {
+	var predicate updateCompletedPredicate
+
+	It("returns false for Create events", func() {
+		Expect(predicate.Create(event.CreateEvent{})).To(BeFalse())
+	})
+
+	It("returns false for Delete events", func() {
+		Expect(predicate.Delete(event.DeleteEvent{})).To(BeFalse())
+	})
+
+	It("returns false for Generic events", func() {
+		Expect(predicate.Generic(event.GenericEvent{})).To(BeFalse())
+	})
+
+	DescribeTable("Update events",
+		func(oldConditions, newConditions []metav1.Condition, expected bool) {
+			var oldUpdate, newUpdate *autov1alpha1.Update
+			if oldConditions != nil {
+				oldUpdate = &autov1alpha1.Update{
+					Status: autov1alpha1.UpdateStatus{Conditions: oldConditions},
+				}
+			}
+			if newConditions != nil {
+				newUpdate = &autov1alpha1.Update{
+					Status: autov1alpha1.UpdateStatus{Conditions: newConditions},
+				}
+			}
+			result := predicate.Update(event.UpdateEvent{
+				ObjectOld: oldUpdate,
+				ObjectNew: newUpdate,
+			})
+			Expect(result).To(Equal(expected))
+		},
+		Entry("ObjectOld is nil", nil, []metav1.Condition{}, false),
+		Entry("ObjectNew is nil", []metav1.Condition{}, nil, false),
+		Entry("both incomplete", []metav1.Condition{
+			{Type: UpdateConditionTypeComplete, Status: metav1.ConditionFalse},
+		}, []metav1.Condition{
+			{Type: UpdateConditionTypeComplete, Status: metav1.ConditionFalse},
+		}, false),
+		Entry("both complete", []metav1.Condition{
+			{Type: UpdateConditionTypeComplete, Status: metav1.ConditionTrue},
+		}, []metav1.Condition{
+			{Type: UpdateConditionTypeComplete, Status: metav1.ConditionTrue},
+		}, false),
+		Entry("transition from incomplete to complete", []metav1.Condition{
+			{Type: UpdateConditionTypeComplete, Status: metav1.ConditionFalse},
+		}, []metav1.Condition{
+			{Type: UpdateConditionTypeComplete, Status: metav1.ConditionTrue},
+		}, true),
+		Entry("newly added as complete", []metav1.Condition{}, []metav1.Condition{
+			{Type: UpdateConditionTypeComplete, Status: metav1.ConditionTrue},
+		}, true),
+	)
 })
 
 func TestUpdate(t *testing.T) {
