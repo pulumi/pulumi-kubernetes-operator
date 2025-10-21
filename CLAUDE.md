@@ -267,3 +267,4 @@ kubectl logs -n pulumi-kubernetes-operator deployment/controller-manager -f
 - `docs/workspaces.md` - Workspace CR API reference (auto-generated)
 - `docs/updates.md` - Update CR API reference (auto-generated)
 - `docs/metrics.md` - Prometheus metrics integration guide
+- when opening a PR for this repository, automatically add the PR to the changelog.
