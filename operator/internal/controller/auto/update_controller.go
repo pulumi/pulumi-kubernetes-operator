@@ -502,6 +502,41 @@ func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update
 	return ctrl.Result{}, u.updateStatus(ctx, obj)
 }
 
+// updateCompletedPredicate triggers reconciliation when an Update transitions to completed state.
+// This ensures that TTL logic runs uniformly after an Update completes.
+type updateCompletedPredicate struct{}
+
+var _ predicate.Predicate = &updateCompletedPredicate{}
+
+func (updateCompletedPredicate) Create(_ event.CreateEvent) bool {
+	return false
+}
+
+func (updateCompletedPredicate) Delete(_ event.DeleteEvent) bool {
+	return false
+}
+
+func (updateCompletedPredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+	oldUpdate, okOld := e.ObjectOld.(*autov1alpha1.Update)
+	newUpdate, okNew := e.ObjectNew.(*autov1alpha1.Update)
+	if !okOld || !okNew || oldUpdate == nil || newUpdate == nil {
+		return false
+	}
+
+	// Trigger reconciliation when the Update becomes newly completed
+	oldComplete := meta.IsStatusConditionTrue(oldUpdate.Status.Conditions, UpdateConditionTypeComplete)
+	newComplete := meta.IsStatusConditionTrue(newUpdate.Status.Conditions, UpdateConditionTypeComplete)
+
+	return !oldComplete && newComplete
+}
+
+func (updateCompletedPredicate) Generic(_ event.GenericEvent) bool {
+	return false
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *UpdateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// index the updates by workspace
@@ -513,7 +548,9 @@ func (r *UpdateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("update-controller").
 		For(&autov1alpha1.Update{}, builder.WithPredicates(predicate.Or(
-			predicate.GenerationChangedPredicate{}, OwnerReferencesChangedPredicate{}))).
+			predicate.GenerationChangedPredicate{},
+			OwnerReferencesChangedPredicate{},
+			updateCompletedPredicate{}))).
 		Watches(&autov1alpha1.Workspace{},
 			handler.EnqueueRequestsFromMapFunc(r.mapWorkspaceToUpdate),
 			builder.WithPredicates(&workspaceReadyPredicate{})).
