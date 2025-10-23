@@ -5,7 +5,7 @@ description: |
 config:
   version: # The version to install of the Pulumi Kubernetes Operator.
     type: string
-    default: v2.2.0
+    default: v2.3.0
 resources:
   pko:
     type: kubernetes:kustomize/v2:Directory
