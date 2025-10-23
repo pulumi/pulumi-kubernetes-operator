@@ -141,6 +141,31 @@ spec:
                 description: (optional) DestroyOnFinalize can be set to true to destroy
                   the stack completely upon deletion of the Stack custom resource.
                 type: boolean
+              driftDetection:
+                description: |-
+                  (optional) DriftDetection configures scheduled drift detection for this stack.
+                  Drift detection runs refresh operations on a schedule to detect when resources
+                  have diverged from the desired state.
+                properties:
+                  schedules:
+                    description: Schedules defines one or more cron schedules for
+                      running drift detection.
+                    items:
+                      description: DriftSchedule defines a schedule for drift detection.
+                      properties:
+                        autoRemediate:
+                          description: AutoRemediate when true will automatically
+                            run an update if drift is detected.
+                          type: boolean
+                        cron:
+                          description: Cron defines the schedule in cron format (e.g.,
+                            "*/15 * * * *" for every 15 minutes).
+                          type: string
+                      required:
+                      - cron
+                      type: object
+                    type: array
+                type: object
               envRefs:
                 additionalProperties:
                   description: |-
@@ -9817,6 +9842,16 @@ spec:
                       with the update.
                     type: string
                 type: object
+              driftDetection:
+                description: DriftDetection contains the status of drift detection
+                  for this stack.
+                properties:
+                  lastCheck:
+                    description: LastCheck is the timestamp of the last drift detection
+                      check.
+                    format: date-time
+                    type: string
+                type: object
               lastUpdate:
                 description: LastUpdate contains details of the status of the last
                   update.
@@ -9993,6 +10028,31 @@ spec:
                 description: (optional) DestroyOnFinalize can be set to true to destroy
                   the stack completely upon deletion of the Stack custom resource.
                 type: boolean
+              driftDetection:
+                description: |-
+                  (optional) DriftDetection configures scheduled drift detection for this stack.
+                  Drift detection runs refresh operations on a schedule to detect when resources
+                  have diverged from the desired state.
+                properties:
+                  schedules:
+                    description: Schedules defines one or more cron schedules for
+                      running drift detection.
+                    items:
+                      description: DriftSchedule defines a schedule for drift detection.
+                      properties:
+                        autoRemediate:
+                          description: AutoRemediate when true will automatically
+                            run an update if drift is detected.
+                          type: boolean
+                        cron:
+                          description: Cron defines the schedule in cron format (e.g.,
+                            "*/15 * * * *" for every 15 minutes).
+                          type: string
+                      required:
+                      - cron
+                      type: object
+                    type: array
+                type: object
               envRefs:
                 additionalProperties:
                   description: |-
@@ -19593,6 +19653,16 @@ spec:
           status:
             description: StackStatus defines the observed state of Stack
             properties:
+              driftDetection:
+                description: DriftDetection contains the status of drift detection
+                  for this stack.
+                properties:
+                  lastCheck:
+                    description: LastCheck is the timestamp of the last drift detection
+                      check.
+                    format: date-time
+                    type: string
+                type: object
               lastUpdate:
                 description: LastUpdate contains details of the status of the last
                   update.

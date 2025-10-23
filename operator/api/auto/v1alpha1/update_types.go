@@ -73,6 +73,10 @@ type UpdateSpec struct {
 	// Remove the stack and its configuration after all resources in the stack
 	// have been deleted.
 	Remove *bool `json:"remove,omitempty"`
+	// PreviewOnly when true performs a non-destructive refresh (does not update state).
+	// Only applicable for refresh operations.
+	// +optional
+	PreviewOnly *bool `json:"previewOnly,omitempty"`
 }
 
 // UpdateStatus defines the observed state of Update

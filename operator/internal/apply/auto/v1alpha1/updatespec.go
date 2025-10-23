@@ -37,6 +37,7 @@ type UpdateSpecApplyConfiguration struct {
 	Refresh           *bool                    `json:"refresh,omitempty"`
 	ContinueOnError   *bool                    `json:"continueOnError,omitempty"`
 	Remove            *bool                    `json:"remove,omitempty"`
+	PreviewOnly       *bool                    `json:"previewOnly,omitempty"`
 }
 
 // UpdateSpecApplyConfiguration constructs a declarative configuration of the UpdateSpec type for use with
@@ -150,5 +151,13 @@ func (b *UpdateSpecApplyConfiguration) WithContinueOnError(value bool) *UpdateSp
 // If called multiple times, the Remove field is set to the value of the last call.
 func (b *UpdateSpecApplyConfiguration) WithRemove(value bool) *UpdateSpecApplyConfiguration {
 	b.Remove = &value
+	return b
+}
+
+// WithPreviewOnly sets the PreviewOnly field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the PreviewOnly field is set to the value of the last call.
+func (b *UpdateSpecApplyConfiguration) WithPreviewOnly(value bool) *UpdateSpecApplyConfiguration {
+	b.PreviewOnly = &value
 	return b
 }

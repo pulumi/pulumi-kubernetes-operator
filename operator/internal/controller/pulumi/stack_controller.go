@@ -1054,6 +1054,46 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 		Failures:             0,
 	}
 
+	// Handle drift detection results if this was a drift detection update
+	if update.Spec.Type == autov1alpha1.RefreshType && update.Spec.PreviewOnly != nil && *update.Spec.PreviewOnly {
+		// Update drift detection status
+		if instance.Status.DriftDetection == nil {
+			instance.Status.DriftDetection = &shared.DriftDetectionStatus{}
+		}
+		instance.Status.DriftDetection.LastCheck = ptr.To(metav1.Now())
+
+		// Parse the update summary to determine if drift was detected
+		driftDetected := false
+		driftMessage := "No changes detected"
+		if update.Status.Message != "" {
+			// Check if there are any changes in the summary
+			driftMessage = update.Status.Message
+			// Simple heuristic: if the message contains "changes" or specific counts, drift was detected
+			if strings.Contains(driftMessage, "addition") || strings.Contains(driftMessage, "deletion") ||
+				strings.Contains(driftMessage, "change") || strings.Contains(driftMessage, "update") {
+				driftDetected = true
+			}
+		}
+
+		// Set or clear the DriftDetected condition
+		if driftDetected {
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    pulumiv1.DriftDetectedCondition,
+				Status:  metav1.ConditionTrue,
+				Reason:  pulumiv1.DriftDetectedChangesReason,
+				Message: driftMessage,
+			})
+			emitEvent(r.Recorder, instance, pulumiv1.StackDriftDetectedEvent(), driftMessage)
+		} else {
+			meta.SetStatusCondition(&instance.Status.Conditions, metav1.Condition{
+				Type:    pulumiv1.DriftDetectedCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  pulumiv1.DriftDetectedNoChangesReason,
+				Message: driftMessage,
+			})
+		}
+	}
+
 	emitEvent(r.Recorder, instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack")
 	return nil
 }
@@ -1666,6 +1706,41 @@ func (sess *stackReconcilerSession) newDestroy(_ context.Context, o *pulumiv1.St
 			Type:              autov1alpha1.DestroyType,
 			TtlAfterCompleted: &metav1.Duration{Duration: ttlForCompletedUpdate},
 			Message:           ptr.To(message),
+		},
+	}
+
+	update, err := applyUpdateTemplate(o, update)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := sess.setOwnerReferences(o, update); err != nil {
+		return nil, err
+	}
+
+	return update, nil
+}
+
+// newDriftDetection creates a drift detection update (preview-only refresh).
+func (sess *stackReconcilerSession) newDriftDetection(_ context.Context, o *pulumiv1.Stack) (*autov1alpha1.Update, error) {
+	labels := labelsForWorkspace(&o.ObjectMeta)
+	update := &autov1alpha1.Update{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: autov1alpha1.GroupVersion.String(),
+			Kind:       "Update",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      makeUpdateName(o),
+			Namespace: sess.namespace,
+			Labels:    labels,
+		},
+		Spec: autov1alpha1.UpdateSpec{
+			WorkspaceName:     sess.ws.Name,
+			StackName:         sess.stack.Stack,
+			Type:              autov1alpha1.RefreshType,
+			PreviewOnly:       ptr.To(true),
+			TtlAfterCompleted: &metav1.Duration{Duration: ttlForCompletedUpdate},
+			Message:           ptr.To("Drift detection"),
 		},
 	}
 
