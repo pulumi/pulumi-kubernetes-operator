@@ -116,6 +116,14 @@ occurrence of errors.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>previewOnly</b></td>
+        <td>boolean</td>
+        <td>
+          PreviewOnly when true performs a non-destructive refresh (does not update state).
+Only applicable for refresh operations.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>refresh</b></td>
         <td>boolean</td>
         <td>

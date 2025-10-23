@@ -86,6 +86,11 @@ spec:
                   (1 for no parallelism). Defaults to unbounded.
                 format: int32
                 type: integer
+              previewOnly:
+                description: |-
+                  PreviewOnly when true performs a non-destructive refresh (does not update state).
+                  Only applicable for refresh operations.
+                type: boolean
               refresh:
                 description: refresh will run a refresh before the update.
                 type: boolean
