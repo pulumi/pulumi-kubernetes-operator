@@ -10,6 +10,39 @@
 # - Pulumi CLI v3.200.0+ in the workspace image
 
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: structured-config-inline
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: structured-config-inline:system:auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: structured-config-inline
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: structured-config-inline
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: admin
+subjects:
+- kind: ServiceAccount
+  name: structured-config-inline
+  namespace: default
+---
+apiVersion: v1
 kind: Secret
 metadata:
   name: structured-config-inline
@@ -24,6 +57,8 @@ metadata:
   name: structured-config-inline
   namespace: default
 spec:
+  serviceAccountName: structured-config-inline
+
   # Use a Pulumi CLI image that supports JSON config (v3.200.0+)
   workspaceTemplate:
     spec:
@@ -37,7 +72,7 @@ spec:
         name: structured-config-inline
         key: accessToken
 
-  stack: <your-org>/structured-config-example/dev
+  stack: <your-org>/aws-ts-s3-folder/dev
   projectRepo: https://github.com/pulumi/examples
   repoDir: aws-ts-s3-folder
   branch: refs/heads/master

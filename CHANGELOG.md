@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+## 2.3.0 (2025-10-23)
+
 - New feature: preview mode [#1012](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1012)
 - New feature: structured configuration [#1023](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1023)
 - Add validation to limit Stack name to 42 characters [#899](https://github.com/pulumi/pulumi-kubernetes-operator/issues/899)

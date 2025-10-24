@@ -10,7 +10,7 @@ icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
 type: application
 
 version: "2.2.0"
-appVersion: "v2.2.0"
+appVersion: "v2.3.0"
 
 keywords:
   - pulumi
@@ -32,7 +32,7 @@ annotations:
     - New operator version
   artifacthub.io/images: |
     - name: pulumi-kubernetes-operator
-      image: docker.io/pulumi/pulumi-kubernetes-operator:v2.2.0
+      image: docker.io/pulumi/pulumi-kubernetes-operator:v2.3.0
       platforms:
         - linux/amd64
         - linux/arm64
