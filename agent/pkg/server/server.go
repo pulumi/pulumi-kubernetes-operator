@@ -696,6 +696,12 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 	if in.Target != nil {
 		opts = append(opts, optrefresh.Target(in.Target))
 	}
+	if in.GetPreviewOnly() {
+		// TODO: This requires Pulumi Automation API support for preview-only refresh.
+		// When available, this should use something like optrefresh.PreviewOnly()
+		// For now, we'll use RunProgram(false) as a proxy for preview-only behavior
+		opts = append(opts, optrefresh.RunProgram(false))
+	}
 
 	// wire up the logging
 	stdout := &zapio.Writer{Log: s.plog, Level: zap.InfoLevel}

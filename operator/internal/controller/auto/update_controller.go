@@ -436,6 +436,7 @@ func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update
 		Message:         obj.Spec.Message,
 		ExpectNoChanges: obj.Spec.ExpectNoChanges,
 		Target:          obj.Spec.Target,
+		PreviewOnly:     obj.Spec.PreviewOnly,
 	}
 
 	l.Info("Executing refresh operation", "request", autoReq)
