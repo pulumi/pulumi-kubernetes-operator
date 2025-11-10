@@ -39,6 +39,11 @@ type StackStatus struct {
 	// CurrentUpdate contains details of the status of the current update, if any.
 	// +optional
 	CurrentUpdate *shared.CurrentStackUpdate `json:"currentUpdate,omitempty"`
+
+	// GitSources tracks the status of tracked Git repositories.
+	// Maps source name to its current status including last seen commit and check time.
+	// +optional
+	GitSources map[string]shared.GitSourceStatus `json:"gitSources,omitempty"`
 }
 
 // The conditions form part of the API. They are used to implement a "ready protocol" which works

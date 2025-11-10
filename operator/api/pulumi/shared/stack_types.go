@@ -115,12 +115,21 @@ type StackSpec struct {
 	// re-evaluated before running a stack that depends on it.
 	Prerequisites []PrerequisiteRef `json:"prerequisites,omitempty"`
 
-	// (optional) GitDependencies is a list of external Git repositories to track. When a tracked
+	// (optional) GitSources is a list of external Git repositories to track. When a tracked
 	// branch in any of these repositories receives new commits, the stack will be automatically
-	// updated. This is useful for triggering deployments when dependencies are updated.
+	// updated. This is useful for triggering deployments when application code dependencies are updated.
 	// The repositories are polled at the frequency specified by ResyncFrequencySeconds.
 	// +optional
-	GitDependencies []GitDependency `json:"gitDependencies,omitempty"`
+	GitSources []GitSourceRef `json:"gitSources,omitempty"`
+
+	// (optional) IgnoreProjectRepoChanges when set to true prevents changes to the stack's
+	// projectRepo from triggering updates. Only changes to repositories listed in GitSources
+	// will trigger updates. This is useful when projectRepo contains deployment code and
+	// gitSources contain the application code being deployed - you only want to deploy when
+	// application code changes.
+	// Default: false (both projectRepo and gitSources can trigger updates)
+	// +optional
+	IgnoreProjectRepoChanges bool `json:"ignoreProjectRepoChanges,omitempty"`
 
 	// (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying
 	// to update stacks even if the revision of the source matches. This might be useful in
@@ -303,32 +312,28 @@ type FluxSourceReference struct {
 	Name       string `json:"name"`
 }
 
-// GitDependency specifies a dependency on an external Git repository.
+// GitSource specifies an external Git repository to track for changes.
 // The stack will be updated when the specified branch receives new commits.
-type GitDependency struct {
+type GitSourceRef struct {
 	// Name is a friendly identifier for this dependency.
 	Name string `json:"name"`
 
 	// Repository is the Git repository URL (HTTPS or SSH).
 	// Examples:
-	//   - HTTPS: "https://github.com/MystenLabs/deepbookv3"
-	//   - SSH:   "git@github.com:MystenLabs/deepbookv3.git"
+	//   - HTTPS: "https://github.com/organization/repository"
+	//   - SSH:   "git@github.com:organization/repository.git"
+	// Note: Authentication is inherited from the stack's gitAuth/gitAuthSecret configuration.
+	// All git dependencies will use the same credentials as the main projectRepo.
 	Repository string `json:"repository"`
 
 	// Branch is the branch name to track (e.g., "main", "refs/heads/production").
 	// The operator will poll this branch for new commits at the frequency
 	// specified by ResyncFrequencySeconds.
 	Branch string `json:"branch"`
-
-	// (optional) GitAuth configures authentication for private repositories.
-	// If omitted, the repository is assumed to be public or accessible via
-	// the operator's default credentials.
-	// +optional
-	GitAuth *GitAuthConfig `json:"gitAuth,omitempty"`
 }
 
-// GitDependencyStatus tracks the observed state of a Git dependency.
-type GitDependencyStatus struct {
+// GitSourceStatus tracks the observed state of a tracked Git source.
+type GitSourceStatus struct {
 	// LastSeenCommit is the last commit hash observed on the tracked branch.
 	LastSeenCommit string `json:"lastSeenCommit,omitempty"`
 
@@ -484,10 +489,10 @@ type StackStatus struct {
 	Outputs StackOutputs `json:"outputs,omitempty"`
 	// LastUpdate contains details of the status of the last update.
 	LastUpdate *StackUpdateState `json:"lastUpdate,omitempty"`
-	// GitDependencies tracks the last observed state of each git dependency.
-	// The key is the dependency name from spec.gitDependencies[].name.
+	// GitSources tracks the last observed state of each tracked git source.
+	// The key is the source name from spec.gitSources[].name.
 	// +optional
-	GitDependencies map[string]GitDependencyStatus `json:"gitDependencies,omitempty"`
+	GitSources map[string]GitSourceStatus `json:"gitSources,omitempty"`
 }
 
 type StackOutputs map[string]apiextensionsv1.JSON

@@ -777,12 +777,12 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	sess.SetEnvs(ctx, stack.Envs, request.Namespace)
 	sess.SetSecretEnvs(ctx, stack.SecretEnvs, request.Namespace)
 
-	// Step 1.5: Check git dependencies for new commits.
-	// If git dependencies are configured, they become the sole trigger for updates.
+	// Step 1.5: Check git sources for new commits.
+	// If git sources are configured, they become the sole trigger for updates.
 	// If any dependency has new commits, we need to trigger an update even if currentCommit hasn't changed.
-	gitDepsChanged, err := sess.checkGitDependencies(ctx)
+	gitSourcesChanged, err := sess.checkGitSources(ctx, instance)
 	if err != nil {
-		log.Error(err, "Failed to check git dependencies")
+		log.Error(err, "Failed to check git sources")
 		// Don't fail the reconciliation, just log the error and continue
 		// The status will contain error messages for individual dependencies
 	}
@@ -790,26 +790,25 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	// Step 2: Evaluate whether an update is needed. If not, we transition to Ready.
 	synced, updateMessage := isSynced(log, r.Recorder, instance, currentCommit)
 
-	// If git dependencies are configured, only trigger updates based on dependency changes
-	// and ignore changes to the stack's own repository (projectRepo).
-	if len(stack.GitDependencies) > 0 {
-		if gitDepsChanged {
-			log.Info("Git dependencies have new commits, triggering stack update")
+	// Apply git source logic based on configuration
+	if stack.IgnoreProjectRepoChanges && len(stack.GitSources) > 0 {
+		// Exclusive mode: ONLY git sources trigger updates, projectRepo changes are ignored
+		if gitSourcesChanged {
+			log.Info("Git source has new commits, triggering stack update")
 			synced = false
-			updateMessage = "Git dependency has new commits"
+			updateMessage = "Git source has new commits"
 		} else {
-			// Git dependencies exist but haven't changed - don't update even if projectRepo changed
-			log.V(1).Info("Git dependencies configured but unchanged, skipping update even if projectRepo changed")
+			// Git sources haven't changed, ignore projectRepo changes
+			log.V(1).Info("Git sources configured but unchanged, ignoring projectRepo changes")
 			synced = true
 		}
-	} else {
-		// No git dependencies configured - use default behavior (projectRepo changes trigger updates)
-		if gitDepsChanged {
-			log.Info("Git dependencies have new commits, triggering stack update")
-			synced = false
-			updateMessage = "Git dependency has new commits"
-		}
+	} else if gitSourcesChanged {
+		// Additive mode: both projectRepo and gitSources can trigger updates
+		log.Info("Git source has new commits, triggering stack update")
+		synced = false
+		updateMessage = "Git source has new commits"
 	}
+	// If no git sources or !ignoreProjectRepoChanges, synced value from isSynced() is used
 	if synced {
 		// We don't mark the stack as ready if its update failed so downstream
 		// Stack dependencies aren't triggered.
@@ -858,10 +857,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 				log.Info("Commit hash unchanged.")
 			}
 		}
-		// Schedule polling for git dependencies
-		if len(stack.GitDependencies) > 0 {
+		// Schedule polling for git sources
+		if len(stack.GitSources) > 0 {
 			pollFreq := resyncFreq(instance)
-			log.Info("Will poll git dependencies for new commits.", "pollFrequency", pollFreq, "dependencyCount", len(stack.GitDependencies))
+			log.Info("Will poll git sources for new commits.", "pollFrequency", pollFreq, "dependencyCount", len(stack.GitSources))
 			if requeueAfter > 0 {
 				requeueAfter = max(1*time.Second, min(pollFreq, requeueAfter))
 			} else {

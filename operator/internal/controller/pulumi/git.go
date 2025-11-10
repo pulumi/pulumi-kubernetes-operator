@@ -29,6 +29,7 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
+	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/gitutil"
 	corev1 "k8s.io/api/core/v1"
@@ -334,43 +335,41 @@ func (sess *stackReconcilerSession) setupWorkspaceFromGitSource(_ context.Contex
 	return nil
 }
 
-// checkGitDependencies checks all git dependencies for new commits and updates the status.
-// Returns true if any dependency has new commits, indicating the stack should be updated.
-func (sess *stackReconcilerSession) checkGitDependencies(ctx context.Context) (bool, error) {
-	if len(sess.stack.GitDependencies) == 0 {
+// checkGitSources checks all git sources for new commits and updates the status.
+// Returns true if any source has new commits, indicating the stack should be updated.
+// Uses the same git authentication configured for the stack's projectRepo.
+func (sess *stackReconcilerSession) checkGitSources(ctx context.Context, instance *pulumiv1.Stack) (bool, error) {
+	if len(sess.stack.GitSources) == 0 {
 		return false, nil
 	}
 
-	if sess.instance.Status.GitDependencies == nil {
-		sess.instance.Status.GitDependencies = make(map[string]shared.GitDependencyStatus)
+	if instance.Status.GitSources == nil {
+		instance.Status.GitSources = make(map[string]shared.GitSourceStatus)
+	}
+
+	// Resolve git authentication once - same credentials used for all sources
+	auth, err := sess.resolveGitAuth(ctx)
+	if err != nil {
+		sess.logger.Error(err, "Failed to resolve git auth for git sources")
+		// Mark all sources with auth error
+		for _, src := range sess.stack.GitSources {
+			instance.Status.GitSources[src.Name] = shared.GitSourceStatus{
+				LastCheckedTime: metav1.Now(),
+				Message:         fmt.Sprintf("Failed to resolve git auth: %v", err),
+			}
+		}
+		return false, err
 	}
 
 	hasNewCommits := false
 
-	for _, dep := range sess.stack.GitDependencies {
-		// Resolve authentication for this dependency
-		var auth *auto.GitAuth
-		if dep.GitAuth != nil {
-			resolvedAuth, err := sess.resolveGitAuthFromConfig(ctx, dep.GitAuth)
-			if err != nil {
-				sess.logger.Error(err, "Failed to resolve git auth for dependency",
-					"dependency", dep.Name, "repository", dep.Repository)
-				// Update status with error
-				sess.instance.Status.GitDependencies[dep.Name] = shared.GitDependencyStatus{
-					LastCheckedTime: metav1.Now(),
-					Message:         fmt.Sprintf("Failed to resolve auth: %v", err),
-				}
-				continue
-			}
-			auth = resolvedAuth
-		}
-
-		// Create a git source for this dependency
-		source, err := newGitSource(dep.Repository, dep.Branch, auth)
+	for _, src := range sess.stack.GitSources {
+		// Create a git source for this tracked repository using shared auth
+		source, err := newGitSource(src.Repository, src.Branch, auth)
 		if err != nil {
-			sess.logger.Error(err, "Failed to create git source for dependency",
-				"dependency", dep.Name, "repository", dep.Repository)
-			sess.instance.Status.GitDependencies[dep.Name] = shared.GitDependencyStatus{
+			sess.logger.Error(err, "Failed to create git source",
+				"source", src.Name, "repository", src.Repository)
+			instance.Status.GitSources[src.Name] = shared.GitSourceStatus{
 				LastCheckedTime: metav1.Now(),
 				Message:         fmt.Sprintf("Failed to create git source: %v", err),
 			}
@@ -380,9 +379,9 @@ func (sess *stackReconcilerSession) checkGitDependencies(ctx context.Context) (b
 		// Fetch the current commit
 		currentCommit, err := source.CurrentCommit(ctx)
 		if err != nil {
-			sess.logger.Error(err, "Failed to fetch current commit for git dependency",
-				"dependency", dep.Name, "repository", dep.Repository, "branch", dep.Branch)
-			sess.instance.Status.GitDependencies[dep.Name] = shared.GitDependencyStatus{
+			sess.logger.Error(err, "Failed to fetch current commit for git source",
+				"source", src.Name, "repository", src.Repository, "branch", src.Branch)
+			instance.Status.GitSources[src.Name] = shared.GitSourceStatus{
 				LastCheckedTime: metav1.Now(),
 				Message:         fmt.Sprintf("Failed to fetch commit: %v", err),
 			}
@@ -390,21 +389,21 @@ func (sess *stackReconcilerSession) checkGitDependencies(ctx context.Context) (b
 		}
 
 		// Get the previous status
-		previousStatus, exists := sess.instance.Status.GitDependencies[dep.Name]
+		previousStatus, exists := instance.Status.GitSources[src.Name]
 
 		// Check if commit has changed
 		if !exists || previousStatus.LastSeenCommit != currentCommit {
-			sess.logger.Info("Git dependency has new commits",
-				"dependency", dep.Name,
-				"repository", dep.Repository,
-				"branch", dep.Branch,
+			sess.logger.Info("Git source has new commits",
+				"source", src.Name,
+				"repository", src.Repository,
+				"branch", src.Branch,
 				"previousCommit", previousStatus.LastSeenCommit,
 				"currentCommit", currentCommit)
 			hasNewCommits = true
 		}
 
 		// Update the status
-		sess.instance.Status.GitDependencies[dep.Name] = shared.GitDependencyStatus{
+		instance.Status.GitSources[src.Name] = shared.GitSourceStatus{
 			LastSeenCommit:  currentCommit,
 			LastCheckedTime: metav1.Now(),
 			Message:         "",
@@ -412,55 +411,4 @@ func (sess *stackReconcilerSession) checkGitDependencies(ctx context.Context) (b
 	}
 
 	return hasNewCommits, nil
-}
-
-// resolveGitAuthFromConfig resolves GitAuth from a GitAuthConfig.
-// This is similar to resolveGitAuth but works with GitAuthConfig directly.
-func (sess *stackReconcilerSession) resolveGitAuthFromConfig(ctx context.Context, authConfig *shared.GitAuthConfig) (*auto.GitAuth, error) {
-	auth := &auto.GitAuth{}
-
-	if authConfig.SSHAuth != nil {
-		privateKey, err := sess.resolveSecretResourceRef(ctx, &authConfig.SSHAuth.SSHPrivateKey)
-		if err != nil {
-			return auth, fmt.Errorf("resolving SSH private key: %w", err)
-		}
-		auth.SSHPrivateKey = privateKey
-
-		if authConfig.SSHAuth.Password != nil {
-			password, err := sess.resolveSecretResourceRef(ctx, authConfig.SSHAuth.Password)
-			if err != nil {
-				return auth, fmt.Errorf("resolving SSH password: %w", err)
-			}
-			auth.Password = password
-		}
-
-		return auth, nil
-	}
-
-	if authConfig.PersonalAccessToken != nil {
-		accessToken, err := sess.resolveSecretResourceRef(ctx, authConfig.PersonalAccessToken)
-		if err != nil {
-			return auth, fmt.Errorf("resolving personal access token: %w", err)
-		}
-		auth.PersonalAccessToken = accessToken
-		return auth, nil
-	}
-
-	if authConfig.BasicAuth != nil {
-		username, err := sess.resolveSecretResourceRef(ctx, &authConfig.BasicAuth.UserName)
-		if err != nil {
-			return auth, fmt.Errorf("resolving username: %w", err)
-		}
-
-		password, err := sess.resolveSecretResourceRef(ctx, &authConfig.BasicAuth.Password)
-		if err != nil {
-			return auth, fmt.Errorf("resolving password: %w", err)
-		}
-
-		auth.Username = username
-		auth.Password = password
-		return auth, nil
-	}
-
-	return auth, nil
 }
