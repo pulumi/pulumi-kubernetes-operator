@@ -614,6 +614,373 @@ spec:
                   basic auth credentials.
                   Deprecated. Use GitAuth instead.
                 type: string
+              gitDependencies:
+                description: |-
+                  (optional) GitDependencies is a list of external Git repositories to track. When a tracked
+                  branch in any of these repositories receives new commits, the stack will be automatically
+                  updated. This is useful for triggering deployments when dependencies are updated.
+                  The repositories are polled at the frequency specified by ResyncFrequencySeconds.
+                items:
+                  description: |-
+                    GitDependency specifies a dependency on an external Git repository.
+                    The stack will be updated when the specified branch receives new commits.
+                  properties:
+                    branch:
+                      description: |-
+                        Branch is the branch name to track (e.g., "main", "refs/heads/production").
+                        The operator will poll this branch for new commits at the frequency
+                        specified by ResyncFrequencySeconds.
+                      type: string
+                    gitAuth:
+                      description: |-
+                        (optional) GitAuth configures authentication for private repositories.
+                        If omitted, the repository is assumed to be public or accessible via
+                        the operator's default credentials.
+                      properties:
+                        accessToken:
+                          description: |-
+                            ResourceRef identifies a resource from which information can be loaded.
+                            Environment variables, files on the filesystem, Kubernetes Secrets and literal
+                            strings are currently supported.
+                          properties:
+                            env:
+                              description: Env selects an environment variable set
+                                on the operator process
+                              properties:
+                                name:
+                                  description: Name of the environment variable
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            filesystem:
+                              description: FileSystem selects a file on the operator's
+                                file system
+                              properties:
+                                path:
+                                  description: Path on the filesystem to use to load
+                                    information from.
+                                  type: string
+                              required:
+                              - path
+                              type: object
+                            literal:
+                              description: LiteralRef refers to a literal value
+                              properties:
+                                value:
+                                  description: Value to load
+                                  type: string
+                              required:
+                              - value
+                              type: object
+                            secret:
+                              description: SecretRef refers to a Kubernetes Secret
+                              properties:
+                                key:
+                                  description: Key within the Secret to use.
+                                  type: string
+                                name:
+                                  description: Name of the Secret
+                                  type: string
+                                namespace:
+                                  description: |-
+                                    Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                    unless namespace isolation is disabled in the controller.
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                            type:
+                              description: |-
+                                SelectorType is required and signifies the type of selector. Must be one of:
+                                Env, FS, Secret, Literal
+                              type: string
+                          required:
+                          - type
+                          type: object
+                        basicAuth:
+                          description: |-
+                            BasicAuth configures git authentication through basic auth —
+                            i.e. username and password. Both UserName and Password are required.
+                          properties:
+                            password:
+                              description: |-
+                                ResourceRef identifies a resource from which information can be loaded.
+                                Environment variables, files on the filesystem, Kubernetes Secrets and literal
+                                strings are currently supported.
+                              properties:
+                                env:
+                                  description: Env selects an environment variable
+                                    set on the operator process
+                                  properties:
+                                    name:
+                                      description: Name of the environment variable
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                filesystem:
+                                  description: FileSystem selects a file on the operator's
+                                    file system
+                                  properties:
+                                    path:
+                                      description: Path on the filesystem to use to
+                                        load information from.
+                                      type: string
+                                  required:
+                                  - path
+                                  type: object
+                                literal:
+                                  description: LiteralRef refers to a literal value
+                                  properties:
+                                    value:
+                                      description: Value to load
+                                      type: string
+                                  required:
+                                  - value
+                                  type: object
+                                secret:
+                                  description: SecretRef refers to a Kubernetes Secret
+                                  properties:
+                                    key:
+                                      description: Key within the Secret to use.
+                                      type: string
+                                    name:
+                                      description: Name of the Secret
+                                      type: string
+                                    namespace:
+                                      description: |-
+                                        Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                        unless namespace isolation is disabled in the controller.
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                                type:
+                                  description: |-
+                                    SelectorType is required and signifies the type of selector. Must be one of:
+                                    Env, FS, Secret, Literal
+                                  type: string
+                              required:
+                              - type
+                              type: object
+                            userName:
+                              description: |-
+                                ResourceRef identifies a resource from which information can be loaded.
+                                Environment variables, files on the filesystem, Kubernetes Secrets and literal
+                                strings are currently supported.
+                              properties:
+                                env:
+                                  description: Env selects an environment variable
+                                    set on the operator process
+                                  properties:
+                                    name:
+                                      description: Name of the environment variable
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                filesystem:
+                                  description: FileSystem selects a file on the operator's
+                                    file system
+                                  properties:
+                                    path:
+                                      description: Path on the filesystem to use to
+                                        load information from.
+                                      type: string
+                                  required:
+                                  - path
+                                  type: object
+                                literal:
+                                  description: LiteralRef refers to a literal value
+                                  properties:
+                                    value:
+                                      description: Value to load
+                                      type: string
+                                  required:
+                                  - value
+                                  type: object
+                                secret:
+                                  description: SecretRef refers to a Kubernetes Secret
+                                  properties:
+                                    key:
+                                      description: Key within the Secret to use.
+                                      type: string
+                                    name:
+                                      description: Name of the Secret
+                                      type: string
+                                    namespace:
+                                      description: |-
+                                        Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                        unless namespace isolation is disabled in the controller.
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                                type:
+                                  description: |-
+                                    SelectorType is required and signifies the type of selector. Must be one of:
+                                    Env, FS, Secret, Literal
+                                  type: string
+                              required:
+                              - type
+                              type: object
+                          required:
+                          - password
+                          - userName
+                          type: object
+                        sshAuth:
+                          description: |-
+                            SSHAuth configures ssh-based auth for git authentication.
+                            SSHPrivateKey is required but password is optional.
+                          properties:
+                            password:
+                              description: |-
+                                ResourceRef identifies a resource from which information can be loaded.
+                                Environment variables, files on the filesystem, Kubernetes Secrets and literal
+                                strings are currently supported.
+                              properties:
+                                env:
+                                  description: Env selects an environment variable
+                                    set on the operator process
+                                  properties:
+                                    name:
+                                      description: Name of the environment variable
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                filesystem:
+                                  description: FileSystem selects a file on the operator's
+                                    file system
+                                  properties:
+                                    path:
+                                      description: Path on the filesystem to use to
+                                        load information from.
+                                      type: string
+                                  required:
+                                  - path
+                                  type: object
+                                literal:
+                                  description: LiteralRef refers to a literal value
+                                  properties:
+                                    value:
+                                      description: Value to load
+                                      type: string
+                                  required:
+                                  - value
+                                  type: object
+                                secret:
+                                  description: SecretRef refers to a Kubernetes Secret
+                                  properties:
+                                    key:
+                                      description: Key within the Secret to use.
+                                      type: string
+                                    name:
+                                      description: Name of the Secret
+                                      type: string
+                                    namespace:
+                                      description: |-
+                                        Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                        unless namespace isolation is disabled in the controller.
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                                type:
+                                  description: |-
+                                    SelectorType is required and signifies the type of selector. Must be one of:
+                                    Env, FS, Secret, Literal
+                                  type: string
+                              required:
+                              - type
+                              type: object
+                            sshPrivateKey:
+                              description: |-
+                                ResourceRef identifies a resource from which information can be loaded.
+                                Environment variables, files on the filesystem, Kubernetes Secrets and literal
+                                strings are currently supported.
+                              properties:
+                                env:
+                                  description: Env selects an environment variable
+                                    set on the operator process
+                                  properties:
+                                    name:
+                                      description: Name of the environment variable
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                filesystem:
+                                  description: FileSystem selects a file on the operator's
+                                    file system
+                                  properties:
+                                    path:
+                                      description: Path on the filesystem to use to
+                                        load information from.
+                                      type: string
+                                  required:
+                                  - path
+                                  type: object
+                                literal:
+                                  description: LiteralRef refers to a literal value
+                                  properties:
+                                    value:
+                                      description: Value to load
+                                      type: string
+                                  required:
+                                  - value
+                                  type: object
+                                secret:
+                                  description: SecretRef refers to a Kubernetes Secret
+                                  properties:
+                                    key:
+                                      description: Key within the Secret to use.
+                                      type: string
+                                    name:
+                                      description: Name of the Secret
+                                      type: string
+                                    namespace:
+                                      description: |-
+                                        Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                        unless namespace isolation is disabled in the controller.
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                                type:
+                                  description: |-
+                                    SelectorType is required and signifies the type of selector. Must be one of:
+                                    Env, FS, Secret, Literal
+                                  type: string
+                              required:
+                              - type
+                              type: object
+                          required:
+                          - sshPrivateKey
+                          type: object
+                      type: object
+                    name:
+                      description: Name is a friendly identifier for this dependency.
+                      type: string
+                    repository:
+                      description: |-
+                        Repository is the Git repository URL (HTTPS or SSH).
+                        Examples:
+                          - HTTPS: "https://github.com/MystenLabs/deepbookv3"
+                          - SSH:   "git@github.com:MystenLabs/deepbookv3.git"
+                      type: string
+                  required:
+                  - branch
+                  - name
+                  - repository
+                  type: object
+                type: array
               prerequisites:
                 description: |-
                   (optional) Prerequisites is a list of references to other stacks, each with a constraint on
@@ -10466,6 +10833,373 @@ spec:
                   basic auth credentials.
                   Deprecated. Use GitAuth instead.
                 type: string
+              gitDependencies:
+                description: |-
+                  (optional) GitDependencies is a list of external Git repositories to track. When a tracked
+                  branch in any of these repositories receives new commits, the stack will be automatically
+                  updated. This is useful for triggering deployments when dependencies are updated.
+                  The repositories are polled at the frequency specified by ResyncFrequencySeconds.
+                items:
+                  description: |-
+                    GitDependency specifies a dependency on an external Git repository.
+                    The stack will be updated when the specified branch receives new commits.
+                  properties:
+                    branch:
+                      description: |-
+                        Branch is the branch name to track (e.g., "main", "refs/heads/production").
+                        The operator will poll this branch for new commits at the frequency
+                        specified by ResyncFrequencySeconds.
+                      type: string
+                    gitAuth:
+                      description: |-
+                        (optional) GitAuth configures authentication for private repositories.
+                        If omitted, the repository is assumed to be public or accessible via
+                        the operator's default credentials.
+                      properties:
+                        accessToken:
+                          description: |-
+                            ResourceRef identifies a resource from which information can be loaded.
+                            Environment variables, files on the filesystem, Kubernetes Secrets and literal
+                            strings are currently supported.
+                          properties:
+                            env:
+                              description: Env selects an environment variable set
+                                on the operator process
+                              properties:
+                                name:
+                                  description: Name of the environment variable
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            filesystem:
+                              description: FileSystem selects a file on the operator's
+                                file system
+                              properties:
+                                path:
+                                  description: Path on the filesystem to use to load
+                                    information from.
+                                  type: string
+                              required:
+                              - path
+                              type: object
+                            literal:
+                              description: LiteralRef refers to a literal value
+                              properties:
+                                value:
+                                  description: Value to load
+                                  type: string
+                              required:
+                              - value
+                              type: object
+                            secret:
+                              description: SecretRef refers to a Kubernetes Secret
+                              properties:
+                                key:
+                                  description: Key within the Secret to use.
+                                  type: string
+                                name:
+                                  description: Name of the Secret
+                                  type: string
+                                namespace:
+                                  description: |-
+                                    Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                    unless namespace isolation is disabled in the controller.
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                            type:
+                              description: |-
+                                SelectorType is required and signifies the type of selector. Must be one of:
+                                Env, FS, Secret, Literal
+                              type: string
+                          required:
+                          - type
+                          type: object
+                        basicAuth:
+                          description: |-
+                            BasicAuth configures git authentication through basic auth —
+                            i.e. username and password. Both UserName and Password are required.
+                          properties:
+                            password:
+                              description: |-
+                                ResourceRef identifies a resource from which information can be loaded.
+                                Environment variables, files on the filesystem, Kubernetes Secrets and literal
+                                strings are currently supported.
+                              properties:
+                                env:
+                                  description: Env selects an environment variable
+                                    set on the operator process
+                                  properties:
+                                    name:
+                                      description: Name of the environment variable
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                filesystem:
+                                  description: FileSystem selects a file on the operator's
+                                    file system
+                                  properties:
+                                    path:
+                                      description: Path on the filesystem to use to
+                                        load information from.
+                                      type: string
+                                  required:
+                                  - path
+                                  type: object
+                                literal:
+                                  description: LiteralRef refers to a literal value
+                                  properties:
+                                    value:
+                                      description: Value to load
+                                      type: string
+                                  required:
+                                  - value
+                                  type: object
+                                secret:
+                                  description: SecretRef refers to a Kubernetes Secret
+                                  properties:
+                                    key:
+                                      description: Key within the Secret to use.
+                                      type: string
+                                    name:
+                                      description: Name of the Secret
+                                      type: string
+                                    namespace:
+                                      description: |-
+                                        Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                        unless namespace isolation is disabled in the controller.
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                                type:
+                                  description: |-
+                                    SelectorType is required and signifies the type of selector. Must be one of:
+                                    Env, FS, Secret, Literal
+                                  type: string
+                              required:
+                              - type
+                              type: object
+                            userName:
+                              description: |-
+                                ResourceRef identifies a resource from which information can be loaded.
+                                Environment variables, files on the filesystem, Kubernetes Secrets and literal
+                                strings are currently supported.
+                              properties:
+                                env:
+                                  description: Env selects an environment variable
+                                    set on the operator process
+                                  properties:
+                                    name:
+                                      description: Name of the environment variable
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                filesystem:
+                                  description: FileSystem selects a file on the operator's
+                                    file system
+                                  properties:
+                                    path:
+                                      description: Path on the filesystem to use to
+                                        load information from.
+                                      type: string
+                                  required:
+                                  - path
+                                  type: object
+                                literal:
+                                  description: LiteralRef refers to a literal value
+                                  properties:
+                                    value:
+                                      description: Value to load
+                                      type: string
+                                  required:
+                                  - value
+                                  type: object
+                                secret:
+                                  description: SecretRef refers to a Kubernetes Secret
+                                  properties:
+                                    key:
+                                      description: Key within the Secret to use.
+                                      type: string
+                                    name:
+                                      description: Name of the Secret
+                                      type: string
+                                    namespace:
+                                      description: |-
+                                        Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                        unless namespace isolation is disabled in the controller.
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                                type:
+                                  description: |-
+                                    SelectorType is required and signifies the type of selector. Must be one of:
+                                    Env, FS, Secret, Literal
+                                  type: string
+                              required:
+                              - type
+                              type: object
+                          required:
+                          - password
+                          - userName
+                          type: object
+                        sshAuth:
+                          description: |-
+                            SSHAuth configures ssh-based auth for git authentication.
+                            SSHPrivateKey is required but password is optional.
+                          properties:
+                            password:
+                              description: |-
+                                ResourceRef identifies a resource from which information can be loaded.
+                                Environment variables, files on the filesystem, Kubernetes Secrets and literal
+                                strings are currently supported.
+                              properties:
+                                env:
+                                  description: Env selects an environment variable
+                                    set on the operator process
+                                  properties:
+                                    name:
+                                      description: Name of the environment variable
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                filesystem:
+                                  description: FileSystem selects a file on the operator's
+                                    file system
+                                  properties:
+                                    path:
+                                      description: Path on the filesystem to use to
+                                        load information from.
+                                      type: string
+                                  required:
+                                  - path
+                                  type: object
+                                literal:
+                                  description: LiteralRef refers to a literal value
+                                  properties:
+                                    value:
+                                      description: Value to load
+                                      type: string
+                                  required:
+                                  - value
+                                  type: object
+                                secret:
+                                  description: SecretRef refers to a Kubernetes Secret
+                                  properties:
+                                    key:
+                                      description: Key within the Secret to use.
+                                      type: string
+                                    name:
+                                      description: Name of the Secret
+                                      type: string
+                                    namespace:
+                                      description: |-
+                                        Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                        unless namespace isolation is disabled in the controller.
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                                type:
+                                  description: |-
+                                    SelectorType is required and signifies the type of selector. Must be one of:
+                                    Env, FS, Secret, Literal
+                                  type: string
+                              required:
+                              - type
+                              type: object
+                            sshPrivateKey:
+                              description: |-
+                                ResourceRef identifies a resource from which information can be loaded.
+                                Environment variables, files on the filesystem, Kubernetes Secrets and literal
+                                strings are currently supported.
+                              properties:
+                                env:
+                                  description: Env selects an environment variable
+                                    set on the operator process
+                                  properties:
+                                    name:
+                                      description: Name of the environment variable
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                filesystem:
+                                  description: FileSystem selects a file on the operator's
+                                    file system
+                                  properties:
+                                    path:
+                                      description: Path on the filesystem to use to
+                                        load information from.
+                                      type: string
+                                  required:
+                                  - path
+                                  type: object
+                                literal:
+                                  description: LiteralRef refers to a literal value
+                                  properties:
+                                    value:
+                                      description: Value to load
+                                      type: string
+                                  required:
+                                  - value
+                                  type: object
+                                secret:
+                                  description: SecretRef refers to a Kubernetes Secret
+                                  properties:
+                                    key:
+                                      description: Key within the Secret to use.
+                                      type: string
+                                    name:
+                                      description: Name of the Secret
+                                      type: string
+                                    namespace:
+                                      description: |-
+                                        Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                        unless namespace isolation is disabled in the controller.
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                                type:
+                                  description: |-
+                                    SelectorType is required and signifies the type of selector. Must be one of:
+                                    Env, FS, Secret, Literal
+                                  type: string
+                              required:
+                              - type
+                              type: object
+                          required:
+                          - sshPrivateKey
+                          type: object
+                      type: object
+                    name:
+                      description: Name is a friendly identifier for this dependency.
+                      type: string
+                    repository:
+                      description: |-
+                        Repository is the Git repository URL (HTTPS or SSH).
+                        Examples:
+                          - HTTPS: "https://github.com/MystenLabs/deepbookv3"
+                          - SSH:   "git@github.com:MystenLabs/deepbookv3.git"
+                      type: string
+                  required:
+                  - branch
+                  - name
+                  - repository
+                  type: object
+                type: array
               prerequisites:
                 description: |-
                   (optional) Prerequisites is a list of references to other stacks, each with a constraint on
@@ -19593,6 +20327,34 @@ spec:
           status:
             description: StackStatus defines the observed state of Stack
             properties:
+              gitDependencies:
+                additionalProperties:
+                  description: GitDependencyStatus tracks the observed state of a
+                    Git dependency.
+                  properties:
+                    lastCheckedTime:
+                      description: LastCheckedTime is when the operator last polled
+                        this repository.
+                      format: date-time
+                      type: string
+                    lastCommitTime:
+                      description: LastCommitTime is the timestamp of the last seen
+                        commit (from Git metadata).
+                      format: date-time
+                      type: string
+                    lastSeenCommit:
+                      description: LastSeenCommit is the last commit hash observed
+                        on the tracked branch.
+                      type: string
+                    message:
+                      description: Message contains any error or informational message
+                        about the dependency check.
+                      type: string
+                  type: object
+                description: |-
+                  GitDependencies tracks the last observed state of each git dependency.
+                  The key is the dependency name from spec.gitDependencies[].name.
+                type: object
               lastUpdate:
                 description: LastUpdate contains details of the status of the last
                   update.

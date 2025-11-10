@@ -115,6 +115,13 @@ type StackSpec struct {
 	// re-evaluated before running a stack that depends on it.
 	Prerequisites []PrerequisiteRef `json:"prerequisites,omitempty"`
 
+	// (optional) GitDependencies is a list of external Git repositories to track. When a tracked
+	// branch in any of these repositories receives new commits, the stack will be automatically
+	// updated. This is useful for triggering deployments when dependencies are updated.
+	// The repositories are polled at the frequency specified by ResyncFrequencySeconds.
+	// +optional
+	GitDependencies []GitDependency `json:"gitDependencies,omitempty"`
+
 	// (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying
 	// to update stacks even if the revision of the source matches. This might be useful in
 	// environments where Pulumi programs have dynamic elements for example, calls to internal APIs
@@ -296,6 +303,47 @@ type FluxSourceReference struct {
 	Name       string `json:"name"`
 }
 
+// GitDependency specifies a dependency on an external Git repository.
+// The stack will be updated when the specified branch receives new commits.
+type GitDependency struct {
+	// Name is a friendly identifier for this dependency.
+	Name string `json:"name"`
+
+	// Repository is the Git repository URL (HTTPS or SSH).
+	// Examples:
+	//   - HTTPS: "https://github.com/MystenLabs/deepbookv3"
+	//   - SSH:   "git@github.com:MystenLabs/deepbookv3.git"
+	Repository string `json:"repository"`
+
+	// Branch is the branch name to track (e.g., "main", "refs/heads/production").
+	// The operator will poll this branch for new commits at the frequency
+	// specified by ResyncFrequencySeconds.
+	Branch string `json:"branch"`
+
+	// (optional) GitAuth configures authentication for private repositories.
+	// If omitted, the repository is assumed to be public or accessible via
+	// the operator's default credentials.
+	// +optional
+	GitAuth *GitAuthConfig `json:"gitAuth,omitempty"`
+}
+
+// GitDependencyStatus tracks the observed state of a Git dependency.
+type GitDependencyStatus struct {
+	// LastSeenCommit is the last commit hash observed on the tracked branch.
+	LastSeenCommit string `json:"lastSeenCommit,omitempty"`
+
+	// LastCheckedTime is when the operator last polled this repository.
+	LastCheckedTime metav1.Time `json:"lastCheckedTime,omitempty"`
+
+	// LastCommitTime is the timestamp of the last seen commit (from Git metadata).
+	// +optional
+	LastCommitTime *metav1.Time `json:"lastCommitTime,omitempty"`
+
+	// Message contains any error or informational message about the dependency check.
+	// +optional
+	Message string `json:"message,omitempty"`
+}
+
 // ResourceRef identifies a resource from which information can be loaded.
 // Environment variables, files on the filesystem, Kubernetes Secrets and literal
 // strings are currently supported.
@@ -436,6 +484,10 @@ type StackStatus struct {
 	Outputs StackOutputs `json:"outputs,omitempty"`
 	// LastUpdate contains details of the status of the last update.
 	LastUpdate *StackUpdateState `json:"lastUpdate,omitempty"`
+	// GitDependencies tracks the last observed state of each git dependency.
+	// The key is the dependency name from spec.gitDependencies[].name.
+	// +optional
+	GitDependencies map[string]GitDependencyStatus `json:"gitDependencies,omitempty"`
 }
 
 type StackOutputs map[string]apiextensionsv1.JSON

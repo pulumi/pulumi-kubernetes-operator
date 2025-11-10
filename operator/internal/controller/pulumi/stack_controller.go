@@ -777,8 +777,39 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	sess.SetEnvs(ctx, stack.Envs, request.Namespace)
 	sess.SetSecretEnvs(ctx, stack.SecretEnvs, request.Namespace)
 
+	// Step 1.5: Check git dependencies for new commits.
+	// If git dependencies are configured, they become the sole trigger for updates.
+	// If any dependency has new commits, we need to trigger an update even if currentCommit hasn't changed.
+	gitDepsChanged, err := sess.checkGitDependencies(ctx)
+	if err != nil {
+		log.Error(err, "Failed to check git dependencies")
+		// Don't fail the reconciliation, just log the error and continue
+		// The status will contain error messages for individual dependencies
+	}
+
 	// Step 2: Evaluate whether an update is needed. If not, we transition to Ready.
 	synced, updateMessage := isSynced(log, r.Recorder, instance, currentCommit)
+
+	// If git dependencies are configured, only trigger updates based on dependency changes
+	// and ignore changes to the stack's own repository (projectRepo).
+	if len(stack.GitDependencies) > 0 {
+		if gitDepsChanged {
+			log.Info("Git dependencies have new commits, triggering stack update")
+			synced = false
+			updateMessage = "Git dependency has new commits"
+		} else {
+			// Git dependencies exist but haven't changed - don't update even if projectRepo changed
+			log.V(1).Info("Git dependencies configured but unchanged, skipping update even if projectRepo changed")
+			synced = true
+		}
+	} else {
+		// No git dependencies configured - use default behavior (projectRepo changes trigger updates)
+		if gitDepsChanged {
+			log.Info("Git dependencies have new commits, triggering stack update")
+			synced = false
+			updateMessage = "Git dependency has new commits"
+		}
+	}
 	if synced {
 		// We don't mark the stack as ready if its update failed so downstream
 		// Stack dependencies aren't triggered.
@@ -826,7 +857,18 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			} else {
 				log.Info("Commit hash unchanged.")
 			}
-		} else if stack.FluxSource != nil {
+		}
+		// Schedule polling for git dependencies
+		if len(stack.GitDependencies) > 0 {
+			pollFreq := resyncFreq(instance)
+			log.Info("Will poll git dependencies for new commits.", "pollFrequency", pollFreq, "dependencyCount", len(stack.GitDependencies))
+			if requeueAfter > 0 {
+				requeueAfter = max(1*time.Second, min(pollFreq, requeueAfter))
+			} else {
+				requeueAfter = max(1*time.Second, pollFreq)
+			}
+		}
+		if stack.FluxSource != nil {
 			log.Info("Commit hash unchanged. Will wait for Source update or resync.")
 		} else if stack.ProgramRef != nil {
 			log.Info("Commit hash unchanged. Will wait for Program update or resync.")

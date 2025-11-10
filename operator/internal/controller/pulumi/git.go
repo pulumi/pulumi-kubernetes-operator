@@ -33,6 +33,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/gitutil"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 )
@@ -331,4 +332,135 @@ func (sess *stackReconcilerSession) setupWorkspaceFromGitSource(_ context.Contex
 	}
 
 	return nil
+}
+
+// checkGitDependencies checks all git dependencies for new commits and updates the status.
+// Returns true if any dependency has new commits, indicating the stack should be updated.
+func (sess *stackReconcilerSession) checkGitDependencies(ctx context.Context) (bool, error) {
+	if len(sess.stack.GitDependencies) == 0 {
+		return false, nil
+	}
+
+	if sess.instance.Status.GitDependencies == nil {
+		sess.instance.Status.GitDependencies = make(map[string]shared.GitDependencyStatus)
+	}
+
+	hasNewCommits := false
+
+	for _, dep := range sess.stack.GitDependencies {
+		// Resolve authentication for this dependency
+		var auth *auto.GitAuth
+		if dep.GitAuth != nil {
+			resolvedAuth, err := sess.resolveGitAuthFromConfig(ctx, dep.GitAuth)
+			if err != nil {
+				sess.logger.Error(err, "Failed to resolve git auth for dependency",
+					"dependency", dep.Name, "repository", dep.Repository)
+				// Update status with error
+				sess.instance.Status.GitDependencies[dep.Name] = shared.GitDependencyStatus{
+					LastCheckedTime: metav1.Now(),
+					Message:         fmt.Sprintf("Failed to resolve auth: %v", err),
+				}
+				continue
+			}
+			auth = resolvedAuth
+		}
+
+		// Create a git source for this dependency
+		source, err := newGitSource(dep.Repository, dep.Branch, auth)
+		if err != nil {
+			sess.logger.Error(err, "Failed to create git source for dependency",
+				"dependency", dep.Name, "repository", dep.Repository)
+			sess.instance.Status.GitDependencies[dep.Name] = shared.GitDependencyStatus{
+				LastCheckedTime: metav1.Now(),
+				Message:         fmt.Sprintf("Failed to create git source: %v", err),
+			}
+			continue
+		}
+
+		// Fetch the current commit
+		currentCommit, err := source.CurrentCommit(ctx)
+		if err != nil {
+			sess.logger.Error(err, "Failed to fetch current commit for git dependency",
+				"dependency", dep.Name, "repository", dep.Repository, "branch", dep.Branch)
+			sess.instance.Status.GitDependencies[dep.Name] = shared.GitDependencyStatus{
+				LastCheckedTime: metav1.Now(),
+				Message:         fmt.Sprintf("Failed to fetch commit: %v", err),
+			}
+			continue
+		}
+
+		// Get the previous status
+		previousStatus, exists := sess.instance.Status.GitDependencies[dep.Name]
+
+		// Check if commit has changed
+		if !exists || previousStatus.LastSeenCommit != currentCommit {
+			sess.logger.Info("Git dependency has new commits",
+				"dependency", dep.Name,
+				"repository", dep.Repository,
+				"branch", dep.Branch,
+				"previousCommit", previousStatus.LastSeenCommit,
+				"currentCommit", currentCommit)
+			hasNewCommits = true
+		}
+
+		// Update the status
+		sess.instance.Status.GitDependencies[dep.Name] = shared.GitDependencyStatus{
+			LastSeenCommit:  currentCommit,
+			LastCheckedTime: metav1.Now(),
+			Message:         "",
+		}
+	}
+
+	return hasNewCommits, nil
+}
+
+// resolveGitAuthFromConfig resolves GitAuth from a GitAuthConfig.
+// This is similar to resolveGitAuth but works with GitAuthConfig directly.
+func (sess *stackReconcilerSession) resolveGitAuthFromConfig(ctx context.Context, authConfig *shared.GitAuthConfig) (*auto.GitAuth, error) {
+	auth := &auto.GitAuth{}
+
+	if authConfig.SSHAuth != nil {
+		privateKey, err := sess.resolveSecretResourceRef(ctx, &authConfig.SSHAuth.SSHPrivateKey)
+		if err != nil {
+			return auth, fmt.Errorf("resolving SSH private key: %w", err)
+		}
+		auth.SSHPrivateKey = privateKey
+
+		if authConfig.SSHAuth.Password != nil {
+			password, err := sess.resolveSecretResourceRef(ctx, authConfig.SSHAuth.Password)
+			if err != nil {
+				return auth, fmt.Errorf("resolving SSH password: %w", err)
+			}
+			auth.Password = password
+		}
+
+		return auth, nil
+	}
+
+	if authConfig.PersonalAccessToken != nil {
+		accessToken, err := sess.resolveSecretResourceRef(ctx, authConfig.PersonalAccessToken)
+		if err != nil {
+			return auth, fmt.Errorf("resolving personal access token: %w", err)
+		}
+		auth.PersonalAccessToken = accessToken
+		return auth, nil
+	}
+
+	if authConfig.BasicAuth != nil {
+		username, err := sess.resolveSecretResourceRef(ctx, &authConfig.BasicAuth.UserName)
+		if err != nil {
+			return auth, fmt.Errorf("resolving username: %w", err)
+		}
+
+		password, err := sess.resolveSecretResourceRef(ctx, &authConfig.BasicAuth.Password)
+		if err != nil {
+			return auth, fmt.Errorf("resolving password: %w", err)
+		}
+
+		auth.Username = username
+		auth.Password = password
+		return auth, nil
+	}
+
+	return auth, nil
 }
