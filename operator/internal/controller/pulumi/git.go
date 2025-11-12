@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"
@@ -41,6 +43,79 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 )
+
+// gitRepoCache provides a simple in-memory cache for cloned git repositories
+// to avoid repeated full clones when checking path-based changes.
+type gitRepoCache struct {
+	mu    sync.RWMutex
+	repos map[string]*cachedRepo
+}
+
+type cachedRepo struct {
+	repo      *git.Repository
+	expiresAt time.Time
+}
+
+var (
+	repoCache     *gitRepoCache
+	repoCacheOnce sync.Once
+	// Cache TTL of 5 minutes - balances memory usage with avoiding repeated clones
+	repoCacheTTL = 5 * time.Minute
+)
+
+func getRepoCache() *gitRepoCache {
+	repoCacheOnce.Do(func() {
+		repoCache = &gitRepoCache{
+			repos: make(map[string]*cachedRepo),
+		}
+		// Start cleanup goroutine
+		go repoCache.cleanup()
+	})
+	return repoCache
+}
+
+func (c *gitRepoCache) get(key string) (*git.Repository, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	cached, ok := c.repos[key]
+	if !ok {
+		return nil, false
+	}
+
+	// Check if expired
+	if time.Now().After(cached.expiresAt) {
+		return nil, false
+	}
+
+	return cached.repo, true
+}
+
+func (c *gitRepoCache) set(key string, repo *git.Repository) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.repos[key] = &cachedRepo{
+		repo:      repo,
+		expiresAt: time.Now().Add(repoCacheTTL),
+	}
+}
+
+func (c *gitRepoCache) cleanup() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		c.mu.Lock()
+		now := time.Now()
+		for key, cached := range c.repos {
+			if now.After(cached.expiresAt) {
+				delete(c.repos, key)
+			}
+		}
+		c.mu.Unlock()
+	}
+}
 
 // Source represents a source of commits.
 type Source interface {
@@ -179,22 +254,62 @@ func (gs gitSource) HasChangesInPath(ctx context.Context, oldCommit, newCommit, 
 	}
 
 	// Now we need to actually fetch and compare the commits
-	// Clone the repository to in-memory storage with both commits
+	// Try to get from cache first
 	repoURL := gs.remote.Config().URLs[0]
+	cache := getRepoCache()
+	cacheKey := repoURL // Use URL as cache key (could enhance with auth hash if needed)
 
-	fs := memfs.New()
-	storer := memory.NewStorage()
+	repo, cached := cache.get(cacheKey)
+	if !cached {
+		// Cache miss - initialize empty repository and fetch only the specific commits we need
+		fs := memfs.New()
+		storer := memory.NewStorage()
 
-	repo, err := git.CloneContext(ctx, storer, fs, &git.CloneOptions{
-		URL:          repoURL,
-		Auth:         auth,
-		SingleBranch: false,
-		NoCheckout:   true,
-		Depth:        0, // Full clone to ensure we have both commits
-		Tags:         git.NoTags,
-	})
-	if err != nil {
-		return false, fmt.Errorf("cloning repository: %w", err)
+		// Initialize empty repository
+		repo, err = git.Init(storer, fs)
+		if err != nil {
+			return false, fmt.Errorf("initializing repository: %w", err)
+		}
+
+		// Create remote
+		_, err = repo.CreateRemote(&config.RemoteConfig{
+			Name: "origin",
+			URLs: []string{repoURL},
+		})
+		if err != nil {
+			return false, fmt.Errorf("creating remote: %w", err)
+		}
+
+		// Fetch only the specific commits we need with shallow depth
+		// This is much more efficient than cloning the entire repo
+		err = repo.FetchContext(ctx, &git.FetchOptions{
+			Auth: auth,
+			RefSpecs: []config.RefSpec{
+				config.RefSpec(fmt.Sprintf("%s:%s", oldHash, oldHash)),
+				config.RefSpec(fmt.Sprintf("%s:%s", newHash, newHash)),
+			},
+			Depth: 1,
+			Tags:  git.NoTags,
+		})
+		if err != nil {
+			return false, fmt.Errorf("fetching commits: %w", err)
+		}
+
+		// Store in cache for future use
+		cache.set(cacheKey, repo)
+	} else {
+		// Cache hit - try to fetch the specific commits if not already present
+		err = repo.FetchContext(ctx, &git.FetchOptions{
+			Auth: auth,
+			RefSpecs: []config.RefSpec{
+				config.RefSpec(fmt.Sprintf("%s:%s", oldHash, oldHash)),
+				config.RefSpec(fmt.Sprintf("%s:%s", newHash, newHash)),
+			},
+			Depth: 1,
+			Tags:  git.NoTags,
+		})
+		// Ignore errors from fetch - we may already have the commits we need
+		// The subsequent CommitObject calls will fail if commits are truly missing
 	}
 
 	// Get commit objects
