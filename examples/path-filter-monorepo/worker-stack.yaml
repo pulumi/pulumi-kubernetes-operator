@@ -1,0 +1,27 @@
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: worker-service-stack
+spec:
+  # Stack configuration
+  stack: myorg/worker-service/production
+
+  # Git source configuration
+  projectRepo: https://github.com/myorg/monorepo
+  branch: main
+
+  # RepoDir specifies where the Pulumi project (Pulumi.yaml) is located
+  repoDir: services/worker
+
+  # PathFilter enables path-based reconciliation filtering
+  # When true, only commits that modify files in services/worker/* will trigger reconciliation
+  pathFilter: true
+
+  # Poll for new commits every 60 seconds
+  resyncFrequencySeconds: 60
+
+  # Enable refresh to detect drift
+  refresh: true
+
+  # Destroy resources when the Stack is deleted
+  destroyOnFinalize: true

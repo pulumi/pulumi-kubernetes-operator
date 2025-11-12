@@ -249,6 +249,14 @@ type GitSource struct {
 	// Shallow controls whether the workspace uses a shallow checkout or
 	// whether all history is cloned.
 	Shallow bool `json:"shallow,omitempty"`
+	// (optional) PathFilter when set to true enables path-based change filtering for reconciliation.
+	// When enabled, only commits that modify files within the directory specified by RepoDir
+	// (or its subdirectories) will trigger a stack reconciliation. This is useful for monorepos
+	// where you only want to deploy when specific directories change.
+	// If RepoDir is empty, this setting has no effect.
+	// Default: false (all commits trigger reconciliation)
+	// +optional
+	PathFilter bool `json:"pathFilter,omitempty"`
 }
 
 // PrerequisiteRef refers to another stack, and gives requirements for the prerequisite to be

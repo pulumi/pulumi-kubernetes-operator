@@ -679,6 +679,34 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, saveStatus()
 		}
 
+		// Check if path filtering is enabled and if there are changes in the specified path
+		if stack.GitSource.PathFilter && stack.GitSource.RepoDir != "" && instance.Status.LastUpdate != nil {
+			lastCommit := instance.Status.LastUpdate.LastSuccessfulCommit
+			if lastCommit == "" {
+				lastCommit = instance.Status.LastUpdate.LastAttemptedCommit
+			}
+
+			if lastCommit != "" && lastCommit != currentCommit {
+				hasChanges, err := gs.HasChangesInPath(ctx, lastCommit, currentCommit, stack.GitSource.RepoDir)
+				if err != nil {
+					log.Error(err, "Failed to check path-based changes", "repoDir", stack.GitSource.RepoDir)
+					// On error, assume changes exist to avoid blocking updates
+				} else if !hasChanges {
+					log.Info("No changes detected in monitored path, skipping update",
+						"repoDir", stack.GitSource.RepoDir,
+						"oldCommit", lastCommit,
+						"newCommit", currentCommit)
+					// Use the last successful commit to prevent triggering an update
+					currentCommit = lastCommit
+				} else {
+					log.Info("Changes detected in monitored path",
+						"repoDir", stack.GitSource.RepoDir,
+						"oldCommit", lastCommit,
+						"newCommit", currentCommit)
+				}
+			}
+		}
+
 		err = sess.setupWorkspaceFromGitSource(ctx, currentCommit)
 		if err != nil {
 			log.Error(err, "Failed to setup Pulumi workspace with git source")

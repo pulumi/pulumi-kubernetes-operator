@@ -19,10 +19,13 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
+	"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
@@ -42,6 +45,9 @@ import (
 // Source represents a source of commits.
 type Source interface {
 	CurrentCommit(context.Context) (string, error)
+	// HasChangesInPath checks if there are changes in the specified path between two commits.
+	// If path is empty, returns true (no filtering).
+	HasChangesInPath(ctx context.Context, oldCommit, newCommit, path string) (bool, error)
 }
 
 // NewGitSource creates a new Git source. URL is the https location of the
@@ -119,6 +125,138 @@ func (gs gitSource) CurrentCommit(ctx context.Context) (string, error) {
 	}
 
 	return "", fmt.Errorf("no commits found for ref %q", gs.ref)
+}
+
+// HasChangesInPath checks if there are changes in the specified path between two commits.
+// If path is empty or oldCommit is empty, returns true (no filtering).
+func (gs gitSource) HasChangesInPath(ctx context.Context, oldCommit, newCommit, path string) (bool, error) {
+	// If no path filter or no old commit to compare, assume changes exist
+	if path == "" || oldCommit == "" {
+		return true, nil
+	}
+
+	// If commits are the same, no changes
+	if oldCommit == newCommit {
+		return false, nil
+	}
+
+	auth, err := gs.authMethod()
+	if err != nil {
+		return false, fmt.Errorf("getting auth method: %w", err)
+	}
+
+	// Fetch the references to get commit objects
+	refs, err := gs.remote.ListContext(ctx, &git.ListOptions{
+		Auth: auth,
+	})
+	if err != nil {
+		return false, fmt.Errorf("listing references: %w", err)
+	}
+
+	// We need to fetch the commit objects, but we don't need to clone the whole repo
+	// Use git log to compare the commits with path filtering
+	// For now, we'll use a simpler approach: fetch both commits and compare their trees
+
+	// Parse commit hashes
+	oldHash := plumbing.NewHash(oldCommit)
+	newHash := plumbing.NewHash(newCommit)
+
+	// Fetch the specific commits using the reference list to verify they exist
+	oldExists := false
+	newExists := false
+	for _, ref := range refs {
+		if ref.Hash() == oldHash {
+			oldExists = true
+		}
+		if ref.Hash() == newHash {
+			newExists = true
+		}
+	}
+
+	if !oldExists || !newExists {
+		// If we can't verify both commits exist, assume changes to be safe
+		return true, nil
+	}
+
+	// Now we need to actually fetch and compare the commits
+	// Clone the repository to in-memory storage with both commits
+	repoURL := gs.remote.Config().URLs[0]
+
+	fs := memfs.New()
+	storer := memory.NewStorage()
+
+	repo, err := git.CloneContext(ctx, storer, fs, &git.CloneOptions{
+		URL:          repoURL,
+		Auth:         auth,
+		SingleBranch: false,
+		NoCheckout:   true,
+		Depth:        0, // Full clone to ensure we have both commits
+		Tags:         git.NoTags,
+	})
+	if err != nil {
+		return false, fmt.Errorf("cloning repository: %w", err)
+	}
+
+	// Get commit objects
+	oldCommitObj, err := repo.CommitObject(oldHash)
+	if err != nil {
+		return false, fmt.Errorf("getting old commit %s: %w", oldCommit, err)
+	}
+
+	newCommitObj, err := repo.CommitObject(newHash)
+	if err != nil {
+		return false, fmt.Errorf("getting new commit %s: %w", newCommit, err)
+	}
+
+	// Get trees for both commits
+	oldTree, err := oldCommitObj.Tree()
+	if err != nil {
+		return false, fmt.Errorf("getting old tree: %w", err)
+	}
+
+	newTree, err := newCommitObj.Tree()
+	if err != nil {
+		return false, fmt.Errorf("getting new tree: %w", err)
+	}
+
+	// Find changes between the trees
+	changes, err := object.DiffTree(oldTree, newTree)
+	if err != nil {
+		return false, fmt.Errorf("computing diff: %w", err)
+	}
+
+	// Normalize the path for comparison
+	path = strings.TrimPrefix(path, "/")
+	path = strings.TrimSuffix(path, "/")
+
+	// Check if any changes are in the specified path
+	for _, change := range changes {
+		// Get the file paths from the change
+		// Check both From and To in case of renames or modifications
+		if change.From.Name != "" && isUnderPath(change.From.Name, path) {
+			return true, nil
+		}
+		if change.To.Name != "" && isUnderPath(change.To.Name, path) {
+			return true, nil
+		}
+	}
+
+	// No changes found in the specified path
+	return false, nil
+}
+
+// isUnderPath checks if filePath is under the given directory path
+func isUnderPath(filePath, dirPath string) bool {
+	if dirPath == "" {
+		return true
+	}
+	// Normalize paths
+	filePath = strings.TrimPrefix(filePath, "/")
+	dirPath = strings.TrimPrefix(dirPath, "/")
+	dirPath = strings.TrimSuffix(dirPath, "/")
+
+	// Check if filePath starts with dirPath
+	return filePath == dirPath || strings.HasPrefix(filePath, dirPath+"/")
 }
 
 // authMethod translates auto.GitAuth into a go-git transport.AuthMethod.

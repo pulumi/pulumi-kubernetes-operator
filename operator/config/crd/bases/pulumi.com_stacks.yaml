@@ -658,6 +658,15 @@ spec:
                   application code changes.
                   Default: false (both projectRepo and gitSources can trigger updates)
                 type: boolean
+              pathFilter:
+                description: |-
+                  (optional) PathFilter when set to true enables path-based change filtering for reconciliation.
+                  When enabled, only commits that modify files within the directory specified by RepoDir
+                  (or its subdirectories) will trigger a stack reconciliation. This is useful for monorepos
+                  where you only want to deploy when specific directories change.
+                  If RepoDir is empty, this setting has no effect.
+                  Default: false (all commits trigger reconciliation)
+                type: boolean
               prerequisites:
                 description: |-
                   (optional) Prerequisites is a list of references to other stacks, each with a constraint on
@@ -10581,6 +10590,15 @@ spec:
                   gitSources contain the application code being deployed - you only want to deploy when
                   application code changes.
                   Default: false (both projectRepo and gitSources can trigger updates)
+                type: boolean
+              pathFilter:
+                description: |-
+                  (optional) PathFilter when set to true enables path-based change filtering for reconciliation.
+                  When enabled, only commits that modify files within the directory specified by RepoDir
+                  (or its subdirectories) will trigger a stack reconciliation. This is useful for monorepos
+                  where you only want to deploy when specific directories change.
+                  If RepoDir is empty, this setting has no effect.
+                  Default: false (all commits trigger reconciliation)
                 type: boolean
               prerequisites:
                 description: |-
