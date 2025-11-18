@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+- Add configurable leader election timeouts to prevent interruption of long-running operations [#1058](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1058)
+
 ## 2.3.0 (2025-10-23)
 
 - New feature: preview mode [#1012](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1012)

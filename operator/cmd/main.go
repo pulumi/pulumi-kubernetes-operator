@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -76,6 +77,12 @@ func main() {
 		// Flags for configuring the Program file server.
 		programFSAddr    string
 		programFSAdvAddr string
+
+		// Flags for configuring leader election timeouts.
+		leaderElectionLeaseDuration time.Duration
+		leaderElectionRenewDeadline time.Duration
+		leaderElectionRetryPeriod   time.Duration
+		kubeAPITimeout              time.Duration
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metric endpoint binds to. "+
@@ -92,6 +99,18 @@ func main() {
 		"The address the static file server binds to.")
 	flag.StringVar(&programFSAdvAddr, "program-fs-adv-addr", envOrDefault("PROGRAM_FS_ADV_ADDR", ""),
 		"The advertised address of the static file server.")
+	flag.DurationVar(&leaderElectionLeaseDuration, "leader-election-lease-duration", 60*time.Second,
+		"Duration that non-leader candidates will wait to force acquire leadership. "+
+			"Can also be set via LEADER_ELECTION_LEASE_DURATION environment variable.")
+	flag.DurationVar(&leaderElectionRenewDeadline, "leader-election-renew-deadline", 45*time.Second,
+		"Duration the leader will retry refreshing leadership before giving up. "+
+			"Can also be set via LEADER_ELECTION_RENEW_DEADLINE environment variable.")
+	flag.DurationVar(&leaderElectionRetryPeriod, "leader-election-retry-period", 10*time.Second,
+		"Duration the LeaderElector clients should wait between tries of actions. "+
+			"Can also be set via LEADER_ELECTION_RETRY_PERIOD environment variable.")
+	flag.DurationVar(&kubeAPITimeout, "kube-api-timeout", 30*time.Second,
+		"Timeout for requests to the Kubernetes API server. "+
+			"Can also be set via KUBE_API_TIMEOUT environment variable.")
 
 	// Configure Zap-based logging for klog/v2 and for the controller manager.
 	// Write to stdout by default.
@@ -152,6 +171,28 @@ func main() {
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
 	}
 
+	// Override leader election timeouts from environment variables if set
+	if s, ok := os.LookupEnv("LEADER_ELECTION_LEASE_DURATION"); ok {
+		if d, err := time.ParseDuration(s); err == nil {
+			leaderElectionLeaseDuration = d
+		}
+	}
+	if s, ok := os.LookupEnv("LEADER_ELECTION_RENEW_DEADLINE"); ok {
+		if d, err := time.ParseDuration(s); err == nil {
+			leaderElectionRenewDeadline = d
+		}
+	}
+	if s, ok := os.LookupEnv("LEADER_ELECTION_RETRY_PERIOD"); ok {
+		if d, err := time.ParseDuration(s); err == nil {
+			leaderElectionRetryPeriod = d
+		}
+	}
+	if s, ok := os.LookupEnv("KUBE_API_TIMEOUT"); ok {
+		if d, err := time.ParseDuration(s); err == nil {
+			kubeAPITimeout = d
+		}
+	}
+
 	controllerOpts := config.Controller{
 		MaxConcurrentReconciles: 25,
 	}
@@ -159,7 +200,23 @@ func main() {
 		controllerOpts.MaxConcurrentReconciles, _ = strconv.Atoi(s)
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	// Configure REST client with custom timeout
+	restConfig := ctrl.GetConfigOrDie()
+	restConfig.Timeout = kubeAPITimeout
+
+	setupLog.Info("Configured Kubernetes API client",
+		"timeout", kubeAPITimeout,
+	)
+
+	if enableLeaderElection {
+		setupLog.Info("Configured leader election",
+			"leaseDuration", leaderElectionLeaseDuration,
+			"renewDeadline", leaderElectionRenewDeadline,
+			"retryPeriod", leaderElectionRetryPeriod,
+		)
+	}
+
+	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
 		Controller:             controllerOpts,
@@ -167,6 +224,9 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "operator.pulumi.com",
+		LeaseDuration:          &leaderElectionLeaseDuration,
+		RenewDeadline:          &leaderElectionRenewDeadline,
+		RetryPeriod:            &leaderElectionRetryPeriod,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -192,7 +252,7 @@ func main() {
 	pHandler := pulumicontroller.NewProgramHandler(mgr.GetClient(), programFSAdvAddr)
 
 	// Create a connection manager for making authenticated connections to workspaces.
-	cm, err := autocontroller.NewConnectionManager(ctrl.GetConfigOrDie(), autocontroller.ConnectionManagerOptions{
+	cm, err := autocontroller.NewConnectionManager(restConfig, autocontroller.ConnectionManagerOptions{
 		ServiceAccount: types.NamespacedName{
 			Namespace: envOrDefault("POD_NAMESPACE", "pulumi-kubernetes-operator"),
 			Name:      envOrDefault("POD_SA_NAME", "controller-manager"),

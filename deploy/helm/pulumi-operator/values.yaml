@@ -28,6 +28,26 @@ controller:
   # -- the advertised address for the controller's service
   # advertisedAddress: "pulumi-kubernetes-operator.pulumi-kubernetes-operator.svc.cluster.local"
 
+# Leader election configuration
+# These settings control how the operator manages leader election when running multiple replicas.
+# Higher timeout values are recommended for long-running Pulumi operations to prevent
+# unnecessary leadership transitions and operation interruptions.
+leaderElection:
+  # -- Duration that non-leader candidates will wait to force acquire leadership
+  # Increase this value if you have long-running Pulumi operations (e.g., AWS RDS provisioning)
+  leaseDuration: "60s"
+  # -- Duration the leader will retry refreshing leadership before giving up
+  # Should be less than leaseDuration. Increase if experiencing kube-apiserver slowness.
+  renewDeadline: "45s"
+  # -- Duration the LeaderElector clients should wait between tries of actions
+  retryPeriod: "10s"
+
+# Kubernetes API client configuration
+kubeAPI:
+  # -- Timeout for requests to the Kubernetes API server
+  # Increase this value if experiencing kube-apiserver slowness that causes leader election failures
+  timeout: "30s"
+
 # -- Extra Environments to be passed to the operator
 extraEnv: []
 
