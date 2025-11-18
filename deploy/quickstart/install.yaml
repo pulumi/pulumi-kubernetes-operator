@@ -29277,6 +29277,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
+        - name: LEADER_ELECTION_LEASE_DURATION
+          value: 60s
+        - name: LEADER_ELECTION_RENEW_DEADLINE
+          value: 45s
+        - name: LEADER_ELECTION_RETRY_PERIOD
+          value: 10s
+        - name: KUBE_API_TIMEOUT
+          value: 30s
         image: pulumi/pulumi-kubernetes-operator:v2.3.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
