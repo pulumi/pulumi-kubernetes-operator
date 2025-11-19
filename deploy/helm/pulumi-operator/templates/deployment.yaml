@@ -58,6 +58,18 @@ spec:
           value: {{ include "pulumi-kubernetes-operator.imageName" . | quote }}
         - name: AGENT_IMAGE_PULL_POLICY
           value: {{ .Values.image.pullPolicy | quote }}
+        {{- if .Values.leaderElection }}
+        - name: LEADER_ELECTION_LEASE_DURATION
+          value: {{ .Values.leaderElection.leaseDuration | quote }}
+        - name: LEADER_ELECTION_RENEW_DEADLINE
+          value: {{ .Values.leaderElection.renewDeadline | quote }}
+        - name: LEADER_ELECTION_RETRY_PERIOD
+          value: {{ .Values.leaderElection.retryPeriod | quote }}
+        {{- end }}
+        {{- if .Values.kubeAPI }}
+        - name: KUBE_API_TIMEOUT
+          value: {{ .Values.kubeAPI.timeout | quote }}
+        {{- end }}
         ports:
         - containerPort: 8383
           name: http-metrics
