@@ -56,6 +56,7 @@ const (
 	StackUpdateSuccessful  StackEventReason = "StackCreated"
 	StackDestroySuccessful StackEventReason = "StackDestroyed"
 	WorkspaceDeleted       StackEventReason = "WorkspaceDeleted"
+	StackDriftDetected     StackEventReason = "StackDriftDetected"
 )
 
 func StackConfigInvalidEvent() StackEvent {
@@ -100,4 +101,8 @@ func StackDestroySuccessfulEvent() StackEvent {
 
 func WorkspaceDeletedEvent() StackEvent {
 	return StackEvent{eventType: EventTypeNormal, reason: WorkspaceDeleted}
+}
+
+func StackDriftDetectedEvent() StackEvent {
+	return StackEvent{eventType: EventTypeNormal, reason: StackDriftDetected}
 }

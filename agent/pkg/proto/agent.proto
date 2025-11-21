@@ -144,6 +144,8 @@ message RefreshRequest {
   optional bool expect_no_changes = 3;
   // Specify an exclusive list of resource URNs to refresh
   repeated string target = 4;
+  // preview_only when true performs a non-destructive refresh (does not update state)
+  optional bool preview_only = 5;
 }
 
 message RefreshStream {

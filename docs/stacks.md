@@ -134,10 +134,18 @@ is mutually exclusive with the Branch setting. Either value needs to be specifie
         <td>false</td>
       </tr><tr>
         <td><b>config</b></td>
-        <td>map[string]string</td>
+        <td>JSON</td>
         <td>
           (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
-is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+is omitted, configuration is assumed to be checked in and taken from the source repository.
+Supports both simple string values and structured values (objects, arrays, numbers, booleans).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefkey">configRef</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          (optional) ConfigRef allows specifying configuration values from ConfigMaps.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -157,6 +165,15 @@ at that revision again.<br/>
         <td>boolean</td>
         <td>
           (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the Stack custom resource.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecdriftdetection">driftDetection</a></b></td>
+        <td>object</td>
+        <td>
+          (optional) DriftDetection configures scheduled drift detection for this stack.
+Drift detection runs refresh operations on a schedule to detect when resources
+have diverged from the desired state.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -418,6 +435,112 @@ The default behavior is to retain the workspace. Valid values are one of "Retain
 is applied as a strategic merge patch on top of the underlying
 Workspace. Use this to customize the Workspace's metadata, image, resources,
 volumes, etc.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRef[key]
+<sup><sup>[↩ Parent](#stackspec)</sup></sup>
+
+
+
+ConfigMapRef identifies information to load from a Kubernetes ConfigMap.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the ConfigMap to use<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the ConfigMap<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
+        <td>
+          JSON indicates the referenced value should be parsed as JSON.
+When true, the value is treated as structured data (object/array/etc).
+When false, the value is treated as a raw string.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.driftDetection
+<sup><sup>[↩ Parent](#stackspec)</sup></sup>
+
+
+
+(optional) DriftDetection configures scheduled drift detection for this stack.
+Drift detection runs refresh operations on a schedule to detect when resources
+have diverged from the desired state.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#stackspecdriftdetectionschedulesindex">schedules</a></b></td>
+        <td>[]object</td>
+        <td>
+          Schedules defines one or more cron schedules for running drift detection.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.driftDetection.schedules[index]
+<sup><sup>[↩ Parent](#stackspecdriftdetection)</sup></sup>
+
+
+
+DriftSchedule defines a schedule for drift detection.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>cron</b></td>
+        <td>string</td>
+        <td>
+          Cron defines the schedule in cron format (e.g., "*/15 * * * *" for every 15 minutes).<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>autoRemediate</b></td>
+        <td>boolean</td>
+        <td>
+          AutoRemediate when true will automatically run an update if drift is detected.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -19535,7 +19658,7 @@ with apply.
         <td>false</td>
       </tr><tr>
         <td><b>value</b></td>
-        <td>string</td>
+        <td>JSON</td>
         <td>
           <br/>
         </td>
@@ -19572,6 +19695,13 @@ with apply.
     <tbody><tr>
         <td><b>env</b></td>
         <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
         <td>
           <br/>
         </td>
@@ -19625,6 +19755,13 @@ with apply.
           <br/>
           <br/>
             <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pulumiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -19726,6 +19863,13 @@ StackStatus defines the observed state of Stack
         <td>object</td>
         <td>
           CurrentUpdate contains details of the status of the current update, if any.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackstatusdriftdetection">driftDetection</a></b></td>
+        <td>object</td>
+        <td>
+          DriftDetection contains the status of drift detection for this stack.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -19884,6 +20028,35 @@ CurrentUpdate contains details of the status of the current update, if any.
         <td>string</td>
         <td>
           ReconcileRequest is the stack reconcile request associated with the update.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.status.driftDetection
+<sup><sup>[↩ Parent](#stackstatus)</sup></sup>
+
+
+
+DriftDetection contains the status of drift detection for this stack.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastCheck</b></td>
+        <td>string</td>
+        <td>
+          LastCheck is the timestamp of the last drift detection check.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -20125,10 +20298,18 @@ is mutually exclusive with the Branch setting. Either value needs to be specifie
         <td>false</td>
       </tr><tr>
         <td><b>config</b></td>
-        <td>map[string]string</td>
+        <td>JSON</td>
         <td>
           (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
-is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+is omitted, configuration is assumed to be checked in and taken from the source repository.
+Supports both simple string values and structured values (objects, arrays, numbers, booleans).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefkey-1">configRef</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          (optional) ConfigRef allows specifying configuration values from ConfigMaps.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20148,6 +20329,15 @@ at that revision again.<br/>
         <td>boolean</td>
         <td>
           (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the Stack custom resource.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecdriftdetection-1">driftDetection</a></b></td>
+        <td>object</td>
+        <td>
+          (optional) DriftDetection configures scheduled drift detection for this stack.
+Drift detection runs refresh operations on a schedule to detect when resources
+have diverged from the desired state.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20409,6 +20599,112 @@ The default behavior is to retain the workspace. Valid values are one of "Retain
 is applied as a strategic merge patch on top of the underlying
 Workspace. Use this to customize the Workspace's metadata, image, resources,
 volumes, etc.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRef[key]
+<sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
+
+
+
+ConfigMapRef identifies information to load from a Kubernetes ConfigMap.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the ConfigMap to use<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the ConfigMap<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
+        <td>
+          JSON indicates the referenced value should be parsed as JSON.
+When true, the value is treated as structured data (object/array/etc).
+When false, the value is treated as a raw string.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.driftDetection
+<sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
+
+
+
+(optional) DriftDetection configures scheduled drift detection for this stack.
+Drift detection runs refresh operations on a schedule to detect when resources
+have diverged from the desired state.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#stackspecdriftdetectionschedulesindex-1">schedules</a></b></td>
+        <td>[]object</td>
+        <td>
+          Schedules defines one or more cron schedules for running drift detection.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.driftDetection.schedules[index]
+<sup><sup>[↩ Parent](#stackspecdriftdetection-1)</sup></sup>
+
+
+
+DriftSchedule defines a schedule for drift detection.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>cron</b></td>
+        <td>string</td>
+        <td>
+          Cron defines the schedule in cron format (e.g., "*/15 * * * *" for every 15 minutes).<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>autoRemediate</b></td>
+        <td>boolean</td>
+        <td>
+          AutoRemediate when true will automatically run an update if drift is detected.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -39526,7 +39822,7 @@ with apply.
         <td>false</td>
       </tr><tr>
         <td><b>value</b></td>
-        <td>string</td>
+        <td>JSON</td>
         <td>
           <br/>
         </td>
@@ -39563,6 +39859,13 @@ with apply.
     <tbody><tr>
         <td><b>env</b></td>
         <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
         <td>
           <br/>
         </td>
@@ -39616,6 +39919,13 @@ with apply.
           <br/>
           <br/>
             <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pulumiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -39706,6 +40016,13 @@ StackStatus defines the observed state of Stack
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#stackstatusdriftdetection-1">driftDetection</a></b></td>
+        <td>object</td>
+        <td>
+          DriftDetection contains the status of drift detection for this stack.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackstatuslastupdate-1">lastUpdate</a></b></td>
         <td>object</td>
         <td>
@@ -39717,6 +40034,35 @@ StackStatus defines the observed state of Stack
         <td>map[string]JSON</td>
         <td>
           Outputs contains the exported stack output variables resulting from a deployment.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.status.driftDetection
+<sup><sup>[↩ Parent](#stackstatus-1)</sup></sup>
+
+
+
+DriftDetection contains the status of drift detection for this stack.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastCheck</b></td>
+        <td>string</td>
+        <td>
+          LastCheck is the timestamp of the last drift detection check.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
         </td>
         <td>false</td>
       </tr></tbody>
