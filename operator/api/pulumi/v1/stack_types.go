@@ -39,6 +39,10 @@ type StackStatus struct {
 	// CurrentUpdate contains details of the status of the current update, if any.
 	// +optional
 	CurrentUpdate *shared.CurrentStackUpdate `json:"currentUpdate,omitempty"`
+
+	// DriftDetection contains the status of drift detection for this stack.
+	// +optional
+	DriftDetection *shared.DriftDetectionStatus `json:"driftDetection,omitempty"`
 }
 
 // The conditions form part of the API. They are used to implement a "ready protocol" which works
@@ -56,9 +60,10 @@ type StackStatus struct {
 // be able to give a more precise answer using the Stalled and Reconciling conditions.
 
 const (
-	ReadyCondition       = "Ready"
-	StalledCondition     = "Stalled"
-	ReconcilingCondition = "Reconciling"
+	ReadyCondition         = "Ready"
+	StalledCondition       = "Stalled"
+	ReconcilingCondition   = "Reconciling"
+	DriftDetectedCondition = "DriftDetected"
 
 	// These give standard reasons for various status values in the conditions
 
@@ -87,6 +92,10 @@ const (
 
 	// Ready because processing has completed
 	ReadyCompletedReason = "ProcessingCompleted"
+
+	// DriftDetected reasons
+	DriftDetectedChangesReason   = "Changes"
+	DriftDetectedNoChangesReason = "NoChanges"
 )
 
 // MarkReconcilingCondition arranges the conditions used in the "ready protocol", so to indicate that

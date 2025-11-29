@@ -190,6 +190,12 @@ type StackSpec struct {
 	// This allows seeing what changes would be made without applying them.
 	// +optional
 	Preview bool `json:"preview,omitempty"`
+
+	// (optional) DriftDetection configures scheduled drift detection for this stack.
+	// Drift detection runs refresh operations on a schedule to detect when resources
+	// have diverged from the desired state.
+	// +optional
+	DriftDetection *DriftDetectionSpec `json:"driftDetection,omitempty"`
 }
 
 // GitSource specifies how to fetch from a git repository directly.
@@ -430,12 +436,39 @@ type ConfigMapRef struct {
 	JSON *bool `json:"json,omitempty"`
 }
 
+// DriftDetectionSpec configures drift detection for a stack.
+type DriftDetectionSpec struct {
+	// Schedules defines one or more cron schedules for running drift detection.
+	// +optional
+	Schedules []DriftSchedule `json:"schedules,omitempty"`
+}
+
+// DriftSchedule defines a schedule for drift detection.
+type DriftSchedule struct {
+	// Cron defines the schedule in cron format (e.g., "*/15 * * * *" for every 15 minutes).
+	// +kubebuilder:validation:Required
+	Cron string `json:"cron"`
+	// AutoRemediate when true will automatically run an update if drift is detected.
+	// +optional
+	AutoRemediate bool `json:"autoRemediate,omitempty"`
+}
+
+// DriftDetectionStatus contains the status of drift detection for a stack.
+type DriftDetectionStatus struct {
+	// LastCheck is the timestamp of the last drift detection check.
+	// +optional
+	LastCheck *metav1.Time `json:"lastCheck,omitempty"`
+}
+
 // StackStatus defines the observed state of Stack
 type StackStatus struct {
 	// Outputs contains the exported stack output variables resulting from a deployment.
 	Outputs StackOutputs `json:"outputs,omitempty"`
 	// LastUpdate contains details of the status of the last update.
 	LastUpdate *StackUpdateState `json:"lastUpdate,omitempty"`
+	// DriftDetection contains the status of drift detection for this stack.
+	// +optional
+	DriftDetection *DriftDetectionStatus `json:"driftDetection,omitempty"`
 }
 
 type StackOutputs map[string]apiextensionsv1.JSON
