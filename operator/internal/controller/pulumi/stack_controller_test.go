@@ -115,10 +115,10 @@ func makeUpdate(name types.NamespacedName, stack *pulumiv1.Stack, spec autov1alp
 			Kind:       "Update",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:       fmt.Sprintf("%s-%s", name.Name, utilrand.String(8)),
-			Namespace:  name.Namespace,
-			Labels:     labels,
-			Finalizers: []string{pulumiFinalizer},
+			Name:      fmt.Sprintf("%s-%s", name.Name, utilrand.String(8)),
+			Namespace: name.Namespace,
+			Labels:    labels,
+			// Note: Finalizer is added separately via SSA with StackFinalizerFieldManager
 		},
 		Spec: spec,
 	}
@@ -226,6 +226,10 @@ var _ = Describe("Stack Controller", func() {
 		Expect(k8sClient.Patch(ctx, currentUpdate, client.Apply, client.FieldOwner(FieldManager))).To(Succeed())
 		currentUpdate.Status = status
 		Expect(k8sClient.Status().Update(ctx, currentUpdate, client.FieldOwner(FieldManager))).To(Succeed())
+		// Add finalizer using SSA with the dedicated field manager (matching production behavior)
+		finalizerPatch := autov1alpha1apply.Update(currentUpdate.Name, currentUpdate.Namespace).
+			WithFinalizers(pulumiFinalizer)
+		Expect(k8sClient.Patch(ctx, currentUpdate, applyConfiguration{finalizerPatch}, client.FieldOwner(StackFinalizerFieldManager))).To(Succeed())
 	})
 
 	reconcileF := func(ctx context.Context) (result reconcile.Result, err error) {
@@ -2176,3 +2180,237 @@ func TestIsSynced(t *testing.T) {
 		})
 	}
 }
+
+var _ = Describe("SSA Finalizer Operations", func() {
+	var (
+		r      *StackReconciler
+		update *autov1alpha1.Update
+	)
+
+	BeforeEach(func() {
+		r = &StackReconciler{
+			Client: k8sClient,
+		}
+	})
+
+	Describe("addUpdateFinalizer", func() {
+		BeforeEach(func(ctx context.Context) {
+			update = &autov1alpha1.Update{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-update-add-" + utilrand.String(5),
+					Namespace: "default",
+				},
+				Spec: autov1alpha1.UpdateSpec{
+					StackName:     "test-stack",
+					WorkspaceName: "test-workspace",
+				},
+			}
+			Expect(k8sClient.Create(ctx, update)).To(Succeed())
+		})
+
+		AfterEach(func(ctx context.Context) {
+			// Remove finalizer before cleanup
+			updated := &autov1alpha1.Update{}
+			if err := k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, updated); err == nil {
+				updated.Finalizers = nil
+				_ = k8sClient.Update(ctx, updated)
+				_ = k8sClient.Delete(ctx, updated)
+			}
+		})
+
+		It("adds the finalizer via SSA", func(ctx context.Context) {
+			err := r.addUpdateFinalizer(ctx, update)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify the finalizer is added
+			updated := &autov1alpha1.Update{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, updated)).To(Succeed())
+			Expect(updated.Finalizers).To(ContainElement(pulumiFinalizer))
+
+			// Verify the finalizer is owned by StackFinalizerFieldManager
+			found := false
+			for _, mf := range updated.GetManagedFields() {
+				if mf.Manager == StackFinalizerFieldManager {
+					found = true
+					break
+				}
+			}
+			Expect(found).To(BeTrue(), "expected finalizer to be owned by StackFinalizerFieldManager")
+		})
+	})
+
+	Describe("removeUpdateFinalizer", func() {
+		When("the Update has the stack finalizer added via SSA", func() {
+			BeforeEach(func(ctx context.Context) {
+				update = &autov1alpha1.Update{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-update-remove-" + utilrand.String(5),
+						Namespace: "default",
+					},
+					Spec: autov1alpha1.UpdateSpec{
+						StackName:     "test-stack",
+						WorkspaceName: "test-workspace",
+					},
+				}
+				Expect(k8sClient.Create(ctx, update)).To(Succeed())
+				// Add finalizer using SSA (the way it would be added in production)
+				Expect(r.addUpdateFinalizer(ctx, update)).To(Succeed())
+			})
+
+			AfterEach(func(ctx context.Context) {
+				// Clean up the update if it still exists
+				_ = k8sClient.Delete(ctx, update)
+			})
+
+			It("removes the finalizer", func(ctx context.Context) {
+				// Re-fetch to get the updated object with finalizers
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, update)).To(Succeed())
+
+				err := r.removeUpdateFinalizer(ctx, update)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify the finalizer is removed
+				updated := &autov1alpha1.Update{}
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, updated)).To(Succeed())
+				Expect(updated.Finalizers).NotTo(ContainElement(pulumiFinalizer))
+			})
+		})
+
+		When("the Update has multiple finalizers from different managers", func() {
+			BeforeEach(func(ctx context.Context) {
+				update = &autov1alpha1.Update{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-update-multi-" + utilrand.String(5),
+						Namespace:  "default",
+						Finalizers: []string{"other.finalizer.com"},
+					},
+					Spec: autov1alpha1.UpdateSpec{
+						StackName:     "test-stack",
+						WorkspaceName: "test-workspace",
+					},
+				}
+				Expect(k8sClient.Create(ctx, update)).To(Succeed())
+				// Add our finalizer using SSA
+				Expect(r.addUpdateFinalizer(ctx, update)).To(Succeed())
+			})
+
+			AfterEach(func(ctx context.Context) {
+				// Remove other finalizers before cleanup
+				updated := &autov1alpha1.Update{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, updated); err == nil {
+					updated.Finalizers = nil
+					_ = k8sClient.Update(ctx, updated)
+					_ = k8sClient.Delete(ctx, updated)
+				}
+			})
+
+			It("removes only the stack finalizer and preserves others", func(ctx context.Context) {
+				// Re-fetch to get the updated object with finalizers
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, update)).To(Succeed())
+
+				err := r.removeUpdateFinalizer(ctx, update)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify only our finalizer is removed
+				updated := &autov1alpha1.Update{}
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, updated)).To(Succeed())
+				Expect(updated.Finalizers).NotTo(ContainElement(pulumiFinalizer))
+				Expect(updated.Finalizers).To(ContainElement("other.finalizer.com"))
+			})
+		})
+
+		When("the Update does not have the stack finalizer", func() {
+			BeforeEach(func(ctx context.Context) {
+				update = &autov1alpha1.Update{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-update-no-finalizer-" + utilrand.String(5),
+						Namespace:  "default",
+						Finalizers: []string{"other.finalizer.com"},
+					},
+					Spec: autov1alpha1.UpdateSpec{
+						StackName:     "test-stack",
+						WorkspaceName: "test-workspace",
+					},
+				}
+				Expect(k8sClient.Create(ctx, update)).To(Succeed())
+			})
+
+			AfterEach(func(ctx context.Context) {
+				updated := &autov1alpha1.Update{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, updated); err == nil {
+					updated.Finalizers = nil
+					_ = k8sClient.Update(ctx, updated)
+					_ = k8sClient.Delete(ctx, updated)
+				}
+			})
+
+			It("succeeds without error (idempotent)", func(ctx context.Context) {
+				err := r.removeUpdateFinalizer(ctx, update)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify other finalizers are preserved
+				updated := &autov1alpha1.Update{}
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, updated)).To(Succeed())
+				Expect(updated.Finalizers).To(ContainElement("other.finalizer.com"))
+			})
+		})
+
+		When("the Update does not exist", func() {
+			BeforeEach(func() {
+				update = &autov1alpha1.Update{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "nonexistent-update",
+						Namespace: "default",
+					},
+				}
+			})
+
+			It("returns nil (not an error)", func(ctx context.Context) {
+				err := r.removeUpdateFinalizer(ctx, update)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+	})
+
+	Describe("isFinalizerOwnedByLegacyManager", func() {
+		It("returns false for an Update without finalizers", func() {
+			update := &autov1alpha1.Update{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-update",
+					Namespace: "default",
+				},
+			}
+			Expect(isFinalizerOwnedByLegacyManager(update)).To(BeFalse())
+		})
+
+		It("returns false for an Update with finalizer owned by StackFinalizerFieldManager", func(ctx context.Context) {
+			update := &autov1alpha1.Update{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-update-new-" + utilrand.String(5),
+					Namespace: "default",
+				},
+				Spec: autov1alpha1.UpdateSpec{
+					StackName:     "test-stack",
+					WorkspaceName: "test-workspace",
+				},
+			}
+			Expect(k8sClient.Create(ctx, update)).To(Succeed())
+			defer func() {
+				updated := &autov1alpha1.Update{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, updated); err == nil {
+					updated.Finalizers = nil
+					_ = k8sClient.Update(ctx, updated)
+					_ = k8sClient.Delete(ctx, updated)
+				}
+			}()
+
+			// Add finalizer via SSA with new field manager
+			Expect(r.addUpdateFinalizer(ctx, update)).To(Succeed())
+
+			// Re-fetch to get the updated object with managed fields
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, update)).To(Succeed())
+
+			Expect(isFinalizerOwnedByLegacyManager(update)).To(BeFalse())
+		})
+	})
+})

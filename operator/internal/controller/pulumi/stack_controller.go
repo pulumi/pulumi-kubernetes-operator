@@ -32,6 +32,7 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	updateapply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
 	auto "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/controller/auto"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -82,7 +83,8 @@ const (
 )
 
 const (
-	FieldManager = "pulumi-kubernetes-operator"
+	FieldManager               = "pulumi-kubernetes-operator"
+	StackFinalizerFieldManager = "pulumi-kubernetes-operator/stack-finalizer"
 )
 
 // prerequisiteIndexFieldName is the name used for indexing the prerequisites field.
@@ -585,12 +587,12 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 				"conditions", instance.Status.Conditions)
 		}
 		if toBeFinalized != nil {
-			// remove the finalizer from the Update object that was being watched,
-			// after the status update is persisted.
-			if controllerutil.RemoveFinalizer(toBeFinalized, pulumiFinalizer) {
-				if err := r.Update(ctx, toBeFinalized, client.FieldOwner(FieldManager)); err != nil {
-					log.Error(err, "unable to remove finalizer from current update; update object will be orphaned")
-				}
+			// Remove the finalizer from the Update object using SSA. This is best-effort
+			// since the status update (indicating the update was processed) has already
+			// completed. If removal fails, the Update will be cleaned up by TTL or manual
+			// intervention.
+			if err := r.removeUpdateFinalizer(ctx, toBeFinalized); err != nil {
+				log.Error(err, "unable to remove finalizer from current update (best-effort)")
 			}
 			toBeFinalized = nil
 		}
@@ -961,10 +963,6 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, fmt.Errorf("unable to prepare update (up) for stack: %w", err)
 		}
 	}
-	// apply a finalizer to the update object to ensure it doesn't disappear entirely
-	// while we're waiting for it to complete.
-	update.Finalizers = append(update.Finalizers, pulumiFinalizer)
-
 	instance.Status.CurrentUpdate = &shared.CurrentStackUpdate{
 		Generation:       instance.Generation,
 		ReconcileRequest: syncRequest,
@@ -982,6 +980,18 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		instance.Status.CurrentUpdate = nil
 		_ = saveStatus()
 		return reconcile.Result{}, fmt.Errorf("unable to create update for stack: %w", err)
+	}
+
+	// Apply a finalizer to the update object using SSA with a dedicated field manager.
+	// This ensures the finalizer doesn't conflict with other operations and can be
+	// removed cleanly even if the Update controller races with us.
+	if err := r.addUpdateFinalizer(ctx, update); err != nil {
+		log.Error(err, "failed to add finalizer to Update")
+		// Delete the update since we couldn't finalize it properly
+		_ = r.Delete(ctx, update)
+		instance.Status.CurrentUpdate = nil
+		_ = saveStatus()
+		return reconcile.Result{}, fmt.Errorf("unable to add finalizer to update: %w", err)
 	}
 
 	// Step 6: At this point, an update is running and will requeue the stack once it completes.
@@ -1772,5 +1782,76 @@ func (p *finalizerAddedPredicate) Update(e event.UpdateEvent) bool {
 }
 
 func (p *finalizerAddedPredicate) Generic(_ event.GenericEvent) bool {
+	return false
+}
+
+// applyConfiguration wraps a typed apply configuration to implement client.Patch interface.
+type applyConfiguration struct {
+	config any
+}
+
+func (a applyConfiguration) Type() types.PatchType {
+	return types.ApplyPatchType
+}
+
+func (a applyConfiguration) Data(_ client.Object) ([]byte, error) {
+	return json.Marshal(a.config)
+}
+
+// addUpdateFinalizer adds the stack finalizer to an Update object using SSA.
+// Uses a dedicated field manager for the stack controller's finalizer to avoid
+// conflicts with other operations and other controllers' finalizers.
+func (r *StackReconciler) addUpdateFinalizer(ctx context.Context, update *autov1alpha1.Update) error {
+	patch := updateapply.Update(update.Name, update.Namespace).
+		WithFinalizers(pulumiFinalizer)
+
+	return r.Patch(ctx, update, applyConfiguration{patch}, client.FieldOwner(StackFinalizerFieldManager))
+}
+
+// removeUpdateFinalizer removes the stack finalizer from an Update object using SSA.
+// Applies an empty configuration to release ownership of the finalizer.
+// Returns nil if the object is not found (already deleted).
+func (r *StackReconciler) removeUpdateFinalizer(ctx context.Context, update *autov1alpha1.Update) error {
+	log := ctrllog.FromContext(ctx)
+
+	// Check if finalizer is owned by old field manager (migration case).
+	// We check this upfront using the object we already have, to avoid relying on
+	// a cached Get() after the patch.
+	if isFinalizerOwnedByLegacyManager(update) {
+		log.Info("Update has finalizer owned by legacy field manager; SSA removal won't work. "+
+			"See https://github.com/pulumi/pulumi-kubernetes-operator/issues/1060. "+
+			"To manually remove: kubectl patch update "+update.Name+" -n "+update.Namespace+
+			" --type=json -p='[{\"op\":\"remove\",\"path\":\"/metadata/finalizers/0\"}]'",
+			"update", update.Name, "namespace", update.Namespace)
+	}
+
+	// Apply empty config - releases ownership of our finalizer, causing removal.
+	// This only affects the finalizer owned by StackFinalizerFieldManager.
+	patch := updateapply.Update(update.Name, update.Namespace)
+
+	err := r.Patch(ctx, update, applyConfiguration{patch}, client.FieldOwner(StackFinalizerFieldManager))
+	if apierrors.IsNotFound(err) {
+		log.V(1).Info("Update object already deleted, skipping finalizer removal")
+		return nil
+	}
+	return err
+}
+
+// isFinalizerOwnedByLegacyManager checks if the pulumiFinalizer is owned by the old
+// field manager (FieldManager) rather than the new one (StackFinalizerFieldManager).
+func isFinalizerOwnedByLegacyManager(update *autov1alpha1.Update) bool {
+	for _, mf := range update.GetManagedFields() {
+		if mf.Manager == FieldManager {
+			// Check if this manager owns any finalizers.
+			// The FieldsV1 contains the fields owned by this manager.
+			if mf.FieldsV1 != nil {
+				// FieldsV1 is JSON - we check if it mentions finalizers
+				raw := string(mf.FieldsV1.Raw)
+				if strings.Contains(raw, "finalizers") {
+					return true
+				}
+			}
+		}
+	}
 	return false
 }
