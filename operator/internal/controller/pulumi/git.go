@@ -502,10 +502,11 @@ func (sess *stackReconcilerSession) setupWorkspaceFromGitSource(_ context.Contex
 	}
 
 	sess.ws.Spec.Git = &autov1alpha1.GitSource{
-		Ref:     commit,
-		URL:     gs.ProjectRepo,
-		Dir:     gs.RepoDir,
-		Shallow: gs.Shallow,
+		Ref:          commit,
+		URL:          gs.ProjectRepo,
+		Dir:          gs.RepoDir,
+		Shallow:      gs.Shallow,
+		Dependencies: gs.Dependencies,
 	}
 	auth := &autov1alpha1.GitAuth{}
 

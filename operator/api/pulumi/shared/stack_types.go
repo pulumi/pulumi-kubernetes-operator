@@ -257,6 +257,12 @@ type GitSource struct {
 	// Default: false (all commits trigger reconciliation)
 	// +optional
 	PathFilter bool `json:"pathFilter,omitempty"`
+	// (optional) Dependencies is a list of additional paths to include in sparse checkout.
+	// This allows including dependency code (e.g., shared SDKs) from other parts of the
+	// repository while keeping RepoDir focused for path filtering.
+	// Example: ["pulumi/meta/teleport/sdks", "pulumi/common-go"]
+	// +optional
+	Dependencies []string `json:"dependencies,omitempty"`
 }
 
 // PrerequisiteRef refers to another stack, and gives requirements for the prerequisite to be
