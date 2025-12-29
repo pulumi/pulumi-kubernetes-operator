@@ -67,6 +67,11 @@ const (
 	InstanceNamespaceLabel = "pulumi.com/instance-namespace"
 	GeneratedByValue       = "pulumi-operator"
 	TemplateFieldManager   = "pulumi-template-controller"
+
+	// Reconcile result constants for metrics
+	reconcileResultSuccess  = "success"
+	reconcileResultError    = "error"
+	reconcileResultConflict = "conflict"
 )
 
 // TemplateReconciler reconciles a Template object
@@ -125,7 +130,7 @@ func NewTemplateReconciler(
 func (r *TemplateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Track reconcile duration for metrics
 	startTime := time.Now()
-	reconcileResult := "success"
+	reconcileResult := reconcileResultSuccess
 	defer func() {
 		RecordTemplateReconcileDuration(req.Namespace, req.Name, startTime, reconcileResult)
 	}()
@@ -147,7 +152,7 @@ func (r *TemplateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			reconcileResult = "deleted"
 			return ctrl.Result{}, nil
 		}
-		reconcileResult = "error"
+		reconcileResult = reconcileResultError
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	log = log.WithValues("generation", template.Generation)
@@ -177,7 +182,7 @@ func (r *TemplateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if !controllerutil.ContainsFinalizer(template, TemplateFinalizerName) {
 		controllerutil.AddFinalizer(template, TemplateFinalizerName)
 		if err := r.Update(ctx, template); err != nil {
-			reconcileResult = "error"
+			reconcileResult = reconcileResultError
 			return ctrl.Result{}, err
 		}
 		reconcileResult = "requeue"
@@ -190,10 +195,10 @@ func (r *TemplateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		r.setCondition(template, pulumiv1alpha1.TemplateConditionTypeSchemaValid, metav1.ConditionFalse,
 			pulumiv1alpha1.TemplateReasonSchemaInvalid, err.Error())
 		if requeue, updateErr := r.updateStatusWithConflictHandling(ctx, template); updateErr != nil {
-			reconcileResult = "error"
+			reconcileResult = reconcileResultError
 			return ctrl.Result{}, updateErr
 		} else if requeue {
-			reconcileResult = "conflict"
+			reconcileResult = reconcileResultConflict
 			return ctrl.Result{Requeue: true}, nil
 		}
 		r.Recorder.Event(template, "Warning", "ValidationFailed", err.Error())
@@ -211,10 +216,10 @@ func (r *TemplateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		r.setCondition(template, pulumiv1alpha1.TemplateConditionTypeCRDReady, metav1.ConditionFalse,
 			pulumiv1alpha1.TemplateReasonCRDFailed, err.Error())
 		if requeue, updateErr := r.updateStatusWithConflictHandling(ctx, template); updateErr != nil {
-			reconcileResult = "error"
+			reconcileResult = reconcileResultError
 			return ctrl.Result{}, updateErr
 		} else if requeue {
-			reconcileResult = "conflict"
+			reconcileResult = reconcileResultConflict
 			return ctrl.Result{Requeue: true}, nil
 		}
 		r.Recorder.Event(template, "Warning", "CRDGenerationFailed", err.Error())
@@ -228,10 +233,10 @@ func (r *TemplateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		r.setCondition(template, pulumiv1alpha1.TemplateConditionTypeCRDReady, metav1.ConditionFalse,
 			pulumiv1alpha1.TemplateReasonCRDFailed, err.Error())
 		if requeue, updateErr := r.updateStatusWithConflictHandling(ctx, template); updateErr != nil {
-			reconcileResult = "error"
+			reconcileResult = reconcileResultError
 			return ctrl.Result{}, updateErr
 		} else if requeue {
-			reconcileResult = "conflict"
+			reconcileResult = reconcileResultConflict
 			return ctrl.Result{Requeue: true}, nil
 		}
 		r.Recorder.Event(template, "Warning", "CRDRegistrationFailed", err.Error())
@@ -280,10 +285,10 @@ func (r *TemplateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	if requeue, updateErr := r.updateStatusWithConflictHandling(ctx, template); updateErr != nil {
 		log.Error(updateErr, "Failed to update status")
-		reconcileResult = "error"
+		reconcileResult = reconcileResultError
 		return ctrl.Result{}, updateErr
 	} else if requeue {
-		reconcileResult = "conflict"
+		reconcileResult = reconcileResultConflict
 		return ctrl.Result{Requeue: true}, nil
 	}
 
