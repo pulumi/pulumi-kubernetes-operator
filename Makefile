@@ -30,7 +30,7 @@ help: ## Display this help.
 codegen: generate-crds generate-crdocs ## Generate CRDs and documentation
 
 CRD_BASES := operator/config/crd/bases/
-CRDS := pulumi.com_stacks.yaml pulumi.com_programs.yaml auto.pulumi.com_workspaces.yaml auto.pulumi.com_updates.yaml
+CRDS := pulumi.com_stacks.yaml pulumi.com_programs.yaml pulumi.com_templates.yaml auto.pulumi.com_workspaces.yaml auto.pulumi.com_updates.yaml
 .PHONY: generate-crds
 generate-crds:
 	cd operator && $(MAKE) manifests
@@ -41,6 +41,7 @@ generate-crds:
 generate-crdocs: crdoc ## Generate API Reference documentation into 'docs/crds/'.
 	$(CRDOC) --resources deploy/crds/pulumi.com_stacks.yaml --output docs/stacks.md
 	$(CRDOC) --resources deploy/crds/pulumi.com_programs.yaml --output docs/programs.md
+	$(CRDOC) --resources deploy/crds/pulumi.com_templates.yaml --output docs/templates.md
 	$(CRDOC) --resources deploy/crds/auto.pulumi.com_workspaces.yaml --output docs/workspaces.md
 	$(CRDOC) --resources deploy/crds/auto.pulumi.com_updates.yaml --output docs/updates.md
 

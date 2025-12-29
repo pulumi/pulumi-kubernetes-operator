@@ -43,6 +43,30 @@ rules:
   - list
   - watch
 - apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - apps
   resources:
   - statefulsets
@@ -93,6 +117,7 @@ rules:
   - pulumi.com
   resources:
   - programs
+  - pulumitemplates
   - stacks
   verbs:
   - create
@@ -106,6 +131,7 @@ rules:
   - pulumi.com
   resources:
   - programs/finalizers
+  - pulumitemplates/finalizers
   - stacks/finalizers
   verbs:
   - update
@@ -113,6 +139,7 @@ rules:
   - pulumi.com
   resources:
   - programs/status
+  - pulumitemplates/status
   - stacks/status
   verbs:
   - get

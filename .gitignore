@@ -92,3 +92,4 @@ tags
 .idea
 .envrc
 bin/*
+**/.env

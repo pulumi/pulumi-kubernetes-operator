@@ -30,6 +30,7 @@ import (
 
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	sourcev1b2 "github.com/fluxcd/source-controller/api/v1beta2"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -46,6 +47,7 @@ import (
 
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	pulumiv1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1alpha1"
 	autocontroller "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/controller/auto"
 	pulumicontroller "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/controller/pulumi"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/version"
@@ -61,8 +63,10 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(sourcev1.AddToScheme(scheme))
 	utilruntime.Must(sourcev1b2.AddToScheme(scheme))
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	utilruntime.Must(autov1alpha1.AddToScheme(scheme))
 	utilruntime.Must(pulumiv1.AddToScheme(scheme))
+	utilruntime.Must(pulumiv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -300,6 +304,22 @@ func main() {
 		ProgramHandler: pHandler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Program")
+		os.Exit(1)
+	}
+
+	// Create and setup Template controller
+	templateReconciler, err := pulumicontroller.NewTemplateReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		mgr.GetEventRecorderFor(pulumicontroller.TemplateControllerName),
+		restConfig,
+	)
+	if err != nil {
+		setupLog.Error(err, "unable to create Template reconciler")
+		os.Exit(1)
+	}
+	if err = templateReconciler.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Template")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
