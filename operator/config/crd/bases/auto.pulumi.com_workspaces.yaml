@@ -352,6 +352,15 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                     type: object
+                  dependencies:
+                    description: |-
+                      Dependencies is a list of additional paths to include in sparse checkout.
+                      This allows including dependency code (e.g., shared SDKs) from other parts of the
+                      repository while keeping Dir focused for path filtering.
+                      Example: ["pulumi/meta/teleport/sdks", "pulumi/common-go"]
+                    items:
+                      type: string
+                    type: array
                   dir:
                     description: |-
                       Dir is the directory to work from in the project's source repository
