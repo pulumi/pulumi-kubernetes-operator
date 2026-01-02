@@ -23,11 +23,8 @@ import (
 
 // TemplateSpec defines the desired state of Template
 type TemplateSpec struct {
-	// CRD specifies the Custom Resource Definition that will be generated from this template.
-	// +kubebuilder:validation:Required
-	CRD CRDSpec `json:"crd"`
-
-	// Schema defines the API schema for instances of the generated CRD.
+	// Schema defines the API schema for instances of the generated CRD,
+	// including the CRD identity (apiVersion, kind) and field definitions.
 	// +kubebuilder:validation:Required
 	Schema TemplateSchema `json:"schema"`
 
@@ -70,8 +67,42 @@ type TemplateSpec struct {
 	Packages map[string]string `json:"packages,omitempty"`
 }
 
-// CRDSpec specifies the generated CRD's identity.
-type CRDSpec struct {
+
+// CRDScope determines the scope of the generated CRD.
+// +kubebuilder:validation:Enum=Namespaced;Cluster
+type CRDScope string
+
+const (
+	// CRDScopeNamespaced indicates the CRD is namespace-scoped.
+	CRDScopeNamespaced CRDScope = "Namespaced"
+	// CRDScopeCluster indicates the CRD is cluster-scoped.
+	CRDScopeCluster CRDScope = "Cluster"
+)
+
+// PrinterColumn defines an additional column for kubectl output.
+type PrinterColumn struct {
+	// Name is the column header.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Type is the data type (string, integer, date, boolean).
+	// +kubebuilder:validation:Enum=string;integer;date;boolean
+	// +kubebuilder:default=string
+	Type string `json:"type"`
+
+	// JSONPath is the path to the field to display.
+	// +kubebuilder:validation:Required
+	JSONPath string `json:"jsonPath"`
+
+	// Priority determines when the column is shown (0 = always, higher = wider output).
+	// +kubebuilder:default=0
+	// +optional
+	Priority int32 `json:"priority,omitempty"`
+}
+
+// TemplateSchema defines the schema for instances of the generated CRD,
+// including the CRD identity and field definitions.
+type TemplateSchema struct {
 	// APIVersion is the API group and version for the generated CRD (e.g., "platform.example.com/v1").
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/v[a-z0-9]+(alpha[0-9]+|beta[0-9]+)?$`
@@ -109,46 +140,11 @@ type CRDSpec struct {
 	// PrinterColumns defines additional columns to display in kubectl get output.
 	// +optional
 	PrinterColumns []PrinterColumn `json:"printerColumns,omitempty"`
-}
 
-// CRDScope determines the scope of the generated CRD.
-// +kubebuilder:validation:Enum=Namespaced;Cluster
-type CRDScope string
-
-const (
-	// CRDScopeNamespaced indicates the CRD is namespace-scoped.
-	CRDScopeNamespaced CRDScope = "Namespaced"
-	// CRDScopeCluster indicates the CRD is cluster-scoped.
-	CRDScopeCluster CRDScope = "Cluster"
-)
-
-// PrinterColumn defines an additional column for kubectl output.
-type PrinterColumn struct {
-	// Name is the column header.
-	// +kubebuilder:validation:Required
-	Name string `json:"name"`
-
-	// Type is the data type (string, integer, date, boolean).
-	// +kubebuilder:validation:Enum=string;integer;date;boolean
-	// +kubebuilder:default=string
-	Type string `json:"type"`
-
-	// JSONPath is the path to the field to display.
-	// +kubebuilder:validation:Required
-	JSONPath string `json:"jsonPath"`
-
-	// Priority determines when the column is shown (0 = always, higher = wider output).
-	// +kubebuilder:default=0
-	// +optional
-	Priority int32 `json:"priority,omitempty"`
-}
-
-// TemplateSchema defines the schema for instances of the generated CRD.
-type TemplateSchema struct {
 	// Spec defines the spec fields using SimpleSchema format.
 	// Each key is a field name, value is the field definition.
-	// +kubebuilder:validation:Required
-	Spec map[string]SchemaField `json:"spec"`
+	// +optional
+	Spec map[string]SchemaField `json:"spec,omitempty"`
 
 	// Status defines the status fields that will be populated from outputs.
 	// +optional
@@ -418,7 +414,7 @@ const (
 // +kubebuilder:resource:categories=pulumi,shortName=tpl
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="CRD",type="string",JSONPath=".status.crd.name"
-// +kubebuilder:printcolumn:name="Kind",type="string",JSONPath=".spec.crd.kind"
+// +kubebuilder:printcolumn:name="Kind",type="string",JSONPath=".spec.schema.kind"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="Instances",type="integer",JSONPath=".status.instanceCount"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"

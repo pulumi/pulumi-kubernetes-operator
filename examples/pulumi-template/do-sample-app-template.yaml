@@ -13,8 +13,10 @@ metadata:
   name: do-sample-app
   namespace: template-test
 spec:
-  # Define the CRD that will be generated
-  crd:
+  # Schema defines the API schema for instances of the generated CRD,
+  # including the CRD identity (apiVersion, kind) and field definitions.
+  schema:
+    # CRD identity - only apiVersion and kind are required
     apiVersion: apps.example.com/v1
     kind: DocSampleApp
     scope: Namespaced
@@ -35,12 +37,7 @@ spec:
         type: string
         jsonPath: .spec.branch
 
-  # External packages to install - this tests the packages functionality!
-  packages:
-    talos-go-component: https://github.com/dirien/pulumi-talos-go-component@0.0.0-x5ed2a9a45c6d287bd2485f4db1e8c052b164a5ef
-
-  # Define the schema for instances of the generated CRD
-  schema:
+    # Field definitions for the generated CRD
     spec:
       appName:
         type: string
@@ -101,6 +98,10 @@ spec:
       liveUrl:
         type: string
         description: "Live URL of the deployed app"
+
+  # External packages to install - this tests the packages functionality!
+  packages:
+    talos-go-component: https://github.com/dirien/pulumi-talos-go-component@0.0.0-x5ed2a9a45c6d287bd2485f4db1e8c052b164a5ef
 
   # Define the Pulumi resources that will be created for each instance
   resources:

@@ -13,8 +13,10 @@ metadata:
   name: city-website
   namespace: template-test
 spec:
-  # Define the CRD that will be generated
-  crd:
+  # Schema defines the API schema for instances of the generated CRD,
+  # including the CRD identity (apiVersion, kind) and field definitions.
+  schema:
+    # CRD identity - only apiVersion and kind are required
     apiVersion: websites.example.com/v1
     kind: CityWebsite
     # plural: citywebsites  # Optional - auto-generated as lowercase(kind)+"s"
@@ -35,8 +37,7 @@ spec:
         type: string
         jsonPath: .status.websiteUrl
 
-  # Define the schema for instances of the generated CRD
-  schema:
+    # Field definitions for the generated CRD
     spec:
       city:
         type: string

@@ -87,13 +87,6 @@ TemplateSpec defines the desired state of Template
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#templatespeccrd">crd</a></b></td>
-        <td>object</td>
-        <td>
-          CRD specifies the Custom Resource Definition that will be generated from this template.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
         <td><b><a href="#templatespecresourceskey">resources</a></b></td>
         <td>map[string]object</td>
         <td>
@@ -111,7 +104,8 @@ Supported expressions:
         <td><b><a href="#templatespecschema">schema</a></b></td>
         <td>object</td>
         <td>
-          Schema defines the API schema for instances of the generated CRD.<br/>
+          Schema defines the API schema for instances of the generated CRD,
+including the CRD identity (apiVersion, kind) and field definitions.<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -157,135 +151,6 @@ Example: ${website-bucket.websiteEndpoint} maps the bucket's websiteEndpoint to 
         <td>map[string]JSON</td>
         <td>
           Variables specifies intermediate computed values that can be referenced in resources and outputs.<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### Template.spec.crd
-<sup><sup>[↩ Parent](#templatespec)</sup></sup>
-
-
-
-CRD specifies the Custom Resource Definition that will be generated from this template.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>apiVersion</b></td>
-        <td>string</td>
-        <td>
-          APIVersion is the API group and version for the generated CRD (e.g., "platform.example.com/v1").<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>kind</b></td>
-        <td>string</td>
-        <td>
-          Kind is the resource kind for the generated CRD (e.g., "Database").<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>categories</b></td>
-        <td>[]string</td>
-        <td>
-          Categories are the categories this resource belongs to (e.g., ["pulumi", "infrastructure"]).<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>plural</b></td>
-        <td>string</td>
-        <td>
-          Plural is the plural name for the resource (e.g., "databases").
-If not specified, defaults to lowercase(kind) + "s".
-Use this to specify correct pluralization for words that don't follow standard English rules
-(e.g., "policies" for Policy, "indices" for Index, "statuses" for Status).<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#templatespeccrdprintercolumnsindex">printerColumns</a></b></td>
-        <td>[]object</td>
-        <td>
-          PrinterColumns defines additional columns to display in kubectl get output.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>scope</b></td>
-        <td>string</td>
-        <td>
-          Scope determines whether instances are cluster-scoped or namespace-scoped.
-Defaults to Namespaced.<br/>
-          <br/>
-            <i>Default</i>: Namespaced<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>shortNames</b></td>
-        <td>[]string</td>
-        <td>
-          ShortNames are abbreviations for the resource kind (e.g., ["db"] for Database).<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### Template.spec.crd.printerColumns[index]
-<sup><sup>[↩ Parent](#templatespeccrd)</sup></sup>
-
-
-
-PrinterColumn defines an additional column for kubectl output.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>jsonPath</b></td>
-        <td>string</td>
-        <td>
-          JSONPath is the path to the field to display.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>name</b></td>
-        <td>string</td>
-        <td>
-          Name is the column header.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>type</b></td>
-        <td>enum</td>
-        <td>
-          Type is the data type (string, integer, date, boolean).<br/>
-          <br/>
-            <i>Enum</i>: string, integer, date, boolean<br/>
-            <i>Default</i>: string<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>priority</b></td>
-        <td>integer</td>
-        <td>
-          Priority determines when the column is shown (0 = always, higher = wider output).<br/>
-          <br/>
-            <i>Format</i>: int32<br/>
-            <i>Default</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -527,7 +392,8 @@ customTimeouts overrides the default retry/timeout behavior for resource provisi
 
 
 
-Schema defines the API schema for instances of the generated CRD.
+Schema defines the API schema for instances of the generated CRD,
+including the CRD identity (apiVersion, kind) and field definitions.
 
 <table>
     <thead>
@@ -539,18 +405,127 @@ Schema defines the API schema for instances of the generated CRD.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          APIVersion is the API group and version for the generated CRD (e.g., "platform.example.com/v1").<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          Kind is the resource kind for the generated CRD (e.g., "Database").<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>categories</b></td>
+        <td>[]string</td>
+        <td>
+          Categories are the categories this resource belongs to (e.g., ["pulumi", "infrastructure"]).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>plural</b></td>
+        <td>string</td>
+        <td>
+          Plural is the plural name for the resource (e.g., "databases").
+If not specified, defaults to lowercase(kind) + "s".
+Use this to specify correct pluralization for words that don't follow standard English rules
+(e.g., "policies" for Policy, "indices" for Index, "statuses" for Status).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecschemaprintercolumnsindex">printerColumns</a></b></td>
+        <td>[]object</td>
+        <td>
+          PrinterColumns defines additional columns to display in kubectl get output.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>scope</b></td>
+        <td>string</td>
+        <td>
+          Scope determines whether instances are cluster-scoped or namespace-scoped.
+Defaults to Namespaced.<br/>
+          <br/>
+            <i>Default</i>: Namespaced<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>shortNames</b></td>
+        <td>[]string</td>
+        <td>
+          ShortNames are abbreviations for the resource kind (e.g., ["db"] for Database).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#templatespecschemaspeckey">spec</a></b></td>
         <td>map[string]object</td>
         <td>
           Spec defines the spec fields using SimpleSchema format.
 Each key is a field name, value is the field definition.<br/>
         </td>
-        <td>true</td>
+        <td>false</td>
       </tr><tr>
         <td><b><a href="#templatespecschemastatuskey">status</a></b></td>
         <td>map[string]object</td>
         <td>
           Status defines the status fields that will be populated from outputs.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.schema.printerColumns[index]
+<sup><sup>[↩ Parent](#templatespecschema)</sup></sup>
+
+
+
+PrinterColumn defines an additional column for kubectl output.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>jsonPath</b></td>
+        <td>string</td>
+        <td>
+          JSONPath is the path to the field to display.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the column header.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>enum</td>
+        <td>
+          Type is the data type (string, integer, date, boolean).<br/>
+          <br/>
+            <i>Enum</i>: string, integer, date, boolean<br/>
+            <i>Default</i>: string<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>priority</b></td>
+        <td>integer</td>
+        <td>
+          Priority determines when the column is shown (0 = always, higher = wider output).<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+            <i>Default</i>: 0<br/>
         </td>
         <td>false</td>
       </tr></tbody>

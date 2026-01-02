@@ -245,13 +245,13 @@ func (r *TemplateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	// Update status with CRD info
-	group, version := parseAPIVersion(template.Spec.CRD.APIVersion)
-	plural := getPluralName(template.Spec.CRD)
+	group, version := parseAPIVersion(template.Spec.Schema.APIVersion)
+	plural := getPluralName(template.Spec.Schema)
 	template.Status.CRD = &pulumiv1alpha1.GeneratedCRDStatus{
 		Name:    crd.Name,
 		Group:   group,
 		Version: version,
-		Kind:    template.Spec.CRD.Kind,
+		Kind:    template.Spec.Schema.Kind,
 		Plural:  plural,
 		Ready:   true,
 	}
@@ -401,17 +401,12 @@ func (r *TemplateReconciler) deleteAssociatedPrograms(ctx context.Context, templ
 
 // validateTemplate validates the Template spec.
 func (r *TemplateReconciler) validateTemplate(template *pulumiv1alpha1.Template) error {
-	// Validate CRD spec
-	if template.Spec.CRD.APIVersion == "" {
-		return fmt.Errorf("crd.apiVersion is required")
+	// Validate schema identity (apiVersion and kind are required)
+	if template.Spec.Schema.APIVersion == "" {
+		return fmt.Errorf("schema.apiVersion is required")
 	}
-	if template.Spec.CRD.Kind == "" {
-		return fmt.Errorf("crd.kind is required")
-	}
-
-	// Validate schema
-	if len(template.Spec.Schema.Spec) == 0 {
-		return fmt.Errorf("schema.spec must have at least one field")
+	if template.Spec.Schema.Kind == "" {
+		return fmt.Errorf("schema.kind is required")
 	}
 
 	// Validate resources
@@ -430,12 +425,12 @@ func (r *TemplateReconciler) validateTemplate(template *pulumiv1alpha1.Template)
 
 // generateCRD generates a CRD from the Template.
 func (r *TemplateReconciler) generateCRD(template *pulumiv1alpha1.Template) (*apiextensionsv1.CustomResourceDefinition, error) {
-	group, version := parseAPIVersion(template.Spec.CRD.APIVersion)
-	plural := getPluralName(template.Spec.CRD)
-	singular := strings.ToLower(template.Spec.CRD.Kind)
+	group, version := parseAPIVersion(template.Spec.Schema.APIVersion)
+	plural := getPluralName(template.Spec.Schema)
+	singular := strings.ToLower(template.Spec.Schema.Kind)
 
 	scope := apiextensionsv1.NamespaceScoped
-	if template.Spec.CRD.Scope == pulumiv1alpha1.CRDScopeCluster {
+	if template.Spec.Schema.Scope == pulumiv1alpha1.CRDScopeCluster {
 		scope = apiextensionsv1.ClusterScoped
 	}
 
@@ -519,7 +514,7 @@ func (r *TemplateReconciler) generateCRD(template *pulumiv1alpha1.Template) (*ap
 	}
 
 	// Add custom printer columns from the template
-	for _, col := range template.Spec.CRD.PrinterColumns {
+	for _, col := range template.Spec.Schema.PrinterColumns {
 		printerColumns = append(printerColumns, apiextensionsv1.CustomResourceColumnDefinition{
 			Name:     col.Name,
 			Type:     col.Type,
@@ -551,7 +546,7 @@ func (r *TemplateReconciler) generateCRD(template *pulumiv1alpha1.Template) (*ap
 
 	// Build categories
 	categories := []string{"pulumi"}
-	categories = append(categories, template.Spec.CRD.Categories...)
+	categories = append(categories, template.Spec.Schema.Categories...)
 
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
@@ -567,8 +562,8 @@ func (r *TemplateReconciler) generateCRD(template *pulumiv1alpha1.Template) (*ap
 			Names: apiextensionsv1.CustomResourceDefinitionNames{
 				Plural:     plural,
 				Singular:   singular,
-				Kind:       template.Spec.CRD.Kind,
-				ShortNames: template.Spec.CRD.ShortNames,
+				Kind:       template.Spec.Schema.Kind,
+				ShortNames: template.Spec.Schema.ShortNames,
 				Categories: categories,
 			},
 			Scope: scope,
@@ -769,8 +764,8 @@ func (r *TemplateReconciler) ensureInformer(ctx context.Context, template *pulum
 	log := log.FromContext(ctx)
 	log.Info("Starting informer for generated CRD")
 
-	group, version := parseAPIVersion(template.Spec.CRD.APIVersion)
-	plural := getPluralName(template.Spec.CRD)
+	group, version := parseAPIVersion(template.Spec.Schema.APIVersion)
+	plural := getPluralName(template.Spec.Schema)
 
 	gvr := schema.GroupVersionResource{
 		Group:    group,
@@ -969,8 +964,8 @@ func (r *TemplateReconciler) ensureInstanceFinalizer(ctx context.Context, templa
 	finalizers = append(finalizers, InstanceFinalizerName)
 	instance.SetFinalizers(finalizers)
 
-	group, version := parseAPIVersion(template.Spec.CRD.APIVersion)
-	plural := getPluralName(template.Spec.CRD)
+	group, version := parseAPIVersion(template.Spec.Schema.APIVersion)
+	plural := getPluralName(template.Spec.Schema)
 	gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: plural}
 
 	_, err := r.DynamicClient.Resource(gvr).Namespace(instance.GetNamespace()).Update(ctx, instance, metav1.UpdateOptions{})
@@ -1083,8 +1078,8 @@ func (r *TemplateReconciler) removeInstanceFinalizer(ctx context.Context, templa
 	}
 	instance.SetFinalizers(newFinalizers)
 
-	group, version := parseAPIVersion(template.Spec.CRD.APIVersion)
-	plural := getPluralName(template.Spec.CRD)
+	group, version := parseAPIVersion(template.Spec.Schema.APIVersion)
+	plural := getPluralName(template.Spec.Schema)
 	gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: plural}
 
 	if _, err := r.DynamicClient.Resource(gvr).Namespace(instance.GetNamespace()).Update(ctx, instance, metav1.UpdateOptions{}); err != nil {
@@ -1105,8 +1100,8 @@ func (r *TemplateReconciler) cleanupInstanceFinalizers(ctx context.Context, temp
 		return nil
 	}
 
-	group, version := parseAPIVersion(template.Spec.CRD.APIVersion)
-	plural := getPluralName(template.Spec.CRD)
+	group, version := parseAPIVersion(template.Spec.Schema.APIVersion)
+	plural := getPluralName(template.Spec.Schema)
 	gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: plural}
 
 	// List all instances
@@ -1185,8 +1180,8 @@ func (r *TemplateReconciler) syncInstanceStatusesFromStacks(ctx context.Context,
 		return nil
 	}
 
-	group, version := parseAPIVersion(template.Spec.CRD.APIVersion)
-	plural := getPluralName(template.Spec.CRD)
+	group, version := parseAPIVersion(template.Spec.Schema.APIVersion)
+	plural := getPluralName(template.Spec.Schema)
 	gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: plural}
 
 	// List all instances
@@ -1555,8 +1550,8 @@ func (r *TemplateReconciler) buildStackSpec(template *pulumiv1alpha1.Template, i
 func (r *TemplateReconciler) syncInstanceStatusFromStack(ctx context.Context, template *pulumiv1alpha1.Template, instance *unstructured.Unstructured, stack *pulumiv1.Stack) {
 	log := log.FromContext(ctx)
 
-	group, version := parseAPIVersion(template.Spec.CRD.APIVersion)
-	plural := getPluralName(template.Spec.CRD)
+	group, version := parseAPIVersion(template.Spec.Schema.APIVersion)
+	plural := getPluralName(template.Spec.Schema)
 	gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: plural}
 
 	// Re-fetch the instance to get the latest resourceVersion to avoid conflicts
@@ -1738,8 +1733,8 @@ func (r *TemplateReconciler) updateInstanceStatus(ctx context.Context, template 
 		return
 	}
 
-	group, version := parseAPIVersion(template.Spec.CRD.APIVersion)
-	plural := getPluralName(template.Spec.CRD)
+	group, version := parseAPIVersion(template.Spec.Schema.APIVersion)
+	plural := getPluralName(template.Spec.Schema)
 	gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: plural}
 
 	if _, err := r.DynamicClient.Resource(gvr).Namespace(instance.GetNamespace()).UpdateStatus(ctx, instance, metav1.UpdateOptions{}); err != nil {
@@ -1749,8 +1744,8 @@ func (r *TemplateReconciler) updateInstanceStatus(ctx context.Context, template 
 
 // countInstances counts the number of instances of a generated CRD.
 func (r *TemplateReconciler) countInstances(ctx context.Context, template *pulumiv1alpha1.Template) (int32, error) {
-	group, version := parseAPIVersion(template.Spec.CRD.APIVersion)
-	plural := getPluralName(template.Spec.CRD)
+	group, version := parseAPIVersion(template.Spec.Schema.APIVersion)
+	plural := getPluralName(template.Spec.Schema)
 
 	gvr := schema.GroupVersionResource{
 		Group:    group,
@@ -1813,13 +1808,13 @@ func parseAPIVersion(apiVersion string) (group, version string) {
 }
 
 // getPluralName returns the plural name for the CRD.
-// If an explicit plural is specified in the CRD spec, it is used.
+// If an explicit plural is specified in the schema, it is used.
 // Otherwise, it defaults to lowercase(kind) + "s".
-func getPluralName(crdSpec pulumiv1alpha1.CRDSpec) string {
-	if crdSpec.Plural != "" {
-		return crdSpec.Plural
+func getPluralName(schema pulumiv1alpha1.TemplateSchema) string {
+	if schema.Plural != "" {
+		return schema.Plural
 	}
-	return strings.ToLower(crdSpec.Kind) + "s"
+	return strings.ToLower(schema.Kind) + "s"
 }
 
 // templateContext holds pre-computed values for a template to avoid repeated parsing.
@@ -1834,8 +1829,8 @@ type templateContext struct {
 
 // newTemplateContext creates a new templateContext with pre-computed GVR values.
 func newTemplateContext(template *pulumiv1alpha1.Template) *templateContext {
-	group, version := parseAPIVersion(template.Spec.CRD.APIVersion)
-	plural := getPluralName(template.Spec.CRD)
+	group, version := parseAPIVersion(template.Spec.Schema.APIVersion)
+	plural := getPluralName(template.Spec.Schema)
 	return &templateContext{
 		template: template,
 		group:    group,

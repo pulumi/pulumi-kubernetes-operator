@@ -82,11 +82,9 @@ func TestValidateTemplate(t *testing.T) {
 			name: "valid template",
 			template: &pulumiv1alpha1.Template{
 				Spec: pulumiv1alpha1.TemplateSpec{
-					CRD: pulumiv1alpha1.CRDSpec{
+					Schema: pulumiv1alpha1.TemplateSchema{
 						APIVersion: "platform.example.com/v1",
 						Kind:       "Database",
-					},
-					Schema: pulumiv1alpha1.TemplateSchema{
 						Spec: map[string]pulumiv1alpha1.SchemaField{
 							"name": {
 								Type:     pulumiv1alpha1.SchemaFieldTypeString,
@@ -107,10 +105,8 @@ func TestValidateTemplate(t *testing.T) {
 			name: "missing api version",
 			template: &pulumiv1alpha1.Template{
 				Spec: pulumiv1alpha1.TemplateSpec{
-					CRD: pulumiv1alpha1.CRDSpec{
-						Kind: "Database",
-					},
 					Schema: pulumiv1alpha1.TemplateSchema{
+						Kind: "Database",
 						Spec: map[string]pulumiv1alpha1.SchemaField{
 							"name": {Type: pulumiv1alpha1.SchemaFieldTypeString},
 						},
@@ -121,16 +117,14 @@ func TestValidateTemplate(t *testing.T) {
 				},
 			},
 			expectError: true,
-			errorMsg:    "crd.apiVersion is required",
+			errorMsg:    "schema.apiVersion is required",
 		},
 		{
 			name: "missing kind",
 			template: &pulumiv1alpha1.Template{
 				Spec: pulumiv1alpha1.TemplateSpec{
-					CRD: pulumiv1alpha1.CRDSpec{
-						APIVersion: "platform.example.com/v1",
-					},
 					Schema: pulumiv1alpha1.TemplateSchema{
+						APIVersion: "platform.example.com/v1",
 						Spec: map[string]pulumiv1alpha1.SchemaField{
 							"name": {Type: pulumiv1alpha1.SchemaFieldTypeString},
 						},
@@ -141,36 +135,31 @@ func TestValidateTemplate(t *testing.T) {
 				},
 			},
 			expectError: true,
-			errorMsg:    "crd.kind is required",
+			errorMsg:    "schema.kind is required",
 		},
 		{
-			name: "empty schema",
+			name: "empty schema spec is valid (spec fields are optional)",
 			template: &pulumiv1alpha1.Template{
 				Spec: pulumiv1alpha1.TemplateSpec{
-					CRD: pulumiv1alpha1.CRDSpec{
+					Schema: pulumiv1alpha1.TemplateSchema{
 						APIVersion: "platform.example.com/v1",
 						Kind:       "Database",
-					},
-					Schema: pulumiv1alpha1.TemplateSchema{
-						Spec: map[string]pulumiv1alpha1.SchemaField{},
+						Spec:       map[string]pulumiv1alpha1.SchemaField{},
 					},
 					Resources: map[string]pulumiv1.Resource{
 						"db": {Type: "aws:rds:Instance"},
 					},
 				},
 			},
-			expectError: true,
-			errorMsg:    "schema.spec must have at least one field",
+			expectError: false,
 		},
 		{
 			name: "no resources",
 			template: &pulumiv1alpha1.Template{
 				Spec: pulumiv1alpha1.TemplateSpec{
-					CRD: pulumiv1alpha1.CRDSpec{
+					Schema: pulumiv1alpha1.TemplateSchema{
 						APIVersion: "platform.example.com/v1",
 						Kind:       "Database",
-					},
-					Schema: pulumiv1alpha1.TemplateSchema{
 						Spec: map[string]pulumiv1alpha1.SchemaField{
 							"name": {Type: pulumiv1alpha1.SchemaFieldTypeString},
 						},
@@ -185,11 +174,9 @@ func TestValidateTemplate(t *testing.T) {
 			name: "resource without type",
 			template: &pulumiv1alpha1.Template{
 				Spec: pulumiv1alpha1.TemplateSpec{
-					CRD: pulumiv1alpha1.CRDSpec{
+					Schema: pulumiv1alpha1.TemplateSchema{
 						APIVersion: "platform.example.com/v1",
 						Kind:       "Database",
-					},
-					Schema: pulumiv1alpha1.TemplateSchema{
 						Spec: map[string]pulumiv1alpha1.SchemaField{
 							"name": {Type: pulumiv1alpha1.SchemaFieldTypeString},
 						},
@@ -226,7 +213,7 @@ func TestGenerateCRD(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: pulumiv1alpha1.TemplateSpec{
-			CRD: pulumiv1alpha1.CRDSpec{
+			Schema: pulumiv1alpha1.TemplateSchema{
 				APIVersion: "platform.example.com/v1",
 				Kind:       "Database",
 				Scope:      pulumiv1alpha1.CRDScopeNamespaced,
@@ -239,8 +226,6 @@ func TestGenerateCRD(t *testing.T) {
 						JSONPath: ".spec.engine",
 					},
 				},
-			},
-			Schema: pulumiv1alpha1.TemplateSchema{
 				Spec: map[string]pulumiv1alpha1.SchemaField{
 					"name": {
 						Type:        pulumiv1alpha1.SchemaFieldTypeString,
