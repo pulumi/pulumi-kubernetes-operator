@@ -1,0 +1,23 @@
+# Example DocSampleApp instances
+# Apply the do-sample-app-template.yaml first, then apply this file
+#
+# Prerequisites:
+# 1. Apply the Template: kubectl apply -f do-sample-app-template.yaml
+# 2. Wait for the CRD to be registered: kubectl get crd docsampleapps.apps.example.com
+# 3. Ensure pulumi-api-secret exists with Pulumi access token
+# 4. Configure pulumi-idp/auth ESC environment with DigitalOcean credentials
+# 5. Apply this instance: kubectl apply -f do-sample-app-instance.yaml
+
+---
+# Dev world app - simple deployment
+apiVersion: apps.example.com/v1
+kind: DocSampleApp
+metadata:
+  name: dev-world
+  namespace: template-test
+spec:
+  region: fra1
+  instanceCount: 1
+  instanceSizeSlug: "basic-xxs"
+  repoCloneUrl: https://github.com/digitalocean/sample-golang.git
+  branch: "main"

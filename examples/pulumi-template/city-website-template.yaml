@@ -1,0 +1,181 @@
+# This example demonstrates how to use Template to create a dynamic CRD
+# for provisioning static websites on AWS S3 with a configurable city name.
+#
+# When this Template is applied:
+# 1. The operator generates a new CRD: citywebsites.websites.example.com
+# 2. Users can then create CityWebsite instances with a city parameter
+# 3. Each instance triggers creation of a Pulumi Stack that creates an S3-hosted website
+# 4. The website displays "Hello World, <city>"
+
+apiVersion: pulumi.com/v1alpha1
+kind: Template
+metadata:
+  name: city-website
+  namespace: template-test
+spec:
+  # Schema defines the API schema for instances of the generated CRD,
+  # including the CRD identity (apiVersion, kind) and field definitions.
+  schema:
+    # CRD identity - only apiVersion and kind are required
+    apiVersion: websites.example.com/v1
+    kind: CityWebsite
+    # plural: citywebsites  # Optional - auto-generated as lowercase(kind)+"s"
+    scope: Namespaced
+    categories:
+      - websites
+    shortNames:
+      - cw
+      - cityweb
+    printerColumns:
+      - name: City
+        type: string
+        jsonPath: .spec.city
+      - name: Title
+        type: string
+        jsonPath: .spec.title
+      - name: WebsiteURL
+        type: string
+        jsonPath: .status.websiteUrl
+
+    # Field definitions for the generated CRD
+    spec:
+      city:
+        type: string
+        description: "Name of the city to display in the website"
+        required: true
+      title:
+        type: string
+        description: "Title of the website (defaults to 'Hello World')"
+        default: "Hello World"
+      bodyColor:
+        type: string
+        description: "Background color for the body"
+        default: "#ffffff"
+      textColor:
+        type: string
+        description: "Text color for the heading"
+        default: "#333333"
+
+    status:
+      bucketName:
+        type: string
+        description: "Name of the S3 bucket"
+      websiteUrl:
+        type: string
+        description: "URL of the website"
+      bucketEndpoint:
+        type: string
+        description: "Full HTTP endpoint of the bucket"
+
+  # Define the Pulumi resources that will be created for each instance
+  resources:
+    # S3 bucket for hosting the static website
+    # Note: Using metadata.name + namespace for bucket name to ensure lowercase and uniqueness (S3 requirement)
+    website-bucket:
+      type: aws:s3:Bucket
+      properties:
+        bucket: ${schema.metadata.namespace}-${schema.metadata.name}-website
+        website:
+          indexDocument: index.html
+          errorDocument: error.html
+
+    # Bucket ownership controls - required for ACLs
+    ownership-controls:
+      type: aws:s3:BucketOwnershipControls
+      properties:
+        bucket: ${website-bucket.id}
+        rule:
+          objectOwnership: ObjectWriter
+
+    # Public access block configuration
+    public-access-block:
+      type: aws:s3:BucketPublicAccessBlock
+      properties:
+        bucket: ${website-bucket.id}
+        blockPublicAcls: false
+        blockPublicPolicy: false
+        ignorePublicAcls: false
+        restrictPublicBuckets: false
+
+    # Bucket policy to allow public read access
+    bucket-policy:
+      type: aws:s3:BucketPolicy
+      properties:
+        bucket: ${website-bucket.id}
+        policy:
+          fn::toJSON:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Principal: "*"
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - ${website-bucket.arn}/*
+      options:
+        dependsOn:
+          - ${public-access-block}
+          - ${ownership-controls}
+
+    # Upload index.html file with configurable city
+    index-html:
+      type: aws:s3:BucketObject
+      properties:
+        bucket: ${website-bucket.id}
+        key: index.html
+        content: |
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>${schema.spec.title}, ${schema.spec.city}</title>
+              <style>
+                  body {
+                      font-family: Arial, sans-serif;
+                      max-width: 800px;
+                      margin: 50px auto;
+                      padding: 20px;
+                      text-align: center;
+                      background-color: ${schema.spec.bodyColor};
+                  }
+                  h1 {
+                      color: ${schema.spec.textColor};
+                  }
+              </style>
+          </head>
+          <body>
+              <h1>${schema.spec.title}, ${schema.spec.city}!</h1>
+              <p>This is a static website hosted on AWS S3 using Pulumi Kubernetes Operator.</p>
+              <p>Powered by Template dynamic CRDs.</p>
+          </body>
+          </html>
+        contentType: text/html
+        acl: public-read
+      options:
+        dependsOn:
+          - ${ownership-controls}
+          - ${public-access-block}
+
+  # Map outputs to instance status
+  outputs:
+    bucketName: ${website-bucket.id}
+    websiteUrl: ${website-bucket.websiteEndpoint}
+    bucketEndpoint: http://${website-bucket.websiteEndpoint}
+
+  # Stack configuration - using Pulumi ESC for AWS credentials
+  stackConfig:
+    serviceAccountName: pulumi-stack-sa
+    envRefs:
+      PULUMI_ACCESS_TOKEN:
+        type: Secret
+        secret:
+          name: pulumi-api-secret
+          key: accessToken
+    # Use Pulumi ESC for AWS authentication
+    environment:
+      - pulumi-idp/auth
+
+  lifecycle:
+    destroyOnDelete: true
+    refreshBeforeUpdate: false
