@@ -1,0 +1,142 @@
+# This example demonstrates how to use Template with external packages
+# to create a DigitalOcean App using the talos-go-component package.
+#
+# When this Template is applied:
+# 1. The operator generates a new CRD: docsampleapps.apps.example.com
+# 2. Users can then create DocSampleApp instances
+# 3. Each instance triggers creation of a Pulumi Stack that deploys a DigitalOcean App
+# 4. The app URL is returned in the instance status
+
+apiVersion: pulumi.com/v1alpha1
+kind: Template
+metadata:
+  name: do-sample-app
+  namespace: template-test
+spec:
+  # Schema defines the API schema for instances of the generated CRD,
+  # including the CRD identity (apiVersion, kind) and field definitions.
+  schema:
+    # CRD identity - only apiVersion and kind are required
+    apiVersion: apps.example.com/v1
+    kind: DocSampleApp
+    scope: Namespaced
+    categories:
+      - apps
+      - digitalocean
+    shortNames:
+      - dsa
+      - doapp
+    printerColumns:
+      - name: Region
+        type: string
+        jsonPath: .spec.region
+      - name: InstanceSize
+        type: string
+        jsonPath: .spec.instanceSizeSlug
+      - name: Branch
+        type: string
+        jsonPath: .spec.branch
+
+    # Field definitions for the generated CRD
+    spec:
+      appName:
+        type: string
+        description: "Name of the DigitalOcean App"
+        required: false
+      region:
+        type: string
+        description: "DigitalOcean region (e.g., lon1, nyc1, fra1)"
+        default: "fra1"
+        enum:
+          - nyc1
+          - nyc3
+          - ams3
+          - fra1
+          - lon1
+          - sgp1
+          - tor1
+          - blr1
+          - sfo3
+          - syd1
+      serviceName:
+        type: string
+        description: "Name of the service within the app"
+        required: false
+      instanceCount:
+        type: integer
+        description: "Number of instances to run"
+        default: 1
+        minimum: 1
+        maximum: 10
+      instanceSizeSlug:
+        type: string
+        description: "Size of the instance (e.g., basic-xxs, professional-xs)"
+        default: "basic-xxs"
+        enum:
+          - basic-xxs
+          - basic-xs
+          - basic-s
+          - basic-m
+          - professional-xs
+          - professional-s
+          - professional-m
+          - professional-l
+          - professional-xl
+      repoCloneUrl:
+        type: string
+        description: "Git repository URL to clone"
+        default: "https://github.com/digitalocean/sample-golang.git"
+      branch:
+        type: string
+        description: "Git branch to use"
+        default: "main"
+
+    status:
+      appId:
+        type: string
+        description: "ID of the created DigitalOcean App"
+      liveUrl:
+        type: string
+        description: "Live URL of the deployed app"
+
+  # External packages to install - this tests the packages functionality!
+  packages:
+    talos-go-component: https://github.com/dirien/pulumi-talos-go-component@0.0.0-x5ed2a9a45c6d287bd2485f4db1e8c052b164a5ef
+
+  # Define the Pulumi resources that will be created for each instance
+  resources:
+    app:
+      type: digitalocean:App
+      properties:
+        spec:
+          name: ${schema.spec.appName || schema.metadata.name}
+          region: ${schema.spec.region}
+          services:
+          - name: ${schema.spec.serviceName || schema.metadata.name}
+            instanceCount: ${schema.spec.instanceCount}
+            instanceSizeSlug: ${schema.spec.instanceSizeSlug}
+            git:
+              repoCloneUrl: ${schema.spec.repoCloneUrl}
+              branch: ${schema.spec.branch}
+
+  # Map outputs to instance status
+  outputs:
+    appId: ${app.id}
+    liveUrl: ${app.liveUrl}
+
+  # Stack configuration - using Pulumi ESC for credentials
+  stackConfig:
+    serviceAccountName: pulumi-stack-sa
+    envRefs:
+      PULUMI_ACCESS_TOKEN:
+        type: Secret
+        secret:
+          name: pulumi-api-secret
+          key: accessToken
+    # Use Pulumi ESC for authentication
+    environment:
+      - pulumi-idp/auth
+
+  lifecycle:
+    destroyOnDelete: true
+    refreshBeforeUpdate: false

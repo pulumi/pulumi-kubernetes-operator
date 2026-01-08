@@ -2,6 +2,7 @@ resources:
   - ./bases/auto.pulumi.com_updates.yaml
   - ./bases/auto.pulumi.com_workspaces.yaml
   - ./bases/pulumi.com_programs.yaml
+  - ./bases/pulumi.com_templates.yaml
   - ./bases/pulumi.com_stacks.yaml
 
 patches:
