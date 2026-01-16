@@ -2,27 +2,29 @@
 
 Packages:
 
-- [auto.pulumi.com/v1alpha1](#autopulumicomv1alpha1)
+- [pulumi.com/v1alpha1](#pulumicomv1alpha1)
 
-# auto.pulumi.com/v1alpha1
+# pulumi.com/v1alpha1
 
 Resource Types:
 
-- [Workspace](#workspace)
+- [Template](#template)
 
 
 
 
-## Workspace
-<sup><sup>[↩ Parent](#autopulumicomv1alpha1 )</sup></sup>
+## Template
+<sup><sup>[↩ Parent](#pulumicomv1alpha1 )</sup></sup>
 
 
 
 
 
 
-Workspace is the Schema for the workspaces API
-A Workspace is an execution context containing a single Pulumi project, a program, and multiple stacks.
+Template is the schema for defining dynamic CRDs backed by Pulumi infrastructure.
+When a Template is created, the operator generates a new CRD and watches for instances
+of that CRD. Each instance triggers the creation of a Pulumi Stack that provisions
+the defined infrastructure.
 
 <table>
     <thead>
@@ -36,13 +38,13 @@ A Workspace is an execution context containing a single Pulumi project, a progra
     <tbody><tr>
       <td><b>apiVersion</b></td>
       <td>string</td>
-      <td>auto.pulumi.com/v1alpha1</td>
+      <td>pulumi.com/v1alpha1</td>
       <td>true</td>
       </tr>
       <tr>
       <td><b>kind</b></td>
       <td>string</td>
-      <td>Workspace</td>
+      <td>Template</td>
       <td>true</td>
       </tr>
       <tr>
@@ -51,29 +53,29 @@ A Workspace is an execution context containing a single Pulumi project, a progra
       <td>Refer to the Kubernetes API documentation for the fields of the `metadata` field.</td>
       <td>true</td>
       </tr><tr>
-        <td><b><a href="#workspacespec">spec</a></b></td>
+        <td><b><a href="#templatespec">spec</a></b></td>
         <td>object</td>
         <td>
-          WorkspaceSpec defines the desired state of Workspace<br/>
+          TemplateSpec defines the desired state of Template<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacestatus">status</a></b></td>
+        <td><b><a href="#templatestatus">status</a></b></td>
         <td>object</td>
         <td>
-          WorkspaceStatus defines the observed state of Workspace<br/>
+          TemplateStatus defines the observed state of Template.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### Workspace.spec
-<sup><sup>[↩ Parent](#workspace)</sup></sup>
+### Template.spec
+<sup><sup>[↩ Parent](#template)</sup></sup>
 
 
 
-WorkspaceSpec defines the desired state of Workspace
+TemplateSpec defines the desired state of Template
 
 <table>
     <thead>
@@ -85,126 +87,1673 @@ WorkspaceSpec defines the desired state of Workspace
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecenvindex">env</a></b></td>
-        <td>[]object</td>
+        <td><b><a href="#templatespecresourceskey">resources</a></b></td>
+        <td>map[string]object</td>
         <td>
-          List of environment variables to set in the container.<br/>
+          Resources declares the Pulumi resources that will be deployed for each instance.
+These use the same format as Program resources with ${...} expressions for dynamic values.
+Supported expressions:
+  - ${schema.spec.<field>}: References a field from the instance spec
+  - ${schema.metadata.name}: References the instance name
+  - ${schema.metadata.namespace}: References the instance namespace
+  - ${<resource>.<property>}: References another resource's property (passed through to Pulumi)
+  - ${schema.spec.X || schema.metadata.Y}: Fallback expression (uses first non-empty value)<br/>
         </td>
-        <td>false</td>
+        <td>true</td>
       </tr><tr>
-        <td><b><a href="#workspacespecenvfromindex">envFrom</a></b></td>
-        <td>[]object</td>
-        <td>
-          List of sources to populate environment variables in the workspace.
-The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-will be reported as an event when the container is starting. When a key exists in multiple
-sources, the value associated with the last source will take precedence.
-Values defined by an Env with a duplicate key will take precedence.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#workspacespecflux">flux</a></b></td>
+        <td><b><a href="#templatespecschema">schema</a></b></td>
         <td>object</td>
         <td>
-          Flux is the flux source containing the Pulumi program.<br/>
+          Schema defines the API schema for instances of the generated CRD,
+including the CRD identity (apiVersion, kind) and field definitions.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#templatespecconfigkey">config</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          Config defines operator-level configuration values from ConfigMaps/Secrets.
+These can be referenced in resources using ${config.<key>}.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecgit">git</a></b></td>
+        <td><b><a href="#templatespeclifecycle">lifecycle</a></b></td>
         <td>object</td>
         <td>
-          Git is the git source containing the Pulumi program.<br/>
+          Lifecycle controls the behavior of created infrastructure.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b>image</b></td>
-        <td>string</td>
+        <td><b>outputs</b></td>
+        <td>map[string]JSON</td>
         <td>
-          Image is the container image containing the 'pulumi' executable. If no image is provided,
-the default image is used based on the securityProfile:
-for 'baseline', it defaults to 'pulumi/pulumi:latest';
-for 'restricted', it defaults to 'pulumi/pulumi:latest-nonroot'.<br/>
+          Outputs maps status fields from Pulumi resources to instance status.
+Keys are the status field names, values are ${...} expressions referencing resource properties.
+Example: ${website-bucket.websiteEndpoint} maps the bucket's websiteEndpoint to a status field.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b>imagePullPolicy</b></td>
-        <td>string</td>
+        <td><b>packages</b></td>
+        <td>map[string]string</td>
         <td>
-          Image pull policy.
-One of Always, Never, IfNotPresent.
-Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
-More info: https://kubernetes.io/docs/concepts/containers/images#updating-images<br/>
+          Packages specifies external packages to be installed before running the program.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespeclocal">local</a></b></td>
+        <td><b><a href="#templatespecstackconfig">stackConfig</a></b></td>
         <td>object</td>
         <td>
-          Local is the local source containing the Pulumi program.<br/>
+          StackConfig specifies default configuration for generated Stack CRs.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplate">podTemplate</a></b></td>
-        <td>object</td>
+        <td><b>variables</b></td>
+        <td>map[string]JSON</td>
         <td>
-          PodTemplate defines a PodTemplateSpec for Workspace's pods.<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>pulumiLogLevel</b></td>
-        <td>integer</td>
-        <td>
-          PulumiLogVerbosity is the log verbosity level to use for the Pulumi CLI.
-If unset,verbose logging is disabled.
-See: https://www.pulumi.com/docs/iac/support/troubleshooting/#verbose-logging
-for more information about log levels.<br/>
-          <br/>
-            <i>Format</i>: int32<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#workspacespecresources">resources</a></b></td>
-        <td>object</td>
-        <td>
-          Compute Resources required by this workspace.
-More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>securityProfile</b></td>
-        <td>string</td>
-        <td>
-          SecurityProfile applies a security profile to the workspace.
-The restricted profile (default) runs the pod as a non-root user and with a security context that conforms with
-the Restricted policy of the Pod Security Standards.
-The baseline profile runs the pod as the root user and with a security context that conforms with
-the Baseline policy of the Pod Security Standards.<br/>
-          <br/>
-            <i>Default</i>: restricted<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>serviceAccountName</b></td>
-        <td>string</td>
-        <td>
-          ServiceAccountName is the Kubernetes service account identity of the workspace.<br/>
-          <br/>
-            <i>Default</i>: default<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b><a href="#workspacespecstacksindex">stacks</a></b></td>
-        <td>[]object</td>
-        <td>
-          List of stacks this workspace manages.<br/>
+          Variables specifies intermediate computed values that can be referenced in resources and outputs.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### Workspace.spec.env[index]
-<sup><sup>[↩ Parent](#workspacespec)</sup></sup>
+### Template.spec.resources[key]
+<sup><sup>[↩ Parent](#templatespec)</sup></sup>
+
+
+
+
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          type is the Pulumi type token for this resource.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#templatespecresourceskeyget">get</a></b></td>
+        <td>object</td>
+        <td>
+          A getter function for the resource. Supplying get is mutually exclusive to properties.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecresourceskeyoptions">options</a></b></td>
+        <td>object</td>
+        <td>
+          options contains all resource options supported by Pulumi.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>properties</b></td>
+        <td>map[string]JSON</td>
+        <td>
+          properties contains the primary resource-specific keys and values to initialize the resource state.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.resources[key].get
+<sup><sup>[↩ Parent](#templatespecresourceskey)</sup></sup>
+
+
+
+A getter function for the resource. Supplying get is mutually exclusive to properties.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>id</b></td>
+        <td>string</td>
+        <td>
+          The ID of the resource to import.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>state</b></td>
+        <td>map[string]JSON</td>
+        <td>
+          state contains the known properties (input & output) of the resource. This assists
+the provider in figuring out the correct resource.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.resources[key].options
+<sup><sup>[↩ Parent](#templatespecresourceskey)</sup></sup>
+
+
+
+options contains all resource options supported by Pulumi.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>additionalSecretOutputs</b></td>
+        <td>[]string</td>
+        <td>
+          additionalSecretOutputs specifies properties that must be encrypted as secrets.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>aliases</b></td>
+        <td>[]string</td>
+        <td>
+          aliases specifies names that this resource used to have, so that renaming or refactoring
+doesn’t replace it.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecresourceskeyoptionscustomtimeouts">customTimeouts</a></b></td>
+        <td>object</td>
+        <td>
+          customTimeouts overrides the default retry/timeout behavior for resource provisioning.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>deleteBeforeReplace</b></td>
+        <td>boolean</td>
+        <td>
+          deleteBeforeReplace overrides the default create-before-delete behavior when replacing.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>dependsOn</b></td>
+        <td>[]JSON</td>
+        <td>
+          dependsOn adds explicit dependencies in addition to the ones in the dependency graph.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>ignoreChanges</b></td>
+        <td>[]string</td>
+        <td>
+          ignoreChanges declares that changes to certain properties should be ignored when diffing.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>import</b></td>
+        <td>string</td>
+        <td>
+          import adopts an existing resource from your cloud account under the control of Pulumi.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>parent</b></td>
+        <td>JSON</td>
+        <td>
+          parent resource option specifies a parent for a resource. It is used to associate
+children with the parents that encapsulate or are responsible for them.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>protect</b></td>
+        <td>boolean</td>
+        <td>
+          protect prevents accidental deletion of a resource.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>provider</b></td>
+        <td>JSON</td>
+        <td>
+          provider resource option sets a provider for the resource.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>providers</b></td>
+        <td>map[string]JSON</td>
+        <td>
+          providers resource option sets a map of providers for the resource and its children.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>version</b></td>
+        <td>string</td>
+        <td>
+          version specifies a provider plugin version that should be used when operating on a resource.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.resources[key].options.customTimeouts
+<sup><sup>[↩ Parent](#templatespecresourceskeyoptions)</sup></sup>
+
+
+
+customTimeouts overrides the default retry/timeout behavior for resource provisioning.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>create</b></td>
+        <td>string</td>
+        <td>
+          create is the custom timeout for create operations.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>delete</b></td>
+        <td>string</td>
+        <td>
+          delete is the custom timeout for delete operations.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>update</b></td>
+        <td>string</td>
+        <td>
+          update is the custom timeout for update operations.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.schema
+<sup><sup>[↩ Parent](#templatespec)</sup></sup>
+
+
+
+Schema defines the API schema for instances of the generated CRD,
+including the CRD identity (apiVersion, kind) and field definitions.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          APIVersion is the API group and version for the generated CRD (e.g., "platform.example.com/v1").<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          Kind is the resource kind for the generated CRD (e.g., "Database").<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>categories</b></td>
+        <td>[]string</td>
+        <td>
+          Categories are the categories this resource belongs to (e.g., ["pulumi", "infrastructure"]).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>plural</b></td>
+        <td>string</td>
+        <td>
+          Plural is the plural name for the resource (e.g., "databases").
+If not specified, defaults to lowercase(kind) + "s".
+Use this to specify correct pluralization for words that don't follow standard English rules
+(e.g., "policies" for Policy, "indices" for Index, "statuses" for Status).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecschemaprintercolumnsindex">printerColumns</a></b></td>
+        <td>[]object</td>
+        <td>
+          PrinterColumns defines additional columns to display in kubectl get output.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>scope</b></td>
+        <td>string</td>
+        <td>
+          Scope determines whether instances are cluster-scoped or namespace-scoped.
+Defaults to Namespaced.<br/>
+          <br/>
+            <i>Default</i>: Namespaced<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>shortNames</b></td>
+        <td>[]string</td>
+        <td>
+          ShortNames are abbreviations for the resource kind (e.g., ["db"] for Database).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecschemaspeckey">spec</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          Spec defines the spec fields using SimpleSchema format.
+Each key is a field name, value is the field definition.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecschemastatuskey">status</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          Status defines the status fields that will be populated from outputs.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.schema.printerColumns[index]
+<sup><sup>[↩ Parent](#templatespecschema)</sup></sup>
+
+
+
+PrinterColumn defines an additional column for kubectl output.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>jsonPath</b></td>
+        <td>string</td>
+        <td>
+          JSONPath is the path to the field to display.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the column header.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>enum</td>
+        <td>
+          Type is the data type (string, integer, date, boolean).<br/>
+          <br/>
+            <i>Enum</i>: string, integer, date, boolean<br/>
+            <i>Default</i>: string<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>priority</b></td>
+        <td>integer</td>
+        <td>
+          Priority determines when the column is shown (0 = always, higher = wider output).<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+            <i>Default</i>: 0<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.schema.spec[key]
+<sup><sup>[↩ Parent](#templatespecschema)</sup></sup>
+
+
+
+SchemaField defines a single field in the schema using SimpleSchema format.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          Type is the data type (string, integer, number, boolean, array, object).<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>additionalProperties</b></td>
+        <td>JSON</td>
+        <td>
+          AdditionalProperties allows arbitrary keys for object types.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>default</b></td>
+        <td>JSON</td>
+        <td>
+          Default is the default value if not specified.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>description</b></td>
+        <td>string</td>
+        <td>
+          Description provides documentation for the field.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>enum</b></td>
+        <td>[]string</td>
+        <td>
+          Enum restricts the value to one of the specified options.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>format</b></td>
+        <td>string</td>
+        <td>
+          Format provides additional validation (e.g., "date-time", "email", "uri").<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>immutable</b></td>
+        <td>boolean</td>
+        <td>
+          Immutable indicates the field cannot be changed after creation.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>items</b></td>
+        <td>JSON</td>
+        <td>
+          Items defines the schema for array elements (required if Type is "array").
+Use apiextensionsv1.JSON to avoid recursive type issues.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>maxLength</b></td>
+        <td>integer</td>
+        <td>
+          MaxLength is the maximum length for string types.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>maximum</b></td>
+        <td>integer</td>
+        <td>
+          Maximum is the maximum value for integer/number types.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>minLength</b></td>
+        <td>integer</td>
+        <td>
+          MinLength is the minimum length for string types.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>minimum</b></td>
+        <td>integer</td>
+        <td>
+          Minimum is the minimum value for integer/number types.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pattern</b></td>
+        <td>string</td>
+        <td>
+          Pattern is a regex pattern for string validation.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>properties</b></td>
+        <td>map[string]JSON</td>
+        <td>
+          Properties defines nested fields for object types (required if Type is "object").
+Use map[string]apiextensionsv1.JSON to avoid recursive type issues.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>required</b></td>
+        <td>boolean</td>
+        <td>
+          Required indicates whether this field must be specified.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>sensitive</b></td>
+        <td>boolean</td>
+        <td>
+          Sensitive indicates the field value should be treated as a secret.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.schema.status[key]
+<sup><sup>[↩ Parent](#templatespecschema)</sup></sup>
+
+
+
+SchemaField defines a single field in the schema using SimpleSchema format.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          Type is the data type (string, integer, number, boolean, array, object).<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>additionalProperties</b></td>
+        <td>JSON</td>
+        <td>
+          AdditionalProperties allows arbitrary keys for object types.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>default</b></td>
+        <td>JSON</td>
+        <td>
+          Default is the default value if not specified.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>description</b></td>
+        <td>string</td>
+        <td>
+          Description provides documentation for the field.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>enum</b></td>
+        <td>[]string</td>
+        <td>
+          Enum restricts the value to one of the specified options.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>format</b></td>
+        <td>string</td>
+        <td>
+          Format provides additional validation (e.g., "date-time", "email", "uri").<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>immutable</b></td>
+        <td>boolean</td>
+        <td>
+          Immutable indicates the field cannot be changed after creation.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>items</b></td>
+        <td>JSON</td>
+        <td>
+          Items defines the schema for array elements (required if Type is "array").
+Use apiextensionsv1.JSON to avoid recursive type issues.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>maxLength</b></td>
+        <td>integer</td>
+        <td>
+          MaxLength is the maximum length for string types.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>maximum</b></td>
+        <td>integer</td>
+        <td>
+          Maximum is the maximum value for integer/number types.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>minLength</b></td>
+        <td>integer</td>
+        <td>
+          MinLength is the minimum length for string types.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>minimum</b></td>
+        <td>integer</td>
+        <td>
+          Minimum is the minimum value for integer/number types.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pattern</b></td>
+        <td>string</td>
+        <td>
+          Pattern is a regex pattern for string validation.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>properties</b></td>
+        <td>map[string]JSON</td>
+        <td>
+          Properties defines nested fields for object types (required if Type is "object").
+Use map[string]apiextensionsv1.JSON to avoid recursive type issues.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>required</b></td>
+        <td>boolean</td>
+        <td>
+          Required indicates whether this field must be specified.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>sensitive</b></td>
+        <td>boolean</td>
+        <td>
+          Sensitive indicates the field value should be treated as a secret.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.config[key]
+<sup><sup>[↩ Parent](#templatespec)</sup></sup>
+
+
+
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#templatespecconfigkeyenv">env</a></b></td>
+        <td>object</td>
+        <td>
+          Env selects an environment variable set on the operator process<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecconfigkeyfilesystem">filesystem</a></b></td>
+        <td>object</td>
+        <td>
+          FileSystem selects a file on the operator's file system<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecconfigkeyliteral">literal</a></b></td>
+        <td>object</td>
+        <td>
+          LiteralRef refers to a literal value<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecconfigkeysecret">secret</a></b></td>
+        <td>object</td>
+        <td>
+          SecretRef refers to a Kubernetes Secret<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.config[key].env
+<sup><sup>[↩ Parent](#templatespecconfigkey)</sup></sup>
+
+
+
+Env selects an environment variable set on the operator process
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the environment variable<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.config[key].filesystem
+<sup><sup>[↩ Parent](#templatespecconfigkey)</sup></sup>
+
+
+
+FileSystem selects a file on the operator's file system
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Path on the filesystem to use to load information from.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.config[key].literal
+<sup><sup>[↩ Parent](#templatespecconfigkey)</sup></sup>
+
+
+
+LiteralRef refers to a literal value
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>value</b></td>
+        <td>string</td>
+        <td>
+          Value to load<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.config[key].secret
+<sup><sup>[↩ Parent](#templatespecconfigkey)</sup></sup>
+
+
+
+SecretRef refers to a Kubernetes Secret
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the Secret to use.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the Secret<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.lifecycle
+<sup><sup>[↩ Parent](#templatespec)</sup></sup>
+
+
+
+Lifecycle controls the behavior of created infrastructure.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>continueOnError</b></td>
+        <td>boolean</td>
+        <td>
+          ContinueOnError allows updates to continue even if some resources fail.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>destroyOnDelete</b></td>
+        <td>boolean</td>
+        <td>
+          DestroyOnDelete determines whether infrastructure is destroyed when the instance is deleted.<br/>
+          <br/>
+            <i>Default</i>: true<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>protectResources</b></td>
+        <td>boolean</td>
+        <td>
+          ProtectResources prevents accidental deletion of managed resources.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>refreshBeforeUpdate</b></td>
+        <td>boolean</td>
+        <td>
+          RefreshBeforeUpdate performs a refresh before each update.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>retryOnUpdateConflict</b></td>
+        <td>boolean</td>
+        <td>
+          RetryOnUpdateConflict retries updates on HTTP 409 conflicts.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.stackConfig
+<sup><sup>[↩ Parent](#templatespec)</sup></sup>
+
+
+
+StackConfig specifies default configuration for generated Stack CRs.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>backend</b></td>
+        <td>string</td>
+        <td>
+          Backend is the Pulumi state backend URL.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigenvrefskey">envRefs</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          EnvRefs defines environment variables for the Pulumi operation.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>environment</b></td>
+        <td>[]string</td>
+        <td>
+          Environment specifies the Pulumi ESC environment(s) to use for stacks.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>envs</b></td>
+        <td>[]string</td>
+        <td>
+          Envs is a list of ConfigMap names containing environment variables.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>organization</b></td>
+        <td>string</td>
+        <td>
+          Organization is the Pulumi Cloud organization name used in stack names.
+If not specified, a local backend should be used or this defaults to the namespace.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigprerequisitesindex">prerequisites</a></b></td>
+        <td>[]object</td>
+        <td>
+          Prerequisites is a list of Template references that must be deployed first.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>project</b></td>
+        <td>string</td>
+        <td>
+          Project is the Pulumi project name. Defaults to the template name.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>resyncFrequencySeconds</b></td>
+        <td>integer</td>
+        <td>
+          ResyncFrequencySeconds controls how often the stack is reconciled.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>secretsProvider</b></td>
+        <td>string</td>
+        <td>
+          SecretsProvider is the secrets encryption provider.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>serviceAccountName</b></td>
+        <td>string</td>
+        <td>
+          ServiceAccountName is the Kubernetes service account for the workspace.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigworkspacetemplate">workspaceTemplate</a></b></td>
+        <td>object</td>
+        <td>
+          WorkspaceTemplate customizes the Workspace generated for instances.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.stackConfig.envRefs[key]
+<sup><sup>[↩ Parent](#templatespecstackconfig)</sup></sup>
+
+
+
+ResourceRef identifies a resource from which information can be loaded.
+Environment variables, files on the filesystem, Kubernetes Secrets and literal
+strings are currently supported.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigenvrefskeyenv">env</a></b></td>
+        <td>object</td>
+        <td>
+          Env selects an environment variable set on the operator process<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigenvrefskeyfilesystem">filesystem</a></b></td>
+        <td>object</td>
+        <td>
+          FileSystem selects a file on the operator's file system<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigenvrefskeyliteral">literal</a></b></td>
+        <td>object</td>
+        <td>
+          LiteralRef refers to a literal value<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigenvrefskeysecret">secret</a></b></td>
+        <td>object</td>
+        <td>
+          SecretRef refers to a Kubernetes Secret<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.stackConfig.envRefs[key].env
+<sup><sup>[↩ Parent](#templatespecstackconfigenvrefskey)</sup></sup>
+
+
+
+Env selects an environment variable set on the operator process
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the environment variable<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.stackConfig.envRefs[key].filesystem
+<sup><sup>[↩ Parent](#templatespecstackconfigenvrefskey)</sup></sup>
+
+
+
+FileSystem selects a file on the operator's file system
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Path on the filesystem to use to load information from.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.stackConfig.envRefs[key].literal
+<sup><sup>[↩ Parent](#templatespecstackconfigenvrefskey)</sup></sup>
+
+
+
+LiteralRef refers to a literal value
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>value</b></td>
+        <td>string</td>
+        <td>
+          Value to load<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.stackConfig.envRefs[key].secret
+<sup><sup>[↩ Parent](#templatespecstackconfigenvrefskey)</sup></sup>
+
+
+
+SecretRef refers to a Kubernetes Secret
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the Secret to use.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the Secret<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.stackConfig.prerequisites[index]
+<sup><sup>[↩ Parent](#templatespecstackconfig)</sup></sup>
+
+
+
+TemplatePrerequisite specifies a dependency on another Template.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the name of the Template that must be deployed first.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace is the namespace of the prerequisite template (defaults to same namespace).<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.stackConfig.workspaceTemplate
+<sup><sup>[↩ Parent](#templatespecstackconfig)</sup></sup>
+
+
+
+WorkspaceTemplate customizes the Workspace generated for instances.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatemetadata">metadata</a></b></td>
+        <td>object</td>
+        <td>
+          ObjectMetaApplyConfiguration represents a declarative configuration of the ObjectMeta type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespec">spec</a></b></td>
+        <td>object</td>
+        <td>
+          WorkspaceSpecApplyConfiguration represents a declarative configuration of the WorkspaceSpec type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatestatus">status</a></b></td>
+        <td>object</td>
+        <td>
+          WorkspaceStatusApplyConfiguration represents a declarative configuration of the WorkspaceStatus type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.stackConfig.workspaceTemplate.metadata
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplate)</sup></sup>
+
+
+
+ObjectMetaApplyConfiguration represents a declarative configuration of the ObjectMeta type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>annotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>creationTimestamp</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>deletionGracePeriodSeconds</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>deletionTimestamp</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>finalizers</b></td>
+        <td>[]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>generateName</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>generation</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>labels</b></td>
+        <td>map[string]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatemetadataownerreferencesindex">ownerReferences</a></b></td>
+        <td>[]object</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>resourceVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>uid</b></td>
+        <td>string</td>
+        <td>
+          UID is a type that holds unique ID values, including UUIDs.  Because we
+don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+intent and helps make sure that UIDs and names do not get conflated.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.stackConfig.workspaceTemplate.metadata.ownerReferences[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatemetadata)</sup></sup>
+
+
+
+OwnerReferenceApplyConfiguration represents a declarative configuration of the OwnerReference type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>apiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>blockOwnerDeletion</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>controller</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>uid</b></td>
+        <td>string</td>
+        <td>
+          UID is a type that holds unique ID values, including UUIDs.  Because we
+don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+intent and helps make sure that UIDs and names do not get conflated.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.stackConfig.workspaceTemplate.spec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplate)</sup></sup>
+
+
+
+WorkspaceSpecApplyConfiguration represents a declarative configuration of the WorkspaceSpec type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecenvindex">env</a></b></td>
+        <td>[]object</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecenvfromindex">envFrom</a></b></td>
+        <td>[]object</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecflux">flux</a></b></td>
+        <td>object</td>
+        <td>
+          FluxSourceApplyConfiguration represents a declarative configuration of the FluxSource type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecgit">git</a></b></td>
+        <td>object</td>
+        <td>
+          GitSourceApplyConfiguration represents a declarative configuration of the GitSource type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>image</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>imagePullPolicy</b></td>
+        <td>string</td>
+        <td>
+          PullPolicy describes a policy for if/when to pull a container image<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespeclocal">local</a></b></td>
+        <td>object</td>
+        <td>
+          LocalSourceApplyConfiguration represents a declarative configuration of the LocalSource type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplate">podTemplate</a></b></td>
+        <td>object</td>
+        <td>
+          EmbeddedPodTemplateSpecApplyConfiguration represents a declarative configuration of the EmbeddedPodTemplateSpec type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pulumiLogLevel</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecresources">resources</a></b></td>
+        <td>object</td>
+        <td>
+          ResourceRequirements describes the compute resource requirements.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>securityProfile</b></td>
+        <td>string</td>
+        <td>
+          SecurityProfile declares the security profile of the workspace, either baseline or restricted.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>serviceAccountName</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecstacksindex">stacks</a></b></td>
+        <td>[]object</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.stackConfig.workspaceTemplate.spec.env[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespec)</sup></sup>
 
 
 
@@ -242,7 +1791,7 @@ Defaults to "".<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecenvindexvaluefrom">valueFrom</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecenvindexvaluefrom">valueFrom</a></b></td>
         <td>object</td>
         <td>
           Source for the environment variable's value. Cannot be used if value is not empty.<br/>
@@ -252,8 +1801,8 @@ Defaults to "".<br/>
 </table>
 
 
-### Workspace.spec.env[index].valueFrom
-<sup><sup>[↩ Parent](#workspacespecenvindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.env[index].valueFrom
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecenvindex)</sup></sup>
 
 
 
@@ -269,14 +1818,14 @@ Source for the environment variable's value. Cannot be used if value is not empt
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecenvindexvaluefromconfigmapkeyref">configMapKeyRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecenvindexvaluefromconfigmapkeyref">configMapKeyRef</a></b></td>
         <td>object</td>
         <td>
           Selects a key of a ConfigMap.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecenvindexvaluefromfieldref">fieldRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecenvindexvaluefromfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
@@ -284,7 +1833,7 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecenvindexvaluefromresourcefieldref">resourceFieldRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecenvindexvaluefromresourcefieldref">resourceFieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a resource of the container: only resources limits and requests
@@ -292,7 +1841,7 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecenvindexvaluefromsecretkeyref">secretKeyRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecenvindexvaluefromsecretkeyref">secretKeyRef</a></b></td>
         <td>object</td>
         <td>
           Selects a key of a secret in the pod's namespace<br/>
@@ -302,8 +1851,8 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
-### Workspace.spec.env[index].valueFrom.configMapKeyRef
-<sup><sup>[↩ Parent](#workspacespecenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.env[index].valueFrom.configMapKeyRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecenvindexvaluefrom)</sup></sup>
 
 
 
@@ -349,8 +1898,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.env[index].valueFrom.fieldRef
-<sup><sup>[↩ Parent](#workspacespecenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.env[index].valueFrom.fieldRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecenvindexvaluefrom)</sup></sup>
 
 
 
@@ -384,8 +1933,8 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
-### Workspace.spec.env[index].valueFrom.resourceFieldRef
-<sup><sup>[↩ Parent](#workspacespecenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.env[index].valueFrom.resourceFieldRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecenvindexvaluefrom)</sup></sup>
 
 
 
@@ -426,8 +1975,8 @@ Selects a resource of the container: only resources limits and requests
 </table>
 
 
-### Workspace.spec.env[index].valueFrom.secretKeyRef
-<sup><sup>[↩ Parent](#workspacespecenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.env[index].valueFrom.secretKeyRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecenvindexvaluefrom)</sup></sup>
 
 
 
@@ -473,8 +2022,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.envFrom[index]
-<sup><sup>[↩ Parent](#workspacespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.envFrom[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespec)</sup></sup>
 
 
 
@@ -490,7 +2039,7 @@ EnvFromSource represents the source of a set of ConfigMaps
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecenvfromindexconfigmapref">configMapRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecenvfromindexconfigmapref">configMapRef</a></b></td>
         <td>object</td>
         <td>
           The ConfigMap to select from<br/>
@@ -504,7 +2053,7 @@ EnvFromSource represents the source of a set of ConfigMaps
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecenvfromindexsecretref">secretRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecenvfromindexsecretref">secretRef</a></b></td>
         <td>object</td>
         <td>
           The Secret to select from<br/>
@@ -514,8 +2063,8 @@ EnvFromSource represents the source of a set of ConfigMaps
 </table>
 
 
-### Workspace.spec.envFrom[index].configMapRef
-<sup><sup>[↩ Parent](#workspacespecenvfromindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.envFrom[index].configMapRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecenvfromindex)</sup></sup>
 
 
 
@@ -554,8 +2103,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.envFrom[index].secretRef
-<sup><sup>[↩ Parent](#workspacespecenvfromindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.envFrom[index].secretRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecenvfromindex)</sup></sup>
 
 
 
@@ -594,12 +2143,13 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.flux
-<sup><sup>[↩ Parent](#workspacespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.flux
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespec)</sup></sup>
 
 
 
-Flux is the flux source containing the Pulumi program.
+FluxSourceApplyConfiguration represents a declarative configuration of the FluxSource type for use
+with apply.
 
 <table>
     <thead>
@@ -614,34 +2164,34 @@ Flux is the flux source containing the Pulumi program.
         <td><b>digest</b></td>
         <td>string</td>
         <td>
-          Digest is the digest of the artifact to fetch.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>dir</b></td>
         <td>string</td>
         <td>
-          Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
-interest, within the fetched artifact.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>url</b></td>
         <td>string</td>
         <td>
-          URL is the URL of the artifact to fetch.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### Workspace.spec.git
-<sup><sup>[↩ Parent](#workspacespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.git
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespec)</sup></sup>
 
 
 
-Git is the git source containing the Pulumi program.
+GitSourceApplyConfiguration represents a declarative configuration of the GitSource type for use
+with apply.
 
 <table>
     <thead>
@@ -653,56 +2203,52 @@ Git is the git source containing the Pulumi program.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecgitauth">auth</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecgitauth">auth</a></b></td>
         <td>object</td>
         <td>
-          Auth contains optional authentication information to use when cloning
-the repository.<br/>
+          GitAuthApplyConfiguration represents a declarative configuration of the GitAuth type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>dir</b></td>
         <td>string</td>
         <td>
-          Dir is the directory to work from in the project's source repository
-where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
-in the project source root.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>ref</b></td>
         <td>string</td>
         <td>
-          Ref is the git ref (tag, branch, or commit SHA) to fetch.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>shallow</b></td>
         <td>boolean</td>
         <td>
-          Shallow controls whether the workspace uses a shallow clone or whether
-all history is cloned.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>url</b></td>
         <td>string</td>
         <td>
-          URL is the git source control repository from which we fetch the project
-code and configuration.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### Workspace.spec.git.auth
-<sup><sup>[↩ Parent](#workspacespecgit)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.git.auth
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecgit)</sup></sup>
 
 
 
-Auth contains optional authentication information to use when cloning
-the repository.
+GitAuthApplyConfiguration represents a declarative configuration of the GitAuth type for use
+with apply.
 
 <table>
     <thead>
@@ -714,46 +2260,43 @@ the repository.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecgitauthpassword">password</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecgitauthpassword">password</a></b></td>
         <td>object</td>
         <td>
-          The password that pairs with a username or as part of an SSH Private Key.<br/>
+          SecretKeySelector selects a key of a Secret.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecgitauthsshprivatekey">sshPrivateKey</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecgitauthsshprivatekey">sshPrivateKey</a></b></td>
         <td>object</td>
         <td>
-          SSHPrivateKey should contain a private key for access to the git repo.
-When using `SSHPrivateKey`, the URL of the repository must be in the
-format git@github.com:org/repository.git.<br/>
+          SecretKeySelector selects a key of a Secret.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecgitauthtoken">token</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecgitauthtoken">token</a></b></td>
         <td>object</td>
         <td>
-          Token is a Git personal access token in replacement of
-your password.<br/>
+          SecretKeySelector selects a key of a Secret.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecgitauthusername">username</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecgitauthusername">username</a></b></td>
         <td>object</td>
         <td>
-          Username is the username to use when authenticating to a git repository.<br/>
+          SecretKeySelector selects a key of a Secret.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### Workspace.spec.git.auth.password
-<sup><sup>[↩ Parent](#workspacespecgitauth)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.git.auth.password
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecgitauth)</sup></sup>
 
 
 
-The password that pairs with a username or as part of an SSH Private Key.
+SecretKeySelector selects a key of a Secret.
 
 <table>
     <thead>
@@ -795,14 +2338,12 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.git.auth.sshPrivateKey
-<sup><sup>[↩ Parent](#workspacespecgitauth)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.git.auth.sshPrivateKey
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecgitauth)</sup></sup>
 
 
 
-SSHPrivateKey should contain a private key for access to the git repo.
-When using `SSHPrivateKey`, the URL of the repository must be in the
-format git@github.com:org/repository.git.
+SecretKeySelector selects a key of a Secret.
 
 <table>
     <thead>
@@ -844,60 +2385,12 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.git.auth.token
-<sup><sup>[↩ Parent](#workspacespecgitauth)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.git.auth.token
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecgitauth)</sup></sup>
 
 
 
-Token is a Git personal access token in replacement of
-your password.
-
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Required</th>
-        </tr>
-    </thead>
-    <tbody><tr>
-        <td><b>key</b></td>
-        <td>string</td>
-        <td>
-          The key of the secret to select from.  Must be a valid secret key.<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>name</b></td>
-        <td>string</td>
-        <td>
-          Name of the referent.
-This field is effectively required, but due to backwards compatibility is
-allowed to be empty. Instances of this type with an empty value here are
-almost certainly wrong.
-More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
-          <br/>
-            <i>Default</i>: <br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>optional</b></td>
-        <td>boolean</td>
-        <td>
-          Specify whether the Secret or its key must be defined<br/>
-        </td>
-        <td>false</td>
-      </tr></tbody>
-</table>
-
-
-### Workspace.spec.git.auth.username
-<sup><sup>[↩ Parent](#workspacespecgitauth)</sup></sup>
-
-
-
-Username is the username to use when authenticating to a git repository.
+SecretKeySelector selects a key of a Secret.
 
 <table>
     <thead>
@@ -939,12 +2432,60 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.local
-<sup><sup>[↩ Parent](#workspacespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.git.auth.username
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecgitauth)</sup></sup>
 
 
 
-Local is the local source containing the Pulumi program.
+SecretKeySelector selects a key of a Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key of the secret to select from.  Must be a valid secret key.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.spec.stackConfig.workspaceTemplate.spec.local
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespec)</sup></sup>
+
+
+
+LocalSourceApplyConfiguration represents a declarative configuration of the LocalSource type for use
+with apply.
 
 <table>
     <thead>
@@ -959,20 +2500,20 @@ Local is the local source containing the Pulumi program.
         <td><b>dir</b></td>
         <td>string</td>
         <td>
-          Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
-interest, within the workspace image.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### Workspace.spec.podTemplate
-<sup><sup>[↩ Parent](#workspacespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespec)</sup></sup>
 
 
 
-PodTemplate defines a PodTemplateSpec for Workspace's pods.
+EmbeddedPodTemplateSpecApplyConfiguration represents a declarative configuration of the EmbeddedPodTemplateSpec type for use
+with apply.
 
 <table>
     <thead>
@@ -984,30 +2525,31 @@ PodTemplate defines a PodTemplateSpec for Workspace's pods.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatemetadata">metadata</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatemetadata">metadata</a></b></td>
         <td>object</td>
         <td>
-          EmbeddedMetadata contains metadata relevant to an embedded resource.<br/>
+          EmbeddedObjectMetaApplyConfiguration represents a declarative configuration of the EmbeddedObjectMeta type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespec">spec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespec">spec</a></b></td>
         <td>object</td>
         <td>
-          Specification of the desired behavior of the pod.
-More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status<br/>
+          PodSpec is a description of a pod.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### Workspace.spec.podTemplate.metadata
-<sup><sup>[↩ Parent](#workspacespecpodtemplate)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.metadata
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplate)</sup></sup>
 
 
 
-EmbeddedMetadata contains metadata relevant to an embedded resource.
+EmbeddedObjectMetaApplyConfiguration represents a declarative configuration of the EmbeddedObjectMeta type for use
+with apply.
 
 <table>
     <thead>
@@ -1022,33 +2564,26 @@ EmbeddedMetadata contains metadata relevant to an embedded resource.
         <td><b>annotations</b></td>
         <td>map[string]string</td>
         <td>
-          Annotations is an unstructured key value map stored with a resource that may be
-set by external tools to store and retrieve arbitrary metadata. They are not
-queryable and should be preserved when modifying objects.
-More info: http://kubernetes.io/docs/user-guide/annotations<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>labels</b></td>
         <td>map[string]string</td>
         <td>
-          Map of string keys and values that can be used to organize and categorize
-(scope and select) objects. May match selectors of replication controllers
-and services.
-More info: http://kubernetes.io/docs/user-guide/labels<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### Workspace.spec.podTemplate.spec
-<sup><sup>[↩ Parent](#workspacespecpodtemplate)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplate)</sup></sup>
 
 
 
-Specification of the desired behavior of the pod.
-More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+PodSpec is a description of a pod.
 
 <table>
     <thead>
@@ -1060,7 +2595,7 @@ More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindex">containers</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindex">containers</a></b></td>
         <td>[]object</td>
         <td>
           List of containers belonging to the pod.
@@ -1081,7 +2616,7 @@ Value must be a positive integer.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinity">affinity</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinity">affinity</a></b></td>
         <td>object</td>
         <td>
           If specified, the pod's scheduling constraints<br/>
@@ -1095,7 +2630,7 @@ Value must be a positive integer.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecdnsconfig">dnsConfig</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecdnsconfig">dnsConfig</a></b></td>
         <td>object</td>
         <td>
           Specifies the DNS parameters of a pod.
@@ -1125,7 +2660,7 @@ Optional: Defaults to true.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindex">ephemeralContainers</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindex">ephemeralContainers</a></b></td>
         <td>[]object</td>
         <td>
           List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing
@@ -1135,7 +2670,7 @@ ephemeral container to an existing pod, use the pod's ephemeralcontainers subres
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespechostaliasesindex">hostAliases</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespechostaliasesindex">hostAliases</a></b></td>
         <td>[]object</td>
         <td>
           HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts
@@ -1191,7 +2726,7 @@ If not specified, the pod's hostname will be set to a system-defined value.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecimagepullsecretsindex">imagePullSecrets</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecimagepullsecretsindex">imagePullSecrets</a></b></td>
         <td>[]object</td>
         <td>
           ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.
@@ -1200,7 +2735,7 @@ More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imag
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindex">initContainers</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindex">initContainers</a></b></td>
         <td>[]object</td>
         <td>
           List of initialization containers belonging to the pod.
@@ -1239,7 +2774,7 @@ More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/<br
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecos">os</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecos">os</a></b></td>
         <td>object</td>
         <td>
           Specifies the OS of the containers in the pod.
@@ -1323,7 +2858,7 @@ default.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecreadinessgatesindex">readinessGates</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecreadinessgatesindex">readinessGates</a></b></td>
         <td>[]object</td>
         <td>
           If specified, all readiness gates will be evaluated for pod readiness.
@@ -1333,7 +2868,7 @@ More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-ga
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecresourceclaimsindex">resourceClaims</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecresourceclaimsindex">resourceClaims</a></b></td>
         <td>[]object</td>
         <td>
           ResourceClaims defines which ResourceClaims must be allocated
@@ -1348,7 +2883,7 @@ This field is immutable.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecresources">resources</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecresources">resources</a></b></td>
         <td>object</td>
         <td>
           Resources is the total amount of CPU and Memory resources required by all
@@ -1392,7 +2927,7 @@ If not specified, the pod will be dispatched by default scheduler.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecschedulinggatesindex">schedulingGates</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecschedulinggatesindex">schedulingGates</a></b></td>
         <td>[]object</td>
         <td>
           SchedulingGates is an opaque list of values that if specified will block scheduling the pod.
@@ -1403,7 +2938,7 @@ SchedulingGates can only be set at pod creation time, and be removed only afterw
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecsecuritycontext">securityContext</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecsecuritycontext">securityContext</a></b></td>
         <td>object</td>
         <td>
           SecurityContext holds pod-level security attributes and common container settings.
@@ -1473,14 +3008,14 @@ Defaults to 30 seconds.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespectolerationsindex">tolerations</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespectolerationsindex">tolerations</a></b></td>
         <td>[]object</td>
         <td>
           If specified, the pod's tolerations.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespectopologyspreadconstraintsindex">topologySpreadConstraints</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespectopologyspreadconstraintsindex">topologySpreadConstraints</a></b></td>
         <td>[]object</td>
         <td>
           TopologySpreadConstraints describes how a group of pods ought to spread across topology
@@ -1489,7 +3024,7 @@ All topologySpreadConstraints are ANDed.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindex">volumes</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex">volumes</a></b></td>
         <td>[]object</td>
         <td>
           List of volumes that can be mounted by containers belonging to the pod.
@@ -1500,8 +3035,8 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -1554,7 +3089,7 @@ More info: https://kubernetes.io/docs/tasks/inject-data-application/define-comma
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexenvindex">env</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvindex">env</a></b></td>
         <td>[]object</td>
         <td>
           List of environment variables to set in the container.
@@ -1562,7 +3097,7 @@ Cannot be updated.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexenvfromindex">envFrom</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvfromindex">envFrom</a></b></td>
         <td>[]object</td>
         <td>
           List of sources to populate environment variables in the container.
@@ -1595,7 +3130,7 @@ More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlifecycle">lifecycle</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecycle">lifecycle</a></b></td>
         <td>object</td>
         <td>
           Actions that the management system should take in response to container lifecycle events.
@@ -1603,7 +3138,7 @@ Cannot be updated.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlivenessprobe">livenessProbe</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlivenessprobe">livenessProbe</a></b></td>
         <td>object</td>
         <td>
           Periodic probe of container liveness.
@@ -1613,7 +3148,7 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexportsindex">ports</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexportsindex">ports</a></b></td>
         <td>[]object</td>
         <td>
           List of ports to expose from the container. Not specifying a port here
@@ -1626,7 +3161,7 @@ Cannot be updated.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexreadinessprobe">readinessProbe</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexreadinessprobe">readinessProbe</a></b></td>
         <td>object</td>
         <td>
           Periodic probe of container service readiness.
@@ -1636,14 +3171,14 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexresizepolicyindex">resizePolicy</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexresizepolicyindex">resizePolicy</a></b></td>
         <td>[]object</td>
         <td>
           Resources resize policy for the container.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexresources">resources</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexresources">resources</a></b></td>
         <td>object</td>
         <td>
           Compute Resources required by this container.
@@ -1673,7 +3208,7 @@ completed.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexsecuritycontext">securityContext</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexsecuritycontext">securityContext</a></b></td>
         <td>object</td>
         <td>
           SecurityContext defines the security options the container should be run with.
@@ -1682,7 +3217,7 @@ More info: https://kubernetes.io/docs/tasks/configure-pod-container/security-con
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexstartupprobe">startupProbe</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexstartupprobe">startupProbe</a></b></td>
         <td>object</td>
         <td>
           StartupProbe indicates that the Pod has successfully initialized.
@@ -1751,14 +3286,14 @@ Default is false.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexvolumedevicesindex">volumeDevices</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexvolumedevicesindex">volumeDevices</a></b></td>
         <td>[]object</td>
         <td>
           volumeDevices is the list of block devices to be used by the container.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexvolumemountsindex">volumeMounts</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexvolumemountsindex">volumeMounts</a></b></td>
         <td>[]object</td>
         <td>
           Pod volumes to mount into the container's filesystem.
@@ -1779,8 +3314,8 @@ Cannot be updated.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].env[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].env[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindex)</sup></sup>
 
 
 
@@ -1818,7 +3353,7 @@ Defaults to "".<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexenvindexvaluefrom">valueFrom</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvindexvaluefrom">valueFrom</a></b></td>
         <td>object</td>
         <td>
           Source for the environment variable's value. Cannot be used if value is not empty.<br/>
@@ -1828,8 +3363,8 @@ Defaults to "".<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].env[index].valueFrom
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexenvindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].env[index].valueFrom
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvindex)</sup></sup>
 
 
 
@@ -1845,14 +3380,14 @@ Source for the environment variable's value. Cannot be used if value is not empt
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexenvindexvaluefromconfigmapkeyref">configMapKeyRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvindexvaluefromconfigmapkeyref">configMapKeyRef</a></b></td>
         <td>object</td>
         <td>
           Selects a key of a ConfigMap.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexenvindexvaluefromfieldref">fieldRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvindexvaluefromfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
@@ -1860,7 +3395,7 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexenvindexvaluefromresourcefieldref">resourceFieldRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvindexvaluefromresourcefieldref">resourceFieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a resource of the container: only resources limits and requests
@@ -1868,7 +3403,7 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexenvindexvaluefromsecretkeyref">secretKeyRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvindexvaluefromsecretkeyref">secretKeyRef</a></b></td>
         <td>object</td>
         <td>
           Selects a key of a secret in the pod's namespace<br/>
@@ -1878,8 +3413,8 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].env[index].valueFrom.configMapKeyRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].env[index].valueFrom.configMapKeyRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvindexvaluefrom)</sup></sup>
 
 
 
@@ -1925,8 +3460,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].env[index].valueFrom.fieldRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].env[index].valueFrom.fieldRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvindexvaluefrom)</sup></sup>
 
 
 
@@ -1960,8 +3495,8 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].env[index].valueFrom.resourceFieldRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].env[index].valueFrom.resourceFieldRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvindexvaluefrom)</sup></sup>
 
 
 
@@ -2002,8 +3537,8 @@ Selects a resource of the container: only resources limits and requests
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].env[index].valueFrom.secretKeyRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].env[index].valueFrom.secretKeyRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvindexvaluefrom)</sup></sup>
 
 
 
@@ -2049,8 +3584,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].envFrom[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].envFrom[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindex)</sup></sup>
 
 
 
@@ -2066,7 +3601,7 @@ EnvFromSource represents the source of a set of ConfigMaps
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexenvfromindexconfigmapref">configMapRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvfromindexconfigmapref">configMapRef</a></b></td>
         <td>object</td>
         <td>
           The ConfigMap to select from<br/>
@@ -2080,7 +3615,7 @@ EnvFromSource represents the source of a set of ConfigMaps
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexenvfromindexsecretref">secretRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvfromindexsecretref">secretRef</a></b></td>
         <td>object</td>
         <td>
           The Secret to select from<br/>
@@ -2090,8 +3625,8 @@ EnvFromSource represents the source of a set of ConfigMaps
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].envFrom[index].configMapRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexenvfromindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].envFrom[index].configMapRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvfromindex)</sup></sup>
 
 
 
@@ -2130,8 +3665,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].envFrom[index].secretRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexenvfromindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].envFrom[index].secretRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexenvfromindex)</sup></sup>
 
 
 
@@ -2170,8 +3705,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].lifecycle
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].lifecycle
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindex)</sup></sup>
 
 
 
@@ -2188,7 +3723,7 @@ Cannot be updated.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlifecyclepoststart">postStart</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecyclepoststart">postStart</a></b></td>
         <td>object</td>
         <td>
           PostStart is called immediately after a container is created. If the handler fails,
@@ -2198,7 +3733,7 @@ More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-ho
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlifecycleprestop">preStop</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecycleprestop">preStop</a></b></td>
         <td>object</td>
         <td>
           PreStop is called immediately before a container is terminated due to an
@@ -2216,8 +3751,8 @@ More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-ho
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].lifecycle.postStart
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlifecycle)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].lifecycle.postStart
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecycle)</sup></sup>
 
 
 
@@ -2236,28 +3771,28 @@ More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-ho
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlifecyclepoststartexec">exec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecyclepoststartexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlifecyclepoststarthttpget">httpGet</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecyclepoststarthttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlifecyclepoststartsleep">sleep</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecyclepoststartsleep">sleep</a></b></td>
         <td>object</td>
         <td>
           Sleep represents a duration that the container should sleep.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlifecyclepoststarttcpsocket">tcpSocket</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecyclepoststarttcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
           Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept
@@ -2269,8 +3804,8 @@ lifecycle hooks will fail at runtime when it is specified.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].lifecycle.postStart.exec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlifecyclepoststart)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].lifecycle.postStart.exec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecyclepoststart)</sup></sup>
 
 
 
@@ -2300,8 +3835,8 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].lifecycle.postStart.httpGet
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlifecyclepoststart)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].lifecycle.postStart.httpGet
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecyclepoststart)</sup></sup>
 
 
 
@@ -2334,7 +3869,7 @@ Name must be an IANA_SVC_NAME.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlifecyclepoststarthttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecyclepoststarthttpgethttpheadersindex">httpHeaders</a></b></td>
         <td>[]object</td>
         <td>
           Custom headers to set in the request. HTTP allows repeated headers.<br/>
@@ -2359,8 +3894,8 @@ Defaults to HTTP.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].lifecycle.postStart.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlifecyclepoststarthttpget)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].lifecycle.postStart.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecyclepoststarthttpget)</sup></sup>
 
 
 
@@ -2394,8 +3929,8 @@ This will be canonicalized upon output, so case-variant names will be understood
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].lifecycle.postStart.sleep
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlifecyclepoststart)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].lifecycle.postStart.sleep
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecyclepoststart)</sup></sup>
 
 
 
@@ -2423,8 +3958,8 @@ Sleep represents a duration that the container should sleep.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].lifecycle.postStart.tcpSocket
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlifecyclepoststart)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].lifecycle.postStart.tcpSocket
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecyclepoststart)</sup></sup>
 
 
 
@@ -2461,8 +3996,8 @@ Name must be an IANA_SVC_NAME.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].lifecycle.preStop
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlifecycle)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].lifecycle.preStop
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecycle)</sup></sup>
 
 
 
@@ -2486,28 +4021,28 @@ More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-ho
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlifecycleprestopexec">exec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecycleprestopexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlifecycleprestophttpget">httpGet</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecycleprestophttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlifecycleprestopsleep">sleep</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecycleprestopsleep">sleep</a></b></td>
         <td>object</td>
         <td>
           Sleep represents a duration that the container should sleep.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlifecycleprestoptcpsocket">tcpSocket</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecycleprestoptcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
           Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept
@@ -2519,8 +4054,8 @@ lifecycle hooks will fail at runtime when it is specified.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].lifecycle.preStop.exec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlifecycleprestop)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].lifecycle.preStop.exec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecycleprestop)</sup></sup>
 
 
 
@@ -2550,8 +4085,8 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].lifecycle.preStop.httpGet
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlifecycleprestop)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].lifecycle.preStop.httpGet
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecycleprestop)</sup></sup>
 
 
 
@@ -2584,7 +4119,7 @@ Name must be an IANA_SVC_NAME.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlifecycleprestophttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecycleprestophttpgethttpheadersindex">httpHeaders</a></b></td>
         <td>[]object</td>
         <td>
           Custom headers to set in the request. HTTP allows repeated headers.<br/>
@@ -2609,8 +4144,8 @@ Defaults to HTTP.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].lifecycle.preStop.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlifecycleprestophttpget)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].lifecycle.preStop.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecycleprestophttpget)</sup></sup>
 
 
 
@@ -2644,8 +4179,8 @@ This will be canonicalized upon output, so case-variant names will be understood
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].lifecycle.preStop.sleep
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlifecycleprestop)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].lifecycle.preStop.sleep
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecycleprestop)</sup></sup>
 
 
 
@@ -2673,8 +4208,8 @@ Sleep represents a duration that the container should sleep.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].lifecycle.preStop.tcpSocket
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlifecycleprestop)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].lifecycle.preStop.tcpSocket
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlifecycleprestop)</sup></sup>
 
 
 
@@ -2711,8 +4246,8 @@ Name must be an IANA_SVC_NAME.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].livenessProbe
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].livenessProbe
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindex)</sup></sup>
 
 
 
@@ -2731,7 +4266,7 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlivenessprobeexec">exec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlivenessprobeexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
@@ -2748,14 +4283,14 @@ Defaults to 3. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlivenessprobegrpc">grpc</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlivenessprobegrpc">grpc</a></b></td>
         <td>object</td>
         <td>
           GRPC specifies a GRPC HealthCheckRequest.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlivenessprobehttpget">httpGet</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlivenessprobehttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
@@ -2792,7 +4327,7 @@ Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlivenessprobetcpsocket">tcpSocket</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlivenessprobetcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
           TCPSocket specifies a connection to a TCP port.<br/>
@@ -2831,8 +4366,8 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].livenessProbe.exec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlivenessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].livenessProbe.exec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlivenessprobe)</sup></sup>
 
 
 
@@ -2862,8 +4397,8 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].livenessProbe.grpc
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlivenessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].livenessProbe.grpc
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlivenessprobe)</sup></sup>
 
 
 
@@ -2903,8 +4438,8 @@ If this is not specified, the default behavior is defined by gRPC.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].livenessProbe.httpGet
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlivenessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].livenessProbe.httpGet
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlivenessprobe)</sup></sup>
 
 
 
@@ -2937,7 +4472,7 @@ Name must be an IANA_SVC_NAME.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexlivenessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlivenessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
         <td>[]object</td>
         <td>
           Custom headers to set in the request. HTTP allows repeated headers.<br/>
@@ -2962,8 +4497,8 @@ Defaults to HTTP.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].livenessProbe.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlivenessprobehttpget)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].livenessProbe.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlivenessprobehttpget)</sup></sup>
 
 
 
@@ -2997,8 +4532,8 @@ This will be canonicalized upon output, so case-variant names will be understood
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].livenessProbe.tcpSocket
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexlivenessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].livenessProbe.tcpSocket
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexlivenessprobe)</sup></sup>
 
 
 
@@ -3033,8 +4568,8 @@ Name must be an IANA_SVC_NAME.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].ports[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].ports[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindex)</sup></sup>
 
 
 
@@ -3101,8 +4636,8 @@ Defaults to "TCP".<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].readinessProbe
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].readinessProbe
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindex)</sup></sup>
 
 
 
@@ -3121,7 +4656,7 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexreadinessprobeexec">exec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexreadinessprobeexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
@@ -3138,14 +4673,14 @@ Defaults to 3. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexreadinessprobegrpc">grpc</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexreadinessprobegrpc">grpc</a></b></td>
         <td>object</td>
         <td>
           GRPC specifies a GRPC HealthCheckRequest.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexreadinessprobehttpget">httpGet</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexreadinessprobehttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
@@ -3182,7 +4717,7 @@ Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexreadinessprobetcpsocket">tcpSocket</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexreadinessprobetcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
           TCPSocket specifies a connection to a TCP port.<br/>
@@ -3221,8 +4756,8 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].readinessProbe.exec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexreadinessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].readinessProbe.exec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexreadinessprobe)</sup></sup>
 
 
 
@@ -3252,8 +4787,8 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].readinessProbe.grpc
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexreadinessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].readinessProbe.grpc
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexreadinessprobe)</sup></sup>
 
 
 
@@ -3293,8 +4828,8 @@ If this is not specified, the default behavior is defined by gRPC.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].readinessProbe.httpGet
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexreadinessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].readinessProbe.httpGet
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexreadinessprobe)</sup></sup>
 
 
 
@@ -3327,7 +4862,7 @@ Name must be an IANA_SVC_NAME.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexreadinessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexreadinessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
         <td>[]object</td>
         <td>
           Custom headers to set in the request. HTTP allows repeated headers.<br/>
@@ -3352,8 +4887,8 @@ Defaults to HTTP.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].readinessProbe.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexreadinessprobehttpget)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].readinessProbe.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexreadinessprobehttpget)</sup></sup>
 
 
 
@@ -3387,8 +4922,8 @@ This will be canonicalized upon output, so case-variant names will be understood
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].readinessProbe.tcpSocket
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexreadinessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].readinessProbe.tcpSocket
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexreadinessprobe)</sup></sup>
 
 
 
@@ -3423,8 +4958,8 @@ Name must be an IANA_SVC_NAME.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].resizePolicy[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].resizePolicy[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindex)</sup></sup>
 
 
 
@@ -3459,8 +4994,8 @@ If not specified, it defaults to NotRequired.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].resources
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].resources
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindex)</sup></sup>
 
 
 
@@ -3478,7 +5013,7 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexresourcesclaimsindex">claims</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexresourcesclaimsindex">claims</a></b></td>
         <td>[]object</td>
         <td>
           Claims lists the names of resources, defined in spec.resourceClaims,
@@ -3512,8 +5047,8 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].resources.claims[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexresources)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].resources.claims[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexresources)</sup></sup>
 
 
 
@@ -3550,8 +5085,8 @@ only the result of this request.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].securityContext
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].securityContext
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindex)</sup></sup>
 
 
 
@@ -3582,7 +5117,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexsecuritycontextapparmorprofile">appArmorProfile</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexsecuritycontextapparmorprofile">appArmorProfile</a></b></td>
         <td>object</td>
         <td>
           appArmorProfile is the AppArmor options to use by this container. If set, this profile
@@ -3591,7 +5126,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexsecuritycontextcapabilities">capabilities</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexsecuritycontextcapabilities">capabilities</a></b></td>
         <td>object</td>
         <td>
           The capabilities to add/drop when running containers.
@@ -3668,7 +5203,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexsecuritycontextselinuxoptions">seLinuxOptions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexsecuritycontextselinuxoptions">seLinuxOptions</a></b></td>
         <td>object</td>
         <td>
           The SELinux context to be applied to the container.
@@ -3679,7 +5214,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexsecuritycontextseccompprofile">seccompProfile</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexsecuritycontextseccompprofile">seccompProfile</a></b></td>
         <td>object</td>
         <td>
           The seccomp options to use by this container. If seccomp options are
@@ -3689,7 +5224,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexsecuritycontextwindowsoptions">windowsOptions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexsecuritycontextwindowsoptions">windowsOptions</a></b></td>
         <td>object</td>
         <td>
           The Windows specific settings applied to all containers.
@@ -3702,8 +5237,8 @@ Note that this field cannot be set when spec.os.name is linux.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].securityContext.appArmorProfile
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].securityContext.appArmorProfile
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexsecuritycontext)</sup></sup>
 
 
 
@@ -3745,8 +5280,8 @@ Must be set if and only if type is "Localhost".<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].securityContext.capabilities
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].securityContext.capabilities
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexsecuritycontext)</sup></sup>
 
 
 
@@ -3781,8 +5316,8 @@ Note that this field cannot be set when spec.os.name is windows.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].securityContext.seLinuxOptions
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].securityContext.seLinuxOptions
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexsecuritycontext)</sup></sup>
 
 
 
@@ -3833,8 +5368,8 @@ Note that this field cannot be set when spec.os.name is windows.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].securityContext.seccompProfile
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].securityContext.seccompProfile
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexsecuritycontext)</sup></sup>
 
 
 
@@ -3878,8 +5413,8 @@ Must be set if type is "Localhost". Must NOT be set for any other type.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].securityContext.windowsOptions
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].securityContext.windowsOptions
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexsecuritycontext)</sup></sup>
 
 
 
@@ -3937,8 +5472,8 @@ PodSecurityContext, the value specified in SecurityContext takes precedence.<br/
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].startupProbe
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].startupProbe
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindex)</sup></sup>
 
 
 
@@ -3960,7 +5495,7 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexstartupprobeexec">exec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexstartupprobeexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
@@ -3977,14 +5512,14 @@ Defaults to 3. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexstartupprobegrpc">grpc</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexstartupprobegrpc">grpc</a></b></td>
         <td>object</td>
         <td>
           GRPC specifies a GRPC HealthCheckRequest.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexstartupprobehttpget">httpGet</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexstartupprobehttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
@@ -4021,7 +5556,7 @@ Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexstartupprobetcpsocket">tcpSocket</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexstartupprobetcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
           TCPSocket specifies a connection to a TCP port.<br/>
@@ -4060,8 +5595,8 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].startupProbe.exec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexstartupprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].startupProbe.exec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexstartupprobe)</sup></sup>
 
 
 
@@ -4091,8 +5626,8 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].startupProbe.grpc
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexstartupprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].startupProbe.grpc
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexstartupprobe)</sup></sup>
 
 
 
@@ -4132,8 +5667,8 @@ If this is not specified, the default behavior is defined by gRPC.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].startupProbe.httpGet
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexstartupprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].startupProbe.httpGet
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexstartupprobe)</sup></sup>
 
 
 
@@ -4166,7 +5701,7 @@ Name must be an IANA_SVC_NAME.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespeccontainersindexstartupprobehttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexstartupprobehttpgethttpheadersindex">httpHeaders</a></b></td>
         <td>[]object</td>
         <td>
           Custom headers to set in the request. HTTP allows repeated headers.<br/>
@@ -4191,8 +5726,8 @@ Defaults to HTTP.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].startupProbe.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexstartupprobehttpget)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].startupProbe.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexstartupprobehttpget)</sup></sup>
 
 
 
@@ -4226,8 +5761,8 @@ This will be canonicalized upon output, so case-variant names will be understood
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].startupProbe.tcpSocket
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindexstartupprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].startupProbe.tcpSocket
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindexstartupprobe)</sup></sup>
 
 
 
@@ -4262,8 +5797,8 @@ Name must be an IANA_SVC_NAME.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].volumeDevices[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].volumeDevices[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindex)</sup></sup>
 
 
 
@@ -4296,8 +5831,8 @@ volumeDevice describes a mapping of a raw block device within a container.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.containers[index].volumeMounts[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespeccontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.containers[index].volumeMounts[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespeccontainersindex)</sup></sup>
 
 
 
@@ -4391,8 +5926,8 @@ SubPathExpr and SubPath are mutually exclusive.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -4408,21 +5943,21 @@ If specified, the pod's scheduling constraints
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitynodeaffinity">nodeAffinity</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinity">nodeAffinity</a></b></td>
         <td>object</td>
         <td>
           Describes node affinity scheduling rules for the pod.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodaffinity">podAffinity</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinity">podAffinity</a></b></td>
         <td>object</td>
         <td>
           Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodantiaffinity">podAntiAffinity</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinity">podAntiAffinity</a></b></td>
         <td>object</td>
         <td>
           Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).<br/>
@@ -4432,8 +5967,8 @@ If specified, the pod's scheduling constraints
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.nodeAffinity
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinity)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.nodeAffinity
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinity)</sup></sup>
 
 
 
@@ -4449,7 +5984,7 @@ Describes node affinity scheduling rules for the pod.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitynodeaffinitypreferredduringschedulingignoredduringexecutionindex">preferredDuringSchedulingIgnoredDuringExecution</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinitypreferredduringschedulingignoredduringexecutionindex">preferredDuringSchedulingIgnoredDuringExecution</a></b></td>
         <td>[]object</td>
         <td>
           The scheduler will prefer to schedule pods to nodes that satisfy
@@ -4464,7 +5999,7 @@ node(s) with the highest sum are the most preferred.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitynodeaffinityrequiredduringschedulingignoredduringexecution">requiredDuringSchedulingIgnoredDuringExecution</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinityrequiredduringschedulingignoredduringexecution">requiredDuringSchedulingIgnoredDuringExecution</a></b></td>
         <td>object</td>
         <td>
           If the affinity requirements specified by this field are not met at
@@ -4478,8 +6013,8 @@ may or may not try to eventually evict the pod from its node.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitynodeaffinity)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinity)</sup></sup>
 
 
 
@@ -4496,7 +6031,7 @@ An empty preferred scheduling term matches all objects with implicit weight 0
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitynodeaffinitypreferredduringschedulingignoredduringexecutionindexpreference">preference</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinitypreferredduringschedulingignoredduringexecutionindexpreference">preference</a></b></td>
         <td>object</td>
         <td>
           A node selector term, associated with the corresponding weight.<br/>
@@ -4515,8 +6050,8 @@ An empty preferred scheduling term matches all objects with implicit weight 0
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].preference
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitynodeaffinitypreferredduringschedulingignoredduringexecutionindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].preference
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinitypreferredduringschedulingignoredduringexecutionindex)</sup></sup>
 
 
 
@@ -4532,14 +6067,14 @@ A node selector term, associated with the corresponding weight.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitynodeaffinitypreferredduringschedulingignoredduringexecutionindexpreferencematchexpressionsindex">matchExpressions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinitypreferredduringschedulingignoredduringexecutionindexpreferencematchexpressionsindex">matchExpressions</a></b></td>
         <td>[]object</td>
         <td>
           A list of node selector requirements by node's labels.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitynodeaffinitypreferredduringschedulingignoredduringexecutionindexpreferencematchfieldsindex">matchFields</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinitypreferredduringschedulingignoredduringexecutionindexpreferencematchfieldsindex">matchFields</a></b></td>
         <td>[]object</td>
         <td>
           A list of node selector requirements by node's fields.<br/>
@@ -4549,8 +6084,8 @@ A node selector term, associated with the corresponding weight.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].preference.matchExpressions[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitynodeaffinitypreferredduringschedulingignoredduringexecutionindexpreference)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].preference.matchExpressions[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinitypreferredduringschedulingignoredduringexecutionindexpreference)</sup></sup>
 
 
 
@@ -4596,8 +6131,8 @@ This array is replaced during a strategic merge patch.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].preference.matchFields[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitynodeaffinitypreferredduringschedulingignoredduringexecutionindexpreference)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].preference.matchFields[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinitypreferredduringschedulingignoredduringexecutionindexpreference)</sup></sup>
 
 
 
@@ -4643,8 +6178,8 @@ This array is replaced during a strategic merge patch.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitynodeaffinity)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinity)</sup></sup>
 
 
 
@@ -4664,7 +6199,7 @@ may or may not try to eventually evict the pod from its node.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitynodeaffinityrequiredduringschedulingignoredduringexecutionnodeselectortermsindex">nodeSelectorTerms</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinityrequiredduringschedulingignoredduringexecutionnodeselectortermsindex">nodeSelectorTerms</a></b></td>
         <td>[]object</td>
         <td>
           Required. A list of node selector terms. The terms are ORed.<br/>
@@ -4674,8 +6209,8 @@ may or may not try to eventually evict the pod from its node.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitynodeaffinityrequiredduringschedulingignoredduringexecution)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinityrequiredduringschedulingignoredduringexecution)</sup></sup>
 
 
 
@@ -4693,14 +6228,14 @@ The TopologySelectorTerm type implements a subset of the NodeSelectorTerm.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitynodeaffinityrequiredduringschedulingignoredduringexecutionnodeselectortermsindexmatchexpressionsindex">matchExpressions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinityrequiredduringschedulingignoredduringexecutionnodeselectortermsindexmatchexpressionsindex">matchExpressions</a></b></td>
         <td>[]object</td>
         <td>
           A list of node selector requirements by node's labels.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitynodeaffinityrequiredduringschedulingignoredduringexecutionnodeselectortermsindexmatchfieldsindex">matchFields</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinityrequiredduringschedulingignoredduringexecutionnodeselectortermsindexmatchfieldsindex">matchFields</a></b></td>
         <td>[]object</td>
         <td>
           A list of node selector requirements by node's fields.<br/>
@@ -4710,8 +6245,8 @@ The TopologySelectorTerm type implements a subset of the NodeSelectorTerm.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[index].matchExpressions[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitynodeaffinityrequiredduringschedulingignoredduringexecutionnodeselectortermsindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[index].matchExpressions[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinityrequiredduringschedulingignoredduringexecutionnodeselectortermsindex)</sup></sup>
 
 
 
@@ -4757,8 +6292,8 @@ This array is replaced during a strategic merge patch.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[index].matchFields[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitynodeaffinityrequiredduringschedulingignoredduringexecutionnodeselectortermsindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[index].matchFields[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitynodeaffinityrequiredduringschedulingignoredduringexecutionnodeselectortermsindex)</sup></sup>
 
 
 
@@ -4804,8 +6339,8 @@ This array is replaced during a strategic merge patch.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAffinity
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinity)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAffinity
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinity)</sup></sup>
 
 
 
@@ -4821,7 +6356,7 @@ Describes pod affinity scheduling rules (e.g. co-locate this pod in the same nod
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindex">preferredDuringSchedulingIgnoredDuringExecution</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindex">preferredDuringSchedulingIgnoredDuringExecution</a></b></td>
         <td>[]object</td>
         <td>
           The scheduler will prefer to schedule pods to nodes that satisfy
@@ -4836,7 +6371,7 @@ node(s) with the highest sum are the most preferred.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindex">requiredDuringSchedulingIgnoredDuringExecution</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindex">requiredDuringSchedulingIgnoredDuringExecution</a></b></td>
         <td>[]object</td>
         <td>
           If the affinity requirements specified by this field are not met at
@@ -4852,8 +6387,8 @@ podAffinityTerm are intersected, i.e. all terms must be satisfied.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodaffinity)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinity)</sup></sup>
 
 
 
@@ -4869,7 +6404,7 @@ The weights of all of the matched WeightedPodAffinityTerm fields are added per-n
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinityterm">podAffinityTerm</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinityterm">podAffinityTerm</a></b></td>
         <td>object</td>
         <td>
           Required. A pod affinity term, associated with the corresponding weight.<br/>
@@ -4889,8 +6424,8 @@ in the range 1-100.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindex)</sup></sup>
 
 
 
@@ -4917,7 +6452,7 @@ Empty topologyKey is not allowed.<br/>
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermlabelselector">labelSelector</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermlabelselector">labelSelector</a></b></td>
         <td>object</td>
         <td>
           A label query over a set of resources, in this case pods.
@@ -4955,7 +6490,7 @@ This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature g
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermnamespaceselector">namespaceSelector</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermnamespaceselector">namespaceSelector</a></b></td>
         <td>object</td>
         <td>
           A label query over the set of namespaces that the term applies to.
@@ -4979,8 +6514,8 @@ null or empty namespaces list and null namespaceSelector means "this pod's names
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.labelSelector
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinityterm)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.labelSelector
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinityterm)</sup></sup>
 
 
 
@@ -4997,7 +6532,7 @@ If it's null, this PodAffinityTerm matches with no Pods.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermlabelselectormatchexpressionsindex">matchExpressions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermlabelselectormatchexpressionsindex">matchExpressions</a></b></td>
         <td>[]object</td>
         <td>
           matchExpressions is a list of label selector requirements. The requirements are ANDed.<br/>
@@ -5016,8 +6551,8 @@ operator is "In", and the values array contains only "value". The requirements a
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.labelSelector.matchExpressions[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermlabelselector)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.labelSelector.matchExpressions[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermlabelselector)</sup></sup>
 
 
 
@@ -5062,8 +6597,8 @@ merge patch.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.namespaceSelector
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinityterm)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.namespaceSelector
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinityterm)</sup></sup>
 
 
 
@@ -5083,7 +6618,7 @@ An empty selector ({}) matches all namespaces.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermnamespaceselectormatchexpressionsindex">matchExpressions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermnamespaceselectormatchexpressionsindex">matchExpressions</a></b></td>
         <td>[]object</td>
         <td>
           matchExpressions is a list of label selector requirements. The requirements are ANDed.<br/>
@@ -5102,8 +6637,8 @@ operator is "In", and the values array contains only "value". The requirements a
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.namespaceSelector.matchExpressions[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermnamespaceselector)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.namespaceSelector.matchExpressions[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermnamespaceselector)</sup></sup>
 
 
 
@@ -5148,8 +6683,8 @@ merge patch.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodaffinity)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinity)</sup></sup>
 
 
 
@@ -5181,7 +6716,7 @@ Empty topologyKey is not allowed.<br/>
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindexlabelselector">labelSelector</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindexlabelselector">labelSelector</a></b></td>
         <td>object</td>
         <td>
           A label query over a set of resources, in this case pods.
@@ -5219,7 +6754,7 @@ This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature g
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindexnamespaceselector">namespaceSelector</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindexnamespaceselector">namespaceSelector</a></b></td>
         <td>object</td>
         <td>
           A label query over the set of namespaces that the term applies to.
@@ -5243,8 +6778,8 @@ null or empty namespaces list and null namespaceSelector means "this pod's names
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].labelSelector
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].labelSelector
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindex)</sup></sup>
 
 
 
@@ -5261,7 +6796,7 @@ If it's null, this PodAffinityTerm matches with no Pods.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindexlabelselectormatchexpressionsindex">matchExpressions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindexlabelselectormatchexpressionsindex">matchExpressions</a></b></td>
         <td>[]object</td>
         <td>
           matchExpressions is a list of label selector requirements. The requirements are ANDed.<br/>
@@ -5280,8 +6815,8 @@ operator is "In", and the values array contains only "value". The requirements a
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].labelSelector.matchExpressions[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindexlabelselector)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].labelSelector.matchExpressions[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindexlabelselector)</sup></sup>
 
 
 
@@ -5326,8 +6861,8 @@ merge patch.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].namespaceSelector
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].namespaceSelector
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindex)</sup></sup>
 
 
 
@@ -5347,7 +6882,7 @@ An empty selector ({}) matches all namespaces.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindexnamespaceselectormatchexpressionsindex">matchExpressions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindexnamespaceselectormatchexpressionsindex">matchExpressions</a></b></td>
         <td>[]object</td>
         <td>
           matchExpressions is a list of label selector requirements. The requirements are ANDed.<br/>
@@ -5366,8 +6901,8 @@ operator is "In", and the values array contains only "value". The requirements a
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].namespaceSelector.matchExpressions[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindexnamespaceselector)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].namespaceSelector.matchExpressions[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodaffinityrequiredduringschedulingignoredduringexecutionindexnamespaceselector)</sup></sup>
 
 
 
@@ -5412,8 +6947,8 @@ merge patch.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAntiAffinity
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinity)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAntiAffinity
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinity)</sup></sup>
 
 
 
@@ -5429,7 +6964,7 @@ Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindex">preferredDuringSchedulingIgnoredDuringExecution</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindex">preferredDuringSchedulingIgnoredDuringExecution</a></b></td>
         <td>[]object</td>
         <td>
           The scheduler will prefer to schedule pods to nodes that satisfy
@@ -5444,7 +6979,7 @@ node(s) with the highest sum are the most preferred.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindex">requiredDuringSchedulingIgnoredDuringExecution</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindex">requiredDuringSchedulingIgnoredDuringExecution</a></b></td>
         <td>[]object</td>
         <td>
           If the anti-affinity requirements specified by this field are not met at
@@ -5460,8 +6995,8 @@ podAffinityTerm are intersected, i.e. all terms must be satisfied.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodantiaffinity)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinity)</sup></sup>
 
 
 
@@ -5477,7 +7012,7 @@ The weights of all of the matched WeightedPodAffinityTerm fields are added per-n
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinityterm">podAffinityTerm</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinityterm">podAffinityTerm</a></b></td>
         <td>object</td>
         <td>
           Required. A pod affinity term, associated with the corresponding weight.<br/>
@@ -5497,8 +7032,8 @@ in the range 1-100.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindex)</sup></sup>
 
 
 
@@ -5525,7 +7060,7 @@ Empty topologyKey is not allowed.<br/>
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermlabelselector">labelSelector</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermlabelselector">labelSelector</a></b></td>
         <td>object</td>
         <td>
           A label query over a set of resources, in this case pods.
@@ -5563,7 +7098,7 @@ This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature g
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermnamespaceselector">namespaceSelector</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermnamespaceselector">namespaceSelector</a></b></td>
         <td>object</td>
         <td>
           A label query over the set of namespaces that the term applies to.
@@ -5587,8 +7122,8 @@ null or empty namespaces list and null namespaceSelector means "this pod's names
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.labelSelector
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinityterm)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.labelSelector
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinityterm)</sup></sup>
 
 
 
@@ -5605,7 +7140,7 @@ If it's null, this PodAffinityTerm matches with no Pods.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermlabelselectormatchexpressionsindex">matchExpressions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermlabelselectormatchexpressionsindex">matchExpressions</a></b></td>
         <td>[]object</td>
         <td>
           matchExpressions is a list of label selector requirements. The requirements are ANDed.<br/>
@@ -5624,8 +7159,8 @@ operator is "In", and the values array contains only "value". The requirements a
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.labelSelector.matchExpressions[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermlabelselector)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.labelSelector.matchExpressions[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermlabelselector)</sup></sup>
 
 
 
@@ -5670,8 +7205,8 @@ merge patch.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.namespaceSelector
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinityterm)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.namespaceSelector
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinityterm)</sup></sup>
 
 
 
@@ -5691,7 +7226,7 @@ An empty selector ({}) matches all namespaces.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermnamespaceselectormatchexpressionsindex">matchExpressions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermnamespaceselectormatchexpressionsindex">matchExpressions</a></b></td>
         <td>[]object</td>
         <td>
           matchExpressions is a list of label selector requirements. The requirements are ANDed.<br/>
@@ -5710,8 +7245,8 @@ operator is "In", and the values array contains only "value". The requirements a
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.namespaceSelector.matchExpressions[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermnamespaceselector)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[index].podAffinityTerm.namespaceSelector.matchExpressions[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinitypreferredduringschedulingignoredduringexecutionindexpodaffinitytermnamespaceselector)</sup></sup>
 
 
 
@@ -5756,8 +7291,8 @@ merge patch.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodantiaffinity)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinity)</sup></sup>
 
 
 
@@ -5789,7 +7324,7 @@ Empty topologyKey is not allowed.<br/>
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindexlabelselector">labelSelector</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindexlabelselector">labelSelector</a></b></td>
         <td>object</td>
         <td>
           A label query over a set of resources, in this case pods.
@@ -5827,7 +7362,7 @@ This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature g
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindexnamespaceselector">namespaceSelector</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindexnamespaceselector">namespaceSelector</a></b></td>
         <td>object</td>
         <td>
           A label query over the set of namespaces that the term applies to.
@@ -5851,8 +7386,8 @@ null or empty namespaces list and null namespaceSelector means "this pod's names
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].labelSelector
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].labelSelector
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindex)</sup></sup>
 
 
 
@@ -5869,7 +7404,7 @@ If it's null, this PodAffinityTerm matches with no Pods.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindexlabelselectormatchexpressionsindex">matchExpressions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindexlabelselectormatchexpressionsindex">matchExpressions</a></b></td>
         <td>[]object</td>
         <td>
           matchExpressions is a list of label selector requirements. The requirements are ANDed.<br/>
@@ -5888,8 +7423,8 @@ operator is "In", and the values array contains only "value". The requirements a
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].labelSelector.matchExpressions[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindexlabelselector)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].labelSelector.matchExpressions[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindexlabelselector)</sup></sup>
 
 
 
@@ -5934,8 +7469,8 @@ merge patch.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].namespaceSelector
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].namespaceSelector
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindex)</sup></sup>
 
 
 
@@ -5955,7 +7490,7 @@ An empty selector ({}) matches all namespaces.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindexnamespaceselectormatchexpressionsindex">matchExpressions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindexnamespaceselectormatchexpressionsindex">matchExpressions</a></b></td>
         <td>[]object</td>
         <td>
           matchExpressions is a list of label selector requirements. The requirements are ANDed.<br/>
@@ -5974,8 +7509,8 @@ operator is "In", and the values array contains only "value". The requirements a
 </table>
 
 
-### Workspace.spec.podTemplate.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].namespaceSelector.matchExpressions[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindexnamespaceselector)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution[index].namespaceSelector.matchExpressions[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecaffinitypodantiaffinityrequiredduringschedulingignoredduringexecutionindexnamespaceselector)</sup></sup>
 
 
 
@@ -6020,8 +7555,8 @@ merge patch.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.dnsConfig
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.dnsConfig
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -6048,7 +7583,7 @@ Duplicated nameservers will be removed.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecdnsconfigoptionsindex">options</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecdnsconfigoptionsindex">options</a></b></td>
         <td>[]object</td>
         <td>
           A list of DNS resolver options.
@@ -6070,8 +7605,8 @@ Duplicated search paths will be removed.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.dnsConfig.options[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecdnsconfig)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.dnsConfig.options[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecdnsconfig)</sup></sup>
 
 
 
@@ -6105,8 +7640,8 @@ Required.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -6165,7 +7700,7 @@ More info: https://kubernetes.io/docs/tasks/inject-data-application/define-comma
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexenvindex">env</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindex">env</a></b></td>
         <td>[]object</td>
         <td>
           List of environment variables to set in the container.
@@ -6173,7 +7708,7 @@ Cannot be updated.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexenvfromindex">envFrom</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvfromindex">envFrom</a></b></td>
         <td>[]object</td>
         <td>
           List of sources to populate environment variables in the container.
@@ -6204,42 +7739,42 @@ More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlifecycle">lifecycle</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecycle">lifecycle</a></b></td>
         <td>object</td>
         <td>
           Lifecycle is not allowed for ephemeral containers.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlivenessprobe">livenessProbe</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlivenessprobe">livenessProbe</a></b></td>
         <td>object</td>
         <td>
           Probes are not allowed for ephemeral containers.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexportsindex">ports</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexportsindex">ports</a></b></td>
         <td>[]object</td>
         <td>
           Ports are not allowed for ephemeral containers.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexreadinessprobe">readinessProbe</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexreadinessprobe">readinessProbe</a></b></td>
         <td>object</td>
         <td>
           Probes are not allowed for ephemeral containers.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexresizepolicyindex">resizePolicy</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexresizepolicyindex">resizePolicy</a></b></td>
         <td>[]object</td>
         <td>
           Resources resize policy for the container.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexresources">resources</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexresources">resources</a></b></td>
         <td>object</td>
         <td>
           Resources are not allowed for ephemeral containers. Ephemeral containers use spare resources
@@ -6257,7 +7792,7 @@ ephemeral containers.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexsecuritycontext">securityContext</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexsecuritycontext">securityContext</a></b></td>
         <td>object</td>
         <td>
           Optional: SecurityContext defines the security options the ephemeral container should be run with.
@@ -6265,7 +7800,7 @@ If set, the fields of SecurityContext override the equivalent fields of PodSecur
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexstartupprobe">startupProbe</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexstartupprobe">startupProbe</a></b></td>
         <td>object</td>
         <td>
           Probes are not allowed for ephemeral containers.<br/>
@@ -6340,14 +7875,14 @@ Default is false.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexvolumedevicesindex">volumeDevices</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexvolumedevicesindex">volumeDevices</a></b></td>
         <td>[]object</td>
         <td>
           volumeDevices is the list of block devices to be used by the container.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexvolumemountsindex">volumeMounts</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexvolumemountsindex">volumeMounts</a></b></td>
         <td>[]object</td>
         <td>
           Pod volumes to mount into the container's filesystem. Subpath mounts are not allowed for ephemeral containers.
@@ -6368,8 +7903,8 @@ Cannot be updated.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].env[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].env[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindex)</sup></sup>
 
 
 
@@ -6407,7 +7942,7 @@ Defaults to "".<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexenvindexvaluefrom">valueFrom</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindexvaluefrom">valueFrom</a></b></td>
         <td>object</td>
         <td>
           Source for the environment variable's value. Cannot be used if value is not empty.<br/>
@@ -6417,8 +7952,8 @@ Defaults to "".<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].env[index].valueFrom
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexenvindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].env[index].valueFrom
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindex)</sup></sup>
 
 
 
@@ -6434,14 +7969,14 @@ Source for the environment variable's value. Cannot be used if value is not empt
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexenvindexvaluefromconfigmapkeyref">configMapKeyRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindexvaluefromconfigmapkeyref">configMapKeyRef</a></b></td>
         <td>object</td>
         <td>
           Selects a key of a ConfigMap.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexenvindexvaluefromfieldref">fieldRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindexvaluefromfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
@@ -6449,7 +7984,7 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexenvindexvaluefromresourcefieldref">resourceFieldRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindexvaluefromresourcefieldref">resourceFieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a resource of the container: only resources limits and requests
@@ -6457,7 +7992,7 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexenvindexvaluefromsecretkeyref">secretKeyRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindexvaluefromsecretkeyref">secretKeyRef</a></b></td>
         <td>object</td>
         <td>
           Selects a key of a secret in the pod's namespace<br/>
@@ -6467,8 +8002,8 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].env[index].valueFrom.configMapKeyRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].env[index].valueFrom.configMapKeyRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindexvaluefrom)</sup></sup>
 
 
 
@@ -6514,8 +8049,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].env[index].valueFrom.fieldRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].env[index].valueFrom.fieldRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindexvaluefrom)</sup></sup>
 
 
 
@@ -6549,8 +8084,8 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].env[index].valueFrom.resourceFieldRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].env[index].valueFrom.resourceFieldRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindexvaluefrom)</sup></sup>
 
 
 
@@ -6591,8 +8126,8 @@ Selects a resource of the container: only resources limits and requests
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].env[index].valueFrom.secretKeyRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].env[index].valueFrom.secretKeyRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindexvaluefrom)</sup></sup>
 
 
 
@@ -6638,8 +8173,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].envFrom[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].envFrom[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindex)</sup></sup>
 
 
 
@@ -6655,7 +8190,7 @@ EnvFromSource represents the source of a set of ConfigMaps
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexenvfromindexconfigmapref">configMapRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvfromindexconfigmapref">configMapRef</a></b></td>
         <td>object</td>
         <td>
           The ConfigMap to select from<br/>
@@ -6669,7 +8204,7 @@ EnvFromSource represents the source of a set of ConfigMaps
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexenvfromindexsecretref">secretRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvfromindexsecretref">secretRef</a></b></td>
         <td>object</td>
         <td>
           The Secret to select from<br/>
@@ -6679,8 +8214,8 @@ EnvFromSource represents the source of a set of ConfigMaps
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].envFrom[index].configMapRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexenvfromindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].envFrom[index].configMapRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvfromindex)</sup></sup>
 
 
 
@@ -6719,8 +8254,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].envFrom[index].secretRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexenvfromindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].envFrom[index].secretRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvfromindex)</sup></sup>
 
 
 
@@ -6759,8 +8294,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].lifecycle
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].lifecycle
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindex)</sup></sup>
 
 
 
@@ -6776,7 +8311,7 @@ Lifecycle is not allowed for ephemeral containers.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlifecyclepoststart">postStart</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecyclepoststart">postStart</a></b></td>
         <td>object</td>
         <td>
           PostStart is called immediately after a container is created. If the handler fails,
@@ -6786,7 +8321,7 @@ More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-ho
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlifecycleprestop">preStop</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecycleprestop">preStop</a></b></td>
         <td>object</td>
         <td>
           PreStop is called immediately before a container is terminated due to an
@@ -6804,8 +8339,8 @@ More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-ho
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.postStart
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlifecycle)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.postStart
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecycle)</sup></sup>
 
 
 
@@ -6824,28 +8359,28 @@ More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-ho
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlifecyclepoststartexec">exec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecyclepoststartexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlifecyclepoststarthttpget">httpGet</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecyclepoststarthttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlifecyclepoststartsleep">sleep</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecyclepoststartsleep">sleep</a></b></td>
         <td>object</td>
         <td>
           Sleep represents a duration that the container should sleep.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlifecyclepoststarttcpsocket">tcpSocket</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecyclepoststarttcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
           Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept
@@ -6857,8 +8392,8 @@ lifecycle hooks will fail at runtime when it is specified.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.postStart.exec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlifecyclepoststart)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.postStart.exec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecyclepoststart)</sup></sup>
 
 
 
@@ -6888,8 +8423,8 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.postStart.httpGet
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlifecyclepoststart)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.postStart.httpGet
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecyclepoststart)</sup></sup>
 
 
 
@@ -6922,7 +8457,7 @@ Name must be an IANA_SVC_NAME.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlifecyclepoststarthttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecyclepoststarthttpgethttpheadersindex">httpHeaders</a></b></td>
         <td>[]object</td>
         <td>
           Custom headers to set in the request. HTTP allows repeated headers.<br/>
@@ -6947,8 +8482,8 @@ Defaults to HTTP.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.postStart.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlifecyclepoststarthttpget)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.postStart.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecyclepoststarthttpget)</sup></sup>
 
 
 
@@ -6982,8 +8517,8 @@ This will be canonicalized upon output, so case-variant names will be understood
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.postStart.sleep
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlifecyclepoststart)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.postStart.sleep
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecyclepoststart)</sup></sup>
 
 
 
@@ -7011,8 +8546,8 @@ Sleep represents a duration that the container should sleep.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.postStart.tcpSocket
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlifecyclepoststart)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.postStart.tcpSocket
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecyclepoststart)</sup></sup>
 
 
 
@@ -7049,8 +8584,8 @@ Name must be an IANA_SVC_NAME.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.preStop
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlifecycle)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.preStop
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecycle)</sup></sup>
 
 
 
@@ -7074,28 +8609,28 @@ More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-ho
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlifecycleprestopexec">exec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecycleprestopexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlifecycleprestophttpget">httpGet</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecycleprestophttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlifecycleprestopsleep">sleep</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecycleprestopsleep">sleep</a></b></td>
         <td>object</td>
         <td>
           Sleep represents a duration that the container should sleep.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlifecycleprestoptcpsocket">tcpSocket</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecycleprestoptcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
           Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept
@@ -7107,8 +8642,8 @@ lifecycle hooks will fail at runtime when it is specified.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.preStop.exec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlifecycleprestop)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.preStop.exec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecycleprestop)</sup></sup>
 
 
 
@@ -7138,8 +8673,8 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.preStop.httpGet
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlifecycleprestop)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.preStop.httpGet
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecycleprestop)</sup></sup>
 
 
 
@@ -7172,7 +8707,7 @@ Name must be an IANA_SVC_NAME.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlifecycleprestophttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecycleprestophttpgethttpheadersindex">httpHeaders</a></b></td>
         <td>[]object</td>
         <td>
           Custom headers to set in the request. HTTP allows repeated headers.<br/>
@@ -7197,8 +8732,8 @@ Defaults to HTTP.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.preStop.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlifecycleprestophttpget)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.preStop.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecycleprestophttpget)</sup></sup>
 
 
 
@@ -7232,8 +8767,8 @@ This will be canonicalized upon output, so case-variant names will be understood
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.preStop.sleep
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlifecycleprestop)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.preStop.sleep
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecycleprestop)</sup></sup>
 
 
 
@@ -7261,8 +8796,8 @@ Sleep represents a duration that the container should sleep.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.preStop.tcpSocket
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlifecycleprestop)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].lifecycle.preStop.tcpSocket
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlifecycleprestop)</sup></sup>
 
 
 
@@ -7299,8 +8834,8 @@ Name must be an IANA_SVC_NAME.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].livenessProbe
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].livenessProbe
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindex)</sup></sup>
 
 
 
@@ -7316,7 +8851,7 @@ Probes are not allowed for ephemeral containers.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlivenessprobeexec">exec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlivenessprobeexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
@@ -7333,14 +8868,14 @@ Defaults to 3. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlivenessprobegrpc">grpc</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlivenessprobegrpc">grpc</a></b></td>
         <td>object</td>
         <td>
           GRPC specifies a GRPC HealthCheckRequest.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlivenessprobehttpget">httpGet</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlivenessprobehttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
@@ -7377,7 +8912,7 @@ Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlivenessprobetcpsocket">tcpSocket</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlivenessprobetcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
           TCPSocket specifies a connection to a TCP port.<br/>
@@ -7416,8 +8951,8 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].livenessProbe.exec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlivenessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].livenessProbe.exec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlivenessprobe)</sup></sup>
 
 
 
@@ -7447,8 +8982,8 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].livenessProbe.grpc
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlivenessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].livenessProbe.grpc
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlivenessprobe)</sup></sup>
 
 
 
@@ -7488,8 +9023,8 @@ If this is not specified, the default behavior is defined by gRPC.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].livenessProbe.httpGet
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlivenessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].livenessProbe.httpGet
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlivenessprobe)</sup></sup>
 
 
 
@@ -7522,7 +9057,7 @@ Name must be an IANA_SVC_NAME.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexlivenessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlivenessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
         <td>[]object</td>
         <td>
           Custom headers to set in the request. HTTP allows repeated headers.<br/>
@@ -7547,8 +9082,8 @@ Defaults to HTTP.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].livenessProbe.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlivenessprobehttpget)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].livenessProbe.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlivenessprobehttpget)</sup></sup>
 
 
 
@@ -7582,8 +9117,8 @@ This will be canonicalized upon output, so case-variant names will be understood
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].livenessProbe.tcpSocket
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexlivenessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].livenessProbe.tcpSocket
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexlivenessprobe)</sup></sup>
 
 
 
@@ -7618,8 +9153,8 @@ Name must be an IANA_SVC_NAME.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].ports[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].ports[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindex)</sup></sup>
 
 
 
@@ -7686,8 +9221,8 @@ Defaults to "TCP".<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].readinessProbe
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].readinessProbe
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindex)</sup></sup>
 
 
 
@@ -7703,7 +9238,7 @@ Probes are not allowed for ephemeral containers.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexreadinessprobeexec">exec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexreadinessprobeexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
@@ -7720,14 +9255,14 @@ Defaults to 3. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexreadinessprobegrpc">grpc</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexreadinessprobegrpc">grpc</a></b></td>
         <td>object</td>
         <td>
           GRPC specifies a GRPC HealthCheckRequest.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexreadinessprobehttpget">httpGet</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexreadinessprobehttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
@@ -7764,7 +9299,7 @@ Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexreadinessprobetcpsocket">tcpSocket</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexreadinessprobetcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
           TCPSocket specifies a connection to a TCP port.<br/>
@@ -7803,8 +9338,8 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].readinessProbe.exec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexreadinessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].readinessProbe.exec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexreadinessprobe)</sup></sup>
 
 
 
@@ -7834,8 +9369,8 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].readinessProbe.grpc
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexreadinessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].readinessProbe.grpc
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexreadinessprobe)</sup></sup>
 
 
 
@@ -7875,8 +9410,8 @@ If this is not specified, the default behavior is defined by gRPC.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].readinessProbe.httpGet
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexreadinessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].readinessProbe.httpGet
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexreadinessprobe)</sup></sup>
 
 
 
@@ -7909,7 +9444,7 @@ Name must be an IANA_SVC_NAME.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexreadinessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexreadinessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
         <td>[]object</td>
         <td>
           Custom headers to set in the request. HTTP allows repeated headers.<br/>
@@ -7934,8 +9469,8 @@ Defaults to HTTP.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].readinessProbe.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexreadinessprobehttpget)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].readinessProbe.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexreadinessprobehttpget)</sup></sup>
 
 
 
@@ -7969,8 +9504,8 @@ This will be canonicalized upon output, so case-variant names will be understood
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].readinessProbe.tcpSocket
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexreadinessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].readinessProbe.tcpSocket
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexreadinessprobe)</sup></sup>
 
 
 
@@ -8005,8 +9540,8 @@ Name must be an IANA_SVC_NAME.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].resizePolicy[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].resizePolicy[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindex)</sup></sup>
 
 
 
@@ -8041,8 +9576,8 @@ If not specified, it defaults to NotRequired.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].resources
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].resources
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindex)</sup></sup>
 
 
 
@@ -8059,7 +9594,7 @@ already allocated to the pod.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexresourcesclaimsindex">claims</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexresourcesclaimsindex">claims</a></b></td>
         <td>[]object</td>
         <td>
           Claims lists the names of resources, defined in spec.resourceClaims,
@@ -8093,8 +9628,8 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].resources.claims[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexresources)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].resources.claims[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexresources)</sup></sup>
 
 
 
@@ -8131,8 +9666,8 @@ only the result of this request.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].securityContext
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].securityContext
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindex)</sup></sup>
 
 
 
@@ -8162,7 +9697,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexsecuritycontextapparmorprofile">appArmorProfile</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexsecuritycontextapparmorprofile">appArmorProfile</a></b></td>
         <td>object</td>
         <td>
           appArmorProfile is the AppArmor options to use by this container. If set, this profile
@@ -8171,7 +9706,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexsecuritycontextcapabilities">capabilities</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexsecuritycontextcapabilities">capabilities</a></b></td>
         <td>object</td>
         <td>
           The capabilities to add/drop when running containers.
@@ -8248,7 +9783,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexsecuritycontextselinuxoptions">seLinuxOptions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexsecuritycontextselinuxoptions">seLinuxOptions</a></b></td>
         <td>object</td>
         <td>
           The SELinux context to be applied to the container.
@@ -8259,7 +9794,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexsecuritycontextseccompprofile">seccompProfile</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexsecuritycontextseccompprofile">seccompProfile</a></b></td>
         <td>object</td>
         <td>
           The seccomp options to use by this container. If seccomp options are
@@ -8269,7 +9804,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexsecuritycontextwindowsoptions">windowsOptions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexsecuritycontextwindowsoptions">windowsOptions</a></b></td>
         <td>object</td>
         <td>
           The Windows specific settings applied to all containers.
@@ -8282,8 +9817,8 @@ Note that this field cannot be set when spec.os.name is linux.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].securityContext.appArmorProfile
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].securityContext.appArmorProfile
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexsecuritycontext)</sup></sup>
 
 
 
@@ -8325,8 +9860,8 @@ Must be set if and only if type is "Localhost".<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].securityContext.capabilities
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].securityContext.capabilities
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexsecuritycontext)</sup></sup>
 
 
 
@@ -8361,8 +9896,8 @@ Note that this field cannot be set when spec.os.name is windows.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].securityContext.seLinuxOptions
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].securityContext.seLinuxOptions
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexsecuritycontext)</sup></sup>
 
 
 
@@ -8413,8 +9948,8 @@ Note that this field cannot be set when spec.os.name is windows.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].securityContext.seccompProfile
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].securityContext.seccompProfile
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexsecuritycontext)</sup></sup>
 
 
 
@@ -8458,8 +9993,8 @@ Must be set if type is "Localhost". Must NOT be set for any other type.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].securityContext.windowsOptions
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].securityContext.windowsOptions
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexsecuritycontext)</sup></sup>
 
 
 
@@ -8517,8 +10052,8 @@ PodSecurityContext, the value specified in SecurityContext takes precedence.<br/
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].startupProbe
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].startupProbe
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindex)</sup></sup>
 
 
 
@@ -8534,7 +10069,7 @@ Probes are not allowed for ephemeral containers.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexstartupprobeexec">exec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexstartupprobeexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
@@ -8551,14 +10086,14 @@ Defaults to 3. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexstartupprobegrpc">grpc</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexstartupprobegrpc">grpc</a></b></td>
         <td>object</td>
         <td>
           GRPC specifies a GRPC HealthCheckRequest.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexstartupprobehttpget">httpGet</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexstartupprobehttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
@@ -8595,7 +10130,7 @@ Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexstartupprobetcpsocket">tcpSocket</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexstartupprobetcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
           TCPSocket specifies a connection to a TCP port.<br/>
@@ -8634,8 +10169,8 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].startupProbe.exec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexstartupprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].startupProbe.exec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexstartupprobe)</sup></sup>
 
 
 
@@ -8665,8 +10200,8 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].startupProbe.grpc
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexstartupprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].startupProbe.grpc
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexstartupprobe)</sup></sup>
 
 
 
@@ -8706,8 +10241,8 @@ If this is not specified, the default behavior is defined by gRPC.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].startupProbe.httpGet
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexstartupprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].startupProbe.httpGet
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexstartupprobe)</sup></sup>
 
 
 
@@ -8740,7 +10275,7 @@ Name must be an IANA_SVC_NAME.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecephemeralcontainersindexstartupprobehttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexstartupprobehttpgethttpheadersindex">httpHeaders</a></b></td>
         <td>[]object</td>
         <td>
           Custom headers to set in the request. HTTP allows repeated headers.<br/>
@@ -8765,8 +10300,8 @@ Defaults to HTTP.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].startupProbe.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexstartupprobehttpget)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].startupProbe.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexstartupprobehttpget)</sup></sup>
 
 
 
@@ -8800,8 +10335,8 @@ This will be canonicalized upon output, so case-variant names will be understood
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].startupProbe.tcpSocket
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindexstartupprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].startupProbe.tcpSocket
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindexstartupprobe)</sup></sup>
 
 
 
@@ -8836,8 +10371,8 @@ Name must be an IANA_SVC_NAME.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].volumeDevices[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].volumeDevices[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindex)</sup></sup>
 
 
 
@@ -8870,8 +10405,8 @@ volumeDevice describes a mapping of a raw block device within a container.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.ephemeralContainers[index].volumeMounts[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecephemeralcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].volumeMounts[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecephemeralcontainersindex)</sup></sup>
 
 
 
@@ -8965,8 +10500,8 @@ SubPathExpr and SubPath are mutually exclusive.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.hostAliases[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.hostAliases[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -9000,8 +10535,8 @@ pod's hosts file.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.imagePullSecrets[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.imagePullSecrets[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -9034,8 +10569,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -9088,7 +10623,7 @@ More info: https://kubernetes.io/docs/tasks/inject-data-application/define-comma
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexenvindex">env</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvindex">env</a></b></td>
         <td>[]object</td>
         <td>
           List of environment variables to set in the container.
@@ -9096,7 +10631,7 @@ Cannot be updated.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexenvfromindex">envFrom</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvfromindex">envFrom</a></b></td>
         <td>[]object</td>
         <td>
           List of sources to populate environment variables in the container.
@@ -9129,7 +10664,7 @@ More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlifecycle">lifecycle</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecycle">lifecycle</a></b></td>
         <td>object</td>
         <td>
           Actions that the management system should take in response to container lifecycle events.
@@ -9137,7 +10672,7 @@ Cannot be updated.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlivenessprobe">livenessProbe</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlivenessprobe">livenessProbe</a></b></td>
         <td>object</td>
         <td>
           Periodic probe of container liveness.
@@ -9147,7 +10682,7 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexportsindex">ports</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexportsindex">ports</a></b></td>
         <td>[]object</td>
         <td>
           List of ports to expose from the container. Not specifying a port here
@@ -9160,7 +10695,7 @@ Cannot be updated.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexreadinessprobe">readinessProbe</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexreadinessprobe">readinessProbe</a></b></td>
         <td>object</td>
         <td>
           Periodic probe of container service readiness.
@@ -9170,14 +10705,14 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexresizepolicyindex">resizePolicy</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexresizepolicyindex">resizePolicy</a></b></td>
         <td>[]object</td>
         <td>
           Resources resize policy for the container.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexresources">resources</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexresources">resources</a></b></td>
         <td>object</td>
         <td>
           Compute Resources required by this container.
@@ -9207,7 +10742,7 @@ completed.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexsecuritycontext">securityContext</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexsecuritycontext">securityContext</a></b></td>
         <td>object</td>
         <td>
           SecurityContext defines the security options the container should be run with.
@@ -9216,7 +10751,7 @@ More info: https://kubernetes.io/docs/tasks/configure-pod-container/security-con
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexstartupprobe">startupProbe</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexstartupprobe">startupProbe</a></b></td>
         <td>object</td>
         <td>
           StartupProbe indicates that the Pod has successfully initialized.
@@ -9285,14 +10820,14 @@ Default is false.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexvolumedevicesindex">volumeDevices</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexvolumedevicesindex">volumeDevices</a></b></td>
         <td>[]object</td>
         <td>
           volumeDevices is the list of block devices to be used by the container.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexvolumemountsindex">volumeMounts</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexvolumemountsindex">volumeMounts</a></b></td>
         <td>[]object</td>
         <td>
           Pod volumes to mount into the container's filesystem.
@@ -9313,8 +10848,8 @@ Cannot be updated.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].env[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].env[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindex)</sup></sup>
 
 
 
@@ -9352,7 +10887,7 @@ Defaults to "".<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexenvindexvaluefrom">valueFrom</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvindexvaluefrom">valueFrom</a></b></td>
         <td>object</td>
         <td>
           Source for the environment variable's value. Cannot be used if value is not empty.<br/>
@@ -9362,8 +10897,8 @@ Defaults to "".<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].env[index].valueFrom
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexenvindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].env[index].valueFrom
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvindex)</sup></sup>
 
 
 
@@ -9379,14 +10914,14 @@ Source for the environment variable's value. Cannot be used if value is not empt
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexenvindexvaluefromconfigmapkeyref">configMapKeyRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvindexvaluefromconfigmapkeyref">configMapKeyRef</a></b></td>
         <td>object</td>
         <td>
           Selects a key of a ConfigMap.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexenvindexvaluefromfieldref">fieldRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvindexvaluefromfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
@@ -9394,7 +10929,7 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexenvindexvaluefromresourcefieldref">resourceFieldRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvindexvaluefromresourcefieldref">resourceFieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a resource of the container: only resources limits and requests
@@ -9402,7 +10937,7 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexenvindexvaluefromsecretkeyref">secretKeyRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvindexvaluefromsecretkeyref">secretKeyRef</a></b></td>
         <td>object</td>
         <td>
           Selects a key of a secret in the pod's namespace<br/>
@@ -9412,8 +10947,8 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].env[index].valueFrom.configMapKeyRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].env[index].valueFrom.configMapKeyRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvindexvaluefrom)</sup></sup>
 
 
 
@@ -9459,8 +10994,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].env[index].valueFrom.fieldRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].env[index].valueFrom.fieldRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvindexvaluefrom)</sup></sup>
 
 
 
@@ -9494,8 +11029,8 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].env[index].valueFrom.resourceFieldRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].env[index].valueFrom.resourceFieldRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvindexvaluefrom)</sup></sup>
 
 
 
@@ -9536,8 +11071,8 @@ Selects a resource of the container: only resources limits and requests
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].env[index].valueFrom.secretKeyRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexenvindexvaluefrom)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].env[index].valueFrom.secretKeyRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvindexvaluefrom)</sup></sup>
 
 
 
@@ -9583,8 +11118,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].envFrom[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].envFrom[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindex)</sup></sup>
 
 
 
@@ -9600,7 +11135,7 @@ EnvFromSource represents the source of a set of ConfigMaps
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexenvfromindexconfigmapref">configMapRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvfromindexconfigmapref">configMapRef</a></b></td>
         <td>object</td>
         <td>
           The ConfigMap to select from<br/>
@@ -9614,7 +11149,7 @@ EnvFromSource represents the source of a set of ConfigMaps
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexenvfromindexsecretref">secretRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvfromindexsecretref">secretRef</a></b></td>
         <td>object</td>
         <td>
           The Secret to select from<br/>
@@ -9624,8 +11159,8 @@ EnvFromSource represents the source of a set of ConfigMaps
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].envFrom[index].configMapRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexenvfromindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].envFrom[index].configMapRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvfromindex)</sup></sup>
 
 
 
@@ -9664,8 +11199,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].envFrom[index].secretRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexenvfromindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].envFrom[index].secretRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexenvfromindex)</sup></sup>
 
 
 
@@ -9704,8 +11239,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].lifecycle
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].lifecycle
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindex)</sup></sup>
 
 
 
@@ -9722,7 +11257,7 @@ Cannot be updated.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlifecyclepoststart">postStart</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecyclepoststart">postStart</a></b></td>
         <td>object</td>
         <td>
           PostStart is called immediately after a container is created. If the handler fails,
@@ -9732,7 +11267,7 @@ More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-ho
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlifecycleprestop">preStop</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecycleprestop">preStop</a></b></td>
         <td>object</td>
         <td>
           PreStop is called immediately before a container is terminated due to an
@@ -9750,8 +11285,8 @@ More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-ho
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].lifecycle.postStart
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlifecycle)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].lifecycle.postStart
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecycle)</sup></sup>
 
 
 
@@ -9770,28 +11305,28 @@ More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-ho
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlifecyclepoststartexec">exec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecyclepoststartexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlifecyclepoststarthttpget">httpGet</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecyclepoststarthttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlifecyclepoststartsleep">sleep</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecyclepoststartsleep">sleep</a></b></td>
         <td>object</td>
         <td>
           Sleep represents a duration that the container should sleep.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlifecyclepoststarttcpsocket">tcpSocket</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecyclepoststarttcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
           Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept
@@ -9803,8 +11338,8 @@ lifecycle hooks will fail at runtime when it is specified.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].lifecycle.postStart.exec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlifecyclepoststart)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].lifecycle.postStart.exec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecyclepoststart)</sup></sup>
 
 
 
@@ -9834,8 +11369,8 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].lifecycle.postStart.httpGet
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlifecyclepoststart)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].lifecycle.postStart.httpGet
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecyclepoststart)</sup></sup>
 
 
 
@@ -9868,7 +11403,7 @@ Name must be an IANA_SVC_NAME.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlifecyclepoststarthttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecyclepoststarthttpgethttpheadersindex">httpHeaders</a></b></td>
         <td>[]object</td>
         <td>
           Custom headers to set in the request. HTTP allows repeated headers.<br/>
@@ -9893,8 +11428,8 @@ Defaults to HTTP.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].lifecycle.postStart.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlifecyclepoststarthttpget)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].lifecycle.postStart.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecyclepoststarthttpget)</sup></sup>
 
 
 
@@ -9928,8 +11463,8 @@ This will be canonicalized upon output, so case-variant names will be understood
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].lifecycle.postStart.sleep
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlifecyclepoststart)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].lifecycle.postStart.sleep
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecyclepoststart)</sup></sup>
 
 
 
@@ -9957,8 +11492,8 @@ Sleep represents a duration that the container should sleep.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].lifecycle.postStart.tcpSocket
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlifecyclepoststart)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].lifecycle.postStart.tcpSocket
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecyclepoststart)</sup></sup>
 
 
 
@@ -9995,8 +11530,8 @@ Name must be an IANA_SVC_NAME.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].lifecycle.preStop
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlifecycle)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].lifecycle.preStop
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecycle)</sup></sup>
 
 
 
@@ -10020,28 +11555,28 @@ More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-ho
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlifecycleprestopexec">exec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecycleprestopexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlifecycleprestophttpget">httpGet</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecycleprestophttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlifecycleprestopsleep">sleep</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecycleprestopsleep">sleep</a></b></td>
         <td>object</td>
         <td>
           Sleep represents a duration that the container should sleep.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlifecycleprestoptcpsocket">tcpSocket</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecycleprestoptcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
           Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept
@@ -10053,8 +11588,8 @@ lifecycle hooks will fail at runtime when it is specified.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].lifecycle.preStop.exec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlifecycleprestop)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].lifecycle.preStop.exec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecycleprestop)</sup></sup>
 
 
 
@@ -10084,8 +11619,8 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].lifecycle.preStop.httpGet
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlifecycleprestop)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].lifecycle.preStop.httpGet
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecycleprestop)</sup></sup>
 
 
 
@@ -10118,7 +11653,7 @@ Name must be an IANA_SVC_NAME.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlifecycleprestophttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecycleprestophttpgethttpheadersindex">httpHeaders</a></b></td>
         <td>[]object</td>
         <td>
           Custom headers to set in the request. HTTP allows repeated headers.<br/>
@@ -10143,8 +11678,8 @@ Defaults to HTTP.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].lifecycle.preStop.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlifecycleprestophttpget)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].lifecycle.preStop.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecycleprestophttpget)</sup></sup>
 
 
 
@@ -10178,8 +11713,8 @@ This will be canonicalized upon output, so case-variant names will be understood
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].lifecycle.preStop.sleep
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlifecycleprestop)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].lifecycle.preStop.sleep
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecycleprestop)</sup></sup>
 
 
 
@@ -10207,8 +11742,8 @@ Sleep represents a duration that the container should sleep.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].lifecycle.preStop.tcpSocket
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlifecycleprestop)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].lifecycle.preStop.tcpSocket
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlifecycleprestop)</sup></sup>
 
 
 
@@ -10245,8 +11780,8 @@ Name must be an IANA_SVC_NAME.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].livenessProbe
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].livenessProbe
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindex)</sup></sup>
 
 
 
@@ -10265,7 +11800,7 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlivenessprobeexec">exec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlivenessprobeexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
@@ -10282,14 +11817,14 @@ Defaults to 3. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlivenessprobegrpc">grpc</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlivenessprobegrpc">grpc</a></b></td>
         <td>object</td>
         <td>
           GRPC specifies a GRPC HealthCheckRequest.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlivenessprobehttpget">httpGet</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlivenessprobehttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
@@ -10326,7 +11861,7 @@ Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlivenessprobetcpsocket">tcpSocket</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlivenessprobetcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
           TCPSocket specifies a connection to a TCP port.<br/>
@@ -10365,8 +11900,8 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].livenessProbe.exec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlivenessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].livenessProbe.exec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlivenessprobe)</sup></sup>
 
 
 
@@ -10396,8 +11931,8 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].livenessProbe.grpc
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlivenessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].livenessProbe.grpc
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlivenessprobe)</sup></sup>
 
 
 
@@ -10437,8 +11972,8 @@ If this is not specified, the default behavior is defined by gRPC.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].livenessProbe.httpGet
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlivenessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].livenessProbe.httpGet
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlivenessprobe)</sup></sup>
 
 
 
@@ -10471,7 +12006,7 @@ Name must be an IANA_SVC_NAME.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexlivenessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlivenessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
         <td>[]object</td>
         <td>
           Custom headers to set in the request. HTTP allows repeated headers.<br/>
@@ -10496,8 +12031,8 @@ Defaults to HTTP.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].livenessProbe.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlivenessprobehttpget)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].livenessProbe.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlivenessprobehttpget)</sup></sup>
 
 
 
@@ -10531,8 +12066,8 @@ This will be canonicalized upon output, so case-variant names will be understood
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].livenessProbe.tcpSocket
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexlivenessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].livenessProbe.tcpSocket
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexlivenessprobe)</sup></sup>
 
 
 
@@ -10567,8 +12102,8 @@ Name must be an IANA_SVC_NAME.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].ports[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].ports[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindex)</sup></sup>
 
 
 
@@ -10635,8 +12170,8 @@ Defaults to "TCP".<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].readinessProbe
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].readinessProbe
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindex)</sup></sup>
 
 
 
@@ -10655,7 +12190,7 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexreadinessprobeexec">exec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexreadinessprobeexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
@@ -10672,14 +12207,14 @@ Defaults to 3. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexreadinessprobegrpc">grpc</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexreadinessprobegrpc">grpc</a></b></td>
         <td>object</td>
         <td>
           GRPC specifies a GRPC HealthCheckRequest.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexreadinessprobehttpget">httpGet</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexreadinessprobehttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
@@ -10716,7 +12251,7 @@ Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexreadinessprobetcpsocket">tcpSocket</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexreadinessprobetcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
           TCPSocket specifies a connection to a TCP port.<br/>
@@ -10755,8 +12290,8 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].readinessProbe.exec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexreadinessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].readinessProbe.exec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexreadinessprobe)</sup></sup>
 
 
 
@@ -10786,8 +12321,8 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].readinessProbe.grpc
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexreadinessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].readinessProbe.grpc
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexreadinessprobe)</sup></sup>
 
 
 
@@ -10827,8 +12362,8 @@ If this is not specified, the default behavior is defined by gRPC.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].readinessProbe.httpGet
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexreadinessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].readinessProbe.httpGet
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexreadinessprobe)</sup></sup>
 
 
 
@@ -10861,7 +12396,7 @@ Name must be an IANA_SVC_NAME.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexreadinessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexreadinessprobehttpgethttpheadersindex">httpHeaders</a></b></td>
         <td>[]object</td>
         <td>
           Custom headers to set in the request. HTTP allows repeated headers.<br/>
@@ -10886,8 +12421,8 @@ Defaults to HTTP.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].readinessProbe.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexreadinessprobehttpget)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].readinessProbe.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexreadinessprobehttpget)</sup></sup>
 
 
 
@@ -10921,8 +12456,8 @@ This will be canonicalized upon output, so case-variant names will be understood
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].readinessProbe.tcpSocket
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexreadinessprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].readinessProbe.tcpSocket
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexreadinessprobe)</sup></sup>
 
 
 
@@ -10957,8 +12492,8 @@ Name must be an IANA_SVC_NAME.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].resizePolicy[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].resizePolicy[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindex)</sup></sup>
 
 
 
@@ -10993,8 +12528,8 @@ If not specified, it defaults to NotRequired.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].resources
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].resources
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindex)</sup></sup>
 
 
 
@@ -11012,7 +12547,7 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexresourcesclaimsindex">claims</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexresourcesclaimsindex">claims</a></b></td>
         <td>[]object</td>
         <td>
           Claims lists the names of resources, defined in spec.resourceClaims,
@@ -11046,8 +12581,8 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].resources.claims[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexresources)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].resources.claims[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexresources)</sup></sup>
 
 
 
@@ -11084,8 +12619,8 @@ only the result of this request.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].securityContext
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].securityContext
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindex)</sup></sup>
 
 
 
@@ -11116,7 +12651,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexsecuritycontextapparmorprofile">appArmorProfile</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexsecuritycontextapparmorprofile">appArmorProfile</a></b></td>
         <td>object</td>
         <td>
           appArmorProfile is the AppArmor options to use by this container. If set, this profile
@@ -11125,7 +12660,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexsecuritycontextcapabilities">capabilities</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexsecuritycontextcapabilities">capabilities</a></b></td>
         <td>object</td>
         <td>
           The capabilities to add/drop when running containers.
@@ -11202,7 +12737,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexsecuritycontextselinuxoptions">seLinuxOptions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexsecuritycontextselinuxoptions">seLinuxOptions</a></b></td>
         <td>object</td>
         <td>
           The SELinux context to be applied to the container.
@@ -11213,7 +12748,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexsecuritycontextseccompprofile">seccompProfile</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexsecuritycontextseccompprofile">seccompProfile</a></b></td>
         <td>object</td>
         <td>
           The seccomp options to use by this container. If seccomp options are
@@ -11223,7 +12758,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexsecuritycontextwindowsoptions">windowsOptions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexsecuritycontextwindowsoptions">windowsOptions</a></b></td>
         <td>object</td>
         <td>
           The Windows specific settings applied to all containers.
@@ -11236,8 +12771,8 @@ Note that this field cannot be set when spec.os.name is linux.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].securityContext.appArmorProfile
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].securityContext.appArmorProfile
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexsecuritycontext)</sup></sup>
 
 
 
@@ -11279,8 +12814,8 @@ Must be set if and only if type is "Localhost".<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].securityContext.capabilities
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].securityContext.capabilities
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexsecuritycontext)</sup></sup>
 
 
 
@@ -11315,8 +12850,8 @@ Note that this field cannot be set when spec.os.name is windows.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].securityContext.seLinuxOptions
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].securityContext.seLinuxOptions
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexsecuritycontext)</sup></sup>
 
 
 
@@ -11367,8 +12902,8 @@ Note that this field cannot be set when spec.os.name is windows.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].securityContext.seccompProfile
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].securityContext.seccompProfile
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexsecuritycontext)</sup></sup>
 
 
 
@@ -11412,8 +12947,8 @@ Must be set if type is "Localhost". Must NOT be set for any other type.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].securityContext.windowsOptions
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].securityContext.windowsOptions
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexsecuritycontext)</sup></sup>
 
 
 
@@ -11471,8 +13006,8 @@ PodSecurityContext, the value specified in SecurityContext takes precedence.<br/
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].startupProbe
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].startupProbe
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindex)</sup></sup>
 
 
 
@@ -11494,7 +13029,7 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexstartupprobeexec">exec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexstartupprobeexec">exec</a></b></td>
         <td>object</td>
         <td>
           Exec specifies a command to execute in the container.<br/>
@@ -11511,14 +13046,14 @@ Defaults to 3. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexstartupprobegrpc">grpc</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexstartupprobegrpc">grpc</a></b></td>
         <td>object</td>
         <td>
           GRPC specifies a GRPC HealthCheckRequest.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexstartupprobehttpget">httpGet</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexstartupprobehttpget">httpGet</a></b></td>
         <td>object</td>
         <td>
           HTTPGet specifies an HTTP GET request to perform.<br/>
@@ -11555,7 +13090,7 @@ Defaults to 1. Must be 1 for liveness and startup. Minimum value is 1.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexstartupprobetcpsocket">tcpSocket</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexstartupprobetcpsocket">tcpSocket</a></b></td>
         <td>object</td>
         <td>
           TCPSocket specifies a connection to a TCP port.<br/>
@@ -11594,8 +13129,8 @@ More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#cont
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].startupProbe.exec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexstartupprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].startupProbe.exec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexstartupprobe)</sup></sup>
 
 
 
@@ -11625,8 +13160,8 @@ Exit status of 0 is treated as live/healthy and non-zero is unhealthy.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].startupProbe.grpc
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexstartupprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].startupProbe.grpc
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexstartupprobe)</sup></sup>
 
 
 
@@ -11666,8 +13201,8 @@ If this is not specified, the default behavior is defined by gRPC.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].startupProbe.httpGet
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexstartupprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].startupProbe.httpGet
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexstartupprobe)</sup></sup>
 
 
 
@@ -11700,7 +13235,7 @@ Name must be an IANA_SVC_NAME.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecinitcontainersindexstartupprobehttpgethttpheadersindex">httpHeaders</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexstartupprobehttpgethttpheadersindex">httpHeaders</a></b></td>
         <td>[]object</td>
         <td>
           Custom headers to set in the request. HTTP allows repeated headers.<br/>
@@ -11725,8 +13260,8 @@ Defaults to HTTP.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].startupProbe.httpGet.httpHeaders[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexstartupprobehttpget)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].startupProbe.httpGet.httpHeaders[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexstartupprobehttpget)</sup></sup>
 
 
 
@@ -11760,8 +13295,8 @@ This will be canonicalized upon output, so case-variant names will be understood
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].startupProbe.tcpSocket
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindexstartupprobe)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].startupProbe.tcpSocket
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindexstartupprobe)</sup></sup>
 
 
 
@@ -11796,8 +13331,8 @@ Name must be an IANA_SVC_NAME.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].volumeDevices[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].volumeDevices[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindex)</sup></sup>
 
 
 
@@ -11830,8 +13365,8 @@ volumeDevice describes a mapping of a raw block device within a container.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.initContainers[index].volumeMounts[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecinitcontainersindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.initContainers[index].volumeMounts[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecinitcontainersindex)</sup></sup>
 
 
 
@@ -11925,8 +13460,8 @@ SubPathExpr and SubPath are mutually exclusive.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.os
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.os
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -11985,8 +13520,8 @@ Clients should expect to handle additional values and treat unrecognized values 
 </table>
 
 
-### Workspace.spec.podTemplate.spec.readinessGates[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.readinessGates[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -12012,8 +13547,8 @@ PodReadinessGate contains the reference to a pod condition
 </table>
 
 
-### Workspace.spec.podTemplate.spec.resourceClaims[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.resourceClaims[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -12077,8 +13612,8 @@ be set.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.resources
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.resources
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -12102,7 +13637,7 @@ gate.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecresourcesclaimsindex">claims</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecresourcesclaimsindex">claims</a></b></td>
         <td>[]object</td>
         <td>
           Claims lists the names of resources, defined in spec.resourceClaims,
@@ -12136,8 +13671,8 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
 </table>
 
 
-### Workspace.spec.podTemplate.spec.resources.claims[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecresources)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.resources.claims[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecresources)</sup></sup>
 
 
 
@@ -12174,8 +13709,8 @@ only the result of this request.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.schedulingGates[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.schedulingGates[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -12202,8 +13737,8 @@ Each scheduling gate must have a unique name field.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.securityContext
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.securityContext
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -12220,7 +13755,7 @@ Optional: Defaults to empty.  See type description for default values of each fi
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecsecuritycontextapparmorprofile">appArmorProfile</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecsecuritycontextapparmorprofile">appArmorProfile</a></b></td>
         <td>object</td>
         <td>
           appArmorProfile is the AppArmor options to use by the containers in this pod.
@@ -12328,7 +13863,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecsecuritycontextselinuxoptions">seLinuxOptions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecsecuritycontextselinuxoptions">seLinuxOptions</a></b></td>
         <td>object</td>
         <td>
           The SELinux context to be applied to all containers.
@@ -12340,7 +13875,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecsecuritycontextseccompprofile">seccompProfile</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecsecuritycontextseccompprofile">seccompProfile</a></b></td>
         <td>object</td>
         <td>
           The seccomp options to use by the containers in this pod.
@@ -12374,7 +13909,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecsecuritycontextsysctlsindex">sysctls</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecsecuritycontextsysctlsindex">sysctls</a></b></td>
         <td>[]object</td>
         <td>
           Sysctls hold a list of namespaced sysctls used for the pod. Pods with unsupported
@@ -12383,7 +13918,7 @@ Note that this field cannot be set when spec.os.name is windows.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecsecuritycontextwindowsoptions">windowsOptions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecsecuritycontextwindowsoptions">windowsOptions</a></b></td>
         <td>object</td>
         <td>
           The Windows specific settings applied to all containers.
@@ -12396,8 +13931,8 @@ Note that this field cannot be set when spec.os.name is linux.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.securityContext.appArmorProfile
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.securityContext.appArmorProfile
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecsecuritycontext)</sup></sup>
 
 
 
@@ -12438,8 +13973,8 @@ Must be set if and only if type is "Localhost".<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.securityContext.seLinuxOptions
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.securityContext.seLinuxOptions
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecsecuritycontext)</sup></sup>
 
 
 
@@ -12491,8 +14026,8 @@ Note that this field cannot be set when spec.os.name is windows.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.securityContext.seccompProfile
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.securityContext.seccompProfile
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecsecuritycontext)</sup></sup>
 
 
 
@@ -12534,8 +14069,8 @@ Must be set if type is "Localhost". Must NOT be set for any other type.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.securityContext.sysctls[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.securityContext.sysctls[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecsecuritycontext)</sup></sup>
 
 
 
@@ -12568,8 +14103,8 @@ Sysctl defines a kernel parameter to be set
 </table>
 
 
-### Workspace.spec.podTemplate.spec.securityContext.windowsOptions
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecsecuritycontext)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.securityContext.windowsOptions
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecsecuritycontext)</sup></sup>
 
 
 
@@ -12627,8 +14162,8 @@ PodSecurityContext, the value specified in SecurityContext takes precedence.<br/
 </table>
 
 
-### Workspace.spec.podTemplate.spec.tolerations[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.tolerations[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -12694,8 +14229,8 @@ If the operator is Exists, the value should be empty, otherwise just a regular s
 </table>
 
 
-### Workspace.spec.podTemplate.spec.topologySpreadConstraints[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.topologySpreadConstraints[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -12776,7 +14311,7 @@ It's a required field.<br/>
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespectopologyspreadconstraintsindexlabelselector">labelSelector</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespectopologyspreadconstraintsindexlabelselector">labelSelector</a></b></td>
         <td>object</td>
         <td>
           LabelSelector is used to find matching pods.
@@ -12858,8 +14393,8 @@ This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopo
 </table>
 
 
-### Workspace.spec.podTemplate.spec.topologySpreadConstraints[index].labelSelector
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespectopologyspreadconstraintsindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.topologySpreadConstraints[index].labelSelector
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespectopologyspreadconstraintsindex)</sup></sup>
 
 
 
@@ -12877,7 +14412,7 @@ in their corresponding topology domain.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespectopologyspreadconstraintsindexlabelselectormatchexpressionsindex">matchExpressions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespectopologyspreadconstraintsindexlabelselectormatchexpressionsindex">matchExpressions</a></b></td>
         <td>[]object</td>
         <td>
           matchExpressions is a list of label selector requirements. The requirements are ANDed.<br/>
@@ -12896,8 +14431,8 @@ operator is "In", and the values array contains only "value". The requirements a
 </table>
 
 
-### Workspace.spec.podTemplate.spec.topologySpreadConstraints[index].labelSelector.matchExpressions[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespectopologyspreadconstraintsindexlabelselector)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.topologySpreadConstraints[index].labelSelector.matchExpressions[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespectopologyspreadconstraintsindexlabelselector)</sup></sup>
 
 
 
@@ -12942,8 +14477,8 @@ merge patch.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespec)</sup></sup>
 
 
 
@@ -12968,7 +14503,7 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexawselasticblockstore">awsElasticBlockStore</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexawselasticblockstore">awsElasticBlockStore</a></b></td>
         <td>object</td>
         <td>
           awsElasticBlockStore represents an AWS Disk resource that is attached to a
@@ -12979,7 +14514,7 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockst
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexazuredisk">azureDisk</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexazuredisk">azureDisk</a></b></td>
         <td>object</td>
         <td>
           azureDisk represents an Azure Data Disk mount on the host and bind mount to the pod.
@@ -12988,7 +14523,7 @@ are redirected to the disk.csi.azure.com CSI driver.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexazurefile">azureFile</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexazurefile">azureFile</a></b></td>
         <td>object</td>
         <td>
           azureFile represents an Azure File Service mount on the host and bind mount to the pod.
@@ -12997,7 +14532,7 @@ are redirected to the file.csi.azure.com CSI driver.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexcephfs">cephfs</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexcephfs">cephfs</a></b></td>
         <td>object</td>
         <td>
           cephFS represents a Ceph FS mount on the host that shares a pod's lifetime.
@@ -13005,7 +14540,7 @@ Deprecated: CephFS is deprecated and the in-tree cephfs type is no longer suppor
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexcinder">cinder</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexcinder">cinder</a></b></td>
         <td>object</td>
         <td>
           cinder represents a cinder volume attached and mounted on kubelets host machine.
@@ -13015,28 +14550,28 @@ More info: https://examples.k8s.io/mysql-cinder-pd/README.md<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexconfigmap">configMap</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexconfigmap">configMap</a></b></td>
         <td>object</td>
         <td>
           configMap represents a configMap that should populate this volume<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexcsi">csi</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexcsi">csi</a></b></td>
         <td>object</td>
         <td>
           csi (Container Storage Interface) represents ephemeral storage that is handled by certain external CSI drivers.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexdownwardapi">downwardAPI</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexdownwardapi">downwardAPI</a></b></td>
         <td>object</td>
         <td>
           downwardAPI represents downward API about the pod that should populate this volume<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexemptydir">emptyDir</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexemptydir">emptyDir</a></b></td>
         <td>object</td>
         <td>
           emptyDir represents a temporary directory that shares a pod's lifetime.
@@ -13044,7 +14579,7 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexephemeral">ephemeral</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeral">ephemeral</a></b></td>
         <td>object</td>
         <td>
           ephemeral represents a volume that is handled by a cluster storage driver.
@@ -13074,14 +14609,14 @@ persistent volumes at the same time.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexfc">fc</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexfc">fc</a></b></td>
         <td>object</td>
         <td>
           fc represents a Fibre Channel resource that is attached to a kubelet's host machine and then exposed to the pod.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexflexvolume">flexVolume</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexflexvolume">flexVolume</a></b></td>
         <td>object</td>
         <td>
           flexVolume represents a generic volume resource that is
@@ -13090,7 +14625,7 @@ Deprecated: FlexVolume is deprecated. Consider using a CSIDriver instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexflocker">flocker</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexflocker">flocker</a></b></td>
         <td>object</td>
         <td>
           flocker represents a Flocker volume attached to a kubelet's host machine. This depends on the Flocker control service being running.
@@ -13098,7 +14633,7 @@ Deprecated: Flocker is deprecated and the in-tree flocker type is no longer supp
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexgcepersistentdisk">gcePersistentDisk</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexgcepersistentdisk">gcePersistentDisk</a></b></td>
         <td>object</td>
         <td>
           gcePersistentDisk represents a GCE Disk resource that is attached to a
@@ -13109,7 +14644,7 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexgitrepo">gitRepo</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexgitrepo">gitRepo</a></b></td>
         <td>object</td>
         <td>
           gitRepo represents a git repository at a particular revision.
@@ -13119,7 +14654,7 @@ into the Pod's container.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexglusterfs">glusterfs</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexglusterfs">glusterfs</a></b></td>
         <td>object</td>
         <td>
           glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime.
@@ -13128,7 +14663,7 @@ More info: https://examples.k8s.io/volumes/glusterfs/README.md<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexhostpath">hostPath</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexhostpath">hostPath</a></b></td>
         <td>object</td>
         <td>
           hostPath represents a pre-existing file or directory on the host
@@ -13139,7 +14674,7 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindeximage">image</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindeximage">image</a></b></td>
         <td>object</td>
         <td>
           image represents an OCI object (a container image or artifact) pulled and mounted on the kubelet's host machine.
@@ -13159,7 +14694,7 @@ The field spec.securityContext.fsGroupChangePolicy has no effect on this volume 
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexiscsi">iscsi</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexiscsi">iscsi</a></b></td>
         <td>object</td>
         <td>
           iscsi represents an ISCSI Disk resource that is attached to a
@@ -13168,7 +14703,7 @@ More info: https://examples.k8s.io/volumes/iscsi/README.md<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexnfs">nfs</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexnfs">nfs</a></b></td>
         <td>object</td>
         <td>
           nfs represents an NFS mount on the host that shares a pod's lifetime
@@ -13176,7 +14711,7 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#nfs<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexpersistentvolumeclaim">persistentVolumeClaim</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexpersistentvolumeclaim">persistentVolumeClaim</a></b></td>
         <td>object</td>
         <td>
           persistentVolumeClaimVolumeSource represents a reference to a
@@ -13185,7 +14720,7 @@ More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persis
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexphotonpersistentdisk">photonPersistentDisk</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexphotonpersistentdisk">photonPersistentDisk</a></b></td>
         <td>object</td>
         <td>
           photonPersistentDisk represents a PhotonController persistent disk attached and mounted on kubelets host machine.
@@ -13193,7 +14728,7 @@ Deprecated: PhotonPersistentDisk is deprecated and the in-tree photonPersistentD
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexportworxvolume">portworxVolume</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexportworxvolume">portworxVolume</a></b></td>
         <td>object</td>
         <td>
           portworxVolume represents a portworx volume attached and mounted on kubelets host machine.
@@ -13203,14 +14738,14 @@ is on.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexprojected">projected</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojected">projected</a></b></td>
         <td>object</td>
         <td>
           projected items for all in one resources secrets, configmaps, and downward API<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexquobyte">quobyte</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexquobyte">quobyte</a></b></td>
         <td>object</td>
         <td>
           quobyte represents a Quobyte mount on the host that shares a pod's lifetime.
@@ -13218,7 +14753,7 @@ Deprecated: Quobyte is deprecated and the in-tree quobyte type is no longer supp
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexrbd">rbd</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexrbd">rbd</a></b></td>
         <td>object</td>
         <td>
           rbd represents a Rados Block Device mount on the host that shares a pod's lifetime.
@@ -13227,7 +14762,7 @@ More info: https://examples.k8s.io/volumes/rbd/README.md<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexscaleio">scaleIO</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexscaleio">scaleIO</a></b></td>
         <td>object</td>
         <td>
           scaleIO represents a ScaleIO persistent volume attached and mounted on Kubernetes nodes.
@@ -13235,7 +14770,7 @@ Deprecated: ScaleIO is deprecated and the in-tree scaleIO type is no longer supp
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexsecret">secret</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexsecret">secret</a></b></td>
         <td>object</td>
         <td>
           secret represents a secret that should populate this volume.
@@ -13243,7 +14778,7 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#secret<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexstorageos">storageos</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexstorageos">storageos</a></b></td>
         <td>object</td>
         <td>
           storageOS represents a StorageOS volume attached and mounted on Kubernetes nodes.
@@ -13251,7 +14786,7 @@ Deprecated: StorageOS is deprecated and the in-tree storageos type is no longer 
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexvspherevolume">vsphereVolume</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexvspherevolume">vsphereVolume</a></b></td>
         <td>object</td>
         <td>
           vsphereVolume represents a vSphere volume attached and mounted on kubelets host machine.
@@ -13263,8 +14798,8 @@ are redirected to the csi.vsphere.vmware.com CSI driver.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].awsElasticBlockStore
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].awsElasticBlockStore
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -13325,8 +14860,8 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockst
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].azureDisk
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].azureDisk
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -13396,8 +14931,8 @@ the ReadOnly setting in VolumeMounts.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].azureFile
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].azureFile
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -13440,8 +14975,8 @@ the ReadOnly setting in VolumeMounts.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].cephfs
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].cephfs
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -13490,7 +15025,7 @@ More info: https://examples.k8s.io/volumes/cephfs/README.md#how-to-use-it<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexcephfssecretref">secretRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexcephfssecretref">secretRef</a></b></td>
         <td>object</td>
         <td>
           secretRef is Optional: SecretRef is reference to the authentication secret for User, default is empty.
@@ -13509,8 +15044,8 @@ More info: https://examples.k8s.io/volumes/cephfs/README.md#how-to-use-it<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].cephfs.secretRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexcephfs)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].cephfs.secretRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexcephfs)</sup></sup>
 
 
 
@@ -13543,8 +15078,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].cinder
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].cinder
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -13590,7 +15125,7 @@ More info: https://examples.k8s.io/mysql-cinder-pd/README.md<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexcindersecretref">secretRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexcindersecretref">secretRef</a></b></td>
         <td>object</td>
         <td>
           secretRef is optional: points to a secret object containing parameters used to connect
@@ -13601,8 +15136,8 @@ to OpenStack.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].cinder.secretRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexcinder)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].cinder.secretRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexcinder)</sup></sup>
 
 
 
@@ -13635,8 +15170,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].configMap
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].configMap
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -13667,7 +15202,7 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexconfigmapitemsindex">items</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexconfigmapitemsindex">items</a></b></td>
         <td>[]object</td>
         <td>
           items if unspecified, each key-value pair in the Data field of the referenced
@@ -13703,8 +15238,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].configMap.items[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexconfigmap)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].configMap.items[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexconfigmap)</sup></sup>
 
 
 
@@ -13754,8 +15289,8 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].csi
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].csi
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -13788,7 +15323,7 @@ which will determine the default filesystem to apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexcsinodepublishsecretref">nodePublishSecretRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexcsinodepublishsecretref">nodePublishSecretRef</a></b></td>
         <td>object</td>
         <td>
           nodePublishSecretRef is a reference to the secret object containing
@@ -13818,8 +15353,8 @@ driver. Consult your driver's documentation for supported values.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].csi.nodePublishSecretRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexcsi)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].csi.nodePublishSecretRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexcsi)</sup></sup>
 
 
 
@@ -13855,8 +15390,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].downwardAPI
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].downwardAPI
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -13888,7 +15423,7 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexdownwardapiitemsindex">items</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexdownwardapiitemsindex">items</a></b></td>
         <td>[]object</td>
         <td>
           Items is a list of downward API volume file<br/>
@@ -13898,8 +15433,8 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].downwardAPI.items[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexdownwardapi)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].downwardAPI.items[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexdownwardapi)</sup></sup>
 
 
 
@@ -13922,7 +15457,7 @@ DownwardAPIVolumeFile represents information to create the file containing the p
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexdownwardapiitemsindexfieldref">fieldRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexdownwardapiitemsindexfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
           Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.<br/>
@@ -13943,7 +15478,7 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexdownwardapiitemsindexresourcefieldref">resourceFieldRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexdownwardapiitemsindexresourcefieldref">resourceFieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a resource of the container: only resources limits and requests
@@ -13954,8 +15489,8 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].downwardAPI.items[index].fieldRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexdownwardapiitemsindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].downwardAPI.items[index].fieldRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexdownwardapiitemsindex)</sup></sup>
 
 
 
@@ -13988,8 +15523,8 @@ Required: Selects a field of the pod: only annotations, labels, name, namespace 
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].downwardAPI.items[index].resourceFieldRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexdownwardapiitemsindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].downwardAPI.items[index].resourceFieldRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexdownwardapiitemsindex)</sup></sup>
 
 
 
@@ -14030,8 +15565,8 @@ Selects a resource of the container: only resources limits and requests
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].emptyDir
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].emptyDir
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -14073,8 +15608,8 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].ephemeral
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].ephemeral
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -14113,7 +15648,7 @@ persistent volumes at the same time.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplate">volumeClaimTemplate</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplate">volumeClaimTemplate</a></b></td>
         <td>object</td>
         <td>
           Will be used to create a stand-alone PVC to provision the volume.
@@ -14143,8 +15678,8 @@ Required, must not be nil.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexephemeral)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeral)</sup></sup>
 
 
 
@@ -14180,7 +15715,7 @@ Required, must not be nil.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespec">spec</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespec">spec</a></b></td>
         <td>object</td>
         <td>
           The specification for the PersistentVolumeClaim. The entire content is
@@ -14190,7 +15725,7 @@ are also valid here.<br/>
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatemetadata">metadata</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatemetadata">metadata</a></b></td>
         <td>object</td>
         <td>
           May contain labels and annotations that will be copied into the PVC
@@ -14202,8 +15737,8 @@ validation.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate.spec
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplate)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate.spec
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplate)</sup></sup>
 
 
 
@@ -14230,7 +15765,7 @@ More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespecdatasource">dataSource</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespecdatasource">dataSource</a></b></td>
         <td>object</td>
         <td>
           dataSource field can be used to specify either:
@@ -14244,7 +15779,7 @@ If the namespace is specified, then dataSourceRef will not be copied to dataSour
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespecdatasourceref">dataSourceRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespecdatasourceref">dataSourceRef</a></b></td>
         <td>object</td>
         <td>
           dataSourceRef specifies the object from which to populate the volume with data, if a non-empty
@@ -14273,7 +15808,7 @@ There are three important differences between dataSource and dataSourceRef:
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespecresources">resources</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespecresources">resources</a></b></td>
         <td>object</td>
         <td>
           resources represents the minimum resources the volume should have.
@@ -14284,7 +15819,7 @@ More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resour
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespecselector">selector</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespecselector">selector</a></b></td>
         <td>object</td>
         <td>
           selector is a label query over volumes to consider for binding.<br/>
@@ -14335,8 +15870,8 @@ Value of Filesystem is implied when not included in claim spec.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate.spec.dataSource
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate.spec.dataSource
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespec)</sup></sup>
 
 
 
@@ -14385,8 +15920,8 @@ For any other third-party types, APIGroup is required.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate.spec.dataSourceRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate.spec.dataSourceRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespec)</sup></sup>
 
 
 
@@ -14459,8 +15994,8 @@ Note that when a namespace is specified, a gateway.networking.k8s.io/ReferenceGr
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate.spec.resources
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate.spec.resources
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespec)</sup></sup>
 
 
 
@@ -14501,8 +16036,8 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate.spec.selector
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate.spec.selector
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespec)</sup></sup>
 
 
 
@@ -14518,7 +16053,7 @@ selector is a label query over volumes to consider for binding.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespecselectormatchexpressionsindex">matchExpressions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespecselectormatchexpressionsindex">matchExpressions</a></b></td>
         <td>[]object</td>
         <td>
           matchExpressions is a list of label selector requirements. The requirements are ANDed.<br/>
@@ -14537,8 +16072,8 @@ operator is "In", and the values array contains only "value". The requirements a
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate.spec.selector.matchExpressions[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespecselector)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate.spec.selector.matchExpressions[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplatespecselector)</sup></sup>
 
 
 
@@ -14583,8 +16118,8 @@ merge patch.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate.metadata
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplate)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].ephemeral.volumeClaimTemplate.metadata
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexephemeralvolumeclaimtemplate)</sup></sup>
 
 
 
@@ -14640,8 +16175,8 @@ validation.
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].fc
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].fc
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -14701,8 +16236,8 @@ Either wwids or combination of targetWWNs and lun must be set, but not both simu
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].flexVolume
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].flexVolume
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -14751,7 +16286,7 @@ the ReadOnly setting in VolumeMounts.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexflexvolumesecretref">secretRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexflexvolumesecretref">secretRef</a></b></td>
         <td>object</td>
         <td>
           secretRef is Optional: secretRef is reference to the secret object containing
@@ -14765,8 +16300,8 @@ scripts.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].flexVolume.secretRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexflexvolume)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].flexVolume.secretRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexflexvolume)</sup></sup>
 
 
 
@@ -14802,8 +16337,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].flocker
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].flocker
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -14838,8 +16373,8 @@ should be considered as deprecated<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].gcePersistentDisk
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].gcePersistentDisk
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -14902,8 +16437,8 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].gitRepo
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].gitRepo
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -14949,8 +16484,8 @@ the subdirectory with the given name.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].glusterfs
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].glusterfs
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -14996,8 +16531,8 @@ More info: https://examples.k8s.io/volumes/glusterfs/README.md#create-a-pod<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].hostPath
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].hostPath
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -15038,8 +16573,8 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].image
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].image
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -15094,8 +16629,8 @@ container images in workload controllers like Deployments and StatefulSets.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].iscsi
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].iscsi
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -15196,7 +16731,7 @@ Defaults to false.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexiscsisecretref">secretRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexiscsisecretref">secretRef</a></b></td>
         <td>object</td>
         <td>
           secretRef is the CHAP Secret for iSCSI target and initiator authentication<br/>
@@ -15206,8 +16741,8 @@ Defaults to false.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].iscsi.secretRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexiscsi)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].iscsi.secretRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexiscsi)</sup></sup>
 
 
 
@@ -15239,8 +16774,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].nfs
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].nfs
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -15285,8 +16820,8 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#nfs<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].persistentVolumeClaim
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].persistentVolumeClaim
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -15323,8 +16858,8 @@ Default false.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].photonPersistentDisk
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].photonPersistentDisk
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -15360,8 +16895,8 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].portworxVolume
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].portworxVolume
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -15407,8 +16942,8 @@ the ReadOnly setting in VolumeMounts.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].projected
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -15438,7 +16973,7 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexprojectedsourcesindex">sources</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindex">sources</a></b></td>
         <td>[]object</td>
         <td>
           sources is the list of volume projections. Each entry in this list
@@ -15449,8 +16984,8 @@ handles one source.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].projected.sources[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexprojected)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojected)</sup></sup>
 
 
 
@@ -15467,7 +17002,7 @@ Exactly one of these fields must be set.
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexclustertrustbundle">clusterTrustBundle</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexclustertrustbundle">clusterTrustBundle</a></b></td>
         <td>object</td>
         <td>
           ClusterTrustBundle allows a pod to access the `.spec.trustBundle` field
@@ -15486,28 +17021,28 @@ may change the order over time.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexconfigmap">configMap</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexconfigmap">configMap</a></b></td>
         <td>object</td>
         <td>
           configMap information about the configMap data to project<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexdownwardapi">downwardAPI</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexdownwardapi">downwardAPI</a></b></td>
         <td>object</td>
         <td>
           downwardAPI information about the downwardAPI data to project<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexsecret">secret</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexsecret">secret</a></b></td>
         <td>object</td>
         <td>
           secret information about the secret data to project<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexserviceaccounttoken">serviceAccountToken</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexserviceaccounttoken">serviceAccountToken</a></b></td>
         <td>object</td>
         <td>
           serviceAccountToken is information about the serviceAccountToken data to project<br/>
@@ -15517,8 +17052,8 @@ may change the order over time.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].projected.sources[index].clusterTrustBundle
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexprojectedsourcesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].clusterTrustBundle
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindex)</sup></sup>
 
 
 
@@ -15553,7 +17088,7 @@ may change the order over time.
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexclustertrustbundlelabelselector">labelSelector</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexclustertrustbundlelabelselector">labelSelector</a></b></td>
         <td>object</td>
         <td>
           Select all ClusterTrustBundles that match this label selector.  Only has
@@ -15594,8 +17129,8 @@ ClusterTrustBundles will be unified and deduplicated.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].projected.sources[index].clusterTrustBundle.labelSelector
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexclustertrustbundle)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].clusterTrustBundle.labelSelector
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexclustertrustbundle)</sup></sup>
 
 
 
@@ -15614,7 +17149,7 @@ everything".
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexclustertrustbundlelabelselectormatchexpressionsindex">matchExpressions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexclustertrustbundlelabelselectormatchexpressionsindex">matchExpressions</a></b></td>
         <td>[]object</td>
         <td>
           matchExpressions is a list of label selector requirements. The requirements are ANDed.<br/>
@@ -15633,8 +17168,8 @@ operator is "In", and the values array contains only "value". The requirements a
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].projected.sources[index].clusterTrustBundle.labelSelector.matchExpressions[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexclustertrustbundlelabelselector)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].clusterTrustBundle.labelSelector.matchExpressions[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexclustertrustbundlelabelselector)</sup></sup>
 
 
 
@@ -15679,8 +17214,8 @@ merge patch.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].projected.sources[index].configMap
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexprojectedsourcesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].configMap
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindex)</sup></sup>
 
 
 
@@ -15696,7 +17231,7 @@ configMap information about the configMap data to project
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexconfigmapitemsindex">items</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexconfigmapitemsindex">items</a></b></td>
         <td>[]object</td>
         <td>
           items if unspecified, each key-value pair in the Data field of the referenced
@@ -15732,8 +17267,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].projected.sources[index].configMap.items[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexconfigmap)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].configMap.items[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexconfigmap)</sup></sup>
 
 
 
@@ -15783,8 +17318,8 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].projected.sources[index].downwardAPI
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexprojectedsourcesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].downwardAPI
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindex)</sup></sup>
 
 
 
@@ -15800,7 +17335,7 @@ downwardAPI information about the downwardAPI data to project
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexdownwardapiitemsindex">items</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexdownwardapiitemsindex">items</a></b></td>
         <td>[]object</td>
         <td>
           Items is a list of DownwardAPIVolume file<br/>
@@ -15810,8 +17345,8 @@ downwardAPI information about the downwardAPI data to project
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].projected.sources[index].downwardAPI.items[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexdownwardapi)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].downwardAPI.items[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexdownwardapi)</sup></sup>
 
 
 
@@ -15834,7 +17369,7 @@ DownwardAPIVolumeFile represents information to create the file containing the p
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexdownwardapiitemsindexfieldref">fieldRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexdownwardapiitemsindexfieldref">fieldRef</a></b></td>
         <td>object</td>
         <td>
           Required: Selects a field of the pod: only annotations, labels, name, namespace and uid are supported.<br/>
@@ -15855,7 +17390,7 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexdownwardapiitemsindexresourcefieldref">resourceFieldRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexdownwardapiitemsindexresourcefieldref">resourceFieldRef</a></b></td>
         <td>object</td>
         <td>
           Selects a resource of the container: only resources limits and requests
@@ -15866,8 +17401,8 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].projected.sources[index].downwardAPI.items[index].fieldRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexdownwardapiitemsindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].downwardAPI.items[index].fieldRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexdownwardapiitemsindex)</sup></sup>
 
 
 
@@ -15900,8 +17435,8 @@ Required: Selects a field of the pod: only annotations, labels, name, namespace 
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].projected.sources[index].downwardAPI.items[index].resourceFieldRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexdownwardapiitemsindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].downwardAPI.items[index].resourceFieldRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexdownwardapiitemsindex)</sup></sup>
 
 
 
@@ -15942,8 +17477,8 @@ Selects a resource of the container: only resources limits and requests
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].projected.sources[index].secret
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexprojectedsourcesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].secret
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindex)</sup></sup>
 
 
 
@@ -15959,7 +17494,7 @@ secret information about the secret data to project
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexsecretitemsindex">items</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexsecretitemsindex">items</a></b></td>
         <td>[]object</td>
         <td>
           items if unspecified, each key-value pair in the Data field of the referenced
@@ -15995,8 +17530,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].projected.sources[index].secret.items[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexprojectedsourcesindexsecret)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].secret.items[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexsecret)</sup></sup>
 
 
 
@@ -16046,8 +17581,8 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].projected.sources[index].serviceAccountToken
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexprojectedsourcesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].serviceAccountToken
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindex)</sup></sup>
 
 
 
@@ -16098,8 +17633,8 @@ and must be at least 10 minutes.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].quobyte
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].quobyte
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -16167,8 +17702,8 @@ Defaults to serivceaccount user<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].rbd
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].rbd
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -16243,7 +17778,7 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexrbdsecretref">secretRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexrbdsecretref">secretRef</a></b></td>
         <td>object</td>
         <td>
           secretRef is name of the authentication secret for RBDUser. If provided
@@ -16267,8 +17802,8 @@ More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].rbd.secretRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexrbd)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].rbd.secretRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexrbd)</sup></sup>
 
 
 
@@ -16303,8 +17838,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].scaleIO
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].scaleIO
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -16328,7 +17863,7 @@ Deprecated: ScaleIO is deprecated and the in-tree scaleIO type is no longer supp
         </td>
         <td>true</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexscaleiosecretref">secretRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexscaleiosecretref">secretRef</a></b></td>
         <td>object</td>
         <td>
           secretRef references to the secret for ScaleIO user and other
@@ -16405,8 +17940,8 @@ that is associated with this volume source.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].scaleIO.secretRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexscaleio)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].scaleIO.secretRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexscaleio)</sup></sup>
 
 
 
@@ -16439,8 +17974,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].secret
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].secret
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -16472,7 +18007,7 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexsecretitemsindex">items</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexsecretitemsindex">items</a></b></td>
         <td>[]object</td>
         <td>
           items If unspecified, each key-value pair in the Data field of the referenced
@@ -16503,8 +18038,8 @@ More info: https://kubernetes.io/docs/concepts/storage/volumes#secret<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].secret.items[index]
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexsecret)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].secret.items[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexsecret)</sup></sup>
 
 
 
@@ -16554,8 +18089,8 @@ mode, like fsGroup, and the result can be other mode bits set.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].storageos
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].storageos
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -16589,7 +18124,7 @@ the ReadOnly setting in VolumeMounts.<br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecpodtemplatespecvolumesindexstorageossecretref">secretRef</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexstorageossecretref">secretRef</a></b></td>
         <td>object</td>
         <td>
           secretRef specifies the secret to use for obtaining the StorageOS API
@@ -16620,8 +18155,8 @@ Namespaces that do not pre-exist within StorageOS will be created.<br/>
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].storageos.secretRef
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindexstorageos)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].storageos.secretRef
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindexstorageos)</sup></sup>
 
 
 
@@ -16654,8 +18189,8 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 </table>
 
 
-### Workspace.spec.podTemplate.spec.volumes[index].vsphereVolume
-<sup><sup>[↩ Parent](#workspacespecpodtemplatespecvolumesindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.podTemplate.spec.volumes[index].vsphereVolume
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecpodtemplatespecvolumesindex)</sup></sup>
 
 
 
@@ -16706,13 +18241,12 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
 </table>
 
 
-### Workspace.spec.resources
-<sup><sup>[↩ Parent](#workspacespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.resources
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespec)</sup></sup>
 
 
 
-Compute Resources required by this workspace.
-More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+ResourceRequirements describes the compute resource requirements.
 
 <table>
     <thead>
@@ -16724,7 +18258,7 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
         </tr>
     </thead>
     <tbody><tr>
-        <td><b><a href="#workspacespecresourcesclaimsindex">claims</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecresourcesclaimsindex">claims</a></b></td>
         <td>[]object</td>
         <td>
           Claims lists the names of resources, defined in spec.resourceClaims,
@@ -16758,8 +18292,8 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
 </table>
 
 
-### Workspace.spec.resources.claims[index]
-<sup><sup>[↩ Parent](#workspacespecresources)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.resources.claims[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecresources)</sup></sup>
 
 
 
@@ -16796,12 +18330,13 @@ only the result of this request.<br/>
 </table>
 
 
-### Workspace.spec.stacks[index]
-<sup><sup>[↩ Parent](#workspacespec)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.stacks[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespec)</sup></sup>
 
 
 
-
+WorkspaceStackApplyConfiguration represents a declarative configuration of the WorkspaceStack type for use
+with apply.
 
 <table>
     <thead>
@@ -16813,50 +18348,51 @@ only the result of this request.<br/>
         </tr>
     </thead>
     <tbody><tr>
-        <td><b>name</b></td>
-        <td>string</td>
-        <td>
-          <br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b><a href="#workspacespecstacksindexconfigindex">config</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecstacksindexconfigindex">config</a></b></td>
         <td>[]object</td>
         <td>
-          Config is a list of confguration values to set on the stack.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>create</b></td>
         <td>boolean</td>
         <td>
-          Create the stack if it does not exist.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>environment</b></td>
         <td>[]string</td>
         <td>
-          Environment is a list of Pulumi ESC environments to import into the stack.<br/>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>secretsProvider</b></td>
         <td>string</td>
         <td>
-          SecretsProvider is the name of the secret provider to use for the stack.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### Workspace.spec.stacks[index].config[index]
-<sup><sup>[↩ Parent](#workspacespecstacksindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.stacks[index].config[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecstacksindex)</sup></sup>
 
 
 
-
+ConfigItemApplyConfiguration represents a declarative configuration of the ConfigItem type for use
+with apply.
 
 <table>
     <thead>
@@ -16871,49 +18407,49 @@ only the result of this request.<br/>
         <td><b>key</b></td>
         <td>string</td>
         <td>
-          Key is the configuration key or path to set.<br/>
+          <br/>
         </td>
-        <td>true</td>
+        <td>false</td>
       </tr><tr>
         <td><b>path</b></td>
         <td>boolean</td>
         <td>
-          Path indicates the key contains a path to a property in a map or list.
-Incompatible with structured values (objects, arrays).<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>secret</b></td>
         <td>boolean</td>
         <td>
-          Secret marks the configuration value as a secret.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>value</b></td>
         <td>JSON</td>
         <td>
-          Value is the configuration value to set.
-Supports strings, numbers, booleans, objects, and arrays.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacespecstacksindexconfigindexvaluefrom">valueFrom</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatespecstacksindexconfigindexvaluefrom">valueFrom</a></b></td>
         <td>object</td>
         <td>
-          ValueFrom is a reference to a value from the environment or from a file.<br/>
+          ConfigValueFromApplyConfiguration represents a declarative configuration of the ConfigValueFrom type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### Workspace.spec.stacks[index].config[index].valueFrom
-<sup><sup>[↩ Parent](#workspacespecstacksindexconfigindex)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.spec.stacks[index].config[index].valueFrom
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatespecstacksindexconfigindex)</sup></sup>
 
 
 
-ValueFrom is a reference to a value from the environment or from a file.
+ConfigValueFromApplyConfiguration represents a declarative configuration of the ConfigValueFrom type for use
+with apply.
 
 <table>
     <thead>
@@ -16928,35 +18464,34 @@ ValueFrom is a reference to a value from the environment or from a file.
         <td><b>env</b></td>
         <td>string</td>
         <td>
-          Env is an environment variable in the pulumi container to use as the value.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>json</b></td>
         <td>boolean</td>
         <td>
-          JSON indicates the referenced value should be parsed as JSON.
-When true, the value is treated as structured data (object/array/etc).
-When false, the value is treated as a raw string.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>path</b></td>
         <td>string</td>
         <td>
-          Path is a path to a file in the pulumi container containing the value.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### Workspace.status
-<sup><sup>[↩ Parent](#workspace)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.status
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplate)</sup></sup>
 
 
 
-WorkspaceStatus defines the observed state of Workspace
+WorkspaceStatusApplyConfiguration represents a declarative configuration of the WorkspaceStatus type for use
+with apply.
 
 <table>
     <thead>
@@ -16975,36 +18510,162 @@ WorkspaceStatus defines the observed state of Workspace
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b><a href="#workspacestatusconditionsindex">conditions</a></b></td>
+        <td><b><a href="#templatespecstackconfigworkspacetemplatestatusconditionsindex">conditions</a></b></td>
         <td>[]object</td>
         <td>
-          Represents the observations of a workspace's current state.
-Known .status.conditions.type are: "Ready", "Stalled"<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>observedGeneration</b></td>
         <td>integer</td>
         <td>
-          observedGeneration represents the .metadata.generation that the status was set based upon.<br/>
+          <br/>
           <br/>
             <i>Format</i>: int64<br/>
-            <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>pulumiVersion</b></td>
         <td>string</td>
         <td>
-          PulumiVersion is the version of the Pulumi CLI in the workspace.<br/>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
 </table>
 
 
-### Workspace.status.conditions[index]
-<sup><sup>[↩ Parent](#workspacestatus)</sup></sup>
+### Template.spec.stackConfig.workspaceTemplate.status.conditions[index]
+<sup><sup>[↩ Parent](#templatespecstackconfigworkspacetemplatestatus)</sup></sup>
+
+
+
+ConditionApplyConfiguration represents a declarative configuration of the Condition type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastTransitionTime</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          <br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>reason</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>status</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.status
+<sup><sup>[↩ Parent](#template)</sup></sup>
+
+
+
+TemplateStatus defines the observed state of Template.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#templatestatusconditionsindex">conditions</a></b></td>
+        <td>[]object</td>
+        <td>
+          Conditions represent the latest available observations of the template's state.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#templatestatuscrd">crd</a></b></td>
+        <td>object</td>
+        <td>
+          CRD contains information about the generated CRD.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>instanceCount</b></td>
+        <td>integer</td>
+        <td>
+          InstanceCount is the number of instances currently using this template.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastReconciled</b></td>
+        <td>string</td>
+        <td>
+          LastReconciled is the timestamp of the last successful reconciliation.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>observedGeneration</b></td>
+        <td>integer</td>
+        <td>
+          ObservedGeneration is the last observed generation of the Template.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.status.conditions[index]
+<sup><sup>[↩ Parent](#templatestatus)</sup></sup>
 
 
 
@@ -17074,6 +18735,68 @@ with respect to the current state of the instance.<br/>
           <br/>
             <i>Format</i>: int64<br/>
             <i>Minimum</i>: 0<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Template.status.crd
+<sup><sup>[↩ Parent](#templatestatus)</sup></sup>
+
+
+
+CRD contains information about the generated CRD.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>group</b></td>
+        <td>string</td>
+        <td>
+          Group is the API group of the generated CRD.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>kind</b></td>
+        <td>string</td>
+        <td>
+          Kind is the resource kind of the generated CRD.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the full name of the generated CRD (e.g., "databases.platform.example.com").<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>plural</b></td>
+        <td>string</td>
+        <td>
+          Plural is the plural name of the resource.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>ready</b></td>
+        <td>boolean</td>
+        <td>
+          Ready indicates whether the CRD has been successfully registered.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>version</b></td>
+        <td>string</td>
+        <td>
+          Version is the API version of the generated CRD.<br/>
         </td>
         <td>false</td>
       </tr></tbody>

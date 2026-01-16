@@ -1,0 +1,44 @@
+# Example CityWebsite instance
+# Apply the city-website-template.yaml first, then apply this file
+#
+# Prerequisites:
+# 1. Apply the Template: kubectl apply -f city-website-template.yaml
+# 2. Wait for the CRD to be registered: kubectl get crd citywebsites.websites.example.com
+# 3. Create the namespace: kubectl create namespace template-test
+# 4. Set up the service account and secrets as described in README.md
+# 5. Apply this instance: kubectl apply -f city-website-instance.yaml
+
+---
+apiVersion: websites.example.com/v1
+kind: CityWebsite
+metadata:
+  name: tokyo-site
+  namespace: template-test
+spec:
+  city: Tokyo
+  bodyColor: "#f0f8ff"
+  textColor: "#1a1a2e"
+
+---
+apiVersion: websites.example.com/v1
+kind: CityWebsite
+metadata:
+  name: paris-site
+  namespace: template-test
+spec:
+  city: Paris
+  title: "Bonjour"
+  bodyColor: "#fff0f5"
+  textColor: "#4a0e4e"
+
+---
+apiVersion: websites.example.com/v1
+kind: CityWebsite
+metadata:
+  name: new-york-site
+  namespace: template-test
+spec:
+  city: New York
+  title: "Welcome to"
+  bodyColor: "#000080"
+  textColor: "#ffffff"

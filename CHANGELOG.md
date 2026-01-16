@@ -4,6 +4,17 @@ CHANGELOG
 ## Unreleased
 
 - Add configurable leader election timeouts to prevent interruption of long-running operations [#1058](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1058)
+- **New feature: Template CRD for Dynamic API Generation** - A kro-style capability that allows platform engineers to define custom Kubernetes APIs backed by Pulumi infrastructure without writing controller code. Key features include:
+  - Define custom CRDs with OpenAPI schemas that automatically generate Kubernetes resources
+  - Expression language for value substitution (`${schema.spec.X}`, `${schema.metadata.name}`)
+  - Support for fallback expressions (`${schema.spec.name || schema.metadata.name}`)
+  - External package support for custom Pulumi components
+  - Pulumi ESC environment integration for secrets management
+  - Full lifecycle management with `destroyOnDelete` option
+  - Prometheus metrics for observability (`templates_active`, `template_instances_total`, etc.)
+  - Server-Side Apply for GitOps compatibility
+  - Graceful conflict handling during status updates
+- Fix: Template controller now correctly renders integer types in nested JSON structures (previously rendered as strings)
 
 ## 2.3.0 (2025-10-23)
 
