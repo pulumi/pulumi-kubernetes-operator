@@ -121,7 +121,7 @@ func makeUpdate(name types.NamespacedName, stack *pulumiv1.Stack, spec autov1alp
 			Name:       fmt.Sprintf("%s-%s", name.Name, utilrand.String(8)),
 			Namespace:  name.Namespace,
 			Labels:     labels,
-			Finalizers: []string{pulumiFinalizer},
+			Finalizers: []string{PulumiFinalizer},
 		},
 		Spec: spec,
 	}
@@ -313,7 +313,7 @@ var _ = Describe("Stack Controller", func() {
 	Describe("Finalization", func() {
 		useFluxSource()
 		BeforeEach(func(ctx context.Context) {
-			controllerutil.AddFinalizer(obj, pulumiFinalizer)
+			controllerutil.AddFinalizer(obj, PulumiFinalizer)
 		})
 
 		JustBeforeEach(func(ctx context.Context) {
@@ -336,7 +336,7 @@ var _ = Describe("Stack Controller", func() {
 
 		When("the resource has already been finalized", func() {
 			BeforeEach(func(ctx context.Context) {
-				controllerutil.RemoveFinalizer(obj, pulumiFinalizer)
+				controllerutil.RemoveFinalizer(obj, PulumiFinalizer)
 			})
 			It("reconciles", func(ctx context.Context) {
 				_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
@@ -356,7 +356,7 @@ var _ = Describe("Stack Controller", func() {
 				_, err := reconcileF(ctx)
 				Expect(err).NotTo(HaveOccurred())
 				By("not finalizing the object")
-				Expect(obj.Finalizers).To(ContainElement(pulumiFinalizer), "not remove the finalizer")
+				Expect(obj.Finalizers).To(ContainElement(PulumiFinalizer), "not remove the finalizer")
 				ByMarkingAsReconciling(pulumiv1.ReconcilingProcessingReason, Equal(pulumiv1.ReconcilingProcessingUpdateMessage))
 			})
 		})
@@ -369,7 +369,7 @@ var _ = Describe("Stack Controller", func() {
 				_, err := reconcileF(ctx)
 				Expect(err).NotTo(HaveOccurred())
 				By("finalizing the object")
-				Expect(obj.Finalizers).ToNot(ContainElement(pulumiFinalizer), "remove the finalizer")
+				Expect(obj.Finalizers).ToNot(ContainElement(PulumiFinalizer), "remove the finalizer")
 			})
 		})
 
@@ -393,12 +393,12 @@ var _ = Describe("Stack Controller", func() {
 						It("reconciles", func(ctx context.Context) {
 							_, err := reconcileF(ctx)
 							Expect(err).NotTo(HaveOccurred())
-							Expect(obj.Finalizers).To(ContainElement(pulumiFinalizer), "not remove the finalizer")
+							Expect(obj.Finalizers).To(ContainElement(PulumiFinalizer), "not remove the finalizer")
 							ByMarkingAsReconciling(pulumiv1.ReconcilingProcessingReason, Equal(pulumiv1.ReconcilingProcessingUpdateMessage))
 
 							By("creating a destroy op")
 							Expect(currentUpdate).ToNot(BeNil())
-							Expect(currentUpdate.Finalizers).To(ContainElement(pulumiFinalizer))
+							Expect(currentUpdate.Finalizers).To(ContainElement(PulumiFinalizer))
 							Expect(currentUpdate.Spec.StackName).To(Equal(obj.Spec.Stack))
 							Expect(currentUpdate.Spec.Type).To(Equal(autov1alpha1.DestroyType))
 
@@ -467,7 +467,7 @@ var _ = Describe("Stack Controller", func() {
 					result, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(result).To(Equal(reconcile.Result{}))
-					Expect(obj.Finalizers).ToNot(ContainElement(pulumiFinalizer), "remove the finalizer")
+					Expect(obj.Finalizers).ToNot(ContainElement(PulumiFinalizer), "remove the finalizer")
 					ByMarkingAsReady()
 				})
 			})
@@ -567,7 +567,7 @@ var _ = Describe("Stack Controller", func() {
 				Expect(obj.Status.LastUpdate.LastSuccessfulCommit).To(BeEmpty())
 
 				By("removing the stack finalizer to allow the update to be deleted later")
-				Expect(lastUpdate.Finalizers).ToNot(ContainElement(pulumiFinalizer))
+				Expect(lastUpdate.Finalizers).ToNot(ContainElement(PulumiFinalizer))
 
 				By("emitting an event")
 				Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.StackUpdateFailure)))
@@ -710,7 +710,7 @@ var _ = Describe("Stack Controller", func() {
 				Expect(obj.Status.LastUpdate.LastSuccessfulCommit).To(Equal("abcdef"))
 
 				By("removing the stack finalizer to allow the update to be deleted later")
-				Expect(lastUpdate.Finalizers).ToNot(ContainElement(pulumiFinalizer))
+				Expect(lastUpdate.Finalizers).ToNot(ContainElement(PulumiFinalizer))
 
 				By("emitting an event")
 				Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.StackUpdateSuccessful)))
@@ -1110,7 +1110,7 @@ var _ = Describe("Stack Controller", func() {
 
 				By("creating an update op")
 				Expect(currentUpdate).ToNot(BeNil())
-				Expect(currentUpdate.Finalizers).To(ContainElement(pulumiFinalizer))
+				Expect(currentUpdate.Finalizers).To(ContainElement(PulumiFinalizer))
 				Expect(currentUpdate.Spec.StackName).To(Equal(obj.Spec.Stack))
 				Expect(currentUpdate.Spec.Type).To(Equal(autov1alpha1.UpType))
 
@@ -1167,7 +1167,7 @@ var _ = Describe("Stack Controller", func() {
 			When("marked for deletion with destroyOnFinalize", func() {
 				BeforeEach(func(ctx context.Context) {
 					obj.Spec.DestroyOnFinalize = true
-					controllerutil.AddFinalizer(obj, pulumiFinalizer)
+					controllerutil.AddFinalizer(obj, PulumiFinalizer)
 				})
 
 				JustBeforeEach(func(ctx context.Context) {
@@ -1181,7 +1181,7 @@ var _ = Describe("Stack Controller", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					By("finalizing the object")
-					Expect(obj.Finalizers).ToNot(ContainElement(pulumiFinalizer))
+					Expect(obj.Finalizers).ToNot(ContainElement(PulumiFinalizer))
 
 					By("not creating a destroy update")
 					Expect(currentUpdate.Spec.Type).ToNot(Equal(autov1alpha1.DestroyType))
@@ -1373,7 +1373,7 @@ var _ = Describe("Stack Controller", func() {
 		When("the stack is being deleted", func() {
 			BeforeEach(func(ctx context.Context) {
 				obj.Spec.DestroyOnFinalize = true
-				controllerutil.AddFinalizer(obj, pulumiFinalizer)
+				controllerutil.AddFinalizer(obj, PulumiFinalizer)
 
 				// make the workspace be ready for an update
 				ws.Status.ObservedGeneration = 1
@@ -2214,7 +2214,7 @@ func TestAddUpdateFinalizer(t *testing.T) {
 		// Verify the finalizer is added
 		updated := &autov1alpha1.Update{}
 		require.NoError(t, fakeClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, updated))
-		assert.Contains(t, updated.Finalizers, pulumiFinalizer)
+		assert.Contains(t, updated.Finalizers, PulumiFinalizer)
 
 		// Verify the finalizer is owned by StackFinalizerFieldManager (v0.22.0+ fake client supports managed fields)
 		found := false
@@ -2262,60 +2262,14 @@ func TestRemoveUpdateFinalizer(t *testing.T) {
 
 		// Re-fetch to get the updated object with finalizers
 		require.NoError(t, fakeClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, update))
-
 		err := r.removeUpdateFinalizer(ctx, update)
 		assert.NoError(t, err)
 
 		// Verify the finalizer is removed
 		updated := &autov1alpha1.Update{}
 		require.NoError(t, fakeClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, updated))
-		assert.NotContains(t, updated.Finalizers, pulumiFinalizer)
+		assert.NotContains(t, updated.Finalizers, PulumiFinalizer)
 	})
-
-	// t.Run("removes only the stack finalizer and preserves others", func(t *testing.T) {
-	// 	update := &autov1alpha1.Update{
-	// 		ObjectMeta: metav1.ObjectMeta{
-	// 			Name:      "test-update-multi",
-	// 			Namespace: "default",
-	// 		},
-	// 		Spec: autov1alpha1.UpdateSpec{
-	// 			StackName:     "test-stack",
-	// 			WorkspaceName: "test-workspace",
-	// 		},
-	// 	}
-	// 	require.NoError(t, fakeClient.Create(ctx, update))
-
-	// 	// Add our finalizer using SSA
-	// 	require.NoError(t, r.addUpdateFinalizer(ctx, update))
-
-	// 	// Add another finalizer using regular Update (simulating another controller)
-	// 	require.NoError(t, fakeClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, update))
-	// 	update.Finalizers = append(update.Finalizers, "other.finalizer.com")
-	// 	require.NoError(t, fakeClient.Update(ctx, update))
-
-	// 	// Re-fetch to get the updated object with finalizers and managed fields
-	// 	require.NoError(t, fakeClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, update))
-
-	// 	// Verify our finalizer is present and owned by our field manager
-	// 	assert.Contains(t, update.Finalizers, pulumiFinalizer)
-	// 	found := false
-	// 	for _, mf := range update.GetManagedFields() {
-	// 		if mf.Manager == StackFinalizerFieldManager {
-	// 			found = true
-	// 			break
-	// 		}
-	// 	}
-	// 	assert.True(t, found, "our finalizer should be owned by StackFinalizerFieldManager")
-
-	// 	err := r.removeUpdateFinalizer(ctx, update)
-	// 	assert.NoError(t, err)
-
-	// 	// Verify only our finalizer is removed
-	// 	updated := &autov1alpha1.Update{}
-	// 	require.NoError(t, fakeClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, updated))
-	// 	assert.NotContains(t, updated.Finalizers, pulumiFinalizer, "our finalizer should be removed")
-	// 	assert.Contains(t, updated.Finalizers, "other.finalizer.com", "other finalizer should be preserved")
-	// })
 
 	t.Run("succeeds without error when finalizer not present (idempotent)", func(t *testing.T) {
 
