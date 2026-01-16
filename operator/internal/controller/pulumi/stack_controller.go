@@ -32,6 +32,7 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	updateapply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
 	auto "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/controller/auto"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -82,7 +83,8 @@ const (
 )
 
 const (
-	FieldManager = "pulumi-kubernetes-operator"
+	FieldManager               = "pulumi-kubernetes-operator"
+	StackFinalizerFieldManager = "pulumi-kubernetes-operator/stack-finalizer"
 )
 
 // prerequisiteIndexFieldName is the name used for indexing the prerequisites field.
@@ -1772,5 +1774,57 @@ func (p *finalizerAddedPredicate) Update(e event.UpdateEvent) bool {
 }
 
 func (p *finalizerAddedPredicate) Generic(_ event.GenericEvent) bool {
+	return false
+}
+
+type applyConfiguration struct {
+	config any
+}
+
+func (a applyConfiguration) Type() types.PatchType {
+	return types.ApplyPatchType
+}
+
+func (a applyConfiguration) Data(_ client.Object) ([]byte, error) {
+	return json.Marshal(a.config)
+}
+
+func (r *StackReconciler) addUpdateFinalizer(ctx context.Context, update *autov1alpha1.Update) error {
+	patch := updateapply.Update(update.Name, update.Namespace).WithFinalizers(pulumiFinalizer)
+	return r.Patch(ctx, update, &applyConfiguration{
+		config: patch,
+	}, client.FieldOwner(StackFinalizerFieldManager))
+}
+
+func (r *StackReconciler) removeUpdateFinalizer(ctx context.Context, update *autov1alpha1.Update) error {
+	log := ctrllog.FromContext(ctx)
+	patch := updateapply.Update(update.Name, update.Namespace)
+	err := r.Patch(ctx, update, &applyConfiguration{
+		config: patch,
+	}, client.FieldOwner(StackFinalizerFieldManager))
+	// if we can't find the update object, it means it was already deleted, so we can skip the finalizer removal
+	if apierrors.IsNotFound(err) {
+		log.V(1).Info("Update object already deleted, skipping finalizer removal")
+		return nil
+	}
+	return err
+}
+
+// isFinalizerOwnedByLegacyManager checks if the pulumiFinalizer is owned by the old
+// field manager (FieldManager) rather than the new one (StackFinalizerFieldManager).
+func isFinalizerOwnedByLegacyManager(update *autov1alpha1.Update) bool {
+	for _, mf := range update.GetManagedFields() {
+		if mf.Manager == FieldManager {
+			// Check if this manager owns any finalizers.
+			// The FieldsV1 contains the fields owned by this manager.
+			if mf.FieldsV1 != nil {
+				// FieldsV1 is JSON - we check if it mentions finalizers
+				raw := string(mf.FieldsV1.Raw)
+				if strings.Contains(raw, "finalizers") {
+					return true
+				}
+			}
+		}
+	}
 	return false
 }
