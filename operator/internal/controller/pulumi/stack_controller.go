@@ -587,12 +587,12 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 				"conditions", instance.Status.Conditions)
 		}
 		if toBeFinalized != nil {
-			// remove the finalizer from the Update object that was being watched,
-			// after the status update is persisted.
-			if controllerutil.RemoveFinalizer(toBeFinalized, PulumiFinalizer) {
-				if err := r.Update(ctx, toBeFinalized, client.FieldOwner(FieldManager)); err != nil {
-					log.Error(err, "unable to remove finalizer from current update; update object will be orphaned")
-				}
+			// Remove the finalizer from the Update object using SSA. This is best-effort
+			// since the status update (indicating the update was processed) has already
+			// completed. If removal fails, the Update will be cleaned up by TTL or manual
+			// intervention.
+			if err := r.removeUpdateFinalizer(ctx, toBeFinalized); err != nil {
+				log.Error(err, "unable to remove finalizer from current update (best-effort)")
 			}
 			toBeFinalized = nil
 		}
@@ -963,9 +963,6 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, fmt.Errorf("unable to prepare update (up) for stack: %w", err)
 		}
 	}
-	// apply a finalizer to the update object to ensure it doesn't disappear entirely
-	// while we're waiting for it to complete.
-	update.Finalizers = append(update.Finalizers, PulumiFinalizer)
 
 	instance.Status.CurrentUpdate = &shared.CurrentStackUpdate{
 		Generation:       instance.Generation,
@@ -984,6 +981,18 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		instance.Status.CurrentUpdate = nil
 		_ = saveStatus()
 		return reconcile.Result{}, fmt.Errorf("unable to create update for stack: %w", err)
+	}
+	
+	// Apply a finalizer to the update object using SSA with a dedicated field manager.
+	// This ensures the finalizer doesn't conflict with other operations and can be
+	// removed cleanly even if the Update controller races with us.
+	if err := r.addUpdateFinalizer(ctx, update); err != nil {
+		log.Error(err, "failed to add finalizer to Update")
+		// Delete the update since we couldn't finalize it properly
+		_ = r.Delete(ctx, update)
+		instance.Status.CurrentUpdate = nil
+		_ = saveStatus()
+		return reconcile.Result{}, fmt.Errorf("unable to add finalizer to update: %w", err)
 	}
 
 	// Step 6: At this point, an update is running and will requeue the stack once it completes.
@@ -1802,7 +1811,6 @@ func (r *StackReconciler) removeUpdateFinalizer(ctx context.Context, update *aut
 	err := r.Patch(ctx, update, &applyConfiguration{
 		config: patch,
 	}, client.FieldOwner(StackFinalizerFieldManager))
-	// if we can't find the update object, it means it was already deleted, so we can skip the finalizer removal
 	if apierrors.IsNotFound(err) {
 		log.V(1).Info("Update object already deleted, skipping finalizer removal")
 		return nil

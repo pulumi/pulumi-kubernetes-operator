@@ -502,17 +502,14 @@ func TestSSAFinalizerOwnership(t *testing.T) {
 	config, err := clientcmd.BuildConfigFromFlags("", clientcmd.RecommendedHomeFile)
 	require.NoError(t, err, "failed to load kubeconfig")
 
-	// Register the CRD scheme
 	testScheme := scheme.Scheme
 	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
 
-	// Create a client
 	k8sClient, err := client.New(config, client.Options{Scheme: testScheme})
 	require.NoError(t, err, "failed to create Kubernetes client")
 
 	ctx := context.Background()
 
-	// Create an Update object
 	update := &autov1alpha1.Update{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-ssa-finalizer-" + utilrand.String(5),
@@ -524,7 +521,6 @@ func TestSSAFinalizerOwnership(t *testing.T) {
 		},
 	}
 
-	// Clean up the object when the test completes
 	t.Cleanup(func() {
 		cleanupUpdate := &autov1alpha1.Update{}
 		if err := k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, cleanupUpdate); err == nil {
@@ -534,12 +530,11 @@ func TestSSAFinalizerOwnership(t *testing.T) {
 		}
 	})
 
-	// Create the object
 	require.NoError(t, k8sClient.Create(ctx, update))
 
-	// Add our finalizer via SSA (simulating StackFinalizerFieldManager)
+	// Add our finalizer via SSA
 	ourPatch := autov1alpha1apply.Update(update.Name, update.Namespace).
-		WithFinalizers(pulumi.PulumiFinalizer) // value of `p
+		WithFinalizers(pulumi.PulumiFinalizer)
 	require.NoError(t, k8sClient.Patch(ctx, update, applyPatch{ourPatch},
 		client.FieldOwner("pulumi-kubernetes-operator/stack-finalizer")))
 
@@ -560,7 +555,6 @@ func TestSSAFinalizerOwnership(t *testing.T) {
 	emptyPatch := autov1alpha1apply.Update(update.Name, update.Namespace)
 	require.NoError(t, k8sClient.Patch(ctx, update, applyPatch{emptyPatch},
 		client.FieldOwner("pulumi-kubernetes-operator/stack-finalizer")))
-
 	// Verify only our finalizer is removed
 	updated := &autov1alpha1.Update{}
 	require.NoError(t, k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, updated))
