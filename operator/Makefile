@@ -214,7 +214,7 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.2.1
 CONTROLLER_TOOLS_VERSION ?= v0.16.5
-APPLYCONFIGURATION_TOOLS_VERSION ?= v0.32.0
+APPLYCONFIGURATION_TOOLS_VERSION ?= v0.34.1
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
