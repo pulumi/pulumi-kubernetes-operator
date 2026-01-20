@@ -838,6 +838,16 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 		// Delete the workspace if the reclaim policy is set to delete.
 		if !updateFailed && instance.Spec.WorkspaceReclaimPolicy == shared.WorkspaceReclaimDelete {
+			// Remove the Update finalizer BEFORE deleting the workspace to avoid a race
+			// condition: workspace deletion triggers cascade delete on the Update, which
+			// would leave the Update stuck if the finalizer weren't removed yet.
+			if toBeFinalized != nil {
+				if err := r.removeUpdateFinalizer(ctx, toBeFinalized); err != nil {
+					return reconcile.Result{}, fmt.Errorf("removing update finalizer before workspace deletion: %w", err)
+				}
+				toBeFinalized = nil
+			}
+
 			log.Info("Deleting workspace as reclaim policy is set to delete")
 			err := sess.DeleteWorkspace(ctx)
 			if err != nil {
@@ -982,7 +992,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		_ = saveStatus()
 		return reconcile.Result{}, fmt.Errorf("unable to create update for stack: %w", err)
 	}
-	
+
 	// Apply a finalizer to the update object using SSA with a dedicated field manager.
 	// This ensures the finalizer doesn't conflict with other operations and can be
 	// removed cleanly even if the Update controller races with us.

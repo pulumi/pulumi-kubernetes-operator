@@ -16,6 +16,7 @@ package pulumi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -50,6 +51,19 @@ import (
 const (
 	testFinalizer = "test.finalizer.pulumi.com"
 )
+
+// applyPatch implements client.Patch for server-side apply in tests.
+type applyPatch struct {
+	patch interface{}
+}
+
+func (p applyPatch) Type() types.PatchType {
+	return types.ApplyPatchType
+}
+
+func (p applyPatch) Data(obj client.Object) ([]byte, error) {
+	return json.Marshal(p.patch)
+}
 
 // jsonValue creates a JSON value from a string for testing
 func jsonValue(s string) *apiextensionsv1.JSON {
@@ -225,10 +239,19 @@ var _ = Describe("Stack Controller", func() {
 
 	JustBeforeEach(func(ctx context.Context) {
 		Expect(controllerutil.SetControllerReference(obj, currentUpdate, k8sClient.Scheme())).To(Succeed())
+		// Remove the finalizer before creating; it will be added via SSA with the correct field manager
+		finalizers := currentUpdate.Finalizers
+		currentUpdate.Finalizers = nil
 		status := currentUpdate.Status
 		Expect(k8sClient.Patch(ctx, currentUpdate, client.Apply, client.FieldOwner(FieldManager))).To(Succeed())
 		currentUpdate.Status = status
 		Expect(k8sClient.Status().Update(ctx, currentUpdate, client.FieldOwner(FieldManager))).To(Succeed())
+		// Add the finalizer via SSA with the dedicated field manager, matching real controller behavior
+		if len(finalizers) > 0 {
+			finalizerPatch := autov1alpha1apply.Update(currentUpdate.Name, currentUpdate.Namespace).
+				WithFinalizers(finalizers...)
+			Expect(k8sClient.Patch(ctx, currentUpdate, applyPatch{finalizerPatch}, client.FieldOwner(StackFinalizerFieldManager))).To(Succeed())
+		}
 	})
 
 	reconcileF := func(ctx context.Context) (result reconcile.Result, err error) {
