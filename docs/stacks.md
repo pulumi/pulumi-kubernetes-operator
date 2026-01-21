@@ -134,10 +134,18 @@ is mutually exclusive with the Branch setting. Either value needs to be specifie
         <td>false</td>
       </tr><tr>
         <td><b>config</b></td>
-        <td>map[string]string</td>
+        <td>JSON</td>
         <td>
           (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
-is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+is omitted, configuration is assumed to be checked in and taken from the source repository.
+Supports both simple string values and structured values (objects, arrays, numbers, booleans).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefkey">configRef</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          (optional) ConfigRef allows specifying configuration values from ConfigMaps.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -150,6 +158,16 @@ environments where Pulumi programs have dynamic elements for example, calls to i
 where GitOps style commit tracking is not sufficient.  Defaults to false, i.e. when a
 particular revision is successfully run, the operator will not attempt to rerun the program
 at that revision again.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>dependencies</b></td>
+        <td>[]string</td>
+        <td>
+          (optional) Dependencies is a list of additional paths to include in sparse checkout.
+This allows including dependency code (e.g., shared SDKs) from other parts of the
+repository while keeping RepoDir focused for path filtering.
+Example: ["pulumi/meta/teleport/sdks", "pulumi/common-go"]<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -236,6 +254,40 @@ Only one authentication mode will be considered if more than one option is speci
 with ssh private key/password preferred first, then personal access token, and finally
 basic auth credentials.
 Deprecated. Use GitAuth instead.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitsourcesindex">gitSources</a></b></td>
+        <td>[]object</td>
+        <td>
+          (optional) GitSources is a list of external Git repositories to track. When a tracked
+branch in any of these repositories receives new commits, the stack will be automatically
+updated. This is useful for triggering deployments when application code dependencies are updated.
+The repositories are polled at the frequency specified by ResyncFrequencySeconds.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>ignoreProjectRepoChanges</b></td>
+        <td>boolean</td>
+        <td>
+          (optional) IgnoreProjectRepoChanges when set to true prevents changes to the stack's
+projectRepo from triggering updates. Only changes to repositories listed in GitSources
+will trigger updates. This is useful when projectRepo contains deployment code and
+gitSources contain the application code being deployed - you only want to deploy when
+application code changes.
+Default: false (both projectRepo and gitSources can trigger updates)<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pathFilter</b></td>
+        <td>boolean</td>
+        <td>
+          (optional) PathFilter when set to true enables path-based change filtering for reconciliation.
+When enabled, only commits that modify files within the directory specified by RepoDir
+(or its subdirectories) will trigger a stack reconciliation. This is useful for monorepos
+where you only want to deploy when specific directories change.
+If RepoDir is empty, this setting has no effect.
+Default: false (all commits trigger reconciliation)<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -418,6 +470,49 @@ The default behavior is to retain the workspace. Valid values are one of "Retain
 is applied as a strategic merge patch on top of the underlying
 Workspace. Use this to customize the Workspace's metadata, image, resources,
 volumes, etc.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRef[key]
+<sup><sup>[↩ Parent](#stackspec)</sup></sup>
+
+
+
+ConfigMapRef identifies information to load from a Kubernetes ConfigMap.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the ConfigMap to use<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the ConfigMap<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
+        <td>
+          JSON indicates the referenced value should be parsed as JSON.
+When true, the value is treated as structured data (object/array/etc).
+When false, the value is treated as a raw string.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1712,6 +1807,55 @@ SecretRef refers to a Kubernetes Secret
 unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitSources[index]
+<sup><sup>[↩ Parent](#stackspec)</sup></sup>
+
+
+
+GitSource specifies an external Git repository to track for changes.
+The stack will be updated when the specified branch receives new commits.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>branch</b></td>
+        <td>string</td>
+        <td>
+          Branch is the branch name to track (e.g., "main", "refs/heads/production").
+The operator will poll this branch for new commits at the frequency
+specified by ResyncFrequencySeconds.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is a friendly identifier for this dependency.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>repository</b></td>
+        <td>string</td>
+        <td>
+          Repository is the Git repository URL (HTTPS or SSH).
+Examples:
+  - HTTPS: "https://github.com/organization/repository"
+  - SSH:   "git@github.com:organization/repository.git"
+Note: Authentication is inherited from the stack's gitAuth/gitAuthSecret configuration.
+All git dependencies will use the same credentials as the main projectRepo.<br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
 
@@ -19535,7 +19679,7 @@ with apply.
         <td>false</td>
       </tr><tr>
         <td><b>value</b></td>
-        <td>string</td>
+        <td>JSON</td>
         <td>
           <br/>
         </td>
@@ -19572,6 +19716,13 @@ with apply.
     <tbody><tr>
         <td><b>env</b></td>
         <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
         <td>
           <br/>
         </td>
@@ -19625,6 +19776,13 @@ with apply.
           <br/>
           <br/>
             <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pulumiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -19726,6 +19884,14 @@ StackStatus defines the observed state of Stack
         <td>object</td>
         <td>
           CurrentUpdate contains details of the status of the current update, if any.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackstatusgitsourceskey">gitSources</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          GitSources tracks the status of tracked Git repositories.
+Maps source name to its current status including last seen commit and check time.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -19884,6 +20050,58 @@ CurrentUpdate contains details of the status of the current update, if any.
         <td>string</td>
         <td>
           ReconcileRequest is the stack reconcile request associated with the update.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.status.gitSources[key]
+<sup><sup>[↩ Parent](#stackstatus)</sup></sup>
+
+
+
+GitSourceStatus tracks the observed state of a tracked Git source.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastCheckedTime</b></td>
+        <td>string</td>
+        <td>
+          LastCheckedTime is when the operator last polled this repository.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastCommitTime</b></td>
+        <td>string</td>
+        <td>
+          LastCommitTime is the timestamp of the last seen commit (from Git metadata).<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSeenCommit</b></td>
+        <td>string</td>
+        <td>
+          LastSeenCommit is the last commit hash observed on the tracked branch.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          Message contains any error or informational message about the dependency check.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -20125,10 +20343,18 @@ is mutually exclusive with the Branch setting. Either value needs to be specifie
         <td>false</td>
       </tr><tr>
         <td><b>config</b></td>
-        <td>map[string]string</td>
+        <td>JSON</td>
         <td>
           (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
-is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+is omitted, configuration is assumed to be checked in and taken from the source repository.
+Supports both simple string values and structured values (objects, arrays, numbers, booleans).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefkey-1">configRef</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          (optional) ConfigRef allows specifying configuration values from ConfigMaps.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20141,6 +20367,16 @@ environments where Pulumi programs have dynamic elements for example, calls to i
 where GitOps style commit tracking is not sufficient.  Defaults to false, i.e. when a
 particular revision is successfully run, the operator will not attempt to rerun the program
 at that revision again.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>dependencies</b></td>
+        <td>[]string</td>
+        <td>
+          (optional) Dependencies is a list of additional paths to include in sparse checkout.
+This allows including dependency code (e.g., shared SDKs) from other parts of the
+repository while keeping RepoDir focused for path filtering.
+Example: ["pulumi/meta/teleport/sdks", "pulumi/common-go"]<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20227,6 +20463,40 @@ Only one authentication mode will be considered if more than one option is speci
 with ssh private key/password preferred first, then personal access token, and finally
 basic auth credentials.
 Deprecated. Use GitAuth instead.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitsourcesindex-1">gitSources</a></b></td>
+        <td>[]object</td>
+        <td>
+          (optional) GitSources is a list of external Git repositories to track. When a tracked
+branch in any of these repositories receives new commits, the stack will be automatically
+updated. This is useful for triggering deployments when application code dependencies are updated.
+The repositories are polled at the frequency specified by ResyncFrequencySeconds.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>ignoreProjectRepoChanges</b></td>
+        <td>boolean</td>
+        <td>
+          (optional) IgnoreProjectRepoChanges when set to true prevents changes to the stack's
+projectRepo from triggering updates. Only changes to repositories listed in GitSources
+will trigger updates. This is useful when projectRepo contains deployment code and
+gitSources contain the application code being deployed - you only want to deploy when
+application code changes.
+Default: false (both projectRepo and gitSources can trigger updates)<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pathFilter</b></td>
+        <td>boolean</td>
+        <td>
+          (optional) PathFilter when set to true enables path-based change filtering for reconciliation.
+When enabled, only commits that modify files within the directory specified by RepoDir
+(or its subdirectories) will trigger a stack reconciliation. This is useful for monorepos
+where you only want to deploy when specific directories change.
+If RepoDir is empty, this setting has no effect.
+Default: false (all commits trigger reconciliation)<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20409,6 +20679,49 @@ The default behavior is to retain the workspace. Valid values are one of "Retain
 is applied as a strategic merge patch on top of the underlying
 Workspace. Use this to customize the Workspace's metadata, image, resources,
 volumes, etc.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRef[key]
+<sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
+
+
+
+ConfigMapRef identifies information to load from a Kubernetes ConfigMap.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the ConfigMap to use<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the ConfigMap<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
+        <td>
+          JSON indicates the referenced value should be parsed as JSON.
+When true, the value is treated as structured data (object/array/etc).
+When false, the value is treated as a raw string.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -21703,6 +22016,55 @@ SecretRef refers to a Kubernetes Secret
 unless namespace isolation is disabled in the controller.<br/>
         </td>
         <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitSources[index]
+<sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
+
+
+
+GitSource specifies an external Git repository to track for changes.
+The stack will be updated when the specified branch receives new commits.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>branch</b></td>
+        <td>string</td>
+        <td>
+          Branch is the branch name to track (e.g., "main", "refs/heads/production").
+The operator will poll this branch for new commits at the frequency
+specified by ResyncFrequencySeconds.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is a friendly identifier for this dependency.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>repository</b></td>
+        <td>string</td>
+        <td>
+          Repository is the Git repository URL (HTTPS or SSH).
+Examples:
+  - HTTPS: "https://github.com/organization/repository"
+  - SSH:   "git@github.com:organization/repository.git"
+Note: Authentication is inherited from the stack's gitAuth/gitAuthSecret configuration.
+All git dependencies will use the same credentials as the main projectRepo.<br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
 
@@ -39526,7 +39888,7 @@ with apply.
         <td>false</td>
       </tr><tr>
         <td><b>value</b></td>
-        <td>string</td>
+        <td>JSON</td>
         <td>
           <br/>
         </td>
@@ -39563,6 +39925,13 @@ with apply.
     <tbody><tr>
         <td><b>env</b></td>
         <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
         <td>
           <br/>
         </td>
@@ -39616,6 +39985,13 @@ with apply.
           <br/>
           <br/>
             <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pulumiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -39706,6 +40082,14 @@ StackStatus defines the observed state of Stack
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#stackstatusgitsourceskey-1">gitSources</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          GitSources tracks the last observed state of each tracked git source.
+The key is the source name from spec.gitSources[].name.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackstatuslastupdate-1">lastUpdate</a></b></td>
         <td>object</td>
         <td>
@@ -39717,6 +40101,58 @@ StackStatus defines the observed state of Stack
         <td>map[string]JSON</td>
         <td>
           Outputs contains the exported stack output variables resulting from a deployment.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.status.gitSources[key]
+<sup><sup>[↩ Parent](#stackstatus-1)</sup></sup>
+
+
+
+GitSourceStatus tracks the observed state of a tracked Git source.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>lastCheckedTime</b></td>
+        <td>string</td>
+        <td>
+          LastCheckedTime is when the operator last polled this repository.<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastCommitTime</b></td>
+        <td>string</td>
+        <td>
+          LastCommitTime is the timestamp of the last seen commit (from Git metadata).<br/>
+          <br/>
+            <i>Format</i>: date-time<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>lastSeenCommit</b></td>
+        <td>string</td>
+        <td>
+          LastSeenCommit is the last commit hash observed on the tracked branch.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>message</b></td>
+        <td>string</td>
+        <td>
+          Message contains any error or informational message about the dependency check.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
