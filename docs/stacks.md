@@ -134,10 +134,18 @@ is mutually exclusive with the Branch setting. Either value needs to be specifie
         <td>false</td>
       </tr><tr>
         <td><b>config</b></td>
-        <td>map[string]string</td>
+        <td>JSON</td>
         <td>
           (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
-is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+is omitted, configuration is assumed to be checked in and taken from the source repository.
+Supports both simple string values and structured values (objects, arrays, numbers, booleans).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefkey">configRef</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          (optional) ConfigRef allows specifying configuration values from ConfigMaps.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -418,6 +426,49 @@ The default behavior is to retain the workspace. Valid values are one of "Retain
 is applied as a strategic merge patch on top of the underlying
 Workspace. Use this to customize the Workspace's metadata, image, resources,
 volumes, etc.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRef[key]
+<sup><sup>[↩ Parent](#stackspec)</sup></sup>
+
+
+
+ConfigMapRef identifies information to load from a Kubernetes ConfigMap.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the ConfigMap to use<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the ConfigMap<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
+        <td>
+          JSON indicates the referenced value should be parsed as JSON.
+When true, the value is treated as structured data (object/array/etc).
+When false, the value is treated as a raw string.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -19535,7 +19586,7 @@ with apply.
         <td>false</td>
       </tr><tr>
         <td><b>value</b></td>
-        <td>string</td>
+        <td>JSON</td>
         <td>
           <br/>
         </td>
@@ -19572,6 +19623,13 @@ with apply.
     <tbody><tr>
         <td><b>env</b></td>
         <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
         <td>
           <br/>
         </td>
@@ -19625,6 +19683,13 @@ with apply.
           <br/>
           <br/>
             <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pulumiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -20125,10 +20190,18 @@ is mutually exclusive with the Branch setting. Either value needs to be specifie
         <td>false</td>
       </tr><tr>
         <td><b>config</b></td>
-        <td>map[string]string</td>
+        <td>JSON</td>
         <td>
           (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
-is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+is omitted, configuration is assumed to be checked in and taken from the source repository.
+Supports both simple string values and structured values (objects, arrays, numbers, booleans).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefkey-1">configRef</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          (optional) ConfigRef allows specifying configuration values from ConfigMaps.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20409,6 +20482,49 @@ The default behavior is to retain the workspace. Valid values are one of "Retain
 is applied as a strategic merge patch on top of the underlying
 Workspace. Use this to customize the Workspace's metadata, image, resources,
 volumes, etc.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRef[key]
+<sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
+
+
+
+ConfigMapRef identifies information to load from a Kubernetes ConfigMap.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the ConfigMap to use<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the ConfigMap<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
+        <td>
+          JSON indicates the referenced value should be parsed as JSON.
+When true, the value is treated as structured data (object/array/etc).
+When false, the value is treated as a raw string.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -39526,7 +39642,7 @@ with apply.
         <td>false</td>
       </tr><tr>
         <td><b>value</b></td>
-        <td>string</td>
+        <td>JSON</td>
         <td>
           <br/>
         </td>
@@ -39563,6 +39679,13 @@ with apply.
     <tbody><tr>
         <td><b>env</b></td>
         <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
         <td>
           <br/>
         </td>
@@ -39616,6 +39739,13 @@ with apply.
           <br/>
           <br/>
             <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pulumiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
