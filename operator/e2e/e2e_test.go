@@ -16,10 +16,12 @@ package e2e
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/controller/pulumi"
 	"os"
 	"os/exec"
 	"strings"
@@ -28,10 +30,17 @@ import (
 
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	autov1alpha1apply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _namespace = "pulumi-kubernetes-operator"
@@ -478,4 +487,93 @@ func loadImageToKindClusterWithName(name string) error {
 	kindOptions := []string{"load", "docker-image", name, "--name", cluster}
 	cmd := exec.Command("kind", kindOptions...)
 	return run(cmd)
+}
+
+// TestSSAFinalizerOwnership tests that SSA correctly handles finalizer ownership
+// when multiple controllers add finalizers to the same object. This verifies that
+// removing our finalizer via SSA (by applying with empty finalizers) only removes
+// the finalizer owned by our field manager, leaving other controllers' finalizers intact.
+func TestSSAFinalizerOwnership(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
+	// Build config from default kubeconfig location
+	config, err := clientcmd.BuildConfigFromFlags("", clientcmd.RecommendedHomeFile)
+	require.NoError(t, err, "failed to load kubeconfig")
+
+	testScheme := scheme.Scheme
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	k8sClient, err := client.New(config, client.Options{Scheme: testScheme})
+	require.NoError(t, err, "failed to create Kubernetes client")
+
+	ctx := context.Background()
+
+	update := &autov1alpha1.Update{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-ssa-finalizer-" + utilrand.String(5),
+			Namespace: "default",
+		},
+		Spec: autov1alpha1.UpdateSpec{
+			StackName:     "test-stack",
+			WorkspaceName: "test-workspace",
+		},
+	}
+
+	t.Cleanup(func() {
+		cleanupUpdate := &autov1alpha1.Update{}
+		if err := k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, cleanupUpdate); err == nil {
+			cleanupUpdate.Finalizers = nil
+			_ = k8sClient.Update(ctx, cleanupUpdate)
+			_ = k8sClient.Delete(ctx, cleanupUpdate)
+		}
+	})
+
+	require.NoError(t, k8sClient.Create(ctx, update))
+
+	// Add our finalizer via SSA
+	ourPatch := autov1alpha1apply.Update(update.Name, update.Namespace).
+		WithFinalizers(pulumi.PulumiFinalizer)
+	require.NoError(t, k8sClient.Patch(ctx, update, applyPatch{ourPatch},
+		client.FieldOwner("pulumi-kubernetes-operator/stack-finalizer")))
+
+	// Simulate another controller adding its finalizer via SSA
+	otherPatch := autov1alpha1apply.Update(update.Name, update.Namespace).
+		WithFinalizers("other.finalizer.com")
+	require.NoError(t, k8sClient.Patch(ctx, update, applyPatch{otherPatch},
+		client.FieldOwner("other-controller")))
+
+	// Verify setup: both finalizers are present
+	require.NoError(t, k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, update))
+	require.Contains(t, update.Finalizers, pulumi.PulumiFinalizer, "setup: Pulumi finalizer should be present")
+	require.Contains(t, update.Finalizers, "other.finalizer.com", "setup: other finalizer should be present")
+
+	t.Logf("Before removal - Finalizers: %v", update.Finalizers)
+
+	// Remove our finalizer by applying with empty finalizers (releasing ownership)
+	emptyPatch := autov1alpha1apply.Update(update.Name, update.Namespace)
+	require.NoError(t, k8sClient.Patch(ctx, update, applyPatch{emptyPatch},
+		client.FieldOwner("pulumi-kubernetes-operator/stack-finalizer")))
+	// Verify only our finalizer is removed
+	updated := &autov1alpha1.Update{}
+	require.NoError(t, k8sClient.Get(ctx, types.NamespacedName{Name: update.Name, Namespace: update.Namespace}, updated))
+
+	t.Logf("After removal - Finalizers: %v", updated.Finalizers)
+
+	assert.NotContains(t, updated.Finalizers, pulumi.PulumiFinalizer, "Pulumi finalizer should be removed")
+	assert.Contains(t, updated.Finalizers, "other.finalizer.com", "other finalizer should be preserved")
+}
+
+// applyPatch implements client.Patch for server-side apply.
+type applyPatch struct {
+	patch interface{}
+}
+
+func (p applyPatch) Type() types.PatchType {
+	return types.ApplyPatchType
+}
+
+func (p applyPatch) Data(obj client.Object) ([]byte, error) {
+	return json.Marshal(p.patch)
 }

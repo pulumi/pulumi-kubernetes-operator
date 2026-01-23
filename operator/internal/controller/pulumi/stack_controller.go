@@ -32,6 +32,7 @@ import (
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	updateapply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
 	auto "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/controller/auto"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -75,14 +76,15 @@ func (e errRequirementOutOfDate) Error() string {
 }
 
 const (
-	pulumiFinalizer          = "finalizer.stack.pulumi.com"
 	programRefIndexFieldName = ".spec.programRef.name"      // this is an arbitrary string, named for the field it indexes
 	fluxSourceIndexFieldName = ".spec.fluxSource.sourceRef" // an arbitrary name, named for the field it indexes
 	ttlForCompletedUpdate    = time.Hour * 24
 )
 
 const (
-	FieldManager = "pulumi-kubernetes-operator"
+	FieldManager               = "pulumi-kubernetes-operator"
+	StackFinalizerFieldManager = "pulumi-kubernetes-operator/stack-finalizer"
+	PulumiFinalizer            = "finalizer.stack.pulumi.com"
 )
 
 // prerequisiteIndexFieldName is the name used for indexing the prerequisites field.
@@ -547,10 +549,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	isStackMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
 	// If there's no finalizer, it's either been cleaned up, never been seen, or never gotten far
 	// enough to need cleaning up.
-	if isStackMarkedToBeDeleted && !slices.Contains(instance.GetFinalizers(), pulumiFinalizer) {
+	if isStackMarkedToBeDeleted && !slices.Contains(instance.GetFinalizers(), PulumiFinalizer) {
 		return reconcile.Result{}, nil
 	}
-	if !isStackMarkedToBeDeleted && controllerutil.AddFinalizer(instance, pulumiFinalizer) {
+	if !isStackMarkedToBeDeleted && controllerutil.AddFinalizer(instance, PulumiFinalizer) {
 		if err = r.Update(ctx, instance, client.FieldOwner(FieldManager)); err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to add finalizer: %w", err)
 		}
@@ -585,12 +587,12 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 				"conditions", instance.Status.Conditions)
 		}
 		if toBeFinalized != nil {
-			// remove the finalizer from the Update object that was being watched,
-			// after the status update is persisted.
-			if controllerutil.RemoveFinalizer(toBeFinalized, pulumiFinalizer) {
-				if err := r.Update(ctx, toBeFinalized, client.FieldOwner(FieldManager)); err != nil {
-					log.Error(err, "unable to remove finalizer from current update; update object will be orphaned")
-				}
+			// Remove the finalizer from the Update object using SSA. This is best-effort
+			// since the status update (indicating the update was processed) has already
+			// completed. If removal fails, the Update will be cleaned up by TTL or manual
+			// intervention.
+			if err := r.removeUpdateFinalizer(ctx, toBeFinalized); err != nil {
+				log.Error(err, "unable to remove finalizer from current update (best-effort)")
 			}
 			toBeFinalized = nil
 		}
@@ -643,7 +645,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		if err = saveStatus(); err != nil {
 			return reconcile.Result{}, err
 		}
-		if controllerutil.RemoveFinalizer(instance, pulumiFinalizer) {
+		if controllerutil.RemoveFinalizer(instance, PulumiFinalizer) {
 			return reconcile.Result{}, r.Update(ctx, instance, client.FieldOwner(FieldManager))
 		}
 		return reconcile.Result{}, nil
@@ -791,7 +793,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		if isStackMarkedToBeDeleted {
 			log.Info("Stack was destroyed; finalizing now.")
 			_ = saveStatus()
-			if controllerutil.RemoveFinalizer(instance, pulumiFinalizer) {
+			if controllerutil.RemoveFinalizer(instance, PulumiFinalizer) {
 				return reconcile.Result{}, r.Update(ctx, instance, client.FieldOwner(FieldManager))
 			}
 			return reconcile.Result{}, nil
@@ -836,6 +838,16 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 		// Delete the workspace if the reclaim policy is set to delete.
 		if !updateFailed && instance.Spec.WorkspaceReclaimPolicy == shared.WorkspaceReclaimDelete {
+			// Remove the Update finalizer BEFORE deleting the workspace to avoid a race
+			// condition: workspace deletion triggers cascade delete on the Update, which
+			// would leave the Update stuck if the finalizer weren't removed yet.
+			if toBeFinalized != nil {
+				if err := r.removeUpdateFinalizer(ctx, toBeFinalized); err != nil {
+					return reconcile.Result{}, fmt.Errorf("removing update finalizer before workspace deletion: %w", err)
+				}
+				toBeFinalized = nil
+			}
+
 			log.Info("Deleting workspace as reclaim policy is set to delete")
 			err := sess.DeleteWorkspace(ctx)
 			if err != nil {
@@ -961,9 +973,6 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, fmt.Errorf("unable to prepare update (up) for stack: %w", err)
 		}
 	}
-	// apply a finalizer to the update object to ensure it doesn't disappear entirely
-	// while we're waiting for it to complete.
-	update.Finalizers = append(update.Finalizers, pulumiFinalizer)
 
 	instance.Status.CurrentUpdate = &shared.CurrentStackUpdate{
 		Generation:       instance.Generation,
@@ -982,6 +991,18 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		instance.Status.CurrentUpdate = nil
 		_ = saveStatus()
 		return reconcile.Result{}, fmt.Errorf("unable to create update for stack: %w", err)
+	}
+
+	// Apply a finalizer to the update object using SSA with a dedicated field manager.
+	// This ensures the finalizer doesn't conflict with other operations and can be
+	// removed cleanly even if the Update controller races with us.
+	if err := r.addUpdateFinalizer(ctx, update); err != nil {
+		log.Error(err, "failed to add finalizer to Update")
+		// Delete the update since we couldn't finalize it properly
+		_ = r.Delete(ctx, update)
+		instance.Status.CurrentUpdate = nil
+		_ = saveStatus()
+		return reconcile.Result{}, fmt.Errorf("unable to add finalizer to update: %w", err)
 	}
 
 	// Step 6: At this point, an update is running and will requeue the stack once it completes.
@@ -1768,9 +1789,60 @@ func (p *finalizerAddedPredicate) Update(e event.UpdateEvent) bool {
 	if e.ObjectOld == nil || e.ObjectNew == nil {
 		return false
 	}
-	return !controllerutil.ContainsFinalizer(e.ObjectOld, pulumiFinalizer) && controllerutil.ContainsFinalizer(e.ObjectNew, pulumiFinalizer)
+	return !controllerutil.ContainsFinalizer(e.ObjectOld, PulumiFinalizer) && controllerutil.ContainsFinalizer(e.ObjectNew, PulumiFinalizer)
 }
 
 func (p *finalizerAddedPredicate) Generic(_ event.GenericEvent) bool {
+	return false
+}
+
+type applyConfiguration struct {
+	config any
+}
+
+func (a applyConfiguration) Type() types.PatchType {
+	return types.ApplyPatchType
+}
+
+func (a applyConfiguration) Data(_ client.Object) ([]byte, error) {
+	return json.Marshal(a.config)
+}
+
+func (r *StackReconciler) addUpdateFinalizer(ctx context.Context, update *autov1alpha1.Update) error {
+	patch := updateapply.Update(update.Name, update.Namespace).WithFinalizers(PulumiFinalizer)
+	return r.Patch(ctx, update, &applyConfiguration{
+		config: patch,
+	}, client.FieldOwner(StackFinalizerFieldManager))
+}
+
+func (r *StackReconciler) removeUpdateFinalizer(ctx context.Context, update *autov1alpha1.Update) error {
+	log := ctrllog.FromContext(ctx)
+	patch := updateapply.Update(update.Name, update.Namespace)
+	err := r.Patch(ctx, update, &applyConfiguration{
+		config: patch,
+	}, client.FieldOwner(StackFinalizerFieldManager))
+	if apierrors.IsNotFound(err) {
+		log.V(1).Info("Update object already deleted, skipping finalizer removal")
+		return nil
+	}
+	return err
+}
+
+// isFinalizerOwnedByLegacyManager checks if the PulumiFinalizer is owned by the old
+// field manager (FieldManager) rather than the new one (StackFinalizerFieldManager).
+func isFinalizerOwnedByLegacyManager(update *autov1alpha1.Update) bool {
+	for _, mf := range update.GetManagedFields() {
+		if mf.Manager == FieldManager {
+			// Check if this manager owns any finalizers.
+			// The FieldsV1 contains the fields owned by this manager.
+			if mf.FieldsV1 != nil {
+				// FieldsV1 is JSON - we check if it mentions finalizers
+				raw := string(mf.FieldsV1.Raw)
+				if strings.Contains(raw, "finalizers") {
+					return true
+				}
+			}
+		}
+	}
 	return false
 }

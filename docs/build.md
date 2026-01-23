@@ -116,6 +116,59 @@ To execute the test suite of Pulumi Stacks against the operator, run the followi
 make test
 ```
 
+### End-to-End Testing
+
+The e2e tests run against a real Kubernetes cluster and require additional setup.
+
+#### Prerequisites
+
+- [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation) (Kubernetes in Docker)
+- Docker running locally
+
+#### Setup
+
+1. Create a Kind cluster:
+
+```bash
+kind create cluster
+```
+
+2. Install the CRDs into the cluster:
+
+```bash
+make install-crds
+```
+
+#### Running E2E Tests
+
+Run the full e2e test suite:
+
+```bash
+cd operator && make test-e2e
+```
+
+The full test suite will:
+- Build the operator Docker image
+- Load the image into the Kind cluster
+- Deploy the operator and Flux
+- Run the test scenarios
+
+#### Running Individual E2E Tests
+
+Some e2e tests only require the CRDs to be installed (not the full operator deployment). To run a specific test:
+
+```bash
+cd operator && go test -v -run TestName ./e2e/
+```
+
+#### Cleanup
+
+To delete the Kind cluster when done:
+
+```bash
+kind delete cluster
+```
+
 ## Official Operator SDK Docs
 
 - [Quickstart](https://sdk.operatorframework.io/docs/golang/quickstart/)
