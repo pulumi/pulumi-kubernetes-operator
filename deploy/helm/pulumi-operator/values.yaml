@@ -25,6 +25,8 @@ controller:
   logLevel: info
   # -- Log format (one of 'json' or 'console')
   logFormat: console
+  # -- Enable secure metrics endpoint (requires TLS configuration)
+  metricsSecure: true
   # -- the advertised address for the controller's service
   # advertisedAddress: "pulumi-kubernetes-operator.pulumi-kubernetes-operator.svc.cluster.local"
 

@@ -34,7 +34,9 @@ The command removes all the Kubernetes components associated with the chart and 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | The affinity constraint |
+| controller.logFormat | string | `"console"` | Log format (one of 'json' or 'console') |
 | controller.logLevel | string | `"info"` | Log Level ('debug', 'info', 'error', or any integer value > 0 which corresponds to custom debug levels of increasing verbosity) |
+| controller.metricsSecure | bool | `true` | Enable secure metrics endpoint (requires TLS configuration) |
 | deploymentAnnotations | object | `{}` | Deployment annotations |
 | deploymentStrategy | string | `""` | Specifies the strategy used to replace old Pods by new ones, default: `RollingUpdate` |
 | extraEnv | list | `[]` | Extra Environments to be passed to the operator |
