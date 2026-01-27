@@ -17,11 +17,20 @@ package controller
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	agentclient "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/client"
+	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
+	"golang.org/x/oauth2"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
@@ -570,6 +579,167 @@ var _ = Describe("Workspace Controller", func() {
 			})
 		})
 	})
+
+	Describe("Initialization", func() {
+		// Regression test for https://github.com/pulumi/pulumi-kubernetes-operator/issues/1073
+		// When stack initialization fails (e.g., backend bucket not found), the workspace
+		// should be marked as Stalled instead of deleting the pod, which causes an endless
+		// retry loop because the StatefulSet recreates the pod.
+		var grpcServer *grpc.Server
+		var lis net.Listener
+		var mockSrv *mockAutomationServer
+
+		BeforeEach(func(ctx context.Context) {
+			var err error
+
+			// Start a test gRPC server
+			lis, err = net.Listen("tcp", "localhost:0")
+			Expect(err).NotTo(HaveOccurred())
+
+			mockSrv = &mockAutomationServer{
+				pulumiVersion: "3.100.0",
+			}
+
+			grpcServer = grpc.NewServer()
+			agentpb.RegisterAutomationServiceServer(grpcServer, mockSrv)
+			go func() { _ = grpcServer.Serve(lis) }()
+		})
+
+		JustBeforeEach(func(ctx context.Context) {
+			// Set WORKSPACE_LOCALHOST to the test gRPC server
+			os.Setenv("WORKSPACE_LOCALHOST", lis.Addr().String())
+
+			// Override the reconciler to include the ConnectionManager
+			r = &WorkspaceReconciler{
+				Client:   k8sClient,
+				Scheme:   k8sClient.Scheme(),
+				Recorder: record.NewFakeRecorder(10),
+				ConnectionManager: &ConnectionManager{
+					factory: &mockTokenSourceFactory{},
+				},
+			}
+		})
+
+		AfterEach(func() {
+			os.Unsetenv("WORKSPACE_LOCALHOST")
+			grpcServer.Stop()
+			lis.Close()
+		})
+
+		// initializeWorkspace performs the initial reconciliation to create the
+		// StatefulSet and Service, then sets the StatefulSet to ready and creates
+		// a Pod so that the next reconciliation proceeds to gRPC initialization.
+		initializeWorkspace := func(ctx context.Context) {
+			// First reconciliation: creates the StatefulSet and Service
+			_, err := reconcileF(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ready).NotTo(BeNil())
+			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
+
+			// Update the StatefulSet to ready status
+			ss.Status.ObservedGeneration = ss.Generation
+			ss.Status.Replicas = 1
+			ss.Status.ReadyReplicas = 1
+			ss.Status.AvailableReplicas = 1
+			ss.Status.CurrentRevision = "test-rev"
+			ss.Status.CurrentReplicas = 1
+			ss.Status.UpdateRevision = "test-rev"
+			ss.Status.UpdatedReplicas = 1
+			Expect(k8sClient.Status().Update(ctx, ss)).To(Succeed())
+
+			// Create the Pod with a matching controller-revision-hash
+			podName := fmt.Sprintf("%s-0", nameForStatefulSet(obj))
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      podName,
+					Namespace: obj.Namespace,
+					Labels: map[string]string{
+						"controller-revision-hash": "test-rev",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "pulumi", Image: "pulumi/pulumi:latest-nonroot"},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, pod)).To(Succeed())
+		}
+
+		When("SelectStack fails with an error", func() {
+			BeforeEach(func() {
+				obj.Spec.Stacks = []autov1alpha1.WorkspaceStack{
+					{Name: "dev", Create: ptr.To(true)},
+				}
+				mockSrv.selectStackErr = grpcstatus.Error(codes.Unknown, "backend bucket not found")
+			})
+
+			It("should mark the workspace as stalled and NOT delete the pod", func(ctx context.Context) {
+				initializeWorkspace(ctx)
+
+				// Second reconciliation: proceeds to gRPC initialization
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify the workspace has a Stalled condition
+				stalled := meta.FindStatusCondition(obj.Status.Conditions, autov1alpha1.WorkspaceStalled)
+				Expect(stalled).NotTo(BeNil())
+				Expect(stalled.Status).To(Equal(metav1.ConditionTrue))
+				Expect(stalled.Reason).To(Equal("InitializationFailed"))
+				Expect(stalled.Message).To(ContainSubstring("backend bucket not found"))
+
+				// Verify Ready is False
+				Expect(ready).NotTo(BeNil())
+				Expect(ready.Status).To(Equal(metav1.ConditionFalse))
+				Expect(ready.Reason).To(Equal("InitializationFailed"))
+
+				// Verify the pod still exists (not deleted)
+				podName := fmt.Sprintf("%s-0", nameForStatefulSet(obj))
+				podCheck := &corev1.Pod{}
+				err = k8sClient.Get(ctx, types.NamespacedName{
+					Name:      podName,
+					Namespace: obj.Namespace,
+				}, podCheck)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(podCheck.DeletionTimestamp).To(BeNil())
+			})
+		})
+
+		When("Install fails with an error", func() {
+			BeforeEach(func() {
+				mockSrv.installErr = grpcstatus.Error(codes.Aborted, "install failed: could not install dependencies")
+			})
+
+			It("should mark the workspace as stalled and NOT delete the pod", func(ctx context.Context) {
+				initializeWorkspace(ctx)
+
+				// Second reconciliation: proceeds to gRPC initialization
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify the workspace has a Stalled condition
+				stalled := meta.FindStatusCondition(obj.Status.Conditions, autov1alpha1.WorkspaceStalled)
+				Expect(stalled).NotTo(BeNil())
+				Expect(stalled.Status).To(Equal(metav1.ConditionTrue))
+				Expect(stalled.Reason).To(Equal("InstallationFailed"))
+
+				// Verify Ready is False
+				Expect(ready).NotTo(BeNil())
+				Expect(ready.Status).To(Equal(metav1.ConditionFalse))
+				Expect(ready.Reason).To(Equal("InstallationFailed"))
+
+				// Verify the pod still exists (not deleted)
+				podName := fmt.Sprintf("%s-0", nameForStatefulSet(obj))
+				podCheck := &corev1.Pod{}
+				err = k8sClient.Get(ctx, types.NamespacedName{
+					Name:      podName,
+					Namespace: obj.Namespace,
+				}, podCheck)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(podCheck.DeletionTimestamp).To(BeNil())
+			})
+		})
+	})
 })
 
 func findContainer(containers []corev1.Container, name string) *corev1.Container {
@@ -579,6 +749,54 @@ func findContainer(containers []corev1.Container, name string) *corev1.Container
 		}
 	}
 	return nil
+}
+
+// mockTokenSource implements agentclient.TokenSource for testing.
+type mockTokenSource struct{}
+
+func (m *mockTokenSource) Token(_ context.Context) (*oauth2.Token, error) {
+	return &oauth2.Token{
+		AccessToken: "test-token",
+		TokenType:   "Bearer",
+		Expiry:      time.Now().Add(1 * time.Hour),
+	}, nil
+}
+
+// mockTokenSourceFactory implements agentclient.TokenSourceFactory for testing.
+type mockTokenSourceFactory struct{}
+
+func (m *mockTokenSourceFactory) TokenSource(_ string) agentclient.TokenSource {
+	return &mockTokenSource{}
+}
+
+func (m *mockTokenSourceFactory) Prune(_ time.Time) int {
+	return 0
+}
+
+// mockAutomationServer implements a minimal AutomationServiceServer for testing.
+type mockAutomationServer struct {
+	agentpb.UnimplementedAutomationServiceServer
+	pulumiVersion  string
+	selectStackErr error
+	installErr     error
+}
+
+func (s *mockAutomationServer) PulumiVersion(_ context.Context, _ *agentpb.PulumiVersionRequest) (*agentpb.PulumiVersionResult, error) {
+	return &agentpb.PulumiVersionResult{Version: s.pulumiVersion}, nil
+}
+
+func (s *mockAutomationServer) Install(_ context.Context, _ *agentpb.InstallRequest) (*agentpb.InstallResult, error) {
+	if s.installErr != nil {
+		return nil, s.installErr
+	}
+	return &agentpb.InstallResult{}, nil
+}
+
+func (s *mockAutomationServer) SelectStack(_ context.Context, _ *agentpb.SelectStackRequest) (*agentpb.SelectStackResult, error) {
+	if s.selectStackErr != nil {
+		return nil, s.selectStackErr
+	}
+	return &agentpb.SelectStackResult{}, nil
 }
 
 func TestMergePodTemplateSpec(t *testing.T) {
