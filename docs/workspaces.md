@@ -661,6 +661,16 @@ the repository.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>dependencies</b></td>
+        <td>[]string</td>
+        <td>
+          Dependencies is a list of additional paths to include in sparse checkout.
+This allows including dependency code (e.g., shared SDKs) from other parts of the
+repository while keeping Dir focused for path filtering.
+Example: ["pulumi/meta/teleport/sdks", "pulumi/common-go"]<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>dir</b></td>
         <td>string</td>
         <td>
@@ -16878,7 +16888,8 @@ only the result of this request.<br/>
         <td><b>path</b></td>
         <td>boolean</td>
         <td>
-          The key contains a path to a property in a map or list to set<br/>
+          Path indicates the key contains a path to a property in a map or list.
+Incompatible with structured values (objects, arrays).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16890,9 +16901,10 @@ only the result of this request.<br/>
         <td>false</td>
       </tr><tr>
         <td><b>value</b></td>
-        <td>string</td>
+        <td>JSON</td>
         <td>
-          Value is the configuration value to set.<br/>
+          Value is the configuration value to set.
+Supports strings, numbers, booleans, objects, and arrays.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16927,6 +16939,15 @@ ValueFrom is a reference to a value from the environment or from a file.
         <td>string</td>
         <td>
           Env is an environment variable in the pulumi container to use as the value.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
+        <td>
+          JSON indicates the referenced value should be parsed as JSON.
+When true, the value is treated as structured data (object/array/etc).
+When false, the value is treated as a raw string.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16968,7 +16989,7 @@ WorkspaceStatus defines the observed state of Workspace
         <td>[]object</td>
         <td>
           Represents the observations of a workspace's current state.
-Known .status.conditions.type are: "Ready"<br/>
+Known .status.conditions.type are: "Ready", "Stalled"<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16979,6 +17000,13 @@ Known .status.conditions.type are: "Ready"<br/>
           <br/>
             <i>Format</i>: int64<br/>
             <i>Minimum</i>: 0<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pulumiVersion</b></td>
+        <td>string</td>
+        <td>
+          PulumiVersion is the version of the Pulumi CLI in the workspace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
