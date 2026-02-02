@@ -120,3 +120,7 @@ Details on metrics emitted by the Pulumi Kubernetes Operator as instructions on 
 
 Check out [docs/build.md](./docs/build.md) for more details on building and
 working with the operator locally.
+
+## Releasing
+
+(internal only) Please refer to [docs/release.md](./docs/release.md) to create a release.
