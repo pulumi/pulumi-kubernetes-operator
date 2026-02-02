@@ -3,6 +3,6 @@ kind: Kustomization
 images:
 - name: controller
   newName: pulumi/pulumi-kubernetes-operator
-  newTag: v2.3.0
+  newTag: v2.4.1
 resources:
 - manager.yaml
