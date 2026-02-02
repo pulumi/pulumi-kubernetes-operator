@@ -3,7 +3,12 @@ CHANGELOG
 
 ## Unreleased
 
-- Add configurable leader election timeouts to prevent interruption of long-running operations [#1058](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1058)
+## 2.4.1 (2026-02-02)
+
+- Add configurable leader election timeouts to prevent interruption of long-running operations by @EronWright in https://github.com/pulumi/pulumi-kubernetes-operator/pull/1059
+  ulumi/pulumiservice to v0.34.0 by @pulumi-renovate[bot] in https://github.com/pulumi/pulumi-kubernetes-operator/pull/1099
+- Use dedicated finalizer field manager and server-side apply to avoid TTL race conditions on Update deletion by @guineveresaenger in https://github.com/pulumi/pulumi-kubernetes-operator/pull/1097
+- feat(helm): add configurable metrics-secure flag by @findmyname666 in https://github.com/pulumi/pulumi-kubernetes-operator/pull/1083
 
 ## 2.3.0 (2025-10-23)
 
