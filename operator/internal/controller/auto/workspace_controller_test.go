@@ -607,7 +607,8 @@ var _ = Describe("Workspace Controller", func() {
 
 		JustBeforeEach(func(ctx context.Context) {
 			// Set WORKSPACE_LOCALHOST to the test gRPC server
-			os.Setenv("WORKSPACE_LOCALHOST", lis.Addr().String())
+			err := os.Setenv("WORKSPACE_LOCALHOST", lis.Addr().String())
+			Expect(err).NotTo(HaveOccurred())
 
 			// Override the reconciler to include the ConnectionManager
 			r = &WorkspaceReconciler{
@@ -621,7 +622,8 @@ var _ = Describe("Workspace Controller", func() {
 		})
 
 		AfterEach(func() {
-			os.Unsetenv("WORKSPACE_LOCALHOST")
+			err := os.Unsetenv("WORKSPACE_LOCALHOST")
+			Expect(err).NotTo(HaveOccurred())
 			grpcServer.Stop()
 			lis.Close()
 		})
