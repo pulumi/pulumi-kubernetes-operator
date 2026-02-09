@@ -625,7 +625,8 @@ var _ = Describe("Workspace Controller", func() {
 			err := os.Unsetenv("WORKSPACE_LOCALHOST")
 			Expect(err).NotTo(HaveOccurred())
 			grpcServer.Stop()
-			lis.Close()
+			err = lis.Close()
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		// initializeWorkspace performs the initial reconciliation to create the
