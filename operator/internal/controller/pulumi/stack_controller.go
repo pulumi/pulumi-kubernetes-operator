@@ -681,6 +681,34 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			return reconcile.Result{}, saveStatus()
 		}
 
+		// Check if path filtering is enabled and if there are changes in the specified path
+		if stack.GitSource.PathFilter && stack.GitSource.RepoDir != "" && instance.Status.LastUpdate != nil {
+			lastCommit := instance.Status.LastUpdate.LastSuccessfulCommit
+			if lastCommit == "" {
+				lastCommit = instance.Status.LastUpdate.LastAttemptedCommit
+			}
+
+			if lastCommit != "" && lastCommit != currentCommit {
+				hasChanges, err := gs.HasChangesInPath(ctx, lastCommit, currentCommit, stack.GitSource.RepoDir)
+				if err != nil {
+					log.Error(err, "Failed to check path-based changes", "repoDir", stack.GitSource.RepoDir)
+					// On error, assume changes exist to avoid blocking updates
+				} else if !hasChanges {
+					log.Info("No changes detected in monitored path, skipping update",
+						"repoDir", stack.GitSource.RepoDir,
+						"oldCommit", lastCommit,
+						"newCommit", currentCommit)
+					// Use the last successful commit to prevent triggering an update
+					currentCommit = lastCommit
+				} else {
+					log.Info("Changes detected in monitored path",
+						"repoDir", stack.GitSource.RepoDir,
+						"oldCommit", lastCommit,
+						"newCommit", currentCommit)
+				}
+			}
+		}
+
 		err = sess.setupWorkspaceFromGitSource(ctx, currentCommit)
 		if err != nil {
 			log.Error(err, "Failed to setup Pulumi workspace with git source")
@@ -779,8 +807,38 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	sess.SetEnvs(ctx, stack.Envs, request.Namespace)
 	sess.SetSecretEnvs(ctx, stack.SecretEnvs, request.Namespace)
 
+	// Step 1.5: Check git sources for new commits.
+	// If git sources are configured, they become the sole trigger for updates.
+	// If any dependency has new commits, we need to trigger an update even if currentCommit hasn't changed.
+	gitSourcesChanged, err := sess.checkGitSources(ctx, instance)
+	if err != nil {
+		log.Error(err, "Failed to check git sources")
+		// Don't fail the reconciliation, just log the error and continue
+		// The status will contain error messages for individual dependencies
+	}
+
 	// Step 2: Evaluate whether an update is needed. If not, we transition to Ready.
 	synced, updateMessage := isSynced(log, r.Recorder, instance, currentCommit)
+
+	// Apply git source logic based on configuration
+	if stack.IgnoreProjectRepoChanges && len(stack.GitSources) > 0 {
+		// Exclusive mode: ONLY git sources trigger updates, projectRepo changes are ignored
+		if gitSourcesChanged {
+			log.Info("Git source has new commits, triggering stack update")
+			synced = false
+			updateMessage = "Git source has new commits"
+		} else {
+			// Git sources haven't changed, ignore projectRepo changes
+			log.V(1).Info("Git sources configured but unchanged, ignoring projectRepo changes")
+			synced = true
+		}
+	} else if gitSourcesChanged {
+		// Additive mode: both projectRepo and gitSources can trigger updates
+		log.Info("Git source has new commits, triggering stack update")
+		synced = false
+		updateMessage = "Git source has new commits"
+	}
+	// If no git sources or !ignoreProjectRepoChanges, synced value from isSynced() is used
 	if synced {
 		// We don't mark the stack as ready if its update failed so downstream
 		// Stack dependencies aren't triggered.
@@ -828,7 +886,18 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			} else {
 				log.Info("Commit hash unchanged.")
 			}
-		} else if stack.FluxSource != nil {
+		}
+		// Schedule polling for git sources
+		if len(stack.GitSources) > 0 {
+			pollFreq := resyncFreq(instance)
+			log.Info("Will poll git sources for new commits.", "pollFrequency", pollFreq, "dependencyCount", len(stack.GitSources))
+			if requeueAfter > 0 {
+				requeueAfter = max(1*time.Second, min(pollFreq, requeueAfter))
+			} else {
+				requeueAfter = max(1*time.Second, pollFreq)
+			}
+		}
+		if stack.FluxSource != nil {
 			log.Info("Commit hash unchanged. Will wait for Source update or resync.")
 		} else if stack.ProgramRef != nil {
 			log.Info("Commit hash unchanged. Will wait for Program update or resync.")

@@ -17,6 +17,7 @@ package controller
 import (
 	"context"
 	"crypto/md5" //nolint:gosec
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -140,10 +141,11 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 	if w.Spec.Git != nil {
 		source.Git = &gitSource{
-			URL:     w.Spec.Git.URL,
-			Dir:     w.Spec.Git.Dir,
-			Ref:     w.Spec.Git.Ref,
-			Shallow: w.Spec.Git.Shallow,
+			URL:          w.Spec.Git.URL,
+			Dir:          w.Spec.Git.Dir,
+			Ref:          w.Spec.Git.Ref,
+			Shallow:      w.Spec.Git.Shallow,
+			Dependencies: w.Spec.Git.Dependencies,
 		}
 		if w.Spec.Git.Auth != nil {
 			source.Git.Password = w.Spec.Git.Auth.Password
@@ -486,12 +488,41 @@ const (
 	WorkspaceGrpcPort            = 50051
 )
 
+func getSafeNameForK8s(name string, maxLen int) string {
+	// If the name fits within the limit, use it as-is
+	if len(name) <= maxLen {
+		return name
+	}
+
+	// Otherwise, truncate and add a hash suffix for uniqueness
+	// Reserve 9 characters for hash (8 hex chars + 1 dash)
+	prefixLen := maxLen - 9
+	if prefixLen < 1 {
+		prefixLen = 1
+	}
+
+	prefix := name[:prefixLen]
+	// Trim trailing dashes to ensure valid Kubernetes name
+	prefix = strings.TrimRight(prefix, "-")
+
+	// Generate deterministic hash from full name
+	h := sha256.Sum256([]byte(name))
+	hash := hex.EncodeToString(h[:])[:8]
+
+	return prefix + "-" + hash
+}
+
 func nameForStatefulSet(w *autov1alpha1.Workspace) string {
-	return w.Name + "-workspace"
+	// StatefulSet name + pod template hash must fit in 63 chars for pod labels
+	// Reserve 11 chars for Kubernetes pod template hash, 10 for "-workspace" suffix
+	// 63 - 11 - 10 = 42 chars max for workspace name
+	safeName := getSafeNameForK8s(w.Name, 42)
+	return safeName + "-workspace"
 }
 
 func nameForService(w *autov1alpha1.Workspace) string {
-	return w.Name + "-workspace"
+	safeName := getSafeNameForK8s(w.Name, 42)
+	return safeName + "-workspace"
 }
 
 func fqdnForService(w *autov1alpha1.Workspace) string {
@@ -499,9 +530,11 @@ func fqdnForService(w *autov1alpha1.Workspace) string {
 }
 
 func labelsForStatefulSet(w *autov1alpha1.Workspace) map[string]string {
+	// Use the safe name for labels as well
+	safeName := getSafeNameForK8s(w.Name, 42)
 	return map[string]string{
 		ComponentLabel:     WorkspaceComponent,
-		WorkspaceNameLabel: w.Name,
+		WorkspaceNameLabel: safeName,
 	}
 }
 
@@ -663,10 +696,12 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 
 	// apply the 'fetch' init container
 	if source.Git != nil {
-		script := `
-/share/agent init -t /share/source --git-url "$GIT_URL" --git-revision "$GIT_REVISION" &&
-ln -s "/share/source/$GIT_DIR" /share/workspace
-		`
+		script := `/share/agent init -t /share/source --git-url "$GIT_URL" --git-revision "$GIT_REVISION"`
+		// Add dependencies flag if dependencies are specified
+		if len(source.Git.Dependencies) > 0 {
+			script += ` --git-dependencies "$GIT_DEPENDENCIES"`
+		}
+		script += ` && ln -s "/share/source/$GIT_DIR" /share/workspace`
 		env := []corev1.EnvVar{
 			{
 				Name:  "GIT_URL",
@@ -680,6 +715,12 @@ ln -s "/share/source/$GIT_DIR" /share/workspace
 				Name:  "GIT_DIR",
 				Value: source.Git.Dir,
 			},
+		}
+		if len(source.Git.Dependencies) > 0 {
+			env = append(env, corev1.EnvVar{
+				Name:  "GIT_DEPENDENCIES",
+				Value: strings.Join(source.Git.Dependencies, " "),
+			})
 		}
 		if source.Git.Shallow {
 			env = append(env, corev1.EnvVar{
@@ -894,6 +935,7 @@ type gitSource struct {
 	Ref           string
 	Dir           string
 	Shallow       bool
+	Dependencies  []string
 	SSHPrivateKey *corev1.SecretKeySelector
 	Username      *corev1.SecretKeySelector
 	Password      *corev1.SecretKeySelector
