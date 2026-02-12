@@ -18,6 +18,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -45,6 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -2377,4 +2380,162 @@ func TestIsFinalizerOwnedByLegacyManager(t *testing.T) {
 
 		assert.False(t, isFinalizerOwnedByLegacyManager(update))
 	})
+}
+
+// TestWorkspaceStalledPropagation verifies that when a Workspace has a Stalled
+// condition, the StackReconciler propagates it to the Stack's status with the
+// appropriate reason constant.
+//
+// Uses envtest (a real API server) because the fake client's managed fields
+// tracking panics on deeply nested pointer fields in the Stack/Workspace types.
+func TestWorkspaceStalledPropagation(t *testing.T) {
+	// Start a dedicated envtest environment for this test.
+	testScheme := scheme.Scheme
+	require.NoError(t, pulumiv1.AddToScheme(testScheme))
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+		},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	k8sclient, err := client.New(cfg, client.Options{Scheme: testScheme})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name                string
+		objName             string // lowercase k8s object name
+		workspaceReason     string
+		workspaceMessage    string
+		wantStackReason     string
+		wantMessageContains string
+	}{
+		{
+			name:                "IncompatibleConfiguration maps to PulumiVersionTooLow",
+			objName:             "stalled-incompat",
+			workspaceReason:     "IncompatibleConfiguration",
+			workspaceMessage:    "pulumi version too low for required features",
+			wantStackReason:     pulumiv1.StalledPulumiVersionTooLowReason,
+			wantMessageContains: "pulumi version too low",
+		},
+		{
+			name:                "InstallationFailed maps to WorkspaceFailed",
+			objName:             "stalled-install",
+			workspaceReason:     "InstallationFailed",
+			workspaceMessage:    "unable to install dependencies",
+			wantStackReason:     pulumiv1.StalledWorkspaceFailedReason,
+			wantMessageContains: "unable to install dependencies",
+		},
+		{
+			name:                "InitializationFailed maps to WorkspaceFailed",
+			objName:             "stalled-init",
+			workspaceReason:     "InitializationFailed",
+			workspaceMessage:    "failed to select stack: MissingRegion: could not find region configuration",
+			wantStackReason:     pulumiv1.StalledWorkspaceFailedReason,
+			wantMessageContains: "MissingRegion",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			stackName := types.NamespacedName{
+				Name:      tt.objName,
+				Namespace: "default",
+			}
+
+			// 1. Create a Program with a ready artifact.
+			program := &pulumiv1.Program{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      stackName.Name + "-program",
+					Namespace: stackName.Namespace,
+				},
+				Program: pulumiv1.ProgramSpec{
+					Resources: map[string]pulumiv1.Resource{
+						"password": {Type: "random:RandomPassword"},
+					},
+				},
+			}
+			require.NoError(t, k8sclient.Create(ctx, program))
+			program.Status.Artifact = &pulumiv1.Artifact{
+				Revision:       "test-revision",
+				LastUpdateTime: metav1.Now(),
+			}
+			program.Status.ObservedGeneration = program.Generation
+			require.NoError(t, k8sclient.Status().Update(ctx, program))
+			t.Cleanup(func() { _ = k8sclient.Delete(ctx, program) })
+
+			// 2. Create a Stack with a ProgramRef.
+			stack := &pulumiv1.Stack{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: pulumiv1.GroupVersion.String(),
+					Kind:       "Stack",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       stackName.Name,
+					Namespace:  stackName.Namespace,
+					Finalizers: []string{testFinalizer},
+				},
+				Spec: shared.StackSpec{
+					Stack: "dev",
+					ProgramRef: &shared.ProgramReference{
+						Name: program.Name,
+					},
+				},
+			}
+			require.NoError(t, k8sclient.Create(ctx, stack))
+			t.Cleanup(func() { _ = k8sclient.Delete(ctx, stack) })
+
+			// 3. Create the Workspace with owner ref and stalled status.
+			ws := makeWorkspace(stack.ObjectMeta)
+			require.NoError(t, controllerutil.SetControllerReference(stack, ws, testScheme))
+			require.NoError(t, k8sclient.Create(ctx, ws))
+			ws.Status.Conditions = []metav1.Condition{
+				{
+					Type:               autov1alpha1.WorkspaceStalled,
+					Status:             metav1.ConditionTrue,
+					Reason:             tt.workspaceReason,
+					Message:            tt.workspaceMessage,
+					LastTransitionTime: metav1.Now(),
+				},
+			}
+			require.NoError(t, k8sclient.Status().Update(ctx, ws, client.FieldOwner(FieldManager)))
+			t.Cleanup(func() { _ = k8sclient.Delete(ctx, ws) })
+
+			// 4. Reconcile.
+			r := &StackReconciler{
+				Client:   k8sclient,
+				Scheme:   testScheme,
+				Recorder: record.NewFakeRecorder(10),
+			}
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
+			require.NoError(t, err)
+
+			// 5. Re-fetch the Stack and check conditions.
+			var updated pulumiv1.Stack
+			require.NoError(t, k8sclient.Get(ctx, stackName, &updated))
+
+			stalledCond := meta.FindStatusCondition(updated.Status.Conditions, pulumiv1.StalledCondition)
+			require.NotNil(t, stalledCond, "expected Stalled condition on Stack")
+			assert.Equal(t, metav1.ConditionTrue, stalledCond.Status)
+			assert.Equal(t, tt.wantStackReason, stalledCond.Reason)
+			assert.Contains(t, stalledCond.Message, tt.wantMessageContains)
+			assert.Contains(t, stalledCond.Message, tt.workspaceReason, "workspace stall reason should appear in the Stack's stalled message")
+
+			readyCond := meta.FindStatusCondition(updated.Status.Conditions, pulumiv1.ReadyCondition)
+			require.NotNil(t, readyCond, "expected Ready condition on Stack to be False")
+			assert.Equal(t, metav1.ConditionFalse, readyCond.Status)
+
+			reconcilingCond := meta.FindStatusCondition(updated.Status.Conditions, pulumiv1.ReconcilingCondition)
+			assert.Nil(t, reconcilingCond, "expected Reconciling condition to be removed")
+		})
+	}
 }
