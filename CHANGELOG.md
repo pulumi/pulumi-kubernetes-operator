@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+- Mark workspace as stalled instead of deleting pod on init failure [#1107](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1107)
+
 ## 2.4.1 (2026-02-02)
 
 - Add configurable leader election timeouts to prevent interruption of long-running operations by @EronWright in https://github.com/pulumi/pulumi-kubernetes-operator/pull/1059

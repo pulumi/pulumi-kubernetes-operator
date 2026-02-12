@@ -84,6 +84,8 @@ const (
 	StalledConflictReason = "UpdateConflict"
 	// Stalled because the Pulumi CLI version is too old for the requested features.
 	StalledPulumiVersionTooLowReason = "PulumiVersionTooLow"
+	// Stalled because the workspace failed to initialize or install dependencies.
+	StalledWorkspaceFailedReason = "WorkspaceFailed"
 
 	// Ready because processing has completed
 	ReadyCompletedReason = "ProcessingCompleted"
@@ -152,7 +154,7 @@ func (s *StackStatus) MarkReadyCondition() {
 // +kubebuilder:printcolumn:name="Last Commit",priority=10,type="string",JSONPath=".status.lastUpdate.lastAttemptedCommit"
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Reconciling",type=string,JSONPath=`.status.conditions[?(@.type=="Reconciling")].reason`
-// +kubebuilder:printcolumn:name="Stalled",type=string,JSONPath=`.status.conditions[?(@.type=="Stalled")].status`
+// +kubebuilder:printcolumn:name="Stalled",type=string,JSONPath=`.status.conditions[?(@.type=="Stalled")].reason`
 // +kubebuilder:printcolumn:name="Permalink",type="string",JSONPath=".status.lastUpdate.permalink"
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 42",message="Stack name must be no more than 42 characters in length."
 // Stack is the Schema for the stacks API
