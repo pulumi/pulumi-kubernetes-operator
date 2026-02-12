@@ -17,8 +17,11 @@ package controller
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"net"
-	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -35,10 +38,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -580,168 +585,7 @@ var _ = Describe("Workspace Controller", func() {
 		})
 	})
 
-	Describe("Initialization", func() {
-		// Regression test for https://github.com/pulumi/pulumi-kubernetes-operator/issues/1073
-		// When stack initialization fails (e.g., backend bucket not found), the workspace
-		// should be marked as Stalled instead of deleting the pod, which causes an endless
-		// retry loop because the StatefulSet recreates the pod.
-		var grpcServer *grpc.Server
-		var lis net.Listener
-		var mockSrv *mockAutomationServer
-
-		BeforeEach(func(ctx context.Context) {
-			var err error
-
-			// Start a test gRPC server
-			lis, err = net.Listen("tcp", "localhost:0")
-			Expect(err).NotTo(HaveOccurred())
-
-			mockSrv = &mockAutomationServer{
-				pulumiVersion: "3.100.0",
-			}
-
-			grpcServer = grpc.NewServer()
-			agentpb.RegisterAutomationServiceServer(grpcServer, mockSrv)
-			go func() { _ = grpcServer.Serve(lis) }()
-		})
-
-		JustBeforeEach(func(ctx context.Context) {
-			// Set WORKSPACE_LOCALHOST to the test gRPC server
-			err := os.Setenv("WORKSPACE_LOCALHOST", lis.Addr().String())
-			Expect(err).NotTo(HaveOccurred())
-
-			// Override the reconciler to include the ConnectionManager
-			r = &WorkspaceReconciler{
-				Client:   k8sClient,
-				Scheme:   k8sClient.Scheme(),
-				Recorder: record.NewFakeRecorder(10),
-				ConnectionManager: &ConnectionManager{
-					factory: &mockTokenSourceFactory{},
-				},
-			}
-		})
-
-		AfterEach(func() {
-			err := os.Unsetenv("WORKSPACE_LOCALHOST")
-			Expect(err).NotTo(HaveOccurred())
-			grpcServer.Stop()
-			_ = lis.Close()
-		})
-
-		// initializeWorkspace performs the initial reconciliation to create the
-		// StatefulSet and Service, then sets the StatefulSet to ready and creates
-		// a Pod so that the next reconciliation proceeds to gRPC initialization.
-		initializeWorkspace := func(ctx context.Context) {
-			// First reconciliation: creates the StatefulSet and Service
-			_, err := reconcileF(ctx)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(ready).NotTo(BeNil())
-			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
-
-			// Update the StatefulSet to ready status
-			ss.Status.ObservedGeneration = ss.Generation
-			ss.Status.Replicas = 1
-			ss.Status.ReadyReplicas = 1
-			ss.Status.AvailableReplicas = 1
-			ss.Status.CurrentRevision = "test-rev"
-			ss.Status.CurrentReplicas = 1
-			ss.Status.UpdateRevision = "test-rev"
-			ss.Status.UpdatedReplicas = 1
-			Expect(k8sClient.Status().Update(ctx, ss)).To(Succeed())
-
-			// Create the Pod with a matching controller-revision-hash
-			podName := fmt.Sprintf("%s-0", nameForStatefulSet(obj))
-			pod := &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      podName,
-					Namespace: obj.Namespace,
-					Labels: map[string]string{
-						"controller-revision-hash": "test-rev",
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{Name: "pulumi", Image: "pulumi/pulumi:latest-nonroot"},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, pod)).To(Succeed())
-		}
-
-		When("SelectStack fails with an error", func() {
-			BeforeEach(func() {
-				obj.Spec.Stacks = []autov1alpha1.WorkspaceStack{
-					{Name: "dev", Create: ptr.To(true)},
-				}
-				mockSrv.selectStackErr = grpcstatus.Error(codes.Unknown, "backend bucket not found")
-			})
-
-			It("should mark the workspace as stalled and NOT delete the pod", func(ctx context.Context) {
-				initializeWorkspace(ctx)
-
-				// Second reconciliation: proceeds to gRPC initialization
-				_, err := reconcileF(ctx)
-				Expect(err).NotTo(HaveOccurred())
-
-				// Verify the workspace has a Stalled condition
-				stalled := meta.FindStatusCondition(obj.Status.Conditions, autov1alpha1.WorkspaceStalled)
-				Expect(stalled).NotTo(BeNil())
-				Expect(stalled.Status).To(Equal(metav1.ConditionTrue))
-				Expect(stalled.Reason).To(Equal("InitializationFailed"))
-				Expect(stalled.Message).To(ContainSubstring("backend bucket not found"))
-
-				// Verify Ready is False
-				Expect(ready).NotTo(BeNil())
-				Expect(ready.Status).To(Equal(metav1.ConditionFalse))
-				Expect(ready.Reason).To(Equal("InitializationFailed"))
-
-				// Verify the pod still exists (not deleted)
-				podName := fmt.Sprintf("%s-0", nameForStatefulSet(obj))
-				podCheck := &corev1.Pod{}
-				err = k8sClient.Get(ctx, types.NamespacedName{
-					Name:      podName,
-					Namespace: obj.Namespace,
-				}, podCheck)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(podCheck.DeletionTimestamp).To(BeNil())
-			})
-		})
-
-		When("Install fails with an error", func() {
-			BeforeEach(func() {
-				mockSrv.installErr = grpcstatus.Error(codes.Aborted, "install failed: could not install dependencies")
-			})
-
-			It("should mark the workspace as stalled and NOT delete the pod", func(ctx context.Context) {
-				initializeWorkspace(ctx)
-
-				// Second reconciliation: proceeds to gRPC initialization
-				_, err := reconcileF(ctx)
-				Expect(err).NotTo(HaveOccurred())
-
-				// Verify the workspace has a Stalled condition
-				stalled := meta.FindStatusCondition(obj.Status.Conditions, autov1alpha1.WorkspaceStalled)
-				Expect(stalled).NotTo(BeNil())
-				Expect(stalled.Status).To(Equal(metav1.ConditionTrue))
-				Expect(stalled.Reason).To(Equal("InstallationFailed"))
-
-				// Verify Ready is False
-				Expect(ready).NotTo(BeNil())
-				Expect(ready.Status).To(Equal(metav1.ConditionFalse))
-				Expect(ready.Reason).To(Equal("InstallationFailed"))
-
-				// Verify the pod still exists (not deleted)
-				podName := fmt.Sprintf("%s-0", nameForStatefulSet(obj))
-				podCheck := &corev1.Pod{}
-				err = k8sClient.Get(ctx, types.NamespacedName{
-					Name:      podName,
-					Namespace: obj.Namespace,
-				}, podCheck)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(podCheck.DeletionTimestamp).To(BeNil())
-			})
-		})
-	})
+	// Initialization stall tests are in TestWorkspaceInitializationStalled below.
 })
 
 func findContainer(containers []corev1.Container, name string) *corev1.Container {
@@ -799,6 +643,167 @@ func (s *mockAutomationServer) SelectStack(_ context.Context, _ *agentpb.SelectS
 		return nil, s.selectStackErr
 	}
 	return &agentpb.SelectStackResult{}, nil
+}
+
+// TestWorkspaceInitializationStalled is a regression test for
+// https://github.com/pulumi/pulumi-kubernetes-operator/issues/1073
+// When workspace initialization fails (e.g., backend bucket not found), the workspace
+// should be marked as Stalled instead of endlessly retrying or deleting the pod.
+func TestWorkspaceInitializationStalled(t *testing.T) {
+	// Start a dedicated envtest environment for these tests.
+	testScheme := scheme.Scheme
+
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+		},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	k8sclient, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name                string
+		selectStackErr      error
+		installErr          error
+		stacks              []autov1alpha1.WorkspaceStack
+		wantStalledReason   string
+		wantMessageContains string
+	}{
+		{
+			name:                "SelectStack failure marks workspace as stalled",
+			selectStackErr:      grpcstatus.Error(codes.Unknown, "backend bucket not found"),
+			stacks:              []autov1alpha1.WorkspaceStack{{Name: "dev", Create: ptr.To(true)}},
+			wantStalledReason:   "InitializationFailed",
+			wantMessageContains: "backend bucket not found",
+		},
+		{
+			name:                "Install failure marks workspace as stalled",
+			installErr:          grpcstatus.Error(codes.Aborted, "install failed: could not install dependencies"),
+			wantStalledReason:   "InstallationFailed",
+			wantMessageContains: "could not install dependencies",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+
+			// Start a mock gRPC server
+			lis, err := net.Listen("tcp", "localhost:0")
+			if err != nil {
+				t.Fatalf("failed to listen: %v", err)
+			}
+			mockSrv := &mockAutomationServer{
+				pulumiVersion:  "3.100.0",
+				selectStackErr: tt.selectStackErr,
+				installErr:     tt.installErr,
+			}
+			grpcSrv := grpc.NewServer()
+			agentpb.RegisterAutomationServiceServer(grpcSrv, mockSrv)
+			go func() { _ = grpcSrv.Serve(lis) }()
+			t.Cleanup(func() {
+				grpcSrv.Stop()
+				_ = lis.Close()
+			})
+
+			t.Setenv("WORKSPACE_LOCALHOST", lis.Addr().String())
+
+			// Create the workspace
+			workspaceName := fmt.Sprintf("ws-%s", utilrand.String(8))
+			workspace := &autov1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      workspaceName,
+					Namespace: "default",
+				},
+				Spec: autov1alpha1.WorkspaceSpec{
+					Image:  "pulumi/pulumi:latest-nonroot",
+					Stacks: tt.stacks,
+				},
+			}
+			require.NoError(t, k8sclient.Create(ctx, workspace))
+
+			t.Cleanup(func() { _ = k8sclient.Delete(ctx, workspace) })
+
+			objName := types.NamespacedName{Name: workspaceName, Namespace: "default"}
+			r := &WorkspaceReconciler{
+				Client:   k8sclient,
+				Scheme:   k8sclient.Scheme(),
+				Recorder: record.NewFakeRecorder(10),
+				ConnectionManager: &ConnectionManager{
+					factory: &mockTokenSourceFactory{},
+				},
+			}
+
+			// First reconciliation: creates StatefulSet and Service.
+			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+			require.NoError(t, err)
+
+			require.NoError(t, k8sclient.Get(ctx, objName, workspace))
+
+			// Mark the StatefulSet as ready.
+			stsName := types.NamespacedName{Name: workspaceName + "-workspace", Namespace: "default"}
+			sts := &appsv1.StatefulSet{}
+			require.NoError(t, k8sclient.Get(ctx, stsName, sts))
+			sts.Status.ObservedGeneration = sts.Generation
+			sts.Status.Replicas = 1
+			sts.Status.ReadyReplicas = 1
+			sts.Status.AvailableReplicas = 1
+			sts.Status.CurrentRevision = "test-rev"
+			sts.Status.CurrentReplicas = 1
+			sts.Status.UpdateRevision = "test-rev"
+			sts.Status.UpdatedReplicas = 1
+			require.NoError(t, k8sclient.Status().Update(ctx, sts))
+
+			// Create the Pod with a matching controller-revision-hash.
+			podName := fmt.Sprintf("%s-workspace-0", workspaceName)
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      podName,
+					Namespace: "default",
+					Labels:    map[string]string{"controller-revision-hash": "test-rev"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "pulumi", Image: "pulumi/pulumi:latest-nonroot"},
+					},
+				},
+			}
+			require.NoError(t, k8sclient.Create(ctx, pod))
+
+			// Second reconciliation: proceeds to gRPC initialization, which should stall.
+			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+			require.NoError(t, err)
+
+			require.NoError(t, k8sclient.Get(ctx, objName, workspace))
+
+			// Verify the workspace has a Stalled condition.
+			stalled := meta.FindStatusCondition(workspace.Status.Conditions, autov1alpha1.WorkspaceStalled)
+			require.NotNil(t, stalled, "expected Stalled condition on workspace")
+			assert.Equal(t, metav1.ConditionTrue, stalled.Status)
+			assert.Equal(t, tt.wantStalledReason, stalled.Reason)
+			assert.Contains(t, stalled.Message, tt.wantMessageContains)
+
+			// Verify Ready is False with the same reason.
+			readyCond := meta.FindStatusCondition(workspace.Status.Conditions, autov1alpha1.WorkspaceReady)
+			require.NotNil(t, readyCond, "expected Ready condition on workspace")
+			assert.Equal(t, metav1.ConditionFalse, readyCond.Status)
+			assert.Equal(t, tt.wantStalledReason, readyCond.Reason)
+
+			// Verify the pod still exists (not deleted).
+			podCheck := &corev1.Pod{}
+			require.NoError(t, k8sclient.Get(ctx, types.NamespacedName{Name: podName, Namespace: "default"}, podCheck))
+			assert.Nil(t, podCheck.DeletionTimestamp, "pod should not be marked for deletion")
+		})
+	}
 }
 
 func TestMergePodTemplateSpec(t *testing.T) {
