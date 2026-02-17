@@ -942,18 +942,16 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		// Check if workspace is stalled and propagate to the stack
 		stalledCond := meta.FindStatusCondition(sess.ws.Status.Conditions, autov1alpha1.WorkspaceStalled)
 		if stalledCond != nil && stalledCond.Status == metav1.ConditionTrue {
-			// If the stack is being deleted because the workspace is stalled, we need to
-			// remove its finalizer so delete is possible.
-			// This should not result in any orphaned resources, because all workspace stall
-			// conditions only occur during first-time initialization of the Workspace.
-			if isStackMarkedToBeDeleted {
-				log.Info("Workspace is stalled during deletion; skipping destroy and removing finalizer",
+			// Allow for stack deletion if no updates were made successfully.
+			if isStackMarkedToBeDeleted && instance.Status.LastUpdate == nil {
+				log.Info("Workspace is stalled during deletion with no prior successful update; removing finalizer",
 					"reason", stalledCond.Reason, "message", stalledCond.Message)
 				if controllerutil.RemoveFinalizer(instance, PulumiFinalizer) {
 					return reconcile.Result{}, r.Update(ctx, instance, client.FieldOwner(FieldManager))
 				}
 				return reconcile.Result{}, nil
 			}
+
 			var reason string
 			if stalledCond.Reason == "IncompatibleConfiguration" {
 				reason = pulumiv1.StalledPulumiVersionTooLowReason
