@@ -939,12 +939,28 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		return reconcile.Result{}, fmt.Errorf("unable to create workspace: %w", err)
 	}
 	if !isWorkspaceReady(sess.ws) {
-		// Check if workspace is stalled with incompatible configuration
+		// Check if workspace is stalled and propagate to the stack
 		stalledCond := meta.FindStatusCondition(sess.ws.Status.Conditions, autov1alpha1.WorkspaceStalled)
-		if stalledCond != nil && stalledCond.Status == metav1.ConditionTrue && stalledCond.Reason == "IncompatibleConfiguration" {
-			// Propagate the workspace stalled condition to the stack
-			log.Info("Workspace is stalled due to incompatible configuration", "message", stalledCond.Message)
-			instance.Status.MarkStalledCondition(pulumiv1.StalledPulumiVersionTooLowReason, stalledCond.Message)
+		if stalledCond != nil && stalledCond.Status == metav1.ConditionTrue {
+			// Allow for stack deletion if no updates were made successfully.
+			if isStackMarkedToBeDeleted && instance.Status.LastUpdate == nil {
+				log.Info("Workspace is stalled during deletion with no prior successful update; removing finalizer",
+					"reason", stalledCond.Reason, "message", stalledCond.Message)
+				if controllerutil.RemoveFinalizer(instance, PulumiFinalizer) {
+					return reconcile.Result{}, r.Update(ctx, instance, client.FieldOwner(FieldManager))
+				}
+				return reconcile.Result{}, nil
+			}
+
+			var reason string
+			if stalledCond.Reason == "IncompatibleConfiguration" {
+				reason = pulumiv1.StalledPulumiVersionTooLowReason
+			} else {
+				reason = pulumiv1.StalledWorkspaceFailedReason
+			}
+			msg := fmt.Sprintf("%s: %s", stalledCond.Reason, stalledCond.Message)
+			log.Info("Workspace is stalled", "reason", stalledCond.Reason, "message", stalledCond.Message)
+			instance.Status.MarkStalledCondition(reason, msg)
 			return reconcile.Result{}, saveStatus()
 		}
 		// watch the workspace for status updates

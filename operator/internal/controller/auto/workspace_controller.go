@@ -254,6 +254,10 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	initializedV, ok := pod.Annotations[PodAnnotationInitialized]
 	initialized, _ := strconv.ParseBool(initializedV)
 	if !ok || !initialized {
+		// Clear any previous Stalled condition when re-attempting initialization
+		// (e.g. after a spec change that might fix the issue).
+		meta.RemoveStatusCondition(&w.Status.Conditions, autov1alpha1.WorkspaceStalled)
+
 		l.Info("Querying Pulumi version to validate workspace connectivity")
 		versionResp, err := wc.PulumiVersion(ctx, &agentpb.PulumiVersionRequest{})
 		if err != nil {
@@ -332,15 +336,18 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		_, err = wc.Install(ctx, &agentpb.InstallRequest{})
 		if err != nil {
-			l.Error(err, "unable to install; deleting the workspace pod to retry later")
+			l.Error(err, "unable to install; marking workspace as stalled")
 			emitEvent(r.Recorder, w, autov1alpha1.InstallationFailureEvent(), err.Error())
 			ready.Status = metav1.ConditionFalse
 			ready.Reason = "InstallationFailed"
 			ready.Message = err.Error()
-			err = r.Client.Delete(ctx, pod)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
+			meta.SetStatusCondition(&w.Status.Conditions, metav1.Condition{
+				Type:               autov1alpha1.WorkspaceStalled,
+				Status:             metav1.ConditionTrue,
+				Reason:             "InstallationFailed",
+				Message:            err.Error(),
+				ObservedGeneration: w.Generation,
+			})
 			return ctrl.Result{}, updateStatus()
 		}
 
@@ -395,15 +402,18 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return nil
 			}()
 			if err != nil {
-				l.Error(err, "unable to initialize the Pulumi stack")
+				l.Error(err, "unable to initialize the Pulumi stack; marking workspace as stalled")
 				emitEvent(r.Recorder, w, autov1alpha1.StackInitializationFailureEvent(), "Failed to initialize stack %q: %v", stack.Name, err.Error())
 				ready.Status = metav1.ConditionFalse
 				ready.Reason = "InitializationFailed"
 				ready.Message = err.Error()
-				err = r.Client.Delete(ctx, pod)
-				if err != nil {
-					return ctrl.Result{}, err
-				}
+				meta.SetStatusCondition(&w.Status.Conditions, metav1.Condition{
+					Type:               autov1alpha1.WorkspaceStalled,
+					Status:             metav1.ConditionTrue,
+					Reason:             "InitializationFailed",
+					Message:            err.Error(),
+					ObservedGeneration: w.Generation,
+				})
 				return ctrl.Result{}, updateStatus()
 			}
 		}
