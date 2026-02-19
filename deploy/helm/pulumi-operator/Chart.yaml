@@ -9,7 +9,7 @@ icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
 
 type: application
 
-version: "2.4.1"
+version: "2.5.0"
 appVersion: "v2.5.0"
 
 keywords:
