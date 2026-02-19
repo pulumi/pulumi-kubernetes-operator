@@ -1,7 +1,7 @@
 SHELL := /usr/bin/env bash
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
 VERSION := $(GIT_COMMIT)
-CURRENT_RELEASE := $(shell git describe --abbrev=0 --tags)
+CURRENT_RELEASE := $(shell git describe --abbrev=0 --tags --match "v*")
 RELEASE ?= $(shell git describe --abbrev=0 --tags)
 
 .PHONY: all

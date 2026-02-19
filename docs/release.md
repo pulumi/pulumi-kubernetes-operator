@@ -22,8 +22,6 @@ The tooling is not comprehensive, so manually verify the following files have be
 - operator/Makefile
 - operator/config/manager/kustomization.yaml
 - operator/version/version.go
-- operator/config/crd/bases/auto.pulumi.com_workspaces.yaml
-- operator/config/crd/bases/pulumi.com_stacks.yaml
 
 ### Changelog
 

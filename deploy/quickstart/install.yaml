@@ -311,7 +311,7 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Reconciling")].reason
       name: Reconciling
       type: string
-    - jsonPath: .status.conditions[?(@.type=="Stalled")].status
+    - jsonPath: .status.conditions[?(@.type=="Stalled")].reason
       name: Stalled
       type: string
     - jsonPath: .status.lastUpdate.permalink
@@ -30573,7 +30573,7 @@ spec:
           value: 10s
         - name: KUBE_API_TIMEOUT
           value: 30s
-        image: pulumi/pulumi-kubernetes-operator:v2.4.1
+        image: pulumi/pulumi-kubernetes-operator:v2.5.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
