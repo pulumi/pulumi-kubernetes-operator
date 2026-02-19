@@ -311,7 +311,7 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Reconciling")].reason
       name: Reconciling
       type: string
-    - jsonPath: .status.conditions[?(@.type=="Stalled")].status
+    - jsonPath: .status.conditions[?(@.type=="Stalled")].reason
       name: Stalled
       type: string
     - jsonPath: .status.lastUpdate.permalink
