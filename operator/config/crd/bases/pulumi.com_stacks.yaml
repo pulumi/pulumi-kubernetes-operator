@@ -614,6 +614,59 @@ spec:
                   basic auth credentials.
                   Deprecated. Use GitAuth instead.
                 type: string
+              gitSources:
+                description: |-
+                  (optional) GitSources is a list of external Git repositories to track. When a tracked
+                  branch in any of these repositories receives new commits, the stack will be automatically
+                  updated. This is useful for triggering deployments when application code dependencies are updated.
+                  The repositories are polled at the frequency specified by ResyncFrequencySeconds.
+                items:
+                  description: |-
+                    GitSource specifies an external Git repository to track for changes.
+                    The stack will be updated when the specified branch receives new commits.
+                  properties:
+                    branch:
+                      description: |-
+                        Branch is the branch name to track (e.g., "main", "refs/heads/production").
+                        The operator will poll this branch for new commits at the frequency
+                        specified by ResyncFrequencySeconds.
+                      type: string
+                    name:
+                      description: Name is a friendly identifier for this dependency.
+                      type: string
+                    repository:
+                      description: |-
+                        Repository is the Git repository URL (HTTPS or SSH).
+                        Examples:
+                          - HTTPS: "https://github.com/organization/repository"
+                          - SSH:   "git@github.com:organization/repository.git"
+                        Note: Authentication is inherited from the stack's gitAuth/gitAuthSecret configuration.
+                        All git dependencies will use the same credentials as the main projectRepo.
+                      type: string
+                  required:
+                  - branch
+                  - name
+                  - repository
+                  type: object
+                type: array
+              ignoreProjectRepoChanges:
+                description: |-
+                  (optional) IgnoreProjectRepoChanges when set to true prevents changes to the stack's
+                  projectRepo from triggering updates. Only changes to repositories listed in GitSources
+                  will trigger updates. This is useful when projectRepo contains deployment code and
+                  gitSources contain the application code being deployed - you only want to deploy when
+                  application code changes.
+                  Default: false (both projectRepo and gitSources can trigger updates)
+                type: boolean
+              pathFilter:
+                description: |-
+                  (optional) PathFilter when set to true enables path-based change filtering for reconciliation.
+                  When enabled, only commits that modify files within the directory specified by RepoDir
+                  (or its subdirectories) will trigger a stack reconciliation. This is useful for monorepos
+                  where you only want to deploy when specific directories change.
+                  If RepoDir is empty, this setting has no effect.
+                  Default: false (all commits trigger reconciliation)
+                type: boolean
               prerequisites:
                 description: |-
                   (optional) Prerequisites is a list of references to other stacks, each with a constraint on
@@ -10245,6 +10298,34 @@ spec:
                       with the update.
                     type: string
                 type: object
+              gitSources:
+                additionalProperties:
+                  description: GitSourceStatus tracks the observed state of a tracked
+                    Git source.
+                  properties:
+                    lastCheckedTime:
+                      description: LastCheckedTime is when the operator last polled
+                        this repository.
+                      format: date-time
+                      type: string
+                    lastCommitTime:
+                      description: LastCommitTime is the timestamp of the last seen
+                        commit (from Git metadata).
+                      format: date-time
+                      type: string
+                    lastSeenCommit:
+                      description: LastSeenCommit is the last commit hash observed
+                        on the tracked branch.
+                      type: string
+                    message:
+                      description: Message contains any error or informational message
+                        about the dependency check.
+                      type: string
+                  type: object
+                description: |-
+                  GitSources tracks the status of tracked Git repositories.
+                  Maps source name to its current status including last seen commit and check time.
+                type: object
               lastUpdate:
                 description: LastUpdate contains details of the status of the last
                   update.
@@ -10894,6 +10975,59 @@ spec:
                   basic auth credentials.
                   Deprecated. Use GitAuth instead.
                 type: string
+              gitSources:
+                description: |-
+                  (optional) GitSources is a list of external Git repositories to track. When a tracked
+                  branch in any of these repositories receives new commits, the stack will be automatically
+                  updated. This is useful for triggering deployments when application code dependencies are updated.
+                  The repositories are polled at the frequency specified by ResyncFrequencySeconds.
+                items:
+                  description: |-
+                    GitSource specifies an external Git repository to track for changes.
+                    The stack will be updated when the specified branch receives new commits.
+                  properties:
+                    branch:
+                      description: |-
+                        Branch is the branch name to track (e.g., "main", "refs/heads/production").
+                        The operator will poll this branch for new commits at the frequency
+                        specified by ResyncFrequencySeconds.
+                      type: string
+                    name:
+                      description: Name is a friendly identifier for this dependency.
+                      type: string
+                    repository:
+                      description: |-
+                        Repository is the Git repository URL (HTTPS or SSH).
+                        Examples:
+                          - HTTPS: "https://github.com/organization/repository"
+                          - SSH:   "git@github.com:organization/repository.git"
+                        Note: Authentication is inherited from the stack's gitAuth/gitAuthSecret configuration.
+                        All git dependencies will use the same credentials as the main projectRepo.
+                      type: string
+                  required:
+                  - branch
+                  - name
+                  - repository
+                  type: object
+                type: array
+              ignoreProjectRepoChanges:
+                description: |-
+                  (optional) IgnoreProjectRepoChanges when set to true prevents changes to the stack's
+                  projectRepo from triggering updates. Only changes to repositories listed in GitSources
+                  will trigger updates. This is useful when projectRepo contains deployment code and
+                  gitSources contain the application code being deployed - you only want to deploy when
+                  application code changes.
+                  Default: false (both projectRepo and gitSources can trigger updates)
+                type: boolean
+              pathFilter:
+                description: |-
+                  (optional) PathFilter when set to true enables path-based change filtering for reconciliation.
+                  When enabled, only commits that modify files within the directory specified by RepoDir
+                  (or its subdirectories) will trigger a stack reconciliation. This is useful for monorepos
+                  where you only want to deploy when specific directories change.
+                  If RepoDir is empty, this setting has no effect.
+                  Default: false (all commits trigger reconciliation)
+                type: boolean
               prerequisites:
                 description: |-
                   (optional) Prerequisites is a list of references to other stacks, each with a constraint on
@@ -20449,6 +20583,34 @@ spec:
           status:
             description: StackStatus defines the observed state of Stack
             properties:
+              gitSources:
+                additionalProperties:
+                  description: GitSourceStatus tracks the observed state of a tracked
+                    Git source.
+                  properties:
+                    lastCheckedTime:
+                      description: LastCheckedTime is when the operator last polled
+                        this repository.
+                      format: date-time
+                      type: string
+                    lastCommitTime:
+                      description: LastCommitTime is the timestamp of the last seen
+                        commit (from Git metadata).
+                      format: date-time
+                      type: string
+                    lastSeenCommit:
+                      description: LastSeenCommit is the last commit hash observed
+                        on the tracked branch.
+                      type: string
+                    message:
+                      description: Message contains any error or informational message
+                        about the dependency check.
+                      type: string
+                  type: object
+                description: |-
+                  GitSources tracks the last observed state of each tracked git source.
+                  The key is the source name from spec.gitSources[].name.
+                type: object
               lastUpdate:
                 description: LastUpdate contains details of the status of the last
                   update.

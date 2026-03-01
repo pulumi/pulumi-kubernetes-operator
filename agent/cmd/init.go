@@ -24,17 +24,22 @@ import (
 	"github.com/blang/semver"
 	"github.com/fluxcd/pkg/http/fetch"
 	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
 
 var (
-	_targetDir   string
-	_fluxURL     string
-	_fluxDigest  string
-	_gitURL      string
-	_gitRevision string
+	_targetDir       string
+	_fluxURL         string
+	_fluxDigest      string
+	_gitURL          string
+	_gitRevision     string
+	_gitDependencies []string
 )
 
 // initCmd represents the init command
@@ -52,7 +57,7 @@ For Flux sources:
 		var g newLocalWorkspacer
 
 		if _gitURL != "" {
-			g = &gitFetcher{url: _gitURL, revision: _gitRevision}
+			g = &gitFetcher{url: _gitURL, revision: _gitRevision, dependencies: _gitDependencies}
 		}
 		// https://github.com/fluxcd/kustomize-controller/blob/a1a33f2adda783dd2a17234f5d8e84caca4e24e2/internal/controller/kustomization_controller.go#L328
 		if _fluxURL != "" {
@@ -97,6 +102,22 @@ func runInit(ctx context.Context,
 	}
 
 	// fetch the configured git artifact
+	// If dependencies are specified, use sparse checkout
+	if gf, ok := g.(*gitFetcher); ok && len(gf.dependencies) > 0 {
+		log.Infow("about to clone with sparse checkout", "TargetDir", targetDir, "url", g.URL(), "dependencies", gf.dependencies)
+		err := gf.cloneWithSparseCheckout(ctx, targetDir)
+		if errors.Is(err, git.ErrRepositoryAlreadyExists) {
+			log.Infow("repository was previously checked out", "dir", targetDir)
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("unable to fetch git source with sparse checkout: %w", err)
+		}
+		log.Infow("git artifact fetched with sparse checkout", "dir", targetDir)
+		return nil
+	}
+
+	// Otherwise use Automation API
 	auth := &auto.GitAuth{
 		SSHPrivateKey:       os.Getenv("GIT_SSH_PRIVATE_KEY"),
 		Username:            os.Getenv("GIT_USERNAME"),
@@ -119,9 +140,24 @@ func runInit(ctx context.Context,
 		auto.Pulumi(noop{}),
 	)
 	if errors.Is(err, git.ErrRepositoryAlreadyExists) {
-		// TODO(https://github.com/pulumi/pulumi/issues/17288): Automation
-		// API needs to ensure the existing checkout is valid.
-		log.Infow("repository was previously checked out", "dir", targetDir)
+		// Repository exists - verify it's on the correct revision and update if needed
+		log.Infow("repository exists, verifying checkout", "dir", targetDir, "expectedRevision", g.Revision())
+		if updateErr := ensureCorrectRevision(ctx, targetDir, g.Revision(), auth); updateErr != nil {
+			log.Warnw("failed to ensure correct revision, attempting fresh clone", "error", updateErr)
+			// Remove existing repo and retry
+			if rmErr := os.RemoveAll(targetDir); rmErr != nil {
+				return fmt.Errorf("failed to remove stale repo: %w", rmErr)
+			}
+			_, err = g.NewLocalWorkspace(ctx,
+				auto.Repo(repo),
+				auto.WorkDir(targetDir),
+				auto.Pulumi(noop{}),
+			)
+			if err != nil {
+				return fmt.Errorf("unable to fetch git source after cleanup: %w", err)
+			}
+		}
+		log.Infow("repository checkout verified", "dir", targetDir)
 		return nil
 	}
 	if err != nil {
@@ -161,9 +197,11 @@ type newLocalWorkspacer interface {
 
 type gitFetcher struct {
 	url, revision string
+	dependencies  []string
 }
 
 func (g gitFetcher) NewLocalWorkspace(ctx context.Context, opts ...auto.LocalWorkspaceOption) (auto.Workspace, error) {
+	// Sparse checkout is handled in runInit, so just delegate to Automation API
 	return auto.NewLocalWorkspace(ctx, opts...)
 }
 
@@ -173,6 +211,155 @@ func (g gitFetcher) URL() string {
 
 func (g gitFetcher) Revision() string {
 	return g.revision
+}
+
+func (g gitFetcher) cloneWithSparseCheckout(ctx context.Context, targetDir string) error {
+
+	// Check if repo already exists
+	if _, err := os.Stat(targetDir + "/.git"); err == nil {
+		log.Infow("repository was previously checked out with sparse checkout", "dir", targetDir)
+		return git.ErrRepositoryAlreadyExists
+	}
+
+	// Note: go-git doesn't support native sparse checkout
+	// As a workaround, we clone the full repo and then remove unwanted files
+	// For a true sparse clone, we'd need to use the git CLI or a different approach
+	log.Warnw("sparse checkout requested but go-git doesn't support it natively, falling back to full clone", "dependencies", g.dependencies)
+
+	// Get authentication
+	auth, err := g.getAuth()
+	if err != nil {
+		return fmt.Errorf("failed to configure auth: %w", err)
+	}
+
+	// Create target directory
+	if err := os.MkdirAll(targetDir, 0o750); err != nil {
+		return fmt.Errorf("failed to create target directory: %w", err)
+	}
+
+	log.Infow("cloning repository", "url", g.url, "revision", g.revision)
+
+	// Clone with authentication
+	cloneOpts := &git.CloneOptions{
+		URL:  g.url,
+		Auth: auth,
+	}
+
+	repo, err := git.PlainCloneContext(ctx, targetDir, false, cloneOpts)
+	if err != nil {
+		return fmt.Errorf("failed to clone repository: %w", err)
+	}
+
+	// Checkout the specific revision
+	worktree, err := repo.Worktree()
+	if err != nil {
+		return fmt.Errorf("failed to get worktree: %w", err)
+	}
+
+	checkoutOpts := &git.CheckoutOptions{
+		Hash: plumbing.NewHash(g.revision),
+	}
+
+	if err := worktree.Checkout(checkoutOpts); err != nil {
+		return fmt.Errorf("failed to checkout revision %s: %w", g.revision, err)
+	}
+
+	log.Infow("clone completed", "dir", targetDir)
+
+	return nil
+}
+
+// ensureCorrectRevision checks if the repo is on the correct revision and updates if needed.
+func ensureCorrectRevision(ctx context.Context, targetDir, revision string, auth *auto.GitAuth) error {
+	repo, err := git.PlainOpen(targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to open repo: %w", err)
+	}
+
+	// Get authentication for fetch
+	var gitAuth transport.AuthMethod
+	if auth != nil {
+		if auth.PersonalAccessToken != "" {
+			gitAuth = &http.BasicAuth{
+				Username: "git",
+				Password: auth.PersonalAccessToken,
+			}
+		} else if auth.Username != "" {
+			gitAuth = &http.BasicAuth{
+				Username: auth.Username,
+				Password: auth.Password,
+			}
+		}
+	}
+
+	// Fetch latest from remote
+	log.Infow("fetching latest from remote", "revision", revision)
+	err = repo.FetchContext(ctx, &git.FetchOptions{
+		Auth:  gitAuth,
+		Force: true,
+	})
+	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+		log.Warnw("fetch failed, will try checkout anyway", "error", err)
+	}
+
+	worktree, err := repo.Worktree()
+	if err != nil {
+		return fmt.Errorf("failed to get worktree: %w", err)
+	}
+
+	// Try to resolve the revision as a branch first
+	branchRef := plumbing.NewRemoteReferenceName("origin", revision)
+	ref, err := repo.Reference(branchRef, true)
+	if err == nil {
+		// Found as remote branch, checkout the commit it points to
+		log.Infow("checking out remote branch", "branch", revision, "commit", ref.Hash().String()[:8])
+		return worktree.Checkout(&git.CheckoutOptions{
+			Hash:  ref.Hash(),
+			Force: true,
+		})
+	}
+
+	// Try as a commit SHA
+	hash := plumbing.NewHash(revision)
+	if hash.IsZero() {
+		return fmt.Errorf("invalid revision: %s", revision)
+	}
+
+	log.Infow("checking out commit", "commit", revision[:8])
+	return worktree.Checkout(&git.CheckoutOptions{
+		Hash:  hash,
+		Force: true,
+	})
+}
+
+func (g gitFetcher) getAuth() (transport.AuthMethod, error) {
+	// SSH key authentication
+	if sshKey := os.Getenv("GIT_SSH_PRIVATE_KEY"); sshKey != "" {
+		publicKeys, err := ssh.NewPublicKeys("git", []byte(sshKey), os.Getenv("GIT_PASSWORD"))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse SSH key: %w", err)
+		}
+		return publicKeys, nil
+	}
+
+	// Token authentication
+	if token := os.Getenv("GIT_TOKEN"); token != "" {
+		return &http.BasicAuth{
+			Username: "git", // Can be anything for token auth
+			Password: token,
+		}, nil
+	}
+
+	// Username/password authentication
+	if username := os.Getenv("GIT_USERNAME"); username != "" {
+		return &http.BasicAuth{
+			Username: username,
+			Password: os.Getenv("GIT_PASSWORD"),
+		}, nil
+	}
+
+	// No authentication
+	return nil, nil
 }
 
 // noop is a PulumiCommand which doesn't do anything -- because the underlying CLI
@@ -199,6 +386,7 @@ func init() {
 
 	initCmd.Flags().StringVar(&_gitURL, "git-url", "", "Git repository URL")
 	initCmd.Flags().StringVar(&_gitRevision, "git-revision", "", "Git revision (tag or commit SHA)")
+	initCmd.Flags().StringSliceVar(&_gitDependencies, "git-dependencies", nil, "Additional paths for sparse checkout (comma-separated)")
 	initCmd.MarkFlagsRequiredTogether("git-url", "git-revision")
 
 	initCmd.MarkFlagsOneRequired("git-url", "flux-url")

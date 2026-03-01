@@ -19,27 +19,110 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
+	"sync"
+	"time"
 
+	"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
+	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/gitutil"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 )
 
+// gitRepoCache provides a simple in-memory cache for cloned git repositories
+// to avoid repeated full clones when checking path-based changes.
+type gitRepoCache struct {
+	mu    sync.RWMutex
+	repos map[string]*cachedRepo
+}
+
+type cachedRepo struct {
+	repo      *git.Repository
+	expiresAt time.Time
+}
+
+var (
+	repoCache     *gitRepoCache
+	repoCacheOnce sync.Once
+	// Cache TTL of 5 minutes - balances memory usage with avoiding repeated clones
+	repoCacheTTL = 5 * time.Minute
+)
+
+func getRepoCache() *gitRepoCache {
+	repoCacheOnce.Do(func() {
+		repoCache = &gitRepoCache{
+			repos: make(map[string]*cachedRepo),
+		}
+		// Start cleanup goroutine
+		go repoCache.cleanup()
+	})
+	return repoCache
+}
+
+func (c *gitRepoCache) get(key string) (*git.Repository, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	cached, ok := c.repos[key]
+	if !ok {
+		return nil, false
+	}
+
+	// Check if expired
+	if time.Now().After(cached.expiresAt) {
+		return nil, false
+	}
+
+	return cached.repo, true
+}
+
+func (c *gitRepoCache) set(key string, repo *git.Repository) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.repos[key] = &cachedRepo{
+		repo:      repo,
+		expiresAt: time.Now().Add(repoCacheTTL),
+	}
+}
+
+func (c *gitRepoCache) cleanup() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		c.mu.Lock()
+		now := time.Now()
+		for key, cached := range c.repos {
+			if now.After(cached.expiresAt) {
+				delete(c.repos, key)
+			}
+		}
+		c.mu.Unlock()
+	}
+}
+
 // Source represents a source of commits.
 type Source interface {
 	CurrentCommit(context.Context) (string, error)
+	// HasChangesInPath checks if there are changes in the specified path between two commits.
+	// If path is empty, returns true (no filtering).
+	HasChangesInPath(ctx context.Context, oldCommit, newCommit, path string) (bool, error)
 }
 
 // NewGitSource creates a new Git source. URL is the https location of the
@@ -117,6 +200,178 @@ func (gs gitSource) CurrentCommit(ctx context.Context) (string, error) {
 	}
 
 	return "", fmt.Errorf("no commits found for ref %q", gs.ref)
+}
+
+// HasChangesInPath checks if there are changes in the specified path between two commits.
+// If path is empty or oldCommit is empty, returns true (no filtering).
+func (gs gitSource) HasChangesInPath(ctx context.Context, oldCommit, newCommit, path string) (bool, error) {
+	// If no path filter or no old commit to compare, assume changes exist
+	if path == "" || oldCommit == "" {
+		return true, nil
+	}
+
+	// If commits are the same, no changes
+	if oldCommit == newCommit {
+		return false, nil
+	}
+
+	auth, err := gs.authMethod()
+	if err != nil {
+		return false, fmt.Errorf("getting auth method: %w", err)
+	}
+
+	// Fetch the references to get commit objects
+	refs, err := gs.remote.ListContext(ctx, &git.ListOptions{
+		Auth: auth,
+	})
+	if err != nil {
+		return false, fmt.Errorf("listing references: %w", err)
+	}
+
+	// We need to fetch the commit objects, but we don't need to clone the whole repo
+	// Use git log to compare the commits with path filtering
+	// For now, we'll use a simpler approach: fetch both commits and compare their trees
+
+	// Parse commit hashes
+	oldHash := plumbing.NewHash(oldCommit)
+	newHash := plumbing.NewHash(newCommit)
+
+	// Fetch the specific commits using the reference list to verify they exist
+	oldExists := false
+	newExists := false
+	for _, ref := range refs {
+		if ref.Hash() == oldHash {
+			oldExists = true
+		}
+		if ref.Hash() == newHash {
+			newExists = true
+		}
+	}
+
+	if !oldExists || !newExists {
+		// If we can't verify both commits exist, assume changes to be safe
+		return true, nil
+	}
+
+	// Now we need to actually fetch and compare the commits
+	// Try to get from cache first
+	repoURL := gs.remote.Config().URLs[0]
+	cache := getRepoCache()
+	cacheKey := repoURL // Use URL as cache key (could enhance with auth hash if needed)
+
+	repo, cached := cache.get(cacheKey)
+	if !cached {
+		// Cache miss - initialize empty repository and fetch only the specific commits we need
+		fs := memfs.New()
+		storer := memory.NewStorage()
+
+		// Initialize empty repository
+		repo, err = git.Init(storer, fs)
+		if err != nil {
+			return false, fmt.Errorf("initializing repository: %w", err)
+		}
+
+		// Create remote
+		_, err = repo.CreateRemote(&config.RemoteConfig{
+			Name: "origin",
+			URLs: []string{repoURL},
+		})
+		if err != nil {
+			return false, fmt.Errorf("creating remote: %w", err)
+		}
+
+		// Fetch only the specific commits we need with shallow depth
+		// This is much more efficient than cloning the entire repo
+		err = repo.FetchContext(ctx, &git.FetchOptions{
+			Auth: auth,
+			RefSpecs: []config.RefSpec{
+				config.RefSpec(fmt.Sprintf("%s:%s", oldHash, oldHash)),
+				config.RefSpec(fmt.Sprintf("%s:%s", newHash, newHash)),
+			},
+			Depth: 1,
+			Tags:  git.NoTags,
+		})
+		if err != nil {
+			return false, fmt.Errorf("fetching commits: %w", err)
+		}
+
+		// Store in cache for future use
+		cache.set(cacheKey, repo)
+	} else {
+		// Cache hit - try to fetch the specific commits if not already present
+		err = repo.FetchContext(ctx, &git.FetchOptions{
+			Auth: auth,
+			RefSpecs: []config.RefSpec{
+				config.RefSpec(fmt.Sprintf("%s:%s", oldHash, oldHash)),
+				config.RefSpec(fmt.Sprintf("%s:%s", newHash, newHash)),
+			},
+			Depth: 1,
+			Tags:  git.NoTags,
+		})
+		// Ignore errors from fetch - we may already have the commits we need
+		// The subsequent CommitObject calls will fail if commits are truly missing
+	}
+
+	// Get commit objects
+	oldCommitObj, err := repo.CommitObject(oldHash)
+	if err != nil {
+		return false, fmt.Errorf("getting old commit %s: %w", oldCommit, err)
+	}
+
+	newCommitObj, err := repo.CommitObject(newHash)
+	if err != nil {
+		return false, fmt.Errorf("getting new commit %s: %w", newCommit, err)
+	}
+
+	// Get trees for both commits
+	oldTree, err := oldCommitObj.Tree()
+	if err != nil {
+		return false, fmt.Errorf("getting old tree: %w", err)
+	}
+
+	newTree, err := newCommitObj.Tree()
+	if err != nil {
+		return false, fmt.Errorf("getting new tree: %w", err)
+	}
+
+	// Find changes between the trees
+	changes, err := object.DiffTree(oldTree, newTree)
+	if err != nil {
+		return false, fmt.Errorf("computing diff: %w", err)
+	}
+
+	// Normalize the path for comparison
+	path = strings.TrimPrefix(path, "/")
+	path = strings.TrimSuffix(path, "/")
+
+	// Check if any changes are in the specified path
+	for _, change := range changes {
+		// Get the file paths from the change
+		// Check both From and To in case of renames or modifications
+		if change.From.Name != "" && isUnderPath(change.From.Name, path) {
+			return true, nil
+		}
+		if change.To.Name != "" && isUnderPath(change.To.Name, path) {
+			return true, nil
+		}
+	}
+
+	// No changes found in the specified path
+	return false, nil
+}
+
+// isUnderPath checks if filePath is under the given directory path
+func isUnderPath(filePath, dirPath string) bool {
+	if dirPath == "" {
+		return true
+	}
+	// Normalize paths
+	filePath = strings.TrimPrefix(filePath, "/")
+	dirPath = strings.TrimPrefix(dirPath, "/")
+	dirPath = strings.TrimSuffix(dirPath, "/")
+
+	// Check if filePath starts with dirPath
+	return filePath == dirPath || strings.HasPrefix(filePath, dirPath+"/")
 }
 
 // authMethod translates auto.GitAuth into a go-git transport.AuthMethod.
@@ -247,10 +502,11 @@ func (sess *stackReconcilerSession) setupWorkspaceFromGitSource(_ context.Contex
 	}
 
 	sess.ws.Spec.Git = &autov1alpha1.GitSource{
-		Ref:     commit,
-		URL:     gs.ProjectRepo,
-		Dir:     gs.RepoDir,
-		Shallow: gs.Shallow,
+		Ref:          commit,
+		URL:          gs.ProjectRepo,
+		Dir:          gs.RepoDir,
+		Shallow:      gs.Shallow,
+		Dependencies: gs.Dependencies,
 	}
 	auth := &autov1alpha1.GitAuth{}
 
@@ -331,4 +587,82 @@ func (sess *stackReconcilerSession) setupWorkspaceFromGitSource(_ context.Contex
 	}
 
 	return nil
+}
+
+// checkGitSources checks all git sources for new commits and updates the status.
+// Returns true if any source has new commits, indicating the stack should be updated.
+// Uses the same git authentication configured for the stack's projectRepo.
+func (sess *stackReconcilerSession) checkGitSources(ctx context.Context, instance *pulumiv1.Stack) (bool, error) {
+	if len(sess.stack.GitSources) == 0 {
+		return false, nil
+	}
+
+	if instance.Status.GitSources == nil {
+		instance.Status.GitSources = make(map[string]shared.GitSourceStatus)
+	}
+
+	// Resolve git authentication once - same credentials used for all sources
+	auth, err := sess.resolveGitAuth(ctx)
+	if err != nil {
+		sess.logger.Error(err, "Failed to resolve git auth for git sources")
+		// Mark all sources with auth error
+		for _, src := range sess.stack.GitSources {
+			instance.Status.GitSources[src.Name] = shared.GitSourceStatus{
+				LastCheckedTime: metav1.Now(),
+				Message:         fmt.Sprintf("Failed to resolve git auth: %v", err),
+			}
+		}
+		return false, err
+	}
+
+	hasNewCommits := false
+
+	for _, src := range sess.stack.GitSources {
+		// Create a git source for this tracked repository using shared auth
+		source, err := newGitSource(src.Repository, src.Branch, auth)
+		if err != nil {
+			sess.logger.Error(err, "Failed to create git source",
+				"source", src.Name, "repository", src.Repository)
+			instance.Status.GitSources[src.Name] = shared.GitSourceStatus{
+				LastCheckedTime: metav1.Now(),
+				Message:         fmt.Sprintf("Failed to create git source: %v", err),
+			}
+			continue
+		}
+
+		// Fetch the current commit
+		currentCommit, err := source.CurrentCommit(ctx)
+		if err != nil {
+			sess.logger.Error(err, "Failed to fetch current commit for git source",
+				"source", src.Name, "repository", src.Repository, "branch", src.Branch)
+			instance.Status.GitSources[src.Name] = shared.GitSourceStatus{
+				LastCheckedTime: metav1.Now(),
+				Message:         fmt.Sprintf("Failed to fetch commit: %v", err),
+			}
+			continue
+		}
+
+		// Get the previous status
+		previousStatus, exists := instance.Status.GitSources[src.Name]
+
+		// Check if commit has changed
+		if !exists || previousStatus.LastSeenCommit != currentCommit {
+			sess.logger.Info("Git source has new commits",
+				"source", src.Name,
+				"repository", src.Repository,
+				"branch", src.Branch,
+				"previousCommit", previousStatus.LastSeenCommit,
+				"currentCommit", currentCommit)
+			hasNewCommits = true
+		}
+
+		// Update the status
+		instance.Status.GitSources[src.Name] = shared.GitSourceStatus{
+			LastSeenCommit:  currentCommit,
+			LastCheckedTime: metav1.Now(),
+			Message:         "",
+		}
+	}
+
+	return hasNewCommits, nil
 }

@@ -115,6 +115,22 @@ type StackSpec struct {
 	// re-evaluated before running a stack that depends on it.
 	Prerequisites []PrerequisiteRef `json:"prerequisites,omitempty"`
 
+	// (optional) GitSources is a list of external Git repositories to track. When a tracked
+	// branch in any of these repositories receives new commits, the stack will be automatically
+	// updated. This is useful for triggering deployments when application code dependencies are updated.
+	// The repositories are polled at the frequency specified by ResyncFrequencySeconds.
+	// +optional
+	GitSources []GitSourceRef `json:"gitSources,omitempty"`
+
+	// (optional) IgnoreProjectRepoChanges when set to true prevents changes to the stack's
+	// projectRepo from triggering updates. Only changes to repositories listed in GitSources
+	// will trigger updates. This is useful when projectRepo contains deployment code and
+	// gitSources contain the application code being deployed - you only want to deploy when
+	// application code changes.
+	// Default: false (both projectRepo and gitSources can trigger updates)
+	// +optional
+	IgnoreProjectRepoChanges bool `json:"ignoreProjectRepoChanges,omitempty"`
+
 	// (optional) ContinueResyncOnCommitMatch - when true - informs the operator to continue trying
 	// to update stacks even if the revision of the source matches. This might be useful in
 	// environments where Pulumi programs have dynamic elements for example, calls to internal APIs
@@ -233,6 +249,20 @@ type GitSource struct {
 	// Shallow controls whether the workspace uses a shallow checkout or
 	// whether all history is cloned.
 	Shallow bool `json:"shallow,omitempty"`
+	// (optional) PathFilter when set to true enables path-based change filtering for reconciliation.
+	// When enabled, only commits that modify files within the directory specified by RepoDir
+	// (or its subdirectories) will trigger a stack reconciliation. This is useful for monorepos
+	// where you only want to deploy when specific directories change.
+	// If RepoDir is empty, this setting has no effect.
+	// Default: false (all commits trigger reconciliation)
+	// +optional
+	PathFilter bool `json:"pathFilter,omitempty"`
+	// (optional) Dependencies is a list of additional paths to include in sparse checkout.
+	// This allows including dependency code (e.g., shared SDKs) from other parts of the
+	// repository while keeping RepoDir focused for path filtering.
+	// Example: ["pulumi/meta/teleport/sdks", "pulumi/common-go"]
+	// +optional
+	Dependencies []string `json:"dependencies,omitempty"`
 }
 
 // PrerequisiteRef refers to another stack, and gives requirements for the prerequisite to be
@@ -294,6 +324,43 @@ type FluxSourceReference struct {
 	APIVersion string `json:"apiVersion"`
 	Kind       string `json:"kind"`
 	Name       string `json:"name"`
+}
+
+// GitSource specifies an external Git repository to track for changes.
+// The stack will be updated when the specified branch receives new commits.
+type GitSourceRef struct {
+	// Name is a friendly identifier for this dependency.
+	Name string `json:"name"`
+
+	// Repository is the Git repository URL (HTTPS or SSH).
+	// Examples:
+	//   - HTTPS: "https://github.com/organization/repository"
+	//   - SSH:   "git@github.com:organization/repository.git"
+	// Note: Authentication is inherited from the stack's gitAuth/gitAuthSecret configuration.
+	// All git dependencies will use the same credentials as the main projectRepo.
+	Repository string `json:"repository"`
+
+	// Branch is the branch name to track (e.g., "main", "refs/heads/production").
+	// The operator will poll this branch for new commits at the frequency
+	// specified by ResyncFrequencySeconds.
+	Branch string `json:"branch"`
+}
+
+// GitSourceStatus tracks the observed state of a tracked Git source.
+type GitSourceStatus struct {
+	// LastSeenCommit is the last commit hash observed on the tracked branch.
+	LastSeenCommit string `json:"lastSeenCommit,omitempty"`
+
+	// LastCheckedTime is when the operator last polled this repository.
+	LastCheckedTime metav1.Time `json:"lastCheckedTime,omitempty"`
+
+	// LastCommitTime is the timestamp of the last seen commit (from Git metadata).
+	// +optional
+	LastCommitTime *metav1.Time `json:"lastCommitTime,omitempty"`
+
+	// Message contains any error or informational message about the dependency check.
+	// +optional
+	Message string `json:"message,omitempty"`
 }
 
 // ResourceRef identifies a resource from which information can be loaded.
@@ -436,6 +503,10 @@ type StackStatus struct {
 	Outputs StackOutputs `json:"outputs,omitempty"`
 	// LastUpdate contains details of the status of the last update.
 	LastUpdate *StackUpdateState `json:"lastUpdate,omitempty"`
+	// GitSources tracks the last observed state of each tracked git source.
+	// The key is the source name from spec.gitSources[].name.
+	// +optional
+	GitSources map[string]GitSourceStatus `json:"gitSources,omitempty"`
 }
 
 type StackOutputs map[string]apiextensionsv1.JSON

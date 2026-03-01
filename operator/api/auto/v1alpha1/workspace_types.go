@@ -139,6 +139,12 @@ type GitSource struct {
 	// all history is cloned.
 	// +optional
 	Shallow bool `json:"shallow,omitempty"`
+	// Dependencies is a list of additional paths to include in sparse checkout.
+	// This allows including dependency code (e.g., shared SDKs) from other parts of the
+	// repository while keeping Dir focused for path filtering.
+	// Example: ["pulumi/meta/teleport/sdks", "pulumi/common-go"]
+	// +optional
+	Dependencies []string `json:"dependencies,omitempty"`
 }
 
 // GitAuth specifies git authentication configuration options.

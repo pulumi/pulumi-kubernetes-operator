@@ -1,0 +1,55 @@
+---
+# Example: Deploy application when the app repo gets updated
+#
+# This Stack configuration demonstrates the GitSourceRef feature which allows
+# tracking external Git repositories to trigger stack updates.
+#
+# Use case: Monorepo infrastructure pattern
+# - The Pulumi deployment code lives in infrastructure repo
+# - The application code lives in app repo
+# - We want to deploy when app changes, NOT when infrastructure changes
+#
+apiVersion: pulumi.com/v1
+kind: Stack
+metadata:
+  name: app-mainnet
+  namespace: app-deployment
+spec:
+  # The stack to deploy
+  stack: myorg/app-mainnet/production
+
+  # WHERE the deployment code is located (infrastructure repo)
+  projectRepo: https://github.com/myorg/infrastructure
+  branch: main
+  repoDir: pulumi/apps/myapp
+
+  # Authentication for Git operations (shared for both projectRepo and gitSources)
+  gitAuth:
+    sshAuth:
+      sshPrivateKey:
+        key: sshPrivateKey
+        name: git-credentials
+
+  # WHAT triggers the deployment (application repos to track)
+  gitSources:
+    - name: app-main
+      repository: https://github.com/myorg/myapp
+      branch: main
+
+  # IMPORTANT: Only trigger deployments when application code changes
+  # When ignoreProjectRepoChanges=true:
+  #   - Changes to projectRepo (infrastructure) will NOT trigger deployments
+  #   - Only changes to gitSources (myapp) will trigger deployments
+  # This prevents unnecessary deployments when unrelated infrastructure changes occur
+  ignoreProjectRepoChanges: true
+
+  # How often to poll the tracked repositories for changes (in seconds)
+  resyncFrequencySeconds: 60
+
+  # Stack configuration
+  envRefs:
+    PULUMI_ACCESS_TOKEN:
+      type: Secret
+      secret:
+        name: pulumi-api-secret
+        key: accessToken
