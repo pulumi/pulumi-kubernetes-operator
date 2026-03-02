@@ -437,6 +437,14 @@ spec:
                       interest, within the workspace image.
                     type: string
                 type: object
+              logFormat:
+                description: |-
+                  LogFormat controls the output format of the workspace agent's logger.
+                  When set, this overrides the cluster-level AGENT_LOG_FORMAT environment variable.
+                enum:
+                - json
+                - console
+                type: string
               podTemplate:
                 description: PodTemplate defines a PodTemplateSpec for Workspace's
                   pods.
@@ -8886,6 +8894,10 @@ spec:
                     - containers
                     type: object
                 type: object
+              pulumiJsonOutput:
+                description: PulumiJsonOutput enables structured JSON engine event
+                  output for Pulumi operations.
+                type: boolean
               pulumiLogLevel:
                 description: |-
                   PulumiLogVerbosity is the log verbosity level to use for the Pulumi CLI.

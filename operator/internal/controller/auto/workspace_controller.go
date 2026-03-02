@@ -577,6 +577,25 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 		},
 	})
 
+	if w.Spec.LogFormat != "" {
+		env = append(env, corev1.EnvVar{
+			Name:  "AGENT_LOG_FORMAT",
+			Value: string(w.Spec.LogFormat),
+		})
+	} else if clusterDefault := os.Getenv("AGENT_LOG_FORMAT"); clusterDefault != "" {
+		env = append(env, corev1.EnvVar{
+			Name:  "AGENT_LOG_FORMAT",
+			Value: clusterDefault,
+		})
+	}
+
+	if w.Spec.PulumiJsonOutput {
+		env = append(env, corev1.EnvVar{
+			Name:  "AGENT_PULUMI_JSON_OUTPUT",
+			Value: "true",
+		})
+	}
+
 	// enable workspace endpoint protection
 	command = append(command,
 		"--auth-mode", "kube",

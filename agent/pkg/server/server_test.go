@@ -15,11 +15,13 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -29,6 +31,8 @@ import (
 	"github.com/onsi/gomega/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -38,6 +42,8 @@ import (
 	pb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto/events"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/fsutil"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 )
@@ -100,6 +106,75 @@ func TestNewServer(t *testing.T) {
 					g.Expect(current.Name).To(gomega.Equal(tt.opts.StackName))
 				}
 			}
+		})
+	}
+}
+
+func TestPulumiJsonOutputHelpers(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		enabled bool
+	}{
+		{name: "disabled keeps progress streams and skips event logging", enabled: false},
+		{name: "enabled suppresses progress streams and logs engine events", enabled: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var logs bytes.Buffer
+			logger := zap.New(zapcore.NewCore(
+				zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+				zapcore.AddSync(&logs),
+				zap.InfoLevel,
+			))
+
+			srv := &Server{
+				log:              logger.Sugar(),
+				plog:             logger,
+				pulumiJsonOutput: tt.enabled,
+			}
+
+			stdout, stderr := srv.newProgressWriters()
+			if tt.enabled {
+				require.Nil(t, stdout)
+				require.Nil(t, stderr)
+			} else {
+				require.NotNil(t, stdout)
+				require.NotNil(t, stderr)
+				_, err := stdout.Write([]byte("human progress\n"))
+				require.NoError(t, err)
+				_, err = stderr.Write([]byte("human error\n"))
+				require.NoError(t, err)
+			}
+
+			srv.logEngineEvent(events.EngineEvent{
+				EngineEvent: apitype.EngineEvent{
+					Sequence:    1,
+					CancelEvent: &apitype.CancelEvent{},
+				},
+			})
+
+			closeZapWriter(stdout)
+			closeZapWriter(stderr)
+
+			output := logs.String()
+			if tt.enabled {
+				require.Contains(t, output, `"msg":"engine event"`)
+				require.Contains(t, output, `"type":"cancelEvent"`)
+				require.Contains(t, output, `"sequence":1`)
+				require.NotContains(t, output, "human progress")
+			} else {
+				require.Contains(t, output, "human progress")
+				require.Contains(t, output, "human error")
+				require.NotContains(t, output, `"msg":"engine event"`)
+				require.NotContains(t, output, `"type":"cancelEvent"`)
+			}
+
+			require.NotContains(t, strings.ToLower(output), "panic")
 		})
 	}
 }

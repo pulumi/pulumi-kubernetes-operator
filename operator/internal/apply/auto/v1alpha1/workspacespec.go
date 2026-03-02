@@ -36,6 +36,8 @@ type WorkspaceSpecApplyConfiguration struct {
 	Resources          *v1.ResourceRequirements                   `json:"resources,omitempty"`
 	PodTemplate        *EmbeddedPodTemplateSpecApplyConfiguration `json:"podTemplate,omitempty"`
 	PulumiLogVerbosity *uint32                                    `json:"pulumiLogLevel,omitempty"`
+	LogFormat          *autov1alpha1.LogFormat                    `json:"logFormat,omitempty"`
+	PulumiJsonOutput   *bool                                      `json:"pulumiJsonOutput,omitempty"`
 	Stacks             []WorkspaceStackApplyConfiguration         `json:"stacks,omitempty"`
 }
 
@@ -142,6 +144,22 @@ func (b *WorkspaceSpecApplyConfiguration) WithPodTemplate(value *EmbeddedPodTemp
 // If called multiple times, the PulumiLogVerbosity field is set to the value of the last call.
 func (b *WorkspaceSpecApplyConfiguration) WithPulumiLogVerbosity(value uint32) *WorkspaceSpecApplyConfiguration {
 	b.PulumiLogVerbosity = &value
+	return b
+}
+
+// WithLogFormat sets the LogFormat field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the LogFormat field is set to the value of the last call.
+func (b *WorkspaceSpecApplyConfiguration) WithLogFormat(value autov1alpha1.LogFormat) *WorkspaceSpecApplyConfiguration {
+	b.LogFormat = &value
+	return b
+}
+
+// WithPulumiJsonOutput sets the PulumiJsonOutput field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the PulumiJsonOutput field is set to the value of the last call.
+func (b *WorkspaceSpecApplyConfiguration) WithPulumiJsonOutput(value bool) *WorkspaceSpecApplyConfiguration {
+	b.PulumiJsonOutput = &value
 	return b
 }
 

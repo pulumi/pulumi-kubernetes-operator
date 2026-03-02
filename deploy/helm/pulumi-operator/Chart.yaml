@@ -18,11 +18,11 @@ keywords:
   - operator
 
 maintainers:
-  - name: Bryce Lampe
+  - name: blampe
     email: bryce@pulumi.com
   - name: dirien
     email: engin@pulumi.com
-  - name: Eron Wright
+  - name: EronWright
     email: eron@pulumi.com
 
 annotations:
@@ -41,9 +41,9 @@ annotations:
     - name: website
       url: https://pulumi.com
   artifacthub.io/maintainers: |
-    - name: Bryce Lampe
+    - name: blampe
       email: bryce@pulumi.com
     - name: dirien
       email: engin@pulumi.com
-    - name: Eron Wright
+    - name: EronWright
       email: eron@pulumi.com

@@ -268,3 +268,10 @@ kubectl logs -n pulumi-kubernetes-operator deployment/controller-manager -f
 - `docs/updates.md` - Update CR API reference (auto-generated)
 - `docs/metrics.md` - Prometheus metrics integration guide
 - when opening a PR for this repository, automatically add the PR to the changelog.
+
+## Active Technologies
+- Go 1.22+ (module: `github.com/pulumi/pulumi-kubernetes-operator/v2`) + `go.uber.org/zap` (structured logging), `controller-runtime` (reconciler (001-workspace-json-logging)
+- Kubernetes API server (CRD state), StatefulSet pod specs (001-workspace-json-logging)
+
+## Recent Changes
+- 001-workspace-json-logging: Added Go 1.22+ (module: `github.com/pulumi/pulumi-kubernetes-operator/v2`) + `go.uber.org/zap` (structured logging), `controller-runtime` (reconciler

@@ -120,6 +120,11 @@ var serveCmd = &cobra.Command{
 				zap.String("workspace.namespace", _workspaceNamespace), zap.String("workspace.name", _workspaceName))
 		}
 
+		pulumiJSONOutput, err := getAgentPulumiJSONOutput()
+		if err != nil {
+			return err
+		}
+
 		// open the workspace using auto api
 		workspaceOpts := []auto.LocalWorkspaceOption{}
 
@@ -173,9 +178,10 @@ var serveCmd = &cobra.Command{
 
 		// Create the automation service
 		autoServer, err := server.NewServer(ctx, workspace, &server.Options{
-			StackName:       _stack,
-			SecretsProvider: _secretsProvider,
-			PulumiLogLevel:  _pulumiLogLevel,
+			StackName:        _stack,
+			SecretsProvider:  _secretsProvider,
+			PulumiLogLevel:   _pulumiLogLevel,
+			PulumiJsonOutput: pulumiJSONOutput,
 		})
 		if err != nil {
 			return fmt.Errorf("unable to make an automation server: %w", err)

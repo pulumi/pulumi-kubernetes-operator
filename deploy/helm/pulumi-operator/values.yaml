@@ -30,6 +30,10 @@ controller:
   # -- the advertised address for the controller's service
   # advertisedAddress: "pulumi-kubernetes-operator.pulumi-kubernetes-operator.svc.cluster.local"
 
+workspace:
+  # -- Log format for workspace agent pods (one of 'json' or 'console'). Corresponds to AGENT_LOG_FORMAT.
+  logFormat: ""
+
 # Leader election configuration
 # These settings control how the operator manages leader election when running multiple replicas.
 # Higher timeout values are recommended for long-running Pulumi operations to prevent

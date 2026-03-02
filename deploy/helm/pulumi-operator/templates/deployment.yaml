@@ -59,6 +59,10 @@ spec:
           value: {{ include "pulumi-kubernetes-operator.imageName" . | quote }}
         - name: AGENT_IMAGE_PULL_POLICY
           value: {{ .Values.image.pullPolicy | quote }}
+        {{- if .Values.workspace.logFormat }}
+        - name: AGENT_LOG_FORMAT
+          value: {{ .Values.workspace.logFormat | quote }}
+        {{- end }}
         {{- if .Values.leaderElection }}
         - name: LEADER_ELECTION_LEASE_DURATION
           value: {{ .Values.leaderElection.leaseDuration | quote }}

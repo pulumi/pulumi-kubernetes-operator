@@ -25,6 +25,17 @@ const (
 	WorkspaceStalled = "Stalled"
 )
 
+// LogFormat declares the log output format of the workspace agent.
+// +enum
+type LogFormat string
+
+const (
+	// LogFormatConsole emits human-readable console logs.
+	LogFormatConsole LogFormat = "console"
+	// LogFormatJSON emits structured JSON logs.
+	LogFormatJSON LogFormat = "json"
+)
+
 // SecurityProfile declares the security profile of the workspace, either baseline or restricted.
 // +enum
 type SecurityProfile string
@@ -109,6 +120,16 @@ type WorkspaceSpec struct {
 	// for more information about log levels.
 	// +optional
 	PulumiLogVerbosity uint32 `json:"pulumiLogLevel,omitempty"`
+
+	// LogFormat controls the output format of the workspace agent's logger.
+	// When set, this overrides the cluster-level AGENT_LOG_FORMAT environment variable.
+	// +kubebuilder:validation:Enum=json;console
+	// +optional
+	LogFormat LogFormat `json:"logFormat,omitempty"`
+
+	// PulumiJsonOutput enables structured JSON engine event output for Pulumi operations.
+	// +optional
+	PulumiJsonOutput bool `json:"pulumiJsonOutput,omitempty"`
 
 	// List of stacks this workspace manages.
 	// +optional

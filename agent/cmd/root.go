@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"flag"
@@ -30,6 +31,11 @@ var (
 	kubeContext string
 )
 
+const (
+	agentLogFormatEnvVar        = "AGENT_LOG_FORMAT"
+	agentPulumiJSONOutputEnvVar = "AGENT_PULUMI_JSON_OUTPUT"
+)
+
 // a command-specific logger
 var log *zap.SugaredLogger
 
@@ -40,14 +46,10 @@ var rootCmd = &cobra.Command{
 	Long: `Provides tooling and a gRPC service for the Pulumi Kubernetes Operator 
 to use to perform stack operations.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		var err error
-
 		// initialize the global logger
-		zc := zap.NewDevelopmentConfig()
-		zc.DisableCaller = true
-		zc.DisableStacktrace = true
-		if !verbose {
-			zc.Level.SetLevel(zap.InfoLevel)
+		zc, err := newLoggerConfig()
+		if err != nil {
+			return err
 		}
 		zapLog, err := zc.Build()
 		if err != nil {
@@ -90,4 +92,51 @@ func init() {
 
 func GetKubeConfig() (*rest.Config, error) {
 	return config.GetConfigWithContext(kubeContext)
+}
+
+func newLoggerConfig() (zap.Config, error) {
+	format, err := getAgentLogFormat()
+	if err != nil {
+		return zap.Config{}, err
+	}
+
+	var zc zap.Config
+	switch format {
+	case "", "console":
+		zc = zap.NewDevelopmentConfig()
+	case "json":
+		zc = zap.NewProductionConfig()
+		zc.Sampling = nil
+	default:
+		return zap.Config{}, fmt.Errorf("unsupported %s %q: accepted values are %q, %q", agentLogFormatEnvVar, format, "json", "console")
+	}
+
+	zc.DisableCaller = true
+	zc.DisableStacktrace = true
+	if !verbose {
+		zc.Level.SetLevel(zap.InfoLevel)
+	}
+	return zc, nil
+}
+
+func getAgentLogFormat() (string, error) {
+	format := os.Getenv(agentLogFormatEnvVar)
+	switch format {
+	case "", "console", "json":
+		return format, nil
+	default:
+		return "", fmt.Errorf("unsupported %s %q: accepted values are %q, %q", agentLogFormatEnvVar, format, "json", "console")
+	}
+}
+
+func getAgentPulumiJSONOutput() (bool, error) {
+	value := os.Getenv(agentPulumiJSONOutputEnvVar)
+	switch value {
+	case "", "false":
+		return false, nil
+	case "true":
+		return true, nil
+	default:
+		return false, fmt.Errorf("unsupported %s %q: accepted values are %q, %q", agentPulumiJSONOutputEnvVar, value, "true", "false")
+	}
 }

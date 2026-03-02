@@ -17,9 +17,8 @@ package controller
 import (
 	"context"
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -30,12 +29,15 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	agentclient "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/client"
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -219,6 +221,119 @@ var _ = Describe("Workspace Controller", func() {
 					container := findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
 					Expect(container.Env).To(ContainElements(obj.Spec.Env))
 				})
+			})
+		})
+
+		Describe("agent logging env vars", func() {
+			It("injects AGENT_LOG_FORMAT from the workspace spec", func(ctx context.Context) {
+				obj.Spec.LogFormat = autov1alpha1.LogFormatJSON
+				Expect(k8sClient.Update(ctx, obj)).To(Succeed())
+
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				container := findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
+				Expect(envVarValue(container.Env, "AGENT_LOG_FORMAT")).To(Equal("json"))
+			})
+
+			It("injects AGENT_LOG_FORMAT from the cluster default when the workspace is unset", func(ctx context.Context) {
+				previous, hadPrevious := os.LookupEnv("AGENT_LOG_FORMAT")
+				Expect(os.Setenv("AGENT_LOG_FORMAT", "json")).To(Succeed())
+				DeferCleanup(func() {
+					if hadPrevious {
+						_ = os.Setenv("AGENT_LOG_FORMAT", previous)
+						return
+					}
+					_ = os.Unsetenv("AGENT_LOG_FORMAT")
+				})
+
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				container := findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
+				Expect(envVarValue(container.Env, "AGENT_LOG_FORMAT")).To(Equal("json"))
+			})
+
+			It("omits AGENT_LOG_FORMAT when no workspace or cluster default is set", func(ctx context.Context) {
+				previous, hadPrevious := os.LookupEnv("AGENT_LOG_FORMAT")
+				Expect(os.Unsetenv("AGENT_LOG_FORMAT")).To(Succeed())
+				DeferCleanup(func() {
+					if hadPrevious {
+						_ = os.Setenv("AGENT_LOG_FORMAT", previous)
+					}
+				})
+
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				container := findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
+				_, found := envVar(container.Env, "AGENT_LOG_FORMAT")
+				Expect(found).To(BeFalse())
+			})
+
+			It("injects AGENT_PULUMI_JSON_OUTPUT only when enabled", func(ctx context.Context) {
+				obj.Spec.PulumiJsonOutput = true
+				Expect(k8sClient.Update(ctx, obj)).To(Succeed())
+
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				container := findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
+				Expect(envVarValue(container.Env, "AGENT_PULUMI_JSON_OUTPUT")).To(Equal("true"))
+
+				obj.Spec.PulumiJsonOutput = false
+				Expect(k8sClient.Update(ctx, obj)).To(Succeed())
+
+				_, err = reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				container = findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
+				_, found := envVar(container.Env, "AGENT_PULUMI_JSON_OUTPUT")
+				Expect(found).To(BeFalse())
+			})
+
+			It("keeps logging env vars unique and deterministically ordered across reconciliations", func(ctx context.Context) {
+				obj.Spec.LogFormat = autov1alpha1.LogFormatJSON
+				obj.Spec.PulumiJsonOutput = true
+				Expect(k8sClient.Update(ctx, obj)).To(Succeed())
+
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				container := findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
+				firstOrder := envNames(container.Env)
+				Expect(countEnv(container.Env, "AGENT_LOG_FORMAT")).To(Equal(1))
+				Expect(countEnv(container.Env, "AGENT_PULUMI_JSON_OUTPUT")).To(Equal(1))
+
+				_, err = reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				container = findContainer(ss.Spec.Template.Spec.Containers, "pulumi")
+				Expect(countEnv(container.Env, "AGENT_LOG_FORMAT")).To(Equal(1))
+				Expect(countEnv(container.Env, "AGENT_PULUMI_JSON_OUTPUT")).To(Equal(1))
+				Expect(envNames(container.Env)).To(Equal(firstOrder))
+			})
+
+			It("rejects invalid logFormat values via CRD admission", func(ctx context.Context) {
+				invalid := &unstructured.Unstructured{
+					Object: map[string]any{
+						"apiVersion": "auto.pulumi.com/v1alpha1",
+						"kind":       "Workspace",
+						"metadata": map[string]any{
+							"name":      fmt.Sprintf("workspace-%s", utilrand.String(8)),
+							"namespace": "default",
+						},
+						"spec": map[string]any{
+							"logFormat": "invalid",
+						},
+					},
+				}
+
+				err := k8sClient.Create(ctx, invalid)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("Unsupported value"))
+				Expect(err.Error()).To(ContainSubstring("json"))
+				Expect(err.Error()).To(ContainSubstring("console"))
 			})
 		})
 
@@ -595,6 +710,41 @@ func findContainer(containers []corev1.Container, name string) *corev1.Container
 		}
 	}
 	return nil
+}
+
+func envVar(envs []corev1.EnvVar, name string) (corev1.EnvVar, bool) {
+	for _, env := range envs {
+		if env.Name == name {
+			return env, true
+		}
+	}
+	return corev1.EnvVar{}, false
+}
+
+func envVarValue(envs []corev1.EnvVar, name string) string {
+	env, ok := envVar(envs, name)
+	if !ok {
+		return ""
+	}
+	return env.Value
+}
+
+func countEnv(envs []corev1.EnvVar, name string) int {
+	count := 0
+	for _, env := range envs {
+		if env.Name == name {
+			count++
+		}
+	}
+	return count
+}
+
+func envNames(envs []corev1.EnvVar) []string {
+	names := make([]string, 0, len(envs))
+	for _, env := range envs {
+		names = append(names, env.Name)
+	}
+	return names
 }
 
 // mockTokenSource implements agentclient.TokenSource for testing.

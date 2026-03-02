@@ -3,6 +3,9 @@ CHANGELOG
 
 ## Unreleased
 
+- Add workspace agent log format controls via `AGENT_LOG_FORMAT`, `Workspace.spec.logFormat`, and Helm `workspace.logFormat`
+- Add structured Pulumi engine event logging via `AGENT_PULUMI_JSON_OUTPUT` and `Workspace.spec.pulumiJsonOutput`
+
 ## 2.5.0 (2026-02-19)
 
 - Mark workspace as stalled instead of deleting pod on init failure [#1107](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1107)

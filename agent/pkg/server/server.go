@@ -64,13 +64,14 @@ type configValueJSON struct {
 }
 
 type Server struct {
-	log            *zap.SugaredLogger
-	plog           *zap.Logger
-	stopping       atomic.Bool
-	ws             auto.Workspace
-	stackLock      sync.Mutex
-	stack          *auto.Stack
-	pulumiLogLevel uint
+	log              *zap.SugaredLogger
+	plog             *zap.Logger
+	stopping         atomic.Bool
+	ws               auto.Workspace
+	stackLock        sync.Mutex
+	stack            *auto.Stack
+	pulumiLogLevel   uint
+	pulumiJsonOutput bool
 
 	pb.UnimplementedAutomationServiceServer
 }
@@ -88,6 +89,8 @@ type Options struct {
 
 	// PulumiLogLevel is the log level to use for Pulumi CLI operations.
 	PulumiLogLevel uint
+	// PulumiJsonOutput emits Automation API engine events as structured pod logs.
+	PulumiJsonOutput bool
 }
 
 // NewServer creates a new automation server for the given workspace.
@@ -101,10 +104,11 @@ func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, 
 	plog := zap.L().Named("pulumi")
 
 	server := &Server{
-		log:            log,
-		plog:           plog,
-		ws:             ws,
-		pulumiLogLevel: opts.PulumiLogLevel,
+		log:              log,
+		plog:             plog,
+		ws:               ws,
+		pulumiLogLevel:   opts.PulumiLogLevel,
+		pulumiJsonOutput: opts.PulumiJsonOutput,
 	}
 
 	// select the initial stack, if provided
@@ -611,30 +615,22 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 	}
 
 	// wire up the logging
-	stdout := &zapio.Writer{Log: s.plog, Level: zap.InfoLevel}
-	defer stdout.Close()
-	opts = append(opts, optpreview.ProgressStreams(stdout))
-	stderr := &zapio.Writer{Log: s.plog, Level: zap.WarnLevel}
-	defer stderr.Close()
-	opts = append(opts, optpreview.ErrorProgressStreams(stderr))
+	stdout, stderr := s.newProgressWriters()
+	defer closeZapWriter(stdout)
+	defer closeZapWriter(stderr)
+	if stdout != nil {
+		opts = append(opts, optpreview.ProgressStreams(stdout))
+	}
+	if stderr != nil {
+		opts = append(opts, optpreview.ErrorProgressStreams(stderr))
+	}
 
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optpreview.EventStreams(events))
-	go func() {
-		for evt := range events {
-			data, err := marshalEngineEvent(evt.EngineEvent)
-			if err != nil {
-				s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
-			}
-			msg := &pb.PreviewStream{Response: &pb.PreviewStream_Event{Event: data}}
-			if err := srv.Send(msg); err != nil {
-				s.log.Errorw("failed to send an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
-			}
-		}
-	}()
+	s.streamEngineEvents(events, func(data *structpb.Struct) error {
+		return srv.Send(&pb.PreviewStream{Response: &pb.PreviewStream_Event{Event: data}})
+	})
 
 	res, err := stack.Preview(ctx, opts...)
 	if err != nil {
@@ -642,8 +638,6 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 		st := status.Newf(codes.Unknown, "preview failed: %v", err)
 		return withPulumiErrorInfo(st, err).Err()
 	}
-	stdout.Close() //nolint:gosec // Close always returns nil err
-	stderr.Close() //nolint:gosec // Close always returns nil err
 	s.log.Infow("preview completed")
 
 	resp := &pb.PreviewResult{
@@ -698,30 +692,22 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 	}
 
 	// wire up the logging
-	stdout := &zapio.Writer{Log: s.plog, Level: zap.InfoLevel}
-	defer stdout.Close()
-	opts = append(opts, optrefresh.ProgressStreams(stdout))
-	stderr := &zapio.Writer{Log: s.plog, Level: zap.WarnLevel}
-	defer stderr.Close()
-	opts = append(opts, optrefresh.ErrorProgressStreams(stderr))
+	stdout, stderr := s.newProgressWriters()
+	defer closeZapWriter(stdout)
+	defer closeZapWriter(stderr)
+	if stdout != nil {
+		opts = append(opts, optrefresh.ProgressStreams(stdout))
+	}
+	if stderr != nil {
+		opts = append(opts, optrefresh.ErrorProgressStreams(stderr))
+	}
 
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optrefresh.EventStreams(events))
-	go func() {
-		for evt := range events {
-			data, err := marshalEngineEvent(evt.EngineEvent)
-			if err != nil {
-				s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
-			}
-			msg := &pb.RefreshStream{Response: &pb.RefreshStream_Event{Event: data}}
-			if err := srv.Send(msg); err != nil {
-				s.log.Errorw("failed to send an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
-			}
-		}
-	}()
+	s.streamEngineEvents(events, func(data *structpb.Struct) error {
+		return srv.Send(&pb.RefreshStream{Response: &pb.RefreshStream_Event{Event: data}})
+	})
 
 	res, err := stack.Refresh(ctx, opts...)
 	if err != nil {
@@ -798,30 +784,22 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 	}
 
 	// wire up the logging
-	stdout := &zapio.Writer{Log: s.plog, Level: zap.InfoLevel}
-	defer stdout.Close()
-	stderr := &zapio.Writer{Log: s.plog, Level: zap.WarnLevel}
-	defer stderr.Close()
-	opts = append(opts, optup.ProgressStreams(stdout))
-	opts = append(opts, optup.ErrorProgressStreams(stderr))
+	stdout, stderr := s.newProgressWriters()
+	defer closeZapWriter(stdout)
+	defer closeZapWriter(stderr)
+	if stdout != nil {
+		opts = append(opts, optup.ProgressStreams(stdout))
+	}
+	if stderr != nil {
+		opts = append(opts, optup.ErrorProgressStreams(stderr))
+	}
 
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optup.EventStreams(events))
-	go func() {
-		for evt := range events {
-			data, err := marshalEngineEvent(evt.EngineEvent)
-			if err != nil {
-				s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
-			}
-			msg := &pb.UpStream{Response: &pb.UpStream_Event{Event: data}}
-			if err := srv.Send(msg); err != nil {
-				s.log.Errorw("failed to send an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
-			}
-		}
-	}()
+	s.streamEngineEvents(events, func(data *structpb.Struct) error {
+		return srv.Send(&pb.UpStream{Response: &pb.UpStream_Event{Event: data}})
+	})
 
 	// run the update to deploy our program
 	res, err := stack.Up(ctx, opts...)
@@ -830,9 +808,6 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 		st := status.Newf(codes.Unknown, "up failed: %v", err)
 		return withPulumiErrorInfo(st, err).Err()
 	}
-	stdout.Close() //nolint:gosec // Close always returns nil err
-	stderr.Close() //nolint:gosec // Close always returns nil err
-
 	s.log.Infow("up completed", "result", res.Summary.Result, "message", res.Summary.Message)
 
 	outputs, err := marshalOutputs(res.Outputs)
@@ -908,30 +883,22 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 	}
 
 	// wire up the logging
-	stdout := &zapio.Writer{Log: s.plog, Level: zap.InfoLevel}
-	defer stdout.Close()
-	opts = append(opts, optdestroy.ProgressStreams(stdout))
-	stderr := &zapio.Writer{Log: s.plog, Level: zap.WarnLevel}
-	defer stderr.Close()
-	opts = append(opts, optdestroy.ErrorProgressStreams(stderr))
+	stdout, stderr := s.newProgressWriters()
+	defer closeZapWriter(stdout)
+	defer closeZapWriter(stderr)
+	if stdout != nil {
+		opts = append(opts, optdestroy.ProgressStreams(stdout))
+	}
+	if stderr != nil {
+		opts = append(opts, optdestroy.ErrorProgressStreams(stderr))
+	}
 
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optdestroy.EventStreams(events))
-	go func() {
-		for evt := range events {
-			data, err := marshalEngineEvent(evt.EngineEvent)
-			if err != nil {
-				s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
-			}
-			msg := &pb.DestroyStream{Response: &pb.DestroyStream_Event{Event: data}}
-			if err := srv.Send(msg); err != nil {
-				s.log.Errorw("failed to send an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
-			}
-		}
-	}()
+	s.streamEngineEvents(events, func(data *structpb.Struct) error {
+		return srv.Send(&pb.DestroyStream{Response: &pb.DestroyStream_Event{Event: data}})
+	})
 
 	// run the update to deploy our program
 	res, err := stack.Destroy(ctx, opts...)
@@ -1044,6 +1011,89 @@ func marshalEngineEvent(evt apitype.EngineEvent) (*structpb.Struct, error) {
 		return nil, err
 	}
 	return structpb.NewStruct(m)
+}
+
+func (s *Server) newProgressWriters() (stdout, stderr *zapio.Writer) {
+	if s.pulumiJsonOutput {
+		return nil, nil
+	}
+	return &zapio.Writer{Log: s.plog, Level: zap.InfoLevel}, &zapio.Writer{Log: s.plog, Level: zap.WarnLevel}
+}
+
+func closeZapWriter(w *zapio.Writer) {
+	if w != nil {
+		_ = w.Close()
+	}
+}
+
+func (s *Server) streamEngineEvents(events <-chan events.EngineEvent, send func(*structpb.Struct) error) {
+	go func() {
+		for evt := range events {
+			s.logEngineEvent(evt)
+
+			data, err := marshalEngineEvent(evt.EngineEvent)
+			if err != nil {
+				s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
+				continue
+			}
+			if err := send(data); err != nil {
+				s.log.Errorw("failed to send an engine event", "sequence", evt.Sequence, zap.Error(err))
+				continue
+			}
+		}
+	}()
+}
+
+func (s *Server) logEngineEvent(evt events.EngineEvent) {
+	if !s.pulumiJsonOutput {
+		return
+	}
+
+	fields, err := marshalEngineEventLogFields(evt.EngineEvent)
+	if err != nil {
+		s.log.Errorw("failed to marshal an engine event for structured logging", "sequence", evt.Sequence, zap.Error(err))
+		return
+	}
+	s.plog.Info("engine event", fields...)
+}
+
+func marshalEngineEventLogFields(evt apitype.EngineEvent) ([]zap.Field, error) {
+	values := make(map[string]any)
+	raw, err := json.Marshal(evt)
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(raw, &values); err != nil {
+		return nil, err
+	}
+	if _, ok := values["type"]; !ok {
+		values["type"] = engineEventType(values)
+	}
+
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+
+	fields := make([]zap.Field, 0, len(keys))
+	for _, key := range keys {
+		fields = append(fields, zap.Any(key, values[key]))
+	}
+	return fields, nil
+}
+
+func engineEventType(values map[string]any) string {
+	for key, value := range values {
+		switch key {
+		case "sequence", "timestamp", "type":
+			continue
+		}
+		if value != nil {
+			return key
+		}
+	}
+	return ""
 }
 
 // marshalOutputs serializes outputs as a resource.PropertyMap to make

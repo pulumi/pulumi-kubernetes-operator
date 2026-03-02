@@ -73,6 +73,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | serviceMonitor.enabled | bool | `false` | When set true then use a ServiceMonitor to configure scraping |
 | terminationGracePeriodSeconds | int | `300` | Specifies termination grace period, default: `300` |
 | tolerations | list | `[]` | Toleration labels for pod assignment |
+| workspace.logFormat | string | `""` | Log format for workspace agent pods (one of 'json' or 'console'). Corresponds to AGENT_LOG_FORMAT. |
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
