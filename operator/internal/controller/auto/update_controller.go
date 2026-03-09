@@ -26,6 +26,7 @@ import (
 	"github.com/go-logr/logr"
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
+	updateapply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -35,6 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	metav1apply "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -59,6 +61,8 @@ const (
 	UpdateConditionReasonComplete    = "Complete"
 	UpdateConditionReasonUpdated     = "Updated"
 	UpdateConditionReasonProgressing = "Progressing"
+
+	UpdateStatusFieldManager = "pulumi-kubernetes-operator/update-status"
 
 	UpdateConditionReasonAborted         = "Aborted"
 	UpdateConditionReasonCanceled        = "Canceled"
@@ -303,8 +307,30 @@ func newReconcileSession(client client.Client, recorder record.EventRecorder, ob
 	return rs
 }
 
+type applyConfiguration struct {
+	config any
+}
+
+func (a applyConfiguration) Type() types.PatchType {
+	return types.ApplyPatchType
+}
+
+func (a applyConfiguration) Data(_ client.Object) ([]byte, error) {
+	return json.Marshal(a.config)
+}
+
+func conditionToApply(c *metav1.Condition) *metav1apply.ConditionApplyConfiguration {
+	return metav1apply.Condition().
+		WithType(c.Type).
+		WithStatus(c.Status).
+		WithObservedGeneration(c.ObservedGeneration).
+		WithLastTransitionTime(c.LastTransitionTime).
+		WithReason(c.Reason).
+		WithMessage(c.Message)
+}
+
 func (rs *reconcileSession) updateStatus(ctx context.Context, obj *autov1alpha1.Update) error {
-	oldRevision := obj.ResourceVersion
+	// Compute final conditions using meta.SetStatusCondition for correct LastTransitionTime.
 	obj.Status.ObservedGeneration = obj.Generation
 	rs.progressing.ObservedGeneration = obj.Generation
 	meta.SetStatusCondition(&obj.Status.Conditions, *rs.progressing)
@@ -313,18 +339,38 @@ func (rs *reconcileSession) updateStatus(ctx context.Context, obj *autov1alpha1.
 	rs.complete.ObservedGeneration = obj.Generation
 	meta.SetStatusCondition(&obj.Status.Conditions, *rs.complete)
 
-	err := rs.client.Status().Update(ctx, obj)
-	if err == nil {
-		if obj.ResourceVersion != oldRevision {
-			l := log.FromContext(ctx).WithValues("revision", obj.ResourceVersion)
-			l.Info("Status updated",
-				"observedGeneration", obj.Status.ObservedGeneration,
-				"message", obj.Status.Message,
-				"conditions", obj.Status.Conditions)
-		}
-		return nil
+	// Convert computed conditions to apply configurations.
+	applyConditions := make([]*metav1apply.ConditionApplyConfiguration, len(obj.Status.Conditions))
+	for i := range obj.Status.Conditions {
+		applyConditions[i] = conditionToApply(&obj.Status.Conditions[i])
 	}
-	return fmt.Errorf("updating status: %w", err)
+
+	// Build SSA status patch.
+	statusApply := updateapply.UpdateStatus().
+		WithObservedGeneration(obj.Generation).
+		WithMessage(obj.Status.Message).
+		WithPermalink(obj.Status.Permalink).
+		WithOutputs(obj.Status.Outputs).
+		WithStartTime(obj.Status.StartTime).
+		WithEndTime(obj.Status.EndTime).
+		WithConditions(applyConditions...)
+
+	patch := updateapply.Update(obj.Name, obj.Namespace).WithStatus(statusApply)
+
+	oldRevision := obj.ResourceVersion
+	err := rs.client.Status().Patch(ctx, obj, &applyConfiguration{config: patch},
+		client.FieldOwner(UpdateStatusFieldManager))
+	if err != nil {
+		return fmt.Errorf("updating status: %w", err)
+	}
+	if obj.ResourceVersion != oldRevision {
+		l := log.FromContext(ctx).WithValues("revision", obj.ResourceVersion)
+		l.Info("Status updated",
+			"observedGeneration", obj.Status.ObservedGeneration,
+			"message", obj.Status.Message,
+			"conditions", obj.Status.Conditions)
+	}
+	return nil
 }
 
 func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update, client agentpb.AutomationServiceClient) (ctrl.Result, error) {
