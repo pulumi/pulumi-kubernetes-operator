@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goversion: [1.24.x]
+        goversion: [1.25.x]
     steps:
       - name: Fetch secrets from ESC
         id: esc-secrets
