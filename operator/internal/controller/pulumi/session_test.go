@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr/testr"
-	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	v1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
@@ -475,7 +474,7 @@ func TestSetupWorkspaceFromGitSource(t *testing.T) {
 		name          string
 		gitAuth       *shared.GitAuthConfig
 		gitAuthSecret string
-		expected      *v1alpha1.WorkspaceSpec
+		expected      *autov1alpha1.WorkspaceSpec
 		err           error
 	}{
 		{
@@ -504,15 +503,15 @@ func TestSetupWorkspaceFromGitSource(t *testing.T) {
 					},
 				},
 			},
-			expected: &v1alpha1.WorkspaceSpec{
-				PodTemplate: &v1alpha1.EmbeddedPodTemplateSpec{
+			expected: &autov1alpha1.WorkspaceSpec{
+				PodTemplate: &autov1alpha1.EmbeddedPodTemplateSpec{
 					Spec: &corev1.PodSpec{
 						Containers: []corev1.Container{{Name: "pulumi"}},
 					},
 				},
-				Git: &v1alpha1.GitSource{
+				Git: &autov1alpha1.GitSource{
 					Ref: "commit-hash",
-					Auth: &v1alpha1.GitAuth{
+					Auth: &autov1alpha1.GitAuth{
 						SSHPrivateKey: &corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: _sshPrivateKeyWithPassword.Name,
@@ -543,15 +542,15 @@ func TestSetupWorkspaceFromGitSource(t *testing.T) {
 					},
 				},
 			},
-			expected: &v1alpha1.WorkspaceSpec{
-				PodTemplate: &v1alpha1.EmbeddedPodTemplateSpec{
+			expected: &autov1alpha1.WorkspaceSpec{
+				PodTemplate: &autov1alpha1.EmbeddedPodTemplateSpec{
 					Spec: &corev1.PodSpec{
 						Containers: []corev1.Container{{Name: "pulumi"}},
 					},
 				},
-				Git: &v1alpha1.GitSource{
+				Git: &autov1alpha1.GitSource{
 					Ref: "commit-hash",
-					Auth: &v1alpha1.GitAuth{
+					Auth: &autov1alpha1.GitAuth{
 						Token: &corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: _accessToken.Name,
@@ -588,15 +587,15 @@ func TestSetupWorkspaceFromGitSource(t *testing.T) {
 					},
 				},
 			},
-			expected: &v1alpha1.WorkspaceSpec{
-				PodTemplate: &v1alpha1.EmbeddedPodTemplateSpec{
+			expected: &autov1alpha1.WorkspaceSpec{
+				PodTemplate: &autov1alpha1.EmbeddedPodTemplateSpec{
 					Spec: &corev1.PodSpec{
 						Containers: []corev1.Container{{Name: "pulumi"}},
 					},
 				},
-				Git: &v1alpha1.GitSource{
+				Git: &autov1alpha1.GitSource{
 					Ref: "commit-hash",
-					Auth: &v1alpha1.GitAuth{
+					Auth: &autov1alpha1.GitAuth{
 						Password: &corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: _basicAuth.Name,
@@ -616,15 +615,15 @@ func TestSetupWorkspaceFromGitSource(t *testing.T) {
 		{
 			name:          "GitAuthSecret",
 			gitAuthSecret: _accessToken.Name,
-			expected: &v1alpha1.WorkspaceSpec{
-				PodTemplate: &v1alpha1.EmbeddedPodTemplateSpec{
+			expected: &autov1alpha1.WorkspaceSpec{
+				PodTemplate: &autov1alpha1.EmbeddedPodTemplateSpec{
 					Spec: &corev1.PodSpec{
 						Containers: []corev1.Container{{Name: "pulumi"}},
 					},
 				},
-				Git: &v1alpha1.GitSource{
+				Git: &autov1alpha1.GitSource{
 					Ref: "commit-hash",
-					Auth: &v1alpha1.GitAuth{
+					Auth: &autov1alpha1.GitAuth{
 						SSHPrivateKey: &corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: _accessToken.Name,

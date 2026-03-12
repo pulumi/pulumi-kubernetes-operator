@@ -65,9 +65,9 @@ type ProjectFile struct {
 // project file and writes it to the provided writer.
 func createProgramArtifact(data []byte, w io.Writer) error {
 	gzw := gzip.NewWriter(w)
-	defer gzw.Close()
+	defer func() { _ = gzw.Close() }()
 	tw := tar.NewWriter(gzw)
-	defer tw.Close()
+	defer func() { _ = tw.Close() }()
 
 	// Create tar header for the Pulumi.yaml file.
 	hdr := &tar.Header{
@@ -128,7 +128,7 @@ func (p *ProgramHandler) Address() string {
 func (p *ProgramHandler) CreateProgramURL(namespace, name string, generation int64) string {
 	address := p.address
 
-	if !(strings.HasPrefix(address, "http://") || strings.HasPrefix(address, "https://")) {
+	if !strings.HasPrefix(address, "http://") && !strings.HasPrefix(address, "https://") {
 		address = "http://" + address
 	}
 

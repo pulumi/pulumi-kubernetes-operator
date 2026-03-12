@@ -51,7 +51,7 @@ test:
 
 ##@ Linting
 GOLANGCI_LINT = $(shell pwd)/bin/golangci-lint
-GOLANGCI_LINT_VERSION ?= v1.64.2
+GOLANGCI_LINT_VERSION ?= v2.7.0
 golangci-lint:
 	@[ -f $(GOLANGCI_LINT) ] && $(GOLANGCI_LINT) version | grep -q $(subst v,,$(GOLANGCI_LINT_VERSION)) || { \
 	set -e ;\

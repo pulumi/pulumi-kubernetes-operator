@@ -32,7 +32,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/gitutil"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 )
@@ -255,29 +254,29 @@ func (sess *stackReconcilerSession) setupWorkspaceFromGitSource(_ context.Contex
 	auth := &autov1alpha1.GitAuth{}
 
 	if sess.stack.GitAuthSecret != "" {
-		auth.SSHPrivateKey = &v1.SecretKeySelector{
-			LocalObjectReference: v1.LocalObjectReference{
+		auth.SSHPrivateKey = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
 				Name: sess.stack.GitAuthSecret,
 			},
 			Key:      "sshPrivateKey",
 			Optional: ptr.To(true),
 		}
-		auth.Password = &v1.SecretKeySelector{
-			LocalObjectReference: v1.LocalObjectReference{
+		auth.Password = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
 				Name: sess.stack.GitAuthSecret,
 			},
 			Key:      "password",
 			Optional: ptr.To(true),
 		}
-		auth.Username = &v1.SecretKeySelector{
-			LocalObjectReference: v1.LocalObjectReference{
+		auth.Username = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
 				Name: sess.stack.GitAuthSecret,
 			},
 			Key:      "username",
 			Optional: ptr.To(true),
 		}
-		auth.Token = &v1.SecretKeySelector{
-			LocalObjectReference: v1.LocalObjectReference{
+		auth.Token = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
 				Name: sess.stack.GitAuthSecret,
 			},
 			Key:      "accessToken",
@@ -287,15 +286,15 @@ func (sess *stackReconcilerSession) setupWorkspaceFromGitSource(_ context.Contex
 
 	if gs.GitAuth != nil {
 		if gs.GitAuth.SSHAuth != nil {
-			auth.SSHPrivateKey = &v1.SecretKeySelector{
-				LocalObjectReference: v1.LocalObjectReference{
+			auth.SSHPrivateKey = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
 					Name: gs.GitAuth.SSHAuth.SSHPrivateKey.SecretRef.Name,
 				},
 				Key: gs.GitAuth.SSHAuth.SSHPrivateKey.SecretRef.Key,
 			}
 			if gs.GitAuth.SSHAuth.Password != nil {
-				auth.Password = &v1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{
+				auth.Password = &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
 						Name: gs.GitAuth.SSHAuth.Password.SecretRef.Name,
 					},
 					Key: gs.GitAuth.SSHAuth.Password.SecretRef.Key,
@@ -303,22 +302,22 @@ func (sess *stackReconcilerSession) setupWorkspaceFromGitSource(_ context.Contex
 			}
 		}
 		if gs.GitAuth.BasicAuth != nil {
-			auth.Username = &v1.SecretKeySelector{
-				LocalObjectReference: v1.LocalObjectReference{
+			auth.Username = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
 					Name: gs.GitAuth.BasicAuth.UserName.SecretRef.Name,
 				},
 				Key: gs.GitAuth.BasicAuth.UserName.SecretRef.Key,
 			}
-			auth.Password = &v1.SecretKeySelector{
-				LocalObjectReference: v1.LocalObjectReference{
+			auth.Password = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
 					Name: gs.GitAuth.BasicAuth.Password.SecretRef.Name,
 				},
 				Key: gs.GitAuth.BasicAuth.Password.SecretRef.Key,
 			}
 		}
 		if gs.GitAuth.PersonalAccessToken != nil {
-			auth.Token = &v1.SecretKeySelector{
-				LocalObjectReference: v1.LocalObjectReference{
+			auth.Token = &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
 					Name: gs.GitAuth.PersonalAccessToken.SecretRef.Name,
 				},
 				Key: gs.GitAuth.PersonalAccessToken.SecretRef.Key,

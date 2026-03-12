@@ -162,7 +162,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// Get the workspace and check that it is ready
 	w := &autov1alpha1.Workspace{}
-	err = r.Client.Get(ctx, client.ObjectKey{Namespace: obj.Namespace, Name: obj.Spec.WorkspaceName}, w)
+	err = r.Get(ctx, client.ObjectKey{Namespace: obj.Namespace, Name: obj.Spec.WorkspaceName}, w)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			l.Info("Workspace not found", "workspace", obj.Spec.WorkspaceName)
@@ -571,7 +571,7 @@ func (r *UpdateReconciler) mapWorkspaceToUpdate(ctx context.Context, obj client.
 	l := log.FromContext(ctx)
 
 	objs := &autov1alpha1.UpdateList{}
-	err := r.Client.List(ctx, objs, client.InNamespace(obj.GetNamespace()), client.MatchingFields{UpdateIndexerWorkspace: obj.GetName()})
+	err := r.List(ctx, objs, client.InNamespace(obj.GetNamespace()), client.MatchingFields{UpdateIndexerWorkspace: obj.GetName()})
 	if err != nil {
 		l.Error(err, "unable to list updates")
 		return nil

@@ -426,7 +426,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		err = r.Update(ctx, pod, client.FieldOwner(FieldManager))
 		if err != nil {
 			l.Error(err, "unable to update the workspace pod; deleting the pod to retry later")
-			err = r.Client.Delete(ctx, pod)
+			err = r.Delete(ctx, pod)
 			if err != nil {
 				return ctrl.Result{}, err
 			}

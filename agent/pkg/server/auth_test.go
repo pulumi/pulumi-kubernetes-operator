@@ -74,13 +74,13 @@ func TestKubernetes(t *testing.T) {
 	// mock SubjectAccessReview API
 	authorize := func(knownUser user.DefaultInfo, knownWorkspace types.NamespacedName) authorizer.AuthorizerFunc {
 		return func(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
-			if !(a.GetUser() != nil && a.GetUser().GetName() == knownUser.Name) {
+			if a.GetUser() == nil || a.GetUser().GetName() != knownUser.Name {
 				return authorizer.DecisionDeny, "", nil
 			}
-			if !(a.GetVerb() == "use" && a.GetResource() == "workspaces" && a.GetSubresource() == "rpc") {
+			if a.GetVerb() != "use" || a.GetResource() != "workspaces" || a.GetSubresource() != "rpc" {
 				return authorizer.DecisionDeny, "", nil
 			}
-			if !(a.GetNamespace() == knownWorkspace.Namespace && a.GetName() == knownWorkspace.Name) {
+			if a.GetNamespace() != knownWorkspace.Namespace || a.GetName() != knownWorkspace.Name {
 				return authorizer.DecisionDeny, "", nil
 			}
 			return authorizer.DecisionAllow, "", nil
