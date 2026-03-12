@@ -405,7 +405,7 @@ func unmarshalConfigItems(project string, items []*pb.ConfigItem) (auto.ConfigMa
 		if item.Path != nil {
 			path = *item.Path
 		}
-		if !path && !(strings.HasPrefix(k.Name(), `["`) && strings.HasSuffix(k.Name(), `"]`)) {
+		if !path && (!strings.HasPrefix(k.Name(), `["`) || !strings.HasSuffix(k.Name(), `"]`)) {
 			k = config.MustMakeKey(k.Namespace(), fmt.Sprintf("[%q]", k.Name()))
 		}
 

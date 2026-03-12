@@ -501,10 +501,9 @@ func newStallErrorf(format string, args ...interface{}) error {
 }
 
 var (
-	errNamespaceIsolation          = newStallErrorf(`cross-namespace refs are not allowed`)
-	errDeprecatedResourceRefEnv    = newStallErrorf(`ref type "Env" is deprecated`)
-	errDeprecatedResourceRefFS     = newStallErrorf(`ref type "FS" is deprecated`)
-	errOtherThanOneSourceSpecified = newStallErrorf(`exactly one source (.spec.fluxSource, .spec.projectRepo, or .spec.programRef) for the stack must be given`)
+	errNamespaceIsolation       = newStallErrorf(`cross-namespace refs are not allowed`)
+	errDeprecatedResourceRefEnv = newStallErrorf(`ref type "Env" is deprecated`)
+	errDeprecatedResourceRefFS  = newStallErrorf(`ref type "FS" is deprecated`)
 )
 
 var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
@@ -529,7 +528,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 	// Fetch the Stack instance
 	instance := &pulumiv1.Stack{}
-	err := r.Client.Get(ctx, request.NamespacedName, instance)
+	err := r.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		// Request object not found, could have been deleted after reconcile request.
 		// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
@@ -700,7 +699,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		var sourceObject unstructured.Unstructured
 		sourceObject.SetAPIVersion(fluxSource.SourceRef.APIVersion)
 		sourceObject.SetKind(fluxSource.SourceRef.Kind)
-		if err := r.Client.Get(ctx, client.ObjectKey{
+		if err := r.Get(ctx, client.ObjectKey{
 			Name:      fluxSource.SourceRef.Name,
 			Namespace: request.Namespace,
 		}, &sourceObject); err != nil {
@@ -731,7 +730,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		var program unstructured.Unstructured
 		program.SetAPIVersion(pulumiv1.GroupVersion.String())
 		program.SetKind("Program")
-		if err := r.Client.Get(ctx, client.ObjectKey{
+		if err := r.Get(ctx, client.ObjectKey{
 			Name:      stack.ProgramRef.Name,
 			Namespace: request.Namespace,
 		}, &program); err != nil {
@@ -815,7 +814,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		}
 		// Schedule another poll for source tracking.
 		if stack.GitSource != nil {
-			trackBranch := len(stack.GitSource.Branch) > 0
+			trackBranch := len(stack.Branch) > 0
 			if trackBranch {
 				// Reconcile every resyncFreq to check for new commits to the branch.
 				pollFreq := resyncFreq(instance)
@@ -876,7 +875,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 		prereqStack := &pulumiv1.Stack{}
 		key := types.NamespacedName{Name: prereq.Name, Namespace: instance.Namespace}
-		err := r.Client.Get(ctx, key, prereqStack)
+		err := r.Get(ctx, key, prereqStack)
 		if err != nil {
 			prereqErr := fmt.Errorf("unable to fetch prerequisite %q: %w", prereq.Name, err)
 			if apierrors.IsNotFound(err) {
@@ -903,7 +902,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 				// and won't thrash given multiple stacks having the same parent (with same or different schedules).
 				v := fmt.Sprintf("after-%s", errOutOfDate.LastUpdateName)
 				if setReconcileRequestAnnotation(prereqStack, v) {
-					if err := r.Client.Update(ctx, prereqStack); err != nil {
+					if err := r.Update(ctx, prereqStack); err != nil {
 						// A conflict here may mean the prerequisite has been changed, or it's just been
 						// run. In any case, requeueing this object means we'll see the new state of the
 						// world next time around.
@@ -1174,7 +1173,7 @@ func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.St
 			return true, ""
 		}
 		freq := resyncFreq(stack)
-		if !(time.Since(stack.Status.LastUpdate.LastResyncTime.Time) < freq) {
+		if time.Since(stack.Status.LastUpdate.LastResyncTime.Time) >= freq {
 			log.V(1).Info("Not synced: resync time elapsed")
 			msg := fmt.Sprintf("Resync time elapsed: %v", freq)
 			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), msg)
@@ -1314,7 +1313,7 @@ func (sess *stackReconcilerSession) resolveResourceRefAsEnvVar(_ context.Context
 				},
 			}, nil
 		}
-		return "", nil, errors.New("Missing secret reference in ResourceRef")
+		return "", nil, errors.New("missing secret reference in ResourceRef")
 	case shared.ResourceSelectorEnv:
 		// secure-by-default: do not read from the operator's own environment
 		return "", nil, errDeprecatedResourceRefEnv
@@ -1322,7 +1321,7 @@ func (sess *stackReconcilerSession) resolveResourceRefAsEnvVar(_ context.Context
 		// secure-by-default: do not read from the operator's own filesystem
 		return "", nil, errDeprecatedResourceRefFS
 	default:
-		return "", nil, fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
+		return "", nil, fmt.Errorf("unsupported selector type: %v", ref.SelectorType)
 	}
 }
 
@@ -1367,7 +1366,7 @@ func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(_ context.Con
 				Path: path.Join(mountPath, ref.SecretRef.Key),
 			}, nil
 		}
-		return nil, nil, errors.New("Missing secret reference in ResourceRef")
+		return nil, nil, errors.New("missing secret reference in ResourceRef")
 	case shared.ResourceSelectorEnv:
 		// secure-by-default: do not read from the operator's own environment
 		return nil, nil, errDeprecatedResourceRefEnv
@@ -1375,7 +1374,7 @@ func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(_ context.Con
 		// secure-by-default: do not read from the operator's own filesystem
 		return nil, nil, errDeprecatedResourceRefFS
 	default:
-		return nil, nil, fmt.Errorf("Unsupported selector type: %v", ref.SelectorType)
+		return nil, nil, fmt.Errorf("unsupported selector type: %v", ref.SelectorType)
 	}
 }
 

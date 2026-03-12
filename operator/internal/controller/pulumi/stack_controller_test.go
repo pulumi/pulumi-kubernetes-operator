@@ -1535,23 +1535,23 @@ var _ = Describe("Stack Controller", func() {
 
 			When("malformed source", func() {
 				BeforeEach(func(ctx context.Context) {
-					obj.Spec.GitSource.Branch = ""
-					obj.Spec.GitSource.Commit = ""
+					obj.Spec.Branch = ""
+					obj.Spec.Commit = ""
 				})
 				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`missing "commit" or "branch"`))
 			})
 
 			When("unavailable source", func() {
 				BeforeEach(func(ctx context.Context) {
-					obj.Spec.GitSource.Branch = "invalid"
-					obj.Spec.GitSource.Commit = ""
+					obj.Spec.Branch = "invalid"
+					obj.Spec.Commit = ""
 				})
 				beStalled(pulumiv1.StalledSourceUnavailableReason, ContainSubstring(`no commits found`))
 			})
 
 			When("the git source is available", func() {
 				BeforeEach(func(ctx context.Context) {
-					obj.Spec.GitSource.Commit = "2ca775387e522fd5c29668a85bfba2f8fd791848"
+					obj.Spec.Commit = "2ca775387e522fd5c29668a85bfba2f8fd791848"
 				})
 
 				It("reconciles", func(ctx context.Context) {
@@ -1561,9 +1561,9 @@ var _ = Describe("Stack Controller", func() {
 					By("configuring the workspace")
 					Expect(ws).ToNot(BeNil())
 					Expect(ws.Spec.Git).To(HaveValue(Equal(autov1alpha1.GitSource{
-						URL: obj.Spec.GitSource.ProjectRepo,
-						Ref: obj.Spec.GitSource.Commit,
-						Dir: obj.Spec.GitSource.RepoDir,
+						URL: obj.Spec.ProjectRepo,
+						Ref: obj.Spec.Commit,
+						Dir: obj.Spec.RepoDir,
 					})))
 				})
 			})
@@ -1571,7 +1571,7 @@ var _ = Describe("Stack Controller", func() {
 			Describe("git auth", func() {
 				When("the git auth cannot be resolved", func() {
 					BeforeEach(func(ctx context.Context) {
-						obj.Spec.GitSource.GitAuth = &shared.GitAuthConfig{
+						obj.Spec.GitAuth = &shared.GitAuthConfig{
 							PersonalAccessToken: &shared.ResourceRef{
 								SelectorType: shared.ResourceSelectorSecret,
 								ResourceSelector: shared.ResourceSelector{
