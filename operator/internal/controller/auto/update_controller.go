@@ -351,9 +351,15 @@ func (rs *reconcileSession) updateStatus(ctx context.Context, obj *autov1alpha1.
 		WithMessage(obj.Status.Message).
 		WithPermalink(obj.Status.Permalink).
 		WithOutputs(obj.Status.Outputs).
-		WithStartTime(obj.Status.StartTime).
-		WithEndTime(obj.Status.EndTime).
 		WithConditions(applyConditions...)
+	// Only include StartTime/EndTime when non-zero; zero-value metav1.Time
+	// serializes as JSON null which the CRD validation rejects.
+	if !obj.Status.StartTime.IsZero() {
+		statusApply = statusApply.WithStartTime(obj.Status.StartTime)
+	}
+	if !obj.Status.EndTime.IsZero() {
+		statusApply = statusApply.WithEndTime(obj.Status.EndTime)
+	}
 
 	patch := updateapply.Update(obj.Name, obj.Namespace).WithStatus(statusApply)
 

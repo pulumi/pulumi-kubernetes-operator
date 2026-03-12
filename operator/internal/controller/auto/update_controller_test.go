@@ -570,3 +570,55 @@ func TestUpdateStatusConcurrentModification(t *testing.T) {
 	assert.Equal(t, metav1.ConditionFalse, progressing.Status,
 		"Progressing condition must be False after completion")
 }
+
+// TestUpdateStatusZeroTimestamps verifies that updateStatus() succeeds when
+// StartTime and EndTime are zero-valued (i.e., before an operation starts).
+// Zero-valued metav1.Time serializes as JSON null, which CRD validation rejects
+// as an invalid string. The fix omits these fields from the SSA patch.
+func TestUpdateStatusZeroTimestamps(t *testing.T) {
+	env := &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, env.Stop()) })
+
+	require.NoError(t, autov1alpha1.AddToScheme(scheme.Scheme))
+
+	c, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	require.NoError(t, err)
+
+	ctx := t.Context()
+
+	obj := &autov1alpha1.Update{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("update-%s", utilrand.String(8)),
+			Namespace: "default",
+		},
+	}
+	require.NoError(t, c.Create(ctx, obj))
+
+	// Write status with zero StartTime/EndTime (as happens when setting
+	// Progressing=True before the operation begins).
+	recorder := record.NewFakeRecorder(10)
+	rs := newReconcileSession(c, recorder, obj)
+	rs.progressing.Status = metav1.ConditionTrue
+	rs.progressing.Reason = UpdateConditionReasonProgressing
+	rs.failed.Status = metav1.ConditionFalse
+	rs.failed.Reason = UpdateConditionReasonProgressing
+	rs.complete.Status = metav1.ConditionFalse
+	rs.complete.Reason = UpdateConditionReasonProgressing
+	require.NoError(t, rs.updateStatus(ctx, obj),
+		"updateStatus must succeed with zero-valued StartTime/EndTime")
+
+	// Verify conditions were written correctly.
+	var result autov1alpha1.Update
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(obj), &result))
+	progressing := meta.FindStatusCondition(result.Status.Conditions, UpdateConditionTypeProgressing)
+	require.NotNil(t, progressing)
+	assert.Equal(t, metav1.ConditionTrue, progressing.Status)
+	assert.True(t, result.Status.StartTime.IsZero(), "StartTime should remain unset")
+}
