@@ -24,12 +24,12 @@ import (
 // StackStatusApplyConfiguration represents a declarative configuration of the StackStatus type for use
 // with apply.
 type StackStatusApplyConfiguration struct {
-	Outputs                  *shared.StackOutputs                  `json:"outputs,omitempty"`
-	LastUpdate               *StackUpdateStateApplyConfiguration   `json:"lastUpdate,omitempty"`
-	ObservedGeneration       *int64                                `json:"observedGeneration,omitempty"`
-	ObservedReconcileRequest *string                               `json:"observedReconcileRequest,omitempty"`
-	Conditions               []metav1.ConditionApplyConfiguration  `json:"conditions,omitempty"`
-	CurrentUpdate            *CurrentStackUpdateApplyConfiguration `json:"currentUpdate,omitempty"`
+	Outputs                  *shared.StackOutputs                 `json:"outputs,omitempty"`
+	LastUpdate               *shared.StackUpdateState             `json:"lastUpdate,omitempty"`
+	ObservedGeneration       *int64                               `json:"observedGeneration,omitempty"`
+	ObservedReconcileRequest *string                              `json:"observedReconcileRequest,omitempty"`
+	Conditions               []metav1.ConditionApplyConfiguration `json:"conditions,omitempty"`
+	CurrentUpdate            *shared.CurrentStackUpdate           `json:"currentUpdate,omitempty"`
 }
 
 // StackStatusApplyConfiguration constructs a declarative configuration of the StackStatus type for use with
@@ -49,8 +49,8 @@ func (b *StackStatusApplyConfiguration) WithOutputs(value shared.StackOutputs) *
 // WithLastUpdate sets the LastUpdate field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the LastUpdate field is set to the value of the last call.
-func (b *StackStatusApplyConfiguration) WithLastUpdate(value *StackUpdateStateApplyConfiguration) *StackStatusApplyConfiguration {
-	b.LastUpdate = value
+func (b *StackStatusApplyConfiguration) WithLastUpdate(value shared.StackUpdateState) *StackStatusApplyConfiguration {
+	b.LastUpdate = &value
 	return b
 }
 
@@ -86,7 +86,7 @@ func (b *StackStatusApplyConfiguration) WithConditions(values ...*metav1.Conditi
 // WithCurrentUpdate sets the CurrentUpdate field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the CurrentUpdate field is set to the value of the last call.
-func (b *StackStatusApplyConfiguration) WithCurrentUpdate(value *CurrentStackUpdateApplyConfiguration) *StackStatusApplyConfiguration {
-	b.CurrentUpdate = value
+func (b *StackStatusApplyConfiguration) WithCurrentUpdate(value shared.CurrentStackUpdate) *StackStatusApplyConfiguration {
+	b.CurrentUpdate = &value
 	return b
 }
