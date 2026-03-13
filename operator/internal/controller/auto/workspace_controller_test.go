@@ -806,6 +806,89 @@ func TestWorkspaceInitializationStalled(t *testing.T) {
 	}
 }
 
+// TestWorkspaceStatusConcurrentModification verifies that the Workspace
+// controller's SSA-based status writes succeed even when another client
+// concurrently modifies metadata (e.g. sets a label), which bumps the
+// object's resourceVersion. The old Status().Update() approach would fail with
+// a 409 Conflict; SSA ignores resourceVersion.
+func TestWorkspaceStatusConcurrentModification(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, env.Stop()) })
+
+	k8sclient, err := client.New(cfg, client.Options{Scheme: testScheme})
+	require.NoError(t, err)
+
+	ctx := t.Context()
+
+	// Step 1: Create a Workspace.
+	workspace := &autov1alpha1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "workspace-ssa-concurrent-modification",
+			Namespace: "default",
+		},
+		Spec: autov1alpha1.WorkspaceSpec{
+			Image: "pulumi/pulumi:latest-nonroot",
+		},
+	}
+	require.NoError(t, k8sclient.Create(ctx, workspace))
+
+	objName := types.NamespacedName{Name: workspace.Name, Namespace: workspace.Namespace}
+	reconciler := &WorkspaceReconciler{
+		Client:   k8sclient,
+		Scheme:   k8sclient.Scheme(),
+		Recorder: record.NewFakeRecorder(10),
+		ConnectionManager: &ConnectionManager{
+			factory: &mockTokenSourceFactory{},
+		},
+	}
+
+	// Step 2: First reconciliation — creates StatefulSet/Service and writes status.
+	_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+	require.NoError(t, err)
+
+	require.NoError(t, k8sclient.Get(ctx, objName, workspace))
+	staleVersion := workspace.ResourceVersion
+
+	// Step 3: Simulate a concurrent metadata modification (e.g. another controller sets a label).
+	fresh := &autov1alpha1.Workspace{}
+	require.NoError(t, k8sclient.Get(ctx, objName, fresh))
+	if fresh.Labels == nil {
+		fresh.Labels = make(map[string]string)
+	}
+	fresh.Labels["test.example.com/concurrent-modification"] = "true"
+	require.NoError(t, k8sclient.Update(ctx, fresh))
+
+	assert.NotEqual(t, staleVersion, fresh.ResourceVersion,
+		"server resourceVersion must have advanced past our local copy")
+
+	// Step 4: Second reconciliation with the now-stale workspace object.
+	// With Status().Update() this would 409; SSA must succeed.
+	_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+	require.NoError(t, err)
+
+	// Step 5: Verify the concurrent label and the status update are both present.
+	var result autov1alpha1.Workspace
+	require.NoError(t, k8sclient.Get(ctx, objName, &result))
+
+	assert.Equal(t, "true", result.Labels["test.example.com/concurrent-modification"],
+		"label from concurrent metadata write must be preserved")
+
+	readyCond := meta.FindStatusCondition(result.Status.Conditions, autov1alpha1.WorkspaceReady)
+	require.NotNil(t, readyCond, "expected Ready condition on workspace")
+	assert.Equal(t, result.Generation, result.Status.ObservedGeneration,
+		"ObservedGeneration must match the workspace generation")
+}
+
 func TestMergePodTemplateSpec(t *testing.T) {
 
 	tests := []struct {
