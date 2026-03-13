@@ -27,6 +27,7 @@ import (
 	"github.com/blang/semver"
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
+	autoapply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
 	autov1alpha1webhook "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/webhook/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/version"
 	"google.golang.org/grpc/status"
@@ -39,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	metav1apply "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/client-go/tools/record"
 	hashutil "k8s.io/kubernetes/pkg/util/hash"
 	"k8s.io/utils/ptr"
@@ -111,7 +113,19 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		w.Status.ObservedGeneration = w.Generation
 		ready.ObservedGeneration = w.Generation
 		meta.SetStatusCondition(&w.Status.Conditions, *ready)
-		err := r.Status().Update(ctx, w)
+
+		applyConditions := make([]*metav1apply.ConditionApplyConfiguration, len(w.Status.Conditions))
+		for i := range w.Status.Conditions {
+			applyConditions[i] = conditionToApply(&w.Status.Conditions[i])
+		}
+		statusApply := autoapply.WorkspaceStatus().
+			WithObservedGeneration(w.Generation).
+			WithAddress(w.Status.Address).
+			WithPulumiVersion(w.Status.PulumiVersion).
+			WithConditions(applyConditions...)
+		patch := autoapply.Workspace(w.Name, w.Namespace).WithStatus(statusApply)
+		err := r.Status().Patch(ctx, w, &applyConfiguration{config: patch},
+			client.FieldOwner(WorkspaceStatusFieldManager))
 		if err != nil {
 			l.Error(err, "updating status")
 		} else {
@@ -490,6 +504,7 @@ func (statefulSetReadyPredicate) Generic(_ event.GenericEvent) bool {
 
 const (
 	FieldManager                 = "pulumi-kubernetes-operator"
+	WorkspaceStatusFieldManager  = "pulumi-kubernetes-operator/workspace-status"
 	WorkspacePulumiContainerName = "pulumi"
 	WorkspaceShareVolumeName     = "share"
 	WorkspaceShareMountPath      = "/share"
