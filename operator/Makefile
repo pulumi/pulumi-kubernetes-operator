@@ -107,7 +107,8 @@ generate: controller-gen applyconfiguration-gen ## Generate code containing Deep
 		--go-header-file hack/boilerplate.go.txt \
 		--output-dir internal/apply \
 		--output-pkg github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply \
-		github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1
+		github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1 \
+		github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.

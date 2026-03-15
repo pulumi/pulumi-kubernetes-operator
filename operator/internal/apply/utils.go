@@ -18,8 +18,10 @@ package apply
 
 import (
 	v1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
+	v1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
 	internal "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/internal"
+	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/pulumi/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
@@ -60,6 +62,30 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &autov1alpha1.WorkspaceStackApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("WorkspaceStatus"):
 		return &autov1alpha1.WorkspaceStatusApplyConfiguration{}
+
+		// Group=pulumi.com, Version=v1
+	case v1.SchemeGroupVersion.WithKind("Artifact"):
+		return &pulumiv1.ArtifactApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("Configuration"):
+		return &pulumiv1.ConfigurationApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("CustomTimeouts"):
+		return &pulumiv1.CustomTimeoutsApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("Getter"):
+		return &pulumiv1.GetterApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("Options"):
+		return &pulumiv1.OptionsApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("Program"):
+		return &pulumiv1.ProgramApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ProgramSpec"):
+		return &pulumiv1.ProgramSpecApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("ProgramStatus"):
+		return &pulumiv1.ProgramStatusApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("Resource"):
+		return &pulumiv1.ResourceApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("Stack"):
+		return &pulumiv1.StackApplyConfiguration{}
+	case v1.SchemeGroupVersion.WithKind("StackStatus"):
+		return &pulumiv1.StackStatusApplyConfiguration{}
 
 	}
 	return nil

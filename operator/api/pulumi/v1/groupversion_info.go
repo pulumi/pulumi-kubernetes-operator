@@ -23,8 +23,12 @@ import (
 )
 
 var (
-	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "pulumi.com", Version: "v1"}
+	// SchemeGroupVersion is group version used to register these objects.
+	// Kept as SchemeGroupVersion for compatibility with applyconfiguration-gen.
+	SchemeGroupVersion = schema.GroupVersion{Group: "pulumi.com", Version: "v1"}
+
+	// GroupVersion is an alias of SchemeGroupVersion for controller-runtime conventions.
+	GroupVersion = SchemeGroupVersion
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
