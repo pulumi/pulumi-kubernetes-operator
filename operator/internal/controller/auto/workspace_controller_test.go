@@ -21,7 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"net"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -660,8 +659,6 @@ func TestWorkspaceInitializationStalled(t *testing.T) {
 			filepath.Join("..", "..", "..", "config", "crd", "bases"),
 		},
 		ErrorIfCRDPathMissing: true,
-		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
-			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
 	}
 	cfg, err := env.Start()
 	require.NoError(t, err)
@@ -818,8 +815,6 @@ func TestWorkspaceStatusConcurrentModification(t *testing.T) {
 	env := &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
-		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
-			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
 	}
 	cfg, err := env.Start()
 	require.NoError(t, err)
