@@ -125,7 +125,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			WithConditions(applyConditions...)
 		patch := autoapply.Workspace(w.Name, w.Namespace).WithStatus(statusApply)
 		err := r.Status().Patch(ctx, w, &applyConfiguration{config: patch},
-			client.FieldOwner(WorkspaceStatusFieldManager))
+			client.FieldOwner(WorkspaceStatusFieldManager), client.ForceOwnership)
 		if err != nil {
 			l.Error(err, "updating status")
 		} else {

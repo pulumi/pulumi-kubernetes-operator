@@ -365,7 +365,7 @@ func (rs *reconcileSession) updateStatus(ctx context.Context, obj *autov1alpha1.
 
 	oldRevision := obj.ResourceVersion
 	err := rs.client.Status().Patch(ctx, obj, &applyConfiguration{config: patch},
-		client.FieldOwner(UpdateStatusFieldManager))
+		client.FieldOwner(UpdateStatusFieldManager), client.ForceOwnership)
 	if err != nil {
 		return fmt.Errorf("updating status: %w", err)
 	}
