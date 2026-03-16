@@ -33,6 +33,7 @@ import (
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
 	updateapply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
+	stackapply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/pulumi/v1"
 	auto "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/controller/auto"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -45,6 +46,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/wait"
+	metav1apply "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
@@ -84,6 +86,8 @@ const (
 const (
 	FieldManager               = "pulumi-kubernetes-operator"
 	StackFinalizerFieldManager = "pulumi-kubernetes-operator/stack-finalizer"
+	StackStatusFieldManager    = "pulumi-kubernetes-operator/stack-status"
+	PrerequisiteFieldManager   = "pulumi-kubernetes-operator/prerequisite-request"
 	PulumiFinalizer            = "finalizer.stack.pulumi.com"
 )
 
@@ -338,19 +342,6 @@ func getReconcileRequestAnnotation(obj client.Object) (string, bool) {
 	return r, ok
 }
 
-func setReconcileRequestAnnotation(obj client.Object, v string) bool {
-	a := obj.GetAnnotations()
-	if a == nil {
-		a = map[string]string{}
-	}
-	if a[shared.ReconcileRequestAnnotation] == v {
-		return false
-	}
-	a[shared.ReconcileRequestAnnotation] = v
-	obj.SetAnnotations(a)
-	return true
-}
-
 // Update filters update events based on whether the request reconciliation annotation has been
 // added or amended.
 func (p ReconcileRequestedPredicate) Update(e event.UpdateEvent) bool {
@@ -571,8 +562,27 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 	var toBeFinalized *autov1alpha1.Update
 	saveStatus := func() error {
+		applyConditions := make([]*metav1apply.ConditionApplyConfiguration, len(instance.Status.Conditions))
+		for i := range instance.Status.Conditions {
+			applyConditions[i] = conditionToApply(&instance.Status.Conditions[i])
+		}
+		statusApply := stackapply.StackStatus().
+			WithObservedGeneration(instance.Status.ObservedGeneration).
+			WithObservedReconcileRequest(instance.Status.ObservedReconcileRequest).
+			WithConditions(applyConditions...)
+		if instance.Status.Outputs != nil {
+			statusApply = statusApply.WithOutputs(instance.Status.Outputs)
+		}
+		if instance.Status.LastUpdate != nil {
+			statusApply = statusApply.WithLastUpdate(*instance.Status.LastUpdate)
+		}
+		if instance.Status.CurrentUpdate != nil {
+			statusApply = statusApply.WithCurrentUpdate(*instance.Status.CurrentUpdate)
+		}
+		patch := stackapply.Stack(instance.Name, instance.Namespace).WithStatus(statusApply)
 		oldRevision := instance.ResourceVersion
-		if err := r.Status().Update(ctx, instance); err != nil {
+		if err := r.Status().Patch(ctx, instance, &applyConfiguration{config: patch},
+			client.FieldOwner(StackStatusFieldManager), client.ForceOwnership); err != nil {
 			log.Error(err, "unable to save object status")
 			return err
 		}
@@ -901,8 +911,11 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 				// This touch is idempotent to avoid "spamming" the stack with new requests,
 				// and won't thrash given multiple stacks having the same parent (with same or different schedules).
 				v := fmt.Sprintf("after-%s", errOutOfDate.LastUpdateName)
-				if setReconcileRequestAnnotation(prereqStack, v) {
-					if err := r.Update(ctx, prereqStack); err != nil {
+				if prereqStack.GetAnnotations()[shared.ReconcileRequestAnnotation] != v {
+					patch := stackapply.Stack(prereqStack.Name, prereqStack.Namespace).
+						WithAnnotations(map[string]string{shared.ReconcileRequestAnnotation: v})
+					if err := r.Patch(ctx, prereqStack, &applyConfiguration{config: patch},
+						client.FieldOwner(PrerequisiteFieldManager)); err != nil {
 						// A conflict here may mean the prerequisite has been changed, or it's just been
 						// run. In any case, requeueing this object means we'll see the new state of the
 						// world next time around.
@@ -1821,6 +1834,16 @@ func (a applyConfiguration) Type() types.PatchType {
 
 func (a applyConfiguration) Data(_ client.Object) ([]byte, error) {
 	return json.Marshal(a.config)
+}
+
+func conditionToApply(c *metav1.Condition) *metav1apply.ConditionApplyConfiguration {
+	return metav1apply.Condition().
+		WithType(c.Type).
+		WithStatus(c.Status).
+		WithObservedGeneration(c.ObservedGeneration).
+		WithLastTransitionTime(c.LastTransitionTime).
+		WithReason(c.Reason).
+		WithMessage(c.Message)
 }
 
 func (r *StackReconciler) addUpdateFinalizer(ctx context.Context, update *autov1alpha1.Update) error {

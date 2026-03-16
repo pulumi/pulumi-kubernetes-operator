@@ -33,6 +33,7 @@ import (
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
 	autov1alpha1apply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
+	stackapply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/pulumi/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -41,6 +42,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
+	metav1apply "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
@@ -66,6 +68,44 @@ func (p applyPatch) Type() types.PatchType {
 
 func (p applyPatch) Data(obj client.Object) ([]byte, error) {
 	return json.Marshal(p.patch)
+}
+
+// stackStatusSSAPatch builds an SSA patch for a Stack's status. This ensures
+// that the test setup uses the same field manager type ("Apply") as the controller,
+// so that SSA can properly clear fields when they are later omitted.
+func stackStatusSSAPatch(stack *pulumiv1.Stack) applyPatch {
+	statusApply := stackapply.StackStatus().
+		WithObservedGeneration(stack.Status.ObservedGeneration).
+		WithObservedReconcileRequest(stack.Status.ObservedReconcileRequest)
+	if stack.Status.Outputs != nil {
+		statusApply = statusApply.WithOutputs(stack.Status.Outputs)
+	}
+	for i := range stack.Status.Conditions {
+		c := &stack.Status.Conditions[i]
+		statusApply = statusApply.WithConditions(
+			metav1apply.Condition().
+				WithType(c.Type).
+				WithStatus(c.Status).
+				WithObservedGeneration(c.ObservedGeneration).
+				WithLastTransitionTime(c.LastTransitionTime).
+				WithReason(c.Reason).
+				WithMessage(c.Message),
+		)
+	}
+	if stack.Status.LastUpdate != nil {
+		lastUpdate := *stack.Status.LastUpdate
+		// Zero-valued metav1.Time serializes as JSON null, which the CRD
+		// rejects. The controller always sets LastResyncTime to metav1.Now(),
+		// so use a non-zero default for test setup.
+		if lastUpdate.LastResyncTime.IsZero() {
+			lastUpdate.LastResyncTime = metav1.Now()
+		}
+		statusApply = statusApply.WithLastUpdate(lastUpdate)
+	}
+	if stack.Status.CurrentUpdate != nil {
+		statusApply = statusApply.WithCurrentUpdate(*stack.Status.CurrentUpdate)
+	}
+	return applyPatch{stackapply.Stack(stack.Name, stack.Namespace).WithStatus(statusApply)}
 }
 
 // jsonValue creates a JSON value from a string for testing
@@ -222,7 +262,10 @@ var _ = Describe("Stack Controller", func() {
 		status := obj.Status
 		Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 		obj.Status = status
-		Expect(k8sClient.Status().Update(ctx, obj, client.FieldOwner(FieldManager))).To(Succeed())
+		// Use SSA to set status so the field manager has "Apply" type entries.
+		// This ensures the controller's SSA patches can later clear fields by omitting them.
+		Expect(k8sClient.Status().Patch(ctx, obj, stackStatusSSAPatch(obj),
+			client.FieldOwner(StackStatusFieldManager), client.ForceOwnership)).To(Succeed())
 	})
 
 	JustBeforeEach(func(ctx context.Context) {
@@ -487,7 +530,8 @@ var _ = Describe("Stack Controller", func() {
 						LastAttemptedCommit:  "abcdef",
 						LastSuccessfulCommit: "abcdef",
 					}
-					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
+					Expect(k8sClient.Status().Patch(ctx, obj, stackStatusSSAPatch(obj),
+						client.FieldOwner(StackStatusFieldManager), client.ForceOwnership)).To(Succeed())
 				})
 				It("reconciles", func(ctx context.Context) {
 					result, err := reconcileF(ctx)
@@ -666,7 +710,8 @@ var _ = Describe("Stack Controller", func() {
 						LastSuccessfulCommit: "",
 						Failures:             2,
 					}
-					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
+					Expect(k8sClient.Status().Patch(ctx, obj, stackStatusSSAPatch(obj),
+						client.FieldOwner(StackStatusFieldManager), client.ForceOwnership)).To(Succeed())
 				})
 				It("increments failures", func(ctx context.Context) {
 					_, err := reconcileF(ctx)
@@ -687,7 +732,8 @@ var _ = Describe("Stack Controller", func() {
 							LastSuccessfulCommit: "",
 							Failures:             2,
 						}
-						Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
+						Expect(k8sClient.Status().Patch(ctx, obj, stackStatusSSAPatch(obj),
+							client.FieldOwner(StackStatusFieldManager), client.ForceOwnership)).To(Succeed())
 					})
 					It("resets failures", func(ctx context.Context) {
 						_, err := reconcileF(ctx)
@@ -752,7 +798,8 @@ var _ = Describe("Stack Controller", func() {
 						LastAttemptedCommit: obj.Status.CurrentUpdate.Commit,
 						Failures:            2,
 					}
-					Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
+					Expect(k8sClient.Status().Patch(ctx, obj, stackStatusSSAPatch(obj),
+						client.FieldOwner(StackStatusFieldManager), client.ForceOwnership)).To(Succeed())
 				})
 				It("resets failures", func(ctx context.Context) {
 					_, err := reconcileF(ctx)
@@ -772,7 +819,8 @@ var _ = Describe("Stack Controller", func() {
 							LastAttemptedCommit: obj.Status.CurrentUpdate.Commit,
 							Failures:            2,
 						}
-						Expect(k8sClient.Status().Update(ctx, obj)).To(Succeed())
+						Expect(k8sClient.Status().Patch(ctx, obj, stackStatusSSAPatch(obj),
+							client.FieldOwner(StackStatusFieldManager), client.ForceOwnership)).To(Succeed())
 					})
 					It("resets failures", func(ctx context.Context) {
 						_, err := reconcileF(ctx)
@@ -2538,4 +2586,114 @@ func TestWorkspaceStalledPropagation(t *testing.T) {
 			assert.Nil(t, reconcilingCond, "expected Reconciling condition to be removed")
 		})
 	}
+}
+
+// TestStackStatusConcurrentModification proves that the Stack controller's
+// SSA-based status writes succeed even when another client concurrently modifies
+// metadata (e.g. sets a label), which bumps the object's resourceVersion. The
+// old Status().Update() approach would fail with a 409 Conflict; SSA ignores
+// resourceVersion.
+func TestStackStatusConcurrentModification(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, pulumiv1.AddToScheme(testScheme))
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	k8sClient, err := client.New(cfg, client.Options{Scheme: testScheme})
+	require.NoError(t, err)
+
+	ctx := t.Context()
+
+	// Step 1: Create a Program with a ready artifact.
+	program := &pulumiv1.Program{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "program-ssa-concurrent",
+			Namespace: "default",
+		},
+		Program: pulumiv1.ProgramSpec{
+			Resources: map[string]pulumiv1.Resource{
+				"bucket": {Type: "random:RandomPassword"},
+			},
+		},
+	}
+	require.NoError(t, k8sClient.Create(ctx, program))
+	program.Status.Artifact = &pulumiv1.Artifact{
+		Revision:       "test-revision",
+		LastUpdateTime: metav1.Now(),
+	}
+	program.Status.ObservedGeneration = program.Generation
+	require.NoError(t, k8sClient.Status().Update(ctx, program))
+
+	// Step 2: Create a Stack with a ProgramRef.
+	stackName := types.NamespacedName{Name: "stack-ssa-concurrent", Namespace: "default"}
+	stack := &pulumiv1.Stack{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: pulumiv1.GroupVersion.String(),
+			Kind:       "Stack",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       stackName.Name,
+			Namespace:  stackName.Namespace,
+			Finalizers: []string{testFinalizer},
+		},
+		Spec: shared.StackSpec{
+			Stack: "dev",
+			ProgramRef: &shared.ProgramReference{
+				Name: program.Name,
+			},
+		},
+	}
+	require.NoError(t, k8sClient.Create(ctx, stack))
+
+	reconciler := &StackReconciler{
+		Client:   k8sClient,
+		Scheme:   testScheme,
+		Recorder: record.NewFakeRecorder(10),
+	}
+
+	// Step 3: First reconciliation — writes status via SSA.
+	_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
+	require.NoError(t, err)
+
+	require.NoError(t, k8sClient.Get(ctx, stackName, stack))
+	staleVersion := stack.ResourceVersion
+
+	// Step 4: Simulate a concurrent metadata modification (e.g. another controller sets a label).
+	fresh := &pulumiv1.Stack{}
+	require.NoError(t, k8sClient.Get(ctx, stackName, fresh))
+	if fresh.Labels == nil {
+		fresh.Labels = make(map[string]string)
+	}
+	fresh.Labels["test.example.com/concurrent-modification"] = "true"
+	require.NoError(t, k8sClient.Update(ctx, fresh))
+
+	assert.NotEqual(t, staleVersion, fresh.ResourceVersion,
+		"server resourceVersion must have advanced past our local copy")
+
+	// Step 5: Second reconciliation with the now-stale stack object.
+	// With Status().Update() this would 409; SSA must succeed.
+	_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
+	require.NoError(t, err)
+
+	// Step 6: Verify the concurrent label and the status update are both present.
+	var result pulumiv1.Stack
+	require.NoError(t, k8sClient.Get(ctx, stackName, &result))
+
+	assert.Equal(t, "true", result.Labels["test.example.com/concurrent-modification"],
+		"label from concurrent metadata write must be preserved")
+
+	assert.Equal(t, result.Generation, result.Status.ObservedGeneration,
+		"ObservedGeneration must match the stack generation")
+
+	readyCond := meta.FindStatusCondition(result.Status.Conditions, pulumiv1.ReadyCondition)
+	require.NotNil(t, readyCond, "expected Ready condition on stack")
 }
