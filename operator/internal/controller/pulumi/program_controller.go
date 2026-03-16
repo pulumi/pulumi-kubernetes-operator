@@ -29,11 +29,11 @@ import (
 
 	"github.com/opencontainers/go-digest"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	programapply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/pulumi/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -42,8 +42,9 @@ import (
 )
 
 const (
-	ProgramControllerName = "program-controller"
-	pulumiProjectFileName = "Pulumi.yaml"
+	ProgramControllerName     = "program-controller"
+	ProgramStatusFieldManager = "pulumi-kubernetes-operator/program-status"
+	pulumiProjectFileName     = "Pulumi.yaml"
 )
 
 // ProgramReconciler reconciles a Program object
@@ -251,19 +252,22 @@ func (r *ProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, fmt.Errorf("unable to calculate digest hash for Program artifact: %w", err)
 	}
 
-	// Update the status of the Program object.
-	program.Status.Artifact = &pulumiv1.Artifact{
-		Path:           r.ProgramHandler.CreateProgramPath(program.Namespace, program.Name, program.GetGeneration()),
-		URL:            r.ProgramHandler.CreateProgramURL(program.Namespace, program.Name, program.GetGeneration()),
-		Revision:       strconv.FormatInt(program.GetGeneration(), 10),
-		Digest:         tarDigest,
-		LastUpdateTime: metav1.Now(),
-		Size:           ptr.To(tarSize),
-	}
-	program.Status.ObservedGeneration = program.GetGeneration()
+	// Update the status of the Program object using SSA to avoid resourceVersion conflicts.
+	artifactApply := programapply.Artifact().
+		WithPath(r.ProgramHandler.CreateProgramPath(program.Namespace, program.Name, program.GetGeneration())).
+		WithURL(r.ProgramHandler.CreateProgramURL(program.Namespace, program.Name, program.GetGeneration())).
+		WithRevision(strconv.FormatInt(program.GetGeneration(), 10)).
+		WithDigest(tarDigest).
+		WithLastUpdateTime(metav1.Now()).
+		WithSize(tarSize)
+	statusApply := programapply.ProgramStatus().
+		WithObservedGeneration(program.GetGeneration()).
+		WithArtifact(artifactApply)
+	patch := programapply.Program(program.Name, program.Namespace).WithStatus(statusApply)
 
-	log.Info("Updating Program status", "observedGeneration", program.Status.ObservedGeneration, "artifact", program.Status.Artifact)
-	if err := r.Status().Update(ctx, program, client.FieldOwner(FieldManager)); err != nil {
+	log.Info("Updating Program status", "observedGeneration", program.GetGeneration())
+	if err := r.Status().Patch(ctx, program, &applyConfiguration{config: patch},
+		client.FieldOwner(ProgramStatusFieldManager), client.ForceOwnership); err != nil {
 		log.Error(err, "unable to update Program status")
 		return ctrl.Result{}, err
 	}

@@ -176,6 +176,7 @@ type ProgramStatus struct {
 	Artifact *Artifact `json:"artifact,omitempty"`
 }
 
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:resource:categories=pulumi

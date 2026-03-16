@@ -144,6 +144,7 @@ func (s *StackStatus) MarkReadyCondition() {
 	})
 }
 
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:categories=pulumi
 // +kubebuilder:subresource:status

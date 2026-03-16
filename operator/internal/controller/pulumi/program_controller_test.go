@@ -17,15 +17,23 @@ package pulumi
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"runtime"
 	"strconv"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -228,3 +236,92 @@ var _ = Describe("Program Controller", func() {
 		})
 	})
 })
+
+// TestProgramStatusConcurrentModification proves that the Program controller's
+// SSA-based status writes succeed even when another client concurrently modifies
+// metadata (e.g. sets a label), which bumps the object's resourceVersion. The
+// old Status().Update() approach would fail with a 409 Conflict; SSA ignores
+// resourceVersion.
+func TestProgramStatusConcurrentModification(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, v1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, env.Stop()) })
+
+	k8sClient, err := client.New(cfg, client.Options{Scheme: testScheme})
+	require.NoError(t, err)
+
+	ctx := t.Context()
+
+	// Step 1: Create a Program.
+	program := &v1.Program{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("program-ssa-%s", utilrand.String(8)),
+			Namespace: "default",
+		},
+		Program: v1.ProgramSpec{
+			Resources: map[string]v1.Resource{
+				"bucket": {Type: "kubernetes:core/v1:ConfigMap"},
+			},
+		},
+	}
+	require.NoError(t, k8sClient.Create(ctx, program))
+
+	objName := types.NamespacedName{Name: program.Name, Namespace: program.Namespace}
+	reconciler := &ProgramReconciler{
+		Client:   k8sClient,
+		Scheme:   k8sClient.Scheme(),
+		Recorder: record.NewFakeRecorder(10),
+		ProgramHandler: &ProgramHandler{
+			k8sClient: k8sClient,
+			address:   "http://fake-svc.default",
+		},
+	}
+
+	// Step 2: First reconciliation — writes artifact status via SSA.
+	_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+	require.NoError(t, err)
+
+	require.NoError(t, k8sClient.Get(ctx, objName, program))
+	require.NotNil(t, program.Status.Artifact, "artifact must be set after first reconciliation")
+	staleVersion := program.ResourceVersion
+
+	// Step 3: Simulate a concurrent metadata modification (e.g. another controller sets a label).
+	fresh := &v1.Program{}
+	require.NoError(t, k8sClient.Get(ctx, objName, fresh))
+	if fresh.Labels == nil {
+		fresh.Labels = make(map[string]string)
+	}
+	fresh.Labels["test.example.com/concurrent-modification"] = "true"
+	require.NoError(t, k8sClient.Update(ctx, fresh))
+
+	assert.NotEqual(t, staleVersion, fresh.ResourceVersion,
+		"server resourceVersion must have advanced past our local copy")
+
+	// Step 4: Second reconciliation with the now-stale program object.
+	// With Status().Update() this would 409; SSA must succeed.
+	_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+	require.NoError(t, err)
+
+	// Step 5: Verify the concurrent label and the status update are both present.
+	var result v1.Program
+	require.NoError(t, k8sClient.Get(ctx, objName, &result))
+
+	assert.Equal(t, "true", result.Labels["test.example.com/concurrent-modification"],
+		"label from concurrent metadata write must be preserved")
+
+	require.NotNil(t, result.Status.Artifact, "artifact must still be set after second reconciliation")
+	assert.Equal(t, result.Generation, result.Status.ObservedGeneration,
+		"ObservedGeneration must match the program generation")
+	assert.Contains(t, result.Status.Artifact.URL, program.Name,
+		"artifact URL must reference the program")
+	assert.NotEmpty(t, result.Status.Artifact.Digest, "artifact digest must be set")
+}
