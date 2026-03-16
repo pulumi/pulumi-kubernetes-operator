@@ -17,6 +17,8 @@ package controller
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -31,17 +33,19 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentpb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
@@ -473,4 +477,148 @@ func (pm protoMatcher) String() string {
 
 func matchEvent(reason string) gtypes.GomegaMatcher {
 	return ContainSubstring(reason)
+}
+
+// TestUpdateStatusConcurrentModification proves that SSA-based status writes
+// survive concurrent metadata modifications by another controller. With the old
+// Status().Update() (PUT), the second status write would fail with 409 Conflict
+// because the local object's resourceVersion becomes stale after the concurrent
+// metadata update. With SSA Status().Patch(), it succeeds.
+func TestUpdateStatusConcurrentModification(t *testing.T) {
+	// Set up a dedicated envtest environment with a real API server.
+	env := &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, env.Stop()) })
+
+	require.NoError(t, autov1alpha1.AddToScheme(scheme.Scheme))
+
+	c, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	require.NoError(t, err)
+
+	ctx := t.Context()
+
+	// Step 1: Create an Update object.
+	obj := &autov1alpha1.Update{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("update-%s", utilrand.String(8)),
+			Namespace: "default",
+		},
+	}
+	require.NoError(t, c.Create(ctx, obj))
+
+	// Step 2: First status write — set Progressing=True.
+	// This updates obj.ResourceVersion to match the server.
+	now := metav1.Now()
+	obj.Status.StartTime = now
+	obj.Status.EndTime = now
+	recorder := record.NewFakeRecorder(10)
+	rs := newReconcileSession(c, recorder, obj)
+	rs.progressing.Status = metav1.ConditionTrue
+	rs.progressing.Reason = UpdateConditionReasonProgressing
+	rs.failed.Status = metav1.ConditionFalse
+	rs.failed.Reason = UpdateConditionReasonProgressing
+	rs.complete.Status = metav1.ConditionFalse
+	rs.complete.Reason = UpdateConditionReasonProgressing
+	require.NoError(t, rs.updateStatus(ctx, obj))
+
+	staleVersion := obj.ResourceVersion
+
+	// Step 3: Simulate the Stack controller modifying metadata concurrently.
+	// Fetch a fresh copy, add a finalizer, and write it back. This bumps the
+	// server's resourceVersion, making our local obj's copy stale.
+	fresh := &autov1alpha1.Update{}
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(obj), fresh))
+	fresh.Finalizers = append(fresh.Finalizers, "stack.pulumi.com/finalizer")
+	require.NoError(t, c.Update(ctx, fresh))
+
+	assert.NotEqual(t, staleVersion, fresh.ResourceVersion,
+		"server resourceVersion must have advanced past our local copy")
+
+	// Step 4: Second status write with the now-stale obj — set Complete=True.
+	// With the old Status().Update() (PUT), this would return a 409 Conflict
+	// because obj.ResourceVersion is stale. SSA ignores resourceVersion.
+	rs.progressing.Status = metav1.ConditionFalse
+	rs.progressing.Reason = UpdateConditionReasonComplete
+	rs.failed.Status = metav1.ConditionFalse
+	rs.failed.Reason = UpdateConditionReasonUpdateSucceeded
+	rs.complete.Status = metav1.ConditionTrue
+	rs.complete.Reason = UpdateConditionReasonUpdated
+	require.NoError(t, rs.updateStatus(ctx, obj),
+		"SSA status patch must succeed despite stale resourceVersion")
+
+	// Step 5: Re-fetch and verify the object has both the finalizer (from
+	// step 3) and the correct completion status (from step 4).
+	var result autov1alpha1.Update
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(obj), &result))
+
+	assert.Contains(t, result.Finalizers, "stack.pulumi.com/finalizer",
+		"finalizer from concurrent metadata write must be preserved")
+
+	complete := meta.FindStatusCondition(result.Status.Conditions, UpdateConditionTypeComplete)
+	require.NotNil(t, complete)
+	assert.Equal(t, metav1.ConditionTrue, complete.Status,
+		"Complete condition must be True after second status write")
+
+	progressing := meta.FindStatusCondition(result.Status.Conditions, UpdateConditionTypeProgressing)
+	require.NotNil(t, progressing)
+	assert.Equal(t, metav1.ConditionFalse, progressing.Status,
+		"Progressing condition must be False after completion")
+}
+
+// TestUpdateStatusZeroTimestamps verifies that updateStatus() succeeds when
+// StartTime and EndTime are zero-valued (i.e., before an operation starts).
+// Zero-valued metav1.Time serializes as JSON null, which CRD validation rejects
+// as an invalid string. The fix omits these fields from the SSA patch.
+func TestUpdateStatusZeroTimestamps(t *testing.T) {
+	env := &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, env.Stop()) })
+
+	require.NoError(t, autov1alpha1.AddToScheme(scheme.Scheme))
+
+	c, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	require.NoError(t, err)
+
+	ctx := t.Context()
+
+	obj := &autov1alpha1.Update{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("update-%s", utilrand.String(8)),
+			Namespace: "default",
+		},
+	}
+	require.NoError(t, c.Create(ctx, obj))
+
+	// Write status with zero StartTime/EndTime (as happens when setting
+	// Progressing=True before the operation begins).
+	recorder := record.NewFakeRecorder(10)
+	rs := newReconcileSession(c, recorder, obj)
+	rs.progressing.Status = metav1.ConditionTrue
+	rs.progressing.Reason = UpdateConditionReasonProgressing
+	rs.failed.Status = metav1.ConditionFalse
+	rs.failed.Reason = UpdateConditionReasonProgressing
+	rs.complete.Status = metav1.ConditionFalse
+	rs.complete.Reason = UpdateConditionReasonProgressing
+	require.NoError(t, rs.updateStatus(ctx, obj),
+		"updateStatus must succeed with zero-valued StartTime/EndTime")
+
+	// Verify conditions were written correctly.
+	var result autov1alpha1.Update
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(obj), &result))
+	progressing := meta.FindStatusCondition(result.Status.Conditions, UpdateConditionTypeProgressing)
+	require.NotNil(t, progressing)
+	assert.Equal(t, metav1.ConditionTrue, progressing.Status)
+	assert.True(t, result.Status.StartTime.IsZero(), "StartTime should remain unset")
 }
