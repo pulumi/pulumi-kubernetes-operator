@@ -4,6 +4,7 @@ CHANGELOG
 ## Unreleased
 
 - Fix Update controller status write conflicts by migrating to Server-Side Apply [#1141](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1141)
+- Fix Workspace controller status write conflicts by migrating to Server-Side Apply [#1147](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1147)
 
 ## 2.5.1 (2026-03-03)
 
