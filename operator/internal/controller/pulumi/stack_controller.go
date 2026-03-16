@@ -915,7 +915,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 					patch := stackapply.Stack(prereqStack.Name, prereqStack.Namespace).
 						WithAnnotations(map[string]string{shared.ReconcileRequestAnnotation: v})
 					if err := r.Patch(ctx, prereqStack, &applyConfiguration{config: patch},
-						client.FieldOwner(PrerequisiteFieldManager)); err != nil {
+						client.FieldOwner(PrerequisiteFieldManager), client.ForceOwnership); err != nil {
 						// A conflict here may mean the prerequisite has been changed, or it's just been
 						// run. In any case, requeueing this object means we'll see the new state of the
 						// world next time around.
