@@ -267,7 +267,7 @@ func (r *ProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	log.Info("Updating Program status", "observedGeneration", program.GetGeneration())
 	if err := r.Status().Patch(ctx, program, &applyConfiguration{config: patch},
-		client.FieldOwner(ProgramStatusFieldManager)); err != nil {
+		client.FieldOwner(ProgramStatusFieldManager), client.ForceOwnership); err != nil {
 		log.Error(err, "unable to update Program status")
 		return ctrl.Result{}, err
 	}
