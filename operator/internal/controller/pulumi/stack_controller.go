@@ -1837,13 +1837,16 @@ func (a applyConfiguration) Data(_ client.Object) ([]byte, error) {
 }
 
 func conditionToApply(c *metav1.Condition) *metav1apply.ConditionApplyConfiguration {
-	return metav1apply.Condition().
+	ac := metav1apply.Condition().
 		WithType(c.Type).
 		WithStatus(c.Status).
-		WithObservedGeneration(c.ObservedGeneration).
 		WithLastTransitionTime(c.LastTransitionTime).
 		WithReason(c.Reason).
 		WithMessage(c.Message)
+	if c.ObservedGeneration != 0 {
+		ac = ac.WithObservedGeneration(c.ObservedGeneration)
+	}
+	return ac
 }
 
 func (r *StackReconciler) addUpdateFinalizer(ctx context.Context, update *autov1alpha1.Update) error {

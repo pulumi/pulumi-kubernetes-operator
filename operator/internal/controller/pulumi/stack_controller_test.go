@@ -82,15 +82,16 @@ func stackStatusSSAPatch(stack *pulumiv1.Stack) applyPatch {
 	}
 	for i := range stack.Status.Conditions {
 		c := &stack.Status.Conditions[i]
-		statusApply = statusApply.WithConditions(
-			metav1apply.Condition().
-				WithType(c.Type).
-				WithStatus(c.Status).
-				WithObservedGeneration(c.ObservedGeneration).
-				WithLastTransitionTime(c.LastTransitionTime).
-				WithReason(c.Reason).
-				WithMessage(c.Message),
-		)
+		condApply := metav1apply.Condition().
+			WithType(c.Type).
+			WithStatus(c.Status).
+			WithLastTransitionTime(c.LastTransitionTime).
+			WithReason(c.Reason).
+			WithMessage(c.Message)
+		if c.ObservedGeneration != 0 {
+			condApply = condApply.WithObservedGeneration(c.ObservedGeneration)
+		}
+		statusApply = statusApply.WithConditions(condApply)
 	}
 	if stack.Status.LastUpdate != nil {
 		lastUpdate := *stack.Status.LastUpdate
