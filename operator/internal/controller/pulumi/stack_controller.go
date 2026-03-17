@@ -76,9 +76,10 @@ func (e errRequirementOutOfDate) Error() string {
 }
 
 const (
-	programRefIndexFieldName = ".spec.programRef.name"      // this is an arbitrary string, named for the field it indexes
-	fluxSourceIndexFieldName = ".spec.fluxSource.sourceRef" // an arbitrary name, named for the field it indexes
-	ttlForCompletedUpdate    = time.Hour * 24
+	programRefIndexFieldName     = ".spec.programRef.name"      // this is an arbitrary string, named for the field it indexes
+	fluxSourceIndexFieldName     = ".spec.fluxSource.sourceRef" // an arbitrary name, named for the field it indexes
+	ttlForCompletedUpdate        = time.Hour * 24
+	sourceUnavailableRequeueWait = 30 * time.Second // safety-net requeue in case a watch event is missed
 )
 
 const (
@@ -677,7 +678,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		currentCommit, err = gs.CurrentCommit(ctx)
 		if err != nil {
 			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
-			return reconcile.Result{}, saveStatus()
+			return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
 		}
 
 		err = sess.setupWorkspaceFromGitSource(ctx, currentCommit)
@@ -704,11 +705,11 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			Namespace: request.Namespace,
 		}, &sourceObject); err != nil {
 			if apierrors.IsNotFound(err) {
-				// this is marked as stalled and not requeued; the watch mechanism will requeue it if
-				// the source it points to appears.
+				// The watch mechanism will requeue this when the source appears; we also
+				// requeue on a timer as a safety net.
 				reterr := fmt.Errorf("could not resolve sourceRef: %w", err)
 				instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, reterr.Error())
-				return reconcile.Result{}, saveStatus()
+				return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
 			}
 			log.Error(err, "Failed to get Flux source", "Name", fluxSource.SourceRef.Name)
 			return reconcile.Result{}, err
@@ -716,9 +717,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 		artifact, _, _ := getArtifact(sourceObject)
 		if artifact == nil {
-			// Wait until the artifact is available, at which time the watch mechanism will requeue it.
+			// The watch mechanism will requeue this when the artifact appears; we also
+			// requeue on a timer as a safety net.
 			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, "Flux source has no artifact")
-			return reconcile.Result{}, saveStatus()
+			return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
 		}
 		currentCommit = artifact.Revision
 		if err := sess.SetupWorkspaceFromFluxSource(ctx, sourceObject, *artifact, fluxSource.Dir); err != nil {
@@ -735,10 +737,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			Namespace: request.Namespace,
 		}, &program); err != nil {
 			if apierrors.IsNotFound(err) {
-				// this is marked as stalled and not requeued; the watch mechanism will requeue it if
-				// the source it points to appears.
+				// The watch mechanism will requeue this when the source appears; we also
+				// requeue on a timer as a safety net.
 				instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, errProgramNotFound.Error())
-				return reconcile.Result{}, saveStatus()
+				return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
 			}
 			log.Error(err, "Failed to get Program object", "Name", stack.ProgramRef.Name)
 			return reconcile.Result{}, err
@@ -748,9 +750,10 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		// initiate the workspace.
 		artifact, _, _ := getArtifact(program)
 		if artifact == nil {
-			// Wait until the artifact is available, at which time the watch mechanism will requeue it.
+			// The watch mechanism will requeue this when the artifact appears; we also
+			// requeue on a timer as a safety net.
 			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, "Program has no artifact")
-			return reconcile.Result{}, saveStatus()
+			return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
 		}
 		currentCommit = artifact.Revision
 		if err := sess.SetupWorkspaceFromFluxSource(ctx, program, *artifact, ""); err != nil {

@@ -199,8 +199,9 @@ func TestE2E(t *testing.T) {
 				require.NoError(t, run(cmd))
 				dumpLogs(t, "random-yaml-auth-error", "pod/random-yaml-auth-error-workspace-0")
 
-				// Wait for the Workspace pod to be created, so that we can watch/wait on the Workspace object.
-				retryUntil(t, 30*time.Second, true, func() bool {
+				// Wait for the Workspace pod to be created. This can take a while because
+				// Flux needs to clone the source repository before the Stack can proceed.
+				retryUntil(t, 3*time.Minute, true, func() bool {
 					found, err := foundEvent("Pod", "random-yaml-auth-error-workspace-0", "random-yaml-auth-error", "Created")
 					require.NoError(t, err)
 					return found
