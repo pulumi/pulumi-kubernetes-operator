@@ -628,9 +628,17 @@ func (r *UpdateReconciler) mapWorkspaceToUpdate(ctx context.Context, obj client.
 		l.Error(err, "unable to list updates")
 		return nil
 	}
-	requests := make([]reconcile.Request, len(objs.Items))
-	for i, mapped := range objs.Items {
-		requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Name: mapped.Name, Namespace: mapped.Namespace}}
+	var requests []reconcile.Request
+	for _, mapped := range objs.Items {
+		// Don't re-enqueue an Update that is already in-flight. Re-entering the
+		// reconcile loop while a Pulumi operation is running would cause the
+		// progressing guard to abort the Update spuriously.
+		// See: https://github.com/pulumi/pulumi-kubernetes-operator/issues/1105
+		if meta.IsStatusConditionTrue(mapped.Status.Conditions, UpdateConditionTypeProgressing) {
+			l.V(1).Info("skipping progressing update", "update", mapped.Name)
+			continue
+		}
+		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Name: mapped.Name, Namespace: mapped.Namespace}})
 	}
 	return requests
 }
