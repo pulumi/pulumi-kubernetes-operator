@@ -623,11 +623,11 @@ func TestUpdateStatusZeroTimestamps(t *testing.T) {
 	assert.True(t, result.Status.StartTime.IsZero(), "StartTime should remain unset")
 }
 
-// TestMapWorkspaceToUpdate_SkipsProgressingUpdates verifies that
-// mapWorkspaceToUpdate does not enqueue Updates that are already progressing,
-// preventing the race condition described in
+// TestMapWorkspaceToUpdate_SkipsActiveReconciles verifies that
+// mapWorkspaceToUpdate does not enqueue Updates that are actively being
+// reconciled by this process, preventing the race condition described in
 // https://github.com/pulumi/pulumi-kubernetes-operator/issues/1105
-func TestMapWorkspaceToUpdate_SkipsProgressingUpdates(t *testing.T) {
+func TestMapWorkspaceToUpdate_SkipsActiveReconciles(t *testing.T) {
 	require.NoError(t, autov1alpha1.AddToScheme(scheme.Scheme))
 
 	ws := &autov1alpha1.Workspace{
@@ -637,28 +637,18 @@ func TestMapWorkspaceToUpdate_SkipsProgressingUpdates(t *testing.T) {
 		},
 	}
 
-	// An Update that is progressing (in-flight).
-	progressingUpdate := &autov1alpha1.Update{
+	// An Update that is actively being reconciled (simulated via activeReconciles).
+	activeUpdate := &autov1alpha1.Update{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "update-progressing",
+			Name:      "update-active",
 			Namespace: "default",
 		},
 		Spec: autov1alpha1.UpdateSpec{
 			WorkspaceName: "my-workspace",
 		},
-		Status: autov1alpha1.UpdateStatus{
-			Conditions: []metav1.Condition{
-				{
-					Type:               UpdateConditionTypeProgressing,
-					Status:             metav1.ConditionTrue,
-					Reason:             UpdateConditionReasonProgressing,
-					LastTransitionTime: metav1.Now(),
-				},
-			},
-		},
 	}
 
-	// An Update that is not yet started (should be enqueued).
+	// An Update that is not being reconciled (should be enqueued).
 	pendingUpdate := &autov1alpha1.Update{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "update-pending",
@@ -671,27 +661,17 @@ func TestMapWorkspaceToUpdate_SkipsProgressingUpdates(t *testing.T) {
 
 	c := fake.NewClientBuilder().
 		WithScheme(scheme.Scheme).
-		WithObjects(progressingUpdate, pendingUpdate).
-		WithStatusSubresource(&autov1alpha1.Update{}).
+		WithObjects(activeUpdate, pendingUpdate).
 		WithIndex(&autov1alpha1.Update{}, UpdateIndexerWorkspace, indexUpdateByWorkspace).
 		Build()
-
-	// Apply the status to the progressing update since fake client doesn't
-	// persist status from the initial object when WithStatusSubresource is used.
-	progressingUpdate.Status.Conditions = []metav1.Condition{
-		{
-			Type:               UpdateConditionTypeProgressing,
-			Status:             metav1.ConditionTrue,
-			Reason:             UpdateConditionReasonProgressing,
-			LastTransitionTime: metav1.Now(),
-		},
-	}
-	require.NoError(t, c.Status().Update(t.Context(), progressingUpdate))
 
 	r := &UpdateReconciler{
 		Client: c,
 		Scheme: scheme.Scheme,
 	}
+
+	// Simulate that activeUpdate is currently being reconciled.
+	r.activeReconciles.Store(types.NamespacedName{Name: "update-active", Namespace: "default"}, struct{}{})
 
 	requests := r.mapWorkspaceToUpdate(t.Context(), ws)
 
