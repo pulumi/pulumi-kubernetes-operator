@@ -8,6 +8,7 @@ CHANGELOG
 - Fix Program controller status write conflicts by migrating to Server-Side Apply [#1148](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1148)
 - Fix Stack controller status write conflicts by migrating to Server-Side Apply [#1152](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1152)
 - Fix workspace watch spuriously aborting in-flight Updates [#1155](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1155)
+- Add list-type map markers to Stack status conditions for SSA compatibility [#1156](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1156)
 
 ## 2.5.1 (2026-03-03)
 
