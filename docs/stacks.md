@@ -134,10 +134,18 @@ is mutually exclusive with the Branch setting. Either value needs to be specifie
         <td>false</td>
       </tr><tr>
         <td><b>config</b></td>
-        <td>map[string]string</td>
+        <td>JSON</td>
         <td>
           (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
-is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+is omitted, configuration is assumed to be checked in and taken from the source repository.
+Supports both simple string values and structured values (objects, arrays, numbers, booleans).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefkey">configRef</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          (optional) ConfigRef allows specifying configuration values from ConfigMaps.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -418,6 +426,49 @@ The default behavior is to retain the workspace. Valid values are one of "Retain
 is applied as a strategic merge patch on top of the underlying
 Workspace. Use this to customize the Workspace's metadata, image, resources,
 volumes, etc.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRef[key]
+<sup><sup>[↩ Parent](#stackspec)</sup></sup>
+
+
+
+ConfigMapRef identifies information to load from a Kubernetes ConfigMap.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the ConfigMap to use<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the ConfigMap<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
+        <td>
+          JSON indicates the referenced value should be parsed as JSON.
+When true, the value is treated as structured data (object/array/etc).
+When false, the value is treated as a raw string.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2881,7 +2932,8 @@ EnvVar represents an environment variable present in a Container.
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the environment variable. Must be a C_IDENTIFIER.<br/>
+          Name of the environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -2939,6 +2991,14 @@ Source for the environment variable's value. Cannot be used if value is not empt
         <td>
           Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
 spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecenvindexvaluefromfilekeyref">fileKeyRef</a></b></td>
+        <td>object</td>
+        <td>
+          FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -3042,6 +3102,66 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
+### Stack.spec.workspaceTemplate.spec.env[index].valueFrom.fileKeyRef
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecenvindexvaluefrom)</sup></sup>
+
+
+
+FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key within the env file. An invalid key will prevent the pod from starting.
+The keys defined within a source may consist of any printable ASCII characters except '='.
+During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          The path within the volume from which to select the file.
+Must be relative and may not contain the '..' path or start with '..'.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>volumeName</b></td>
+        <td>string</td>
+        <td>
+          The name of the volume mount containing the env file.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the file or its key must be defined. If the file or key
+does not exist, then the env var is not published.
+If optional is set to true and the specified key does not exist,
+the environment variable will not be set in the Pod's containers.
+
+If optional is set to false and the specified key does not exist,
+an error will be returned during Pod creation.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate.spec.env[index].valueFrom.resourceFieldRef
 <sup><sup>[↩ Parent](#stackspecworkspacetemplatespecenvindexvaluefrom)</sup></sup>
 
@@ -3136,7 +3256,7 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 
 
 
-EnvFromSource represents the source of a set of ConfigMaps
+EnvFromSource represents the source of a set of ConfigMaps or Secrets
 
 <table>
     <thead>
@@ -3158,7 +3278,8 @@ EnvFromSource represents the source of a set of ConfigMaps
         <td><b>prefix</b></td>
         <td>string</td>
         <td>
-          An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.<br/>
+          Optional text to prepend to the name of each environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -3799,7 +3920,9 @@ Optional: Default to false.<br/>
         <td>boolean</td>
         <td>
           Host networking requested for this pod. Use the host's network namespace.
-If this option is set, the ports that will be used must be specified.
+When using HostNetwork you should specify ports so the scheduler is aware.
+When `hostNetwork` is true, specified `hostPort` fields in port definitions must match `containerPort`,
+and unspecified `hostPort` fields in port definitions are defaulted to match `containerPort`.
 Default to false.<br/>
         </td>
         <td>false</td>
@@ -3835,6 +3958,22 @@ If not specified, the pod's hostname will be set to a system-defined value.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>hostnameOverride</b></td>
+        <td>string</td>
+        <td>
+          HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod.
+This field only specifies the pod's hostname and does not affect its DNS records.
+When this field is set to a non-empty string:
+- It takes precedence over the values set in `hostname` and `subdomain`.
+- The Pod's hostname will be set to this value.
+- `setHostnameAsFQDN` must be nil or set to false.
+- `hostNetwork` must be set to false.
+
+This field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters.
+Requires the HostnameOverride feature gate to be enabled.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecimagepullsecretsindex">imagePullSecrets</a></b></td>
         <td>[]object</td>
         <td>
@@ -3855,7 +3994,7 @@ unique among all containers.
 Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes.
 The resourceRequirements of an init container are taken into account during scheduling
 by finding the highest request/limit for each resource type, and then using the max of
-of that value or the sum of the normal containers. Limits are applied to init containers
+that value or the sum of the normal containers. Limits are applied to init containers
 in a similar fashion.
 Init containers cannot currently be added or removed.
 Cannot be updated.
@@ -3896,6 +4035,7 @@ If the OS field is set to windows, following fields must be unset:
 - spec.hostPID
 - spec.hostIPC
 - spec.hostUsers
+- spec.resources
 - spec.securityContext.appArmorProfile
 - spec.securityContext.seLinuxOptions
 - spec.securityContext.seccompProfile
@@ -3997,7 +4137,7 @@ This field is immutable.<br/>
         <td>
           Resources is the total amount of CPU and Memory resources required by all
 containers in the pod. It supports specifying Requests and Limits for
-"cpu" and "memory" resource names only. ResourceClaims are not supported.
+"cpu", "memory" and "hugepages-" resource names only. ResourceClaims are not supported.
 
 This field enables fine-grained control over resource allocation for the
 entire pod, allowing resource sharing among containers in a pod.
@@ -4210,8 +4350,8 @@ Cannot be updated.<br/>
         <td>[]object</td>
         <td>
           List of sources to populate environment variables in the container.
-The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-will be reported as an event when the container is starting. When a key exists in multiple
+The keys defined within a source may consist of any printable ASCII characters except '='.
+When a key exists in multiple
 sources, the value associated with the last source will take precedence.
 Values defined by an Env with a duplicate key will take precedence.
 Cannot be updated.<br/>
@@ -4300,10 +4440,10 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
         <td>string</td>
         <td>
           RestartPolicy defines the restart behavior of individual containers in a pod.
-This field may only be set for init containers, and the only allowed value is "Always".
-For non-init containers or when this field is not specified,
+This overrides the pod-level restart policy. When this field is not specified,
 the restart behavior is defined by the Pod's restart policy and the container type.
-Setting the RestartPolicy as "Always" for the init container will have the following effect:
+Additionally, setting the RestartPolicy as "Always" for the init container will
+have the following effect:
 this init container will be continually restarted on
 exit until all regular containers have terminated. Once all regular
 containers have completed, all init containers with restartPolicy "Always"
@@ -4314,6 +4454,23 @@ for the container to complete before proceeding to the next init
 container. Instead, the next init container starts immediately after this
 init container is started, or after any startupProbe has successfully
 completed.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespeccontainersindexrestartpolicyrulesindex">restartPolicyRules</a></b></td>
+        <td>[]object</td>
+        <td>
+          Represents a list of rules to be checked to determine if the
+container should be restarted on exit. The rules are evaluated in
+order. Once a rule matches a container exit condition, the remaining
+rules are ignored. If no rule matches the container exit condition,
+the Container-level restart policy determines the whether the container
+is restarted or not. Constraints on the rules:
+- At most 20 rules are allowed.
+- Rules can have the same action.
+- Identical rules are not forbidden in validations.
+When rules are specified, container MUST set RestartPolicy explicitly
+even it if matches the Pod's RestartPolicy.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -4443,7 +4600,8 @@ EnvVar represents an environment variable present in a Container.
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the environment variable. Must be a C_IDENTIFIER.<br/>
+          Name of the environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -4501,6 +4659,14 @@ Source for the environment variable's value. Cannot be used if value is not empt
         <td>
           Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
 spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespeccontainersindexenvindexvaluefromfilekeyref">fileKeyRef</a></b></td>
+        <td>object</td>
+        <td>
+          FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -4604,6 +4770,66 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.containers[index].env[index].valueFrom.fileKeyRef
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespeccontainersindexenvindexvaluefrom)</sup></sup>
+
+
+
+FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key within the env file. An invalid key will prevent the pod from starting.
+The keys defined within a source may consist of any printable ASCII characters except '='.
+During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          The path within the volume from which to select the file.
+Must be relative and may not contain the '..' path or start with '..'.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>volumeName</b></td>
+        <td>string</td>
+        <td>
+          The name of the volume mount containing the env file.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the file or its key must be defined. If the file or key
+does not exist, then the env var is not published.
+If optional is set to true and the specified key does not exist,
+the environment variable will not be set in the Pod's containers.
+
+If optional is set to false and the specified key does not exist,
+an error will be returned during Pod creation.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate.spec.podTemplate.spec.containers[index].env[index].valueFrom.resourceFieldRef
 <sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespeccontainersindexenvindexvaluefrom)</sup></sup>
 
@@ -4698,7 +4924,7 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 
 
 
-EnvFromSource represents the source of a set of ConfigMaps
+EnvFromSource represents the source of a set of ConfigMaps or Secrets
 
 <table>
     <thead>
@@ -4720,7 +4946,8 @@ EnvFromSource represents the source of a set of ConfigMaps
         <td><b>prefix</b></td>
         <td>string</td>
         <td>
-          An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.<br/>
+          Optional text to prepend to the name of each environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -4854,6 +5081,15 @@ container will eventually terminate within the Pod's termination grace
 period (unless delayed by finalizers). Other management of the container blocks until the hook completes
 or until the termination grace period is reached.
 More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>stopSignal</b></td>
+        <td>string</td>
+        <td>
+          StopSignal defines which signal will be sent to a container when it is being stopped.
+If not specified, the default is defined by the container runtime in use.
+StopSignal can only be set for Pods with a non-empty .spec.os.name<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -6128,7 +6364,7 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-This is an alpha field and requires enabling the
+This field depends on the
 DynamicResourceAllocation feature gate.
 
 This field is immutable. It can only be set for containers.<br/>
@@ -6188,6 +6424,82 @@ inside a container.<br/>
           Request is the name chosen for a request in the referenced claim.
 If empty, everything from the claim is made available, otherwise
 only the result of this request.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.containers[index].restartPolicyRules[index]
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespeccontainersindex)</sup></sup>
+
+
+
+ContainerRestartRule describes how a container exit is handled.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>action</b></td>
+        <td>string</td>
+        <td>
+          Specifies the action taken on a container exit if the requirements
+are satisfied. The only possible value is "Restart" to restart the
+container.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespeccontainersindexrestartpolicyrulesindexexitcodes">exitCodes</a></b></td>
+        <td>object</td>
+        <td>
+          Represents the exit codes to check on container exits.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.containers[index].restartPolicyRules[index].exitCodes
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespeccontainersindexrestartpolicyrulesindex)</sup></sup>
+
+
+
+Represents the exit codes to check on container exits.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>operator</b></td>
+        <td>string</td>
+        <td>
+          Represents the relationship between the container exit code(s) and the
+specified values. Possible values are:
+- In: the requirement is satisfied if the container exit code is in the
+  set of specified values.
+- NotIn: the requirement is satisfied if the container exit code is
+  not in the set of specified values.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>values</b></td>
+        <td>[]integer</td>
+        <td>
+          Specifies the set of values to check for container exit codes.
+At most 255 elements are allowed.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -7579,8 +7891,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-Also, matchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, matchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -7594,8 +7905,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -7843,8 +8153,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-Also, matchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, matchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -7858,8 +8167,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -8082,8 +8390,8 @@ a node that violates one or more of the expressions. The node that is
 most preferred is the one with the greatest sum of weights, i.e.
 for each node that meets all of the scheduling requirements (resource
 request, requiredDuringScheduling anti-affinity expressions, etc.),
-compute a sum by iterating through the elements of this field and adding
-"weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+compute a sum by iterating through the elements of this field and subtracting
+"weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
 node(s) with the highest sum are the most preferred.<br/>
         </td>
         <td>false</td>
@@ -8187,8 +8495,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-Also, matchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, matchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -8202,8 +8509,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -8451,8 +8757,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-Also, matchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, matchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -8466,8 +8771,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -8821,8 +9125,8 @@ Cannot be updated.<br/>
         <td>[]object</td>
         <td>
           List of sources to populate environment variables in the container.
-The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-will be reported as an event when the container is starting. When a key exists in multiple
+The keys defined within a source may consist of any printable ASCII characters except '='.
+When a key exists in multiple
 sources, the value associated with the last source will take precedence.
 Values defined by an Env with a duplicate key will take precedence.
 Cannot be updated.<br/>
@@ -8896,7 +9200,15 @@ already allocated to the pod.<br/>
         <td>
           Restart policy for the container to manage the restart behavior of each
 container within a pod.
-This may only be set for init containers. You cannot set this field on
+You cannot set this field on ephemeral containers.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecephemeralcontainersindexrestartpolicyrulesindex">restartPolicyRules</a></b></td>
+        <td>[]object</td>
+        <td>
+          Represents a list of rules to be checked to determine if the
+container should be restarted on exit. You cannot set this field on
 ephemeral containers.<br/>
         </td>
         <td>false</td>
@@ -9032,7 +9344,8 @@ EnvVar represents an environment variable present in a Container.
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the environment variable. Must be a C_IDENTIFIER.<br/>
+          Name of the environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -9090,6 +9403,14 @@ Source for the environment variable's value. Cannot be used if value is not empt
         <td>
           Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
 spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindexvaluefromfilekeyref">fileKeyRef</a></b></td>
+        <td>object</td>
+        <td>
+          FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -9193,6 +9514,66 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].env[index].valueFrom.fileKeyRef
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindexvaluefrom)</sup></sup>
+
+
+
+FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key within the env file. An invalid key will prevent the pod from starting.
+The keys defined within a source may consist of any printable ASCII characters except '='.
+During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          The path within the volume from which to select the file.
+Must be relative and may not contain the '..' path or start with '..'.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>volumeName</b></td>
+        <td>string</td>
+        <td>
+          The name of the volume mount containing the env file.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the file or its key must be defined. If the file or key
+does not exist, then the env var is not published.
+If optional is set to true and the specified key does not exist,
+the environment variable will not be set in the Pod's containers.
+
+If optional is set to false and the specified key does not exist,
+an error will be returned during Pod creation.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].env[index].valueFrom.resourceFieldRef
 <sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindexvaluefrom)</sup></sup>
 
@@ -9287,7 +9668,7 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 
 
 
-EnvFromSource represents the source of a set of ConfigMaps
+EnvFromSource represents the source of a set of ConfigMaps or Secrets
 
 <table>
     <thead>
@@ -9309,7 +9690,8 @@ EnvFromSource represents the source of a set of ConfigMaps
         <td><b>prefix</b></td>
         <td>string</td>
         <td>
-          An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.<br/>
+          Optional text to prepend to the name of each environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -9442,6 +9824,15 @@ container will eventually terminate within the Pod's termination grace
 period (unless delayed by finalizers). Other management of the container blocks until the hook completes
 or until the termination grace period is reached.
 More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>stopSignal</b></td>
+        <td>string</td>
+        <td>
+          StopSignal defines which signal will be sent to a container when it is being stopped.
+If not specified, the default is defined by the container runtime in use.
+StopSignal can only be set for Pods with a non-empty .spec.os.name<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -10709,7 +11100,7 @@ already allocated to the pod.
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-This is an alpha field and requires enabling the
+This field depends on the
 DynamicResourceAllocation feature gate.
 
 This field is immutable. It can only be set for containers.<br/>
@@ -10769,6 +11160,82 @@ inside a container.<br/>
           Request is the name chosen for a request in the referenced claim.
 If empty, everything from the claim is made available, otherwise
 only the result of this request.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].restartPolicyRules[index]
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecephemeralcontainersindex)</sup></sup>
+
+
+
+ContainerRestartRule describes how a container exit is handled.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>action</b></td>
+        <td>string</td>
+        <td>
+          Specifies the action taken on a container exit if the requirements
+are satisfied. The only possible value is "Restart" to restart the
+container.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecephemeralcontainersindexrestartpolicyrulesindexexitcodes">exitCodes</a></b></td>
+        <td>object</td>
+        <td>
+          Represents the exit codes to check on container exits.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].restartPolicyRules[index].exitCodes
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecephemeralcontainersindexrestartpolicyrulesindex)</sup></sup>
+
+
+
+Represents the exit codes to check on container exits.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>operator</b></td>
+        <td>string</td>
+        <td>
+          Represents the relationship between the container exit code(s) and the
+specified values. Possible values are:
+- In: the requirement is satisfied if the container exit code is in the
+  set of specified values.
+- NotIn: the requirement is satisfied if the container exit code is
+  not in the set of specified values.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>values</b></td>
+        <td>[]integer</td>
+        <td>
+          Specifies the set of values to check for container exit codes.
+At most 255 elements are allowed.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -11744,8 +12211,8 @@ Cannot be updated.<br/>
         <td>[]object</td>
         <td>
           List of sources to populate environment variables in the container.
-The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-will be reported as an event when the container is starting. When a key exists in multiple
+The keys defined within a source may consist of any printable ASCII characters except '='.
+When a key exists in multiple
 sources, the value associated with the last source will take precedence.
 Values defined by an Env with a duplicate key will take precedence.
 Cannot be updated.<br/>
@@ -11834,10 +12301,10 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
         <td>string</td>
         <td>
           RestartPolicy defines the restart behavior of individual containers in a pod.
-This field may only be set for init containers, and the only allowed value is "Always".
-For non-init containers or when this field is not specified,
+This overrides the pod-level restart policy. When this field is not specified,
 the restart behavior is defined by the Pod's restart policy and the container type.
-Setting the RestartPolicy as "Always" for the init container will have the following effect:
+Additionally, setting the RestartPolicy as "Always" for the init container will
+have the following effect:
 this init container will be continually restarted on
 exit until all regular containers have terminated. Once all regular
 containers have completed, all init containers with restartPolicy "Always"
@@ -11848,6 +12315,23 @@ for the container to complete before proceeding to the next init
 container. Instead, the next init container starts immediately after this
 init container is started, or after any startupProbe has successfully
 completed.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecinitcontainersindexrestartpolicyrulesindex">restartPolicyRules</a></b></td>
+        <td>[]object</td>
+        <td>
+          Represents a list of rules to be checked to determine if the
+container should be restarted on exit. The rules are evaluated in
+order. Once a rule matches a container exit condition, the remaining
+rules are ignored. If no rule matches the container exit condition,
+the Container-level restart policy determines the whether the container
+is restarted or not. Constraints on the rules:
+- At most 20 rules are allowed.
+- Rules can have the same action.
+- Identical rules are not forbidden in validations.
+When rules are specified, container MUST set RestartPolicy explicitly
+even it if matches the Pod's RestartPolicy.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -11977,7 +12461,8 @@ EnvVar represents an environment variable present in a Container.
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the environment variable. Must be a C_IDENTIFIER.<br/>
+          Name of the environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -12035,6 +12520,14 @@ Source for the environment variable's value. Cannot be used if value is not empt
         <td>
           Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
 spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecinitcontainersindexenvindexvaluefromfilekeyref">fileKeyRef</a></b></td>
+        <td>object</td>
+        <td>
+          FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -12138,6 +12631,66 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.initContainers[index].env[index].valueFrom.fileKeyRef
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecinitcontainersindexenvindexvaluefrom)</sup></sup>
+
+
+
+FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key within the env file. An invalid key will prevent the pod from starting.
+The keys defined within a source may consist of any printable ASCII characters except '='.
+During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          The path within the volume from which to select the file.
+Must be relative and may not contain the '..' path or start with '..'.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>volumeName</b></td>
+        <td>string</td>
+        <td>
+          The name of the volume mount containing the env file.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the file or its key must be defined. If the file or key
+does not exist, then the env var is not published.
+If optional is set to true and the specified key does not exist,
+the environment variable will not be set in the Pod's containers.
+
+If optional is set to false and the specified key does not exist,
+an error will be returned during Pod creation.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate.spec.podTemplate.spec.initContainers[index].env[index].valueFrom.resourceFieldRef
 <sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecinitcontainersindexenvindexvaluefrom)</sup></sup>
 
@@ -12232,7 +12785,7 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 
 
 
-EnvFromSource represents the source of a set of ConfigMaps
+EnvFromSource represents the source of a set of ConfigMaps or Secrets
 
 <table>
     <thead>
@@ -12254,7 +12807,8 @@ EnvFromSource represents the source of a set of ConfigMaps
         <td><b>prefix</b></td>
         <td>string</td>
         <td>
-          An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.<br/>
+          Optional text to prepend to the name of each environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -12388,6 +12942,15 @@ container will eventually terminate within the Pod's termination grace
 period (unless delayed by finalizers). Other management of the container blocks until the hook completes
 or until the termination grace period is reached.
 More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>stopSignal</b></td>
+        <td>string</td>
+        <td>
+          StopSignal defines which signal will be sent to a container when it is being stopped.
+If not specified, the default is defined by the container runtime in use.
+StopSignal can only be set for Pods with a non-empty .spec.os.name<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -13662,7 +14225,7 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-This is an alpha field and requires enabling the
+This field depends on the
 DynamicResourceAllocation feature gate.
 
 This field is immutable. It can only be set for containers.<br/>
@@ -13722,6 +14285,82 @@ inside a container.<br/>
           Request is the name chosen for a request in the referenced claim.
 If empty, everything from the claim is made available, otherwise
 only the result of this request.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.initContainers[index].restartPolicyRules[index]
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecinitcontainersindex)</sup></sup>
+
+
+
+ContainerRestartRule describes how a container exit is handled.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>action</b></td>
+        <td>string</td>
+        <td>
+          Specifies the action taken on a container exit if the requirements
+are satisfied. The only possible value is "Restart" to restart the
+container.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecinitcontainersindexrestartpolicyrulesindexexitcodes">exitCodes</a></b></td>
+        <td>object</td>
+        <td>
+          Represents the exit codes to check on container exits.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.initContainers[index].restartPolicyRules[index].exitCodes
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecinitcontainersindexrestartpolicyrulesindex)</sup></sup>
+
+
+
+Represents the exit codes to check on container exits.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>operator</b></td>
+        <td>string</td>
+        <td>
+          Represents the relationship between the container exit code(s) and the
+specified values. Possible values are:
+- In: the requirement is satisfied if the container exit code is in the
+  set of specified values.
+- NotIn: the requirement is satisfied if the container exit code is
+  not in the set of specified values.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>values</b></td>
+        <td>[]integer</td>
+        <td>
+          Specifies the set of values to check for container exit codes.
+At most 255 elements are allowed.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -14584,6 +15223,7 @@ If the OS field is set to windows, following fields must be unset:
 - spec.hostPID
 - spec.hostIPC
 - spec.hostUsers
+- spec.resources
 - spec.securityContext.appArmorProfile
 - spec.securityContext.seLinuxOptions
 - spec.securityContext.seccompProfile
@@ -14728,7 +15368,7 @@ be set.<br/>
 
 Resources is the total amount of CPU and Memory resources required by all
 containers in the pod. It supports specifying Requests and Limits for
-"cpu" and "memory" resource names only. ResourceClaims are not supported.
+"cpu", "memory" and "hugepages-" resource names only. ResourceClaims are not supported.
 
 This field enables fine-grained control over resource allocation for the
 entire pod, allowing resource sharing among containers in a pod.
@@ -14752,7 +15392,7 @@ gate.
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-This is an alpha field and requires enabling the
+This field depends on the
 DynamicResourceAllocation feature gate.
 
 This field is immutable. It can only be set for containers.<br/>
@@ -15480,8 +16120,7 @@ when calculating pod topology spread skew. Options are:
 - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
 - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
-If this value is nil, the behavior is equivalent to the Honor policy.
-This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.<br/>
+If this value is nil, the behavior is equivalent to the Honor policy.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -15494,8 +16133,7 @@ pod topology spread skew. Options are:
 has a toleration, are included.
 - Ignore: node taints are ignored. All nodes are included.
 
-If this value is nil, the behavior is equivalent to the Ignore policy.
-This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.<br/>
+If this value is nil, the behavior is equivalent to the Ignore policy.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -15767,8 +16405,7 @@ into the Pod's container.<br/>
         <td>object</td>
         <td>
           glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime.
-Deprecated: Glusterfs is deprecated and the in-tree glusterfs type is no longer supported.
-More info: https://examples.k8s.io/volumes/glusterfs/README.md<br/>
+Deprecated: Glusterfs is deprecated and the in-tree glusterfs type is no longer supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -15798,7 +16435,7 @@ A failure to resolve or pull the image during pod startup will block containers 
 The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
 The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
 The volume will be mounted read-only (ro) and non-executable files (noexec).
-Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath).
+Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath) before 1.33.
 The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.<br/>
         </td>
         <td>false</td>
@@ -15808,7 +16445,7 @@ The field spec.securityContext.fsGroupChangePolicy has no effect on this volume 
         <td>
           iscsi represents an ISCSI Disk resource that is attached to a
 kubelet's host machine and then exposed to the pod.
-More info: https://examples.k8s.io/volumes/iscsi/README.md<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes/#iscsi<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -15866,8 +16503,7 @@ Deprecated: Quobyte is deprecated and the in-tree quobyte type is no longer supp
         <td>object</td>
         <td>
           rbd represents a Rados Block Device mount on the host that shares a pod's lifetime.
-Deprecated: RBD is deprecated and the in-tree rbd type is no longer supported.
-More info: https://examples.k8s.io/volumes/rbd/README.md<br/>
+Deprecated: RBD is deprecated and the in-tree rbd type is no longer supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -16949,15 +17585,13 @@ More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-
           volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
 If specified, the CSI driver will create or update the volume with the attributes defined
 in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-will be set by the persistentvolume controller if it exists.
+it can be changed after the claim is created. An empty string or nil value indicates that no
+VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+this field can be reset to its previous value (including nil) to cancel the modification.
 If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
 set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
 exists.
-More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-(Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -17600,7 +18234,6 @@ the subdirectory with the given name.<br/>
 
 glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime.
 Deprecated: Glusterfs is deprecated and the in-tree glusterfs type is no longer supported.
-More info: https://examples.k8s.io/volumes/glusterfs/README.md
 
 <table>
     <thead>
@@ -17615,8 +18248,7 @@ More info: https://examples.k8s.io/volumes/glusterfs/README.md
         <td><b>endpoints</b></td>
         <td>string</td>
         <td>
-          endpoints is the endpoint name that details Glusterfs topology.
-More info: https://examples.k8s.io/volumes/glusterfs/README.md#create-a-pod<br/>
+          endpoints is the endpoint name that details Glusterfs topology.<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -17699,7 +18331,7 @@ A failure to resolve or pull the image during pod startup will block containers 
 The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
 The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
 The volume will be mounted read-only (ro) and non-executable files (noexec).
-Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath).
+Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath) before 1.33.
 The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.
 
 <table>
@@ -17745,7 +18377,7 @@ container images in workload controllers like Deployments and StatefulSets.<br/>
 
 iscsi represents an ISCSI Disk resource that is attached to a
 kubelet's host machine and then exposed to the pod.
-More info: https://examples.k8s.io/volumes/iscsi/README.md
+More info: https://kubernetes.io/docs/concepts/storage/volumes/#iscsi
 
 <table>
     <thead>
@@ -18141,6 +18773,46 @@ may change the order over time.<br/>
         <td>object</td>
         <td>
           downwardAPI information about the downwardAPI data to project<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexpodcertificate">podCertificate</a></b></td>
+        <td>object</td>
+        <td>
+          Projects an auto-rotating credential bundle (private key and certificate
+chain) that the pod can use either as a TLS client or server.
+
+Kubelet generates a private key and uses it to send a
+PodCertificateRequest to the named signer.  Once the signer approves the
+request and issues a certificate chain, Kubelet writes the key and
+certificate chain to the pod filesystem.  The pod does not start until
+certificates have been issued for each podCertificate projected volume
+source in its spec.
+
+Kubelet will begin trying to rotate the certificate at the time indicated
+by the signer using the PodCertificateRequest.Status.BeginRefreshAt
+timestamp.
+
+Kubelet can write a single file, indicated by the credentialBundlePath
+field, or separate files, indicated by the keyPath and
+certificateChainPath fields.
+
+The credential bundle is a single file in PEM format.  The first PEM
+entry is the private key (in PKCS#8 format), and the remaining PEM
+entries are the certificate chain issued by the signer (typically,
+signers will return their certificate chain in leaf-to-root order).
+
+Prefer using the credential bundle format, since your application code
+can read it atomically.  If you use keyPath and certificateChainPath,
+your application must make two separate file reads. If these coincide
+with a certificate rotation, it is possible that the private key and leaf
+certificate you read may not correspond to each other.  Your application
+will need to check for this condition, and re-read until they are
+consistent.
+
+The named signer controls chooses the format of the certificate it
+issues; consult the signer implementation's documentation to learn how to
+use the certificates it issues.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -18586,6 +19258,142 @@ Selects a resource of the container: only resources limits and requests
 </table>
 
 
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].podCertificate
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindex)</sup></sup>
+
+
+
+Projects an auto-rotating credential bundle (private key and certificate
+chain) that the pod can use either as a TLS client or server.
+
+Kubelet generates a private key and uses it to send a
+PodCertificateRequest to the named signer.  Once the signer approves the
+request and issues a certificate chain, Kubelet writes the key and
+certificate chain to the pod filesystem.  The pod does not start until
+certificates have been issued for each podCertificate projected volume
+source in its spec.
+
+Kubelet will begin trying to rotate the certificate at the time indicated
+by the signer using the PodCertificateRequest.Status.BeginRefreshAt
+timestamp.
+
+Kubelet can write a single file, indicated by the credentialBundlePath
+field, or separate files, indicated by the keyPath and
+certificateChainPath fields.
+
+The credential bundle is a single file in PEM format.  The first PEM
+entry is the private key (in PKCS#8 format), and the remaining PEM
+entries are the certificate chain issued by the signer (typically,
+signers will return their certificate chain in leaf-to-root order).
+
+Prefer using the credential bundle format, since your application code
+can read it atomically.  If you use keyPath and certificateChainPath,
+your application must make two separate file reads. If these coincide
+with a certificate rotation, it is possible that the private key and leaf
+certificate you read may not correspond to each other.  Your application
+will need to check for this condition, and re-read until they are
+consistent.
+
+The named signer controls chooses the format of the certificate it
+issues; consult the signer implementation's documentation to learn how to
+use the certificates it issues.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>keyType</b></td>
+        <td>string</td>
+        <td>
+          The type of keypair Kubelet will generate for the pod.
+
+Valid values are "RSA3072", "RSA4096", "ECDSAP256", "ECDSAP384",
+"ECDSAP521", and "ED25519".<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>signerName</b></td>
+        <td>string</td>
+        <td>
+          Kubelet's generated CSRs will be addressed to this signer.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>certificateChainPath</b></td>
+        <td>string</td>
+        <td>
+          Write the certificate chain at this path in the projected volume.
+
+Most applications should use credentialBundlePath.  When using keyPath
+and certificateChainPath, your application needs to check that the key
+and leaf certificate are consistent, because it is possible to read the
+files mid-rotation.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>credentialBundlePath</b></td>
+        <td>string</td>
+        <td>
+          Write the credential bundle at this path in the projected volume.
+
+The credential bundle is a single file that contains multiple PEM blocks.
+The first PEM block is a PRIVATE KEY block, containing a PKCS#8 private
+key.
+
+The remaining blocks are CERTIFICATE blocks, containing the issued
+certificate chain from the signer (leaf and any intermediates).
+
+Using credentialBundlePath lets your Pod's application code make a single
+atomic read that retrieves a consistent key and certificate chain.  If you
+project them to separate files, your application code will need to
+additionally check that the leaf certificate was issued to the key.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>keyPath</b></td>
+        <td>string</td>
+        <td>
+          Write the key at this path in the projected volume.
+
+Most applications should use credentialBundlePath.  When using keyPath
+and certificateChainPath, your application needs to check that the key
+and leaf certificate are consistent, because it is possible to read the
+files mid-rotation.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>maxExpirationSeconds</b></td>
+        <td>integer</td>
+        <td>
+          maxExpirationSeconds is the maximum lifetime permitted for the
+certificate.
+
+Kubelet copies this value verbatim into the PodCertificateRequests it
+generates for this projection.
+
+If omitted, kube-apiserver will set it to 86400(24 hours). kube-apiserver
+will reject values shorter than 3600 (1 hour).  The maximum allowable
+value is 7862400 (91 days).
+
+The signer implementation is then free to issue a certificate with any
+lifetime *shorter* than MaxExpirationSeconds, but no shorter than 3600
+seconds (1 hour).  This constraint is enforced by kube-apiserver.
+`kubernetes.io` signers will never issue certificates with a lifetime
+longer than 24 hours.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].secret
 <sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindex)</sup></sup>
 
@@ -18818,7 +19626,6 @@ Defaults to serivceaccount user<br/>
 
 rbd represents a Rados Block Device mount on the host that shares a pod's lifetime.
 Deprecated: RBD is deprecated and the in-tree rbd type is no longer supported.
-More info: https://examples.k8s.io/volumes/rbd/README.md
 
 <table>
     <thead>
@@ -19373,7 +20180,7 @@ ResourceRequirements describes the compute resource requirements.
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-This is an alpha field and requires enabling the
+This field depends on the
 DynamicResourceAllocation feature gate.
 
 This field is immutable. It can only be set for containers.<br/>
@@ -19535,7 +20342,7 @@ with apply.
         <td>false</td>
       </tr><tr>
         <td><b>value</b></td>
-        <td>string</td>
+        <td>JSON</td>
         <td>
           <br/>
         </td>
@@ -19572,6 +20379,13 @@ with apply.
     <tbody><tr>
         <td><b>env</b></td>
         <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
         <td>
           <br/>
         </td>
@@ -19625,6 +20439,13 @@ with apply.
           <br/>
           <br/>
             <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pulumiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -19718,7 +20539,8 @@ StackStatus defines the observed state of Stack
         <td><b><a href="#stackstatusconditionsindex">conditions</a></b></td>
         <td>[]object</td>
         <td>
-          <br/>
+          Represents the observations of a stack's current state.
+Known .status.conditions.type are: "Ready", "Reconciling", "Stalled"<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20125,10 +20947,18 @@ is mutually exclusive with the Branch setting. Either value needs to be specifie
         <td>false</td>
       </tr><tr>
         <td><b>config</b></td>
-        <td>map[string]string</td>
+        <td>JSON</td>
         <td>
           (optional) Config is the configuration for this stack, which can be optionally specified inline. If this
-is omitted, configuration is assumed to be checked in and taken from the source repository.<br/>
+is omitted, configuration is assumed to be checked in and taken from the source repository.
+Supports both simple string values and structured values (objects, arrays, numbers, booleans).<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecconfigrefkey-1">configRef</a></b></td>
+        <td>map[string]object</td>
+        <td>
+          (optional) ConfigRef allows specifying configuration values from ConfigMaps.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -20409,6 +21239,49 @@ The default behavior is to retain the workspace. Valid values are one of "Retain
 is applied as a strategic merge patch on top of the underlying
 Workspace. Use this to customize the Workspace's metadata, image, resources,
 volumes, etc.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.configRef[key]
+<sup><sup>[↩ Parent](#stackspec-1)</sup></sup>
+
+
+
+ConfigMapRef identifies information to load from a Kubernetes ConfigMap.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the ConfigMap to use<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the ConfigMap<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
+        <td>
+          JSON indicates the referenced value should be parsed as JSON.
+When true, the value is treated as structured data (object/array/etc).
+When false, the value is treated as a raw string.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -22872,7 +23745,8 @@ EnvVar represents an environment variable present in a Container.
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the environment variable. Must be a C_IDENTIFIER.<br/>
+          Name of the environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -22930,6 +23804,14 @@ Source for the environment variable's value. Cannot be used if value is not empt
         <td>
           Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
 spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecenvindexvaluefromfilekeyref-1">fileKeyRef</a></b></td>
+        <td>object</td>
+        <td>
+          FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -23033,6 +23915,66 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
+### Stack.spec.workspaceTemplate.spec.env[index].valueFrom.fileKeyRef
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecenvindexvaluefrom-1)</sup></sup>
+
+
+
+FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key within the env file. An invalid key will prevent the pod from starting.
+The keys defined within a source may consist of any printable ASCII characters except '='.
+During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          The path within the volume from which to select the file.
+Must be relative and may not contain the '..' path or start with '..'.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>volumeName</b></td>
+        <td>string</td>
+        <td>
+          The name of the volume mount containing the env file.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the file or its key must be defined. If the file or key
+does not exist, then the env var is not published.
+If optional is set to true and the specified key does not exist,
+the environment variable will not be set in the Pod's containers.
+
+If optional is set to false and the specified key does not exist,
+an error will be returned during Pod creation.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate.spec.env[index].valueFrom.resourceFieldRef
 <sup><sup>[↩ Parent](#stackspecworkspacetemplatespecenvindexvaluefrom-1)</sup></sup>
 
@@ -23127,7 +24069,7 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 
 
 
-EnvFromSource represents the source of a set of ConfigMaps
+EnvFromSource represents the source of a set of ConfigMaps or Secrets
 
 <table>
     <thead>
@@ -23149,7 +24091,8 @@ EnvFromSource represents the source of a set of ConfigMaps
         <td><b>prefix</b></td>
         <td>string</td>
         <td>
-          An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.<br/>
+          Optional text to prepend to the name of each environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -23790,7 +24733,9 @@ Optional: Default to false.<br/>
         <td>boolean</td>
         <td>
           Host networking requested for this pod. Use the host's network namespace.
-If this option is set, the ports that will be used must be specified.
+When using HostNetwork you should specify ports so the scheduler is aware.
+When `hostNetwork` is true, specified `hostPort` fields in port definitions must match `containerPort`,
+and unspecified `hostPort` fields in port definitions are defaulted to match `containerPort`.
 Default to false.<br/>
         </td>
         <td>false</td>
@@ -23826,6 +24771,22 @@ If not specified, the pod's hostname will be set to a system-defined value.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>hostnameOverride</b></td>
+        <td>string</td>
+        <td>
+          HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod.
+This field only specifies the pod's hostname and does not affect its DNS records.
+When this field is set to a non-empty string:
+- It takes precedence over the values set in `hostname` and `subdomain`.
+- The Pod's hostname will be set to this value.
+- `setHostnameAsFQDN` must be nil or set to false.
+- `hostNetwork` must be set to false.
+
+This field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters.
+Requires the HostnameOverride feature gate to be enabled.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecimagepullsecretsindex-1">imagePullSecrets</a></b></td>
         <td>[]object</td>
         <td>
@@ -23846,7 +24807,7 @@ unique among all containers.
 Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes.
 The resourceRequirements of an init container are taken into account during scheduling
 by finding the highest request/limit for each resource type, and then using the max of
-of that value or the sum of the normal containers. Limits are applied to init containers
+that value or the sum of the normal containers. Limits are applied to init containers
 in a similar fashion.
 Init containers cannot currently be added or removed.
 Cannot be updated.
@@ -23887,6 +24848,7 @@ If the OS field is set to windows, following fields must be unset:
 - spec.hostPID
 - spec.hostIPC
 - spec.hostUsers
+- spec.resources
 - spec.securityContext.appArmorProfile
 - spec.securityContext.seLinuxOptions
 - spec.securityContext.seccompProfile
@@ -23988,7 +24950,7 @@ This field is immutable.<br/>
         <td>
           Resources is the total amount of CPU and Memory resources required by all
 containers in the pod. It supports specifying Requests and Limits for
-"cpu" and "memory" resource names only. ResourceClaims are not supported.
+"cpu", "memory" and "hugepages-" resource names only. ResourceClaims are not supported.
 
 This field enables fine-grained control over resource allocation for the
 entire pod, allowing resource sharing among containers in a pod.
@@ -24201,8 +25163,8 @@ Cannot be updated.<br/>
         <td>[]object</td>
         <td>
           List of sources to populate environment variables in the container.
-The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-will be reported as an event when the container is starting. When a key exists in multiple
+The keys defined within a source may consist of any printable ASCII characters except '='.
+When a key exists in multiple
 sources, the value associated with the last source will take precedence.
 Values defined by an Env with a duplicate key will take precedence.
 Cannot be updated.<br/>
@@ -24291,10 +25253,10 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
         <td>string</td>
         <td>
           RestartPolicy defines the restart behavior of individual containers in a pod.
-This field may only be set for init containers, and the only allowed value is "Always".
-For non-init containers or when this field is not specified,
+This overrides the pod-level restart policy. When this field is not specified,
 the restart behavior is defined by the Pod's restart policy and the container type.
-Setting the RestartPolicy as "Always" for the init container will have the following effect:
+Additionally, setting the RestartPolicy as "Always" for the init container will
+have the following effect:
 this init container will be continually restarted on
 exit until all regular containers have terminated. Once all regular
 containers have completed, all init containers with restartPolicy "Always"
@@ -24305,6 +25267,23 @@ for the container to complete before proceeding to the next init
 container. Instead, the next init container starts immediately after this
 init container is started, or after any startupProbe has successfully
 completed.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespeccontainersindexrestartpolicyrulesindex-1">restartPolicyRules</a></b></td>
+        <td>[]object</td>
+        <td>
+          Represents a list of rules to be checked to determine if the
+container should be restarted on exit. The rules are evaluated in
+order. Once a rule matches a container exit condition, the remaining
+rules are ignored. If no rule matches the container exit condition,
+the Container-level restart policy determines the whether the container
+is restarted or not. Constraints on the rules:
+- At most 20 rules are allowed.
+- Rules can have the same action.
+- Identical rules are not forbidden in validations.
+When rules are specified, container MUST set RestartPolicy explicitly
+even it if matches the Pod's RestartPolicy.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -24434,7 +25413,8 @@ EnvVar represents an environment variable present in a Container.
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the environment variable. Must be a C_IDENTIFIER.<br/>
+          Name of the environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -24492,6 +25472,14 @@ Source for the environment variable's value. Cannot be used if value is not empt
         <td>
           Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
 spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespeccontainersindexenvindexvaluefromfilekeyref-1">fileKeyRef</a></b></td>
+        <td>object</td>
+        <td>
+          FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -24595,6 +25583,66 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.containers[index].env[index].valueFrom.fileKeyRef
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespeccontainersindexenvindexvaluefrom-1)</sup></sup>
+
+
+
+FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key within the env file. An invalid key will prevent the pod from starting.
+The keys defined within a source may consist of any printable ASCII characters except '='.
+During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          The path within the volume from which to select the file.
+Must be relative and may not contain the '..' path or start with '..'.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>volumeName</b></td>
+        <td>string</td>
+        <td>
+          The name of the volume mount containing the env file.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the file or its key must be defined. If the file or key
+does not exist, then the env var is not published.
+If optional is set to true and the specified key does not exist,
+the environment variable will not be set in the Pod's containers.
+
+If optional is set to false and the specified key does not exist,
+an error will be returned during Pod creation.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate.spec.podTemplate.spec.containers[index].env[index].valueFrom.resourceFieldRef
 <sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespeccontainersindexenvindexvaluefrom-1)</sup></sup>
 
@@ -24689,7 +25737,7 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 
 
 
-EnvFromSource represents the source of a set of ConfigMaps
+EnvFromSource represents the source of a set of ConfigMaps or Secrets
 
 <table>
     <thead>
@@ -24711,7 +25759,8 @@ EnvFromSource represents the source of a set of ConfigMaps
         <td><b>prefix</b></td>
         <td>string</td>
         <td>
-          An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.<br/>
+          Optional text to prepend to the name of each environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -24845,6 +25894,15 @@ container will eventually terminate within the Pod's termination grace
 period (unless delayed by finalizers). Other management of the container blocks until the hook completes
 or until the termination grace period is reached.
 More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>stopSignal</b></td>
+        <td>string</td>
+        <td>
+          StopSignal defines which signal will be sent to a container when it is being stopped.
+If not specified, the default is defined by the container runtime in use.
+StopSignal can only be set for Pods with a non-empty .spec.os.name<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -26119,7 +27177,7 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-This is an alpha field and requires enabling the
+This field depends on the
 DynamicResourceAllocation feature gate.
 
 This field is immutable. It can only be set for containers.<br/>
@@ -26179,6 +27237,82 @@ inside a container.<br/>
           Request is the name chosen for a request in the referenced claim.
 If empty, everything from the claim is made available, otherwise
 only the result of this request.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.containers[index].restartPolicyRules[index]
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespeccontainersindex-1)</sup></sup>
+
+
+
+ContainerRestartRule describes how a container exit is handled.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>action</b></td>
+        <td>string</td>
+        <td>
+          Specifies the action taken on a container exit if the requirements
+are satisfied. The only possible value is "Restart" to restart the
+container.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespeccontainersindexrestartpolicyrulesindexexitcodes-1">exitCodes</a></b></td>
+        <td>object</td>
+        <td>
+          Represents the exit codes to check on container exits.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.containers[index].restartPolicyRules[index].exitCodes
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespeccontainersindexrestartpolicyrulesindex-1)</sup></sup>
+
+
+
+Represents the exit codes to check on container exits.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>operator</b></td>
+        <td>string</td>
+        <td>
+          Represents the relationship between the container exit code(s) and the
+specified values. Possible values are:
+- In: the requirement is satisfied if the container exit code is in the
+  set of specified values.
+- NotIn: the requirement is satisfied if the container exit code is
+  not in the set of specified values.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>values</b></td>
+        <td>[]integer</td>
+        <td>
+          Specifies the set of values to check for container exit codes.
+At most 255 elements are allowed.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -27570,8 +28704,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-Also, matchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, matchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -27585,8 +28718,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -27834,8 +28966,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-Also, matchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, matchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -27849,8 +28980,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -28073,8 +29203,8 @@ a node that violates one or more of the expressions. The node that is
 most preferred is the one with the greatest sum of weights, i.e.
 for each node that meets all of the scheduling requirements (resource
 request, requiredDuringScheduling anti-affinity expressions, etc.),
-compute a sum by iterating through the elements of this field and adding
-"weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+compute a sum by iterating through the elements of this field and subtracting
+"weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
 node(s) with the highest sum are the most preferred.<br/>
         </td>
         <td>false</td>
@@ -28178,8 +29308,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-Also, matchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, matchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -28193,8 +29322,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -28442,8 +29570,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both matchLabelKeys and labelSelector.
-Also, matchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, matchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -28457,8 +29584,7 @@ to select the group of existing pods which pods will be taken into consideration
 for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
 pod labels will be ignored. The default value is empty.
 The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
-Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).<br/>
+Also, mismatchLabelKeys cannot be set when labelSelector isn't set.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -28812,8 +29938,8 @@ Cannot be updated.<br/>
         <td>[]object</td>
         <td>
           List of sources to populate environment variables in the container.
-The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-will be reported as an event when the container is starting. When a key exists in multiple
+The keys defined within a source may consist of any printable ASCII characters except '='.
+When a key exists in multiple
 sources, the value associated with the last source will take precedence.
 Values defined by an Env with a duplicate key will take precedence.
 Cannot be updated.<br/>
@@ -28887,7 +30013,15 @@ already allocated to the pod.<br/>
         <td>
           Restart policy for the container to manage the restart behavior of each
 container within a pod.
-This may only be set for init containers. You cannot set this field on
+You cannot set this field on ephemeral containers.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecephemeralcontainersindexrestartpolicyrulesindex-1">restartPolicyRules</a></b></td>
+        <td>[]object</td>
+        <td>
+          Represents a list of rules to be checked to determine if the
+container should be restarted on exit. You cannot set this field on
 ephemeral containers.<br/>
         </td>
         <td>false</td>
@@ -29023,7 +30157,8 @@ EnvVar represents an environment variable present in a Container.
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the environment variable. Must be a C_IDENTIFIER.<br/>
+          Name of the environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -29081,6 +30216,14 @@ Source for the environment variable's value. Cannot be used if value is not empt
         <td>
           Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
 spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindexvaluefromfilekeyref-1">fileKeyRef</a></b></td>
+        <td>object</td>
+        <td>
+          FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -29184,6 +30327,66 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].env[index].valueFrom.fileKeyRef
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindexvaluefrom-1)</sup></sup>
+
+
+
+FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key within the env file. An invalid key will prevent the pod from starting.
+The keys defined within a source may consist of any printable ASCII characters except '='.
+During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          The path within the volume from which to select the file.
+Must be relative and may not contain the '..' path or start with '..'.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>volumeName</b></td>
+        <td>string</td>
+        <td>
+          The name of the volume mount containing the env file.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the file or its key must be defined. If the file or key
+does not exist, then the env var is not published.
+If optional is set to true and the specified key does not exist,
+the environment variable will not be set in the Pod's containers.
+
+If optional is set to false and the specified key does not exist,
+an error will be returned during Pod creation.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].env[index].valueFrom.resourceFieldRef
 <sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecephemeralcontainersindexenvindexvaluefrom-1)</sup></sup>
 
@@ -29278,7 +30481,7 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 
 
 
-EnvFromSource represents the source of a set of ConfigMaps
+EnvFromSource represents the source of a set of ConfigMaps or Secrets
 
 <table>
     <thead>
@@ -29300,7 +30503,8 @@ EnvFromSource represents the source of a set of ConfigMaps
         <td><b>prefix</b></td>
         <td>string</td>
         <td>
-          An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.<br/>
+          Optional text to prepend to the name of each environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -29433,6 +30637,15 @@ container will eventually terminate within the Pod's termination grace
 period (unless delayed by finalizers). Other management of the container blocks until the hook completes
 or until the termination grace period is reached.
 More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>stopSignal</b></td>
+        <td>string</td>
+        <td>
+          StopSignal defines which signal will be sent to a container when it is being stopped.
+If not specified, the default is defined by the container runtime in use.
+StopSignal can only be set for Pods with a non-empty .spec.os.name<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -30700,7 +31913,7 @@ already allocated to the pod.
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-This is an alpha field and requires enabling the
+This field depends on the
 DynamicResourceAllocation feature gate.
 
 This field is immutable. It can only be set for containers.<br/>
@@ -30760,6 +31973,82 @@ inside a container.<br/>
           Request is the name chosen for a request in the referenced claim.
 If empty, everything from the claim is made available, otherwise
 only the result of this request.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].restartPolicyRules[index]
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecephemeralcontainersindex-1)</sup></sup>
+
+
+
+ContainerRestartRule describes how a container exit is handled.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>action</b></td>
+        <td>string</td>
+        <td>
+          Specifies the action taken on a container exit if the requirements
+are satisfied. The only possible value is "Restart" to restart the
+container.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecephemeralcontainersindexrestartpolicyrulesindexexitcodes-1">exitCodes</a></b></td>
+        <td>object</td>
+        <td>
+          Represents the exit codes to check on container exits.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.ephemeralContainers[index].restartPolicyRules[index].exitCodes
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecephemeralcontainersindexrestartpolicyrulesindex-1)</sup></sup>
+
+
+
+Represents the exit codes to check on container exits.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>operator</b></td>
+        <td>string</td>
+        <td>
+          Represents the relationship between the container exit code(s) and the
+specified values. Possible values are:
+- In: the requirement is satisfied if the container exit code is in the
+  set of specified values.
+- NotIn: the requirement is satisfied if the container exit code is
+  not in the set of specified values.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>values</b></td>
+        <td>[]integer</td>
+        <td>
+          Specifies the set of values to check for container exit codes.
+At most 255 elements are allowed.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -31735,8 +33024,8 @@ Cannot be updated.<br/>
         <td>[]object</td>
         <td>
           List of sources to populate environment variables in the container.
-The keys defined within a source must be a C_IDENTIFIER. All invalid keys
-will be reported as an event when the container is starting. When a key exists in multiple
+The keys defined within a source may consist of any printable ASCII characters except '='.
+When a key exists in multiple
 sources, the value associated with the last source will take precedence.
 Values defined by an Env with a duplicate key will take precedence.
 Cannot be updated.<br/>
@@ -31825,10 +33114,10 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
         <td>string</td>
         <td>
           RestartPolicy defines the restart behavior of individual containers in a pod.
-This field may only be set for init containers, and the only allowed value is "Always".
-For non-init containers or when this field is not specified,
+This overrides the pod-level restart policy. When this field is not specified,
 the restart behavior is defined by the Pod's restart policy and the container type.
-Setting the RestartPolicy as "Always" for the init container will have the following effect:
+Additionally, setting the RestartPolicy as "Always" for the init container will
+have the following effect:
 this init container will be continually restarted on
 exit until all regular containers have terminated. Once all regular
 containers have completed, all init containers with restartPolicy "Always"
@@ -31839,6 +33128,23 @@ for the container to complete before proceeding to the next init
 container. Instead, the next init container starts immediately after this
 init container is started, or after any startupProbe has successfully
 completed.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecinitcontainersindexrestartpolicyrulesindex-1">restartPolicyRules</a></b></td>
+        <td>[]object</td>
+        <td>
+          Represents a list of rules to be checked to determine if the
+container should be restarted on exit. The rules are evaluated in
+order. Once a rule matches a container exit condition, the remaining
+rules are ignored. If no rule matches the container exit condition,
+the Container-level restart policy determines the whether the container
+is restarted or not. Constraints on the rules:
+- At most 20 rules are allowed.
+- Rules can have the same action.
+- Identical rules are not forbidden in validations.
+When rules are specified, container MUST set RestartPolicy explicitly
+even it if matches the Pod's RestartPolicy.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -31968,7 +33274,8 @@ EnvVar represents an environment variable present in a Container.
         <td><b>name</b></td>
         <td>string</td>
         <td>
-          Name of the environment variable. Must be a C_IDENTIFIER.<br/>
+          Name of the environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -32026,6 +33333,14 @@ Source for the environment variable's value. Cannot be used if value is not empt
         <td>
           Selects a field of the pod: supports metadata.name, metadata.namespace, `metadata.labels['<KEY>']`, `metadata.annotations['<KEY>']`,
 spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podIPs.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecinitcontainersindexenvindexvaluefromfilekeyref-1">fileKeyRef</a></b></td>
+        <td>object</td>
+        <td>
+          FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -32129,6 +33444,66 @@ spec.nodeName, spec.serviceAccountName, status.hostIP, status.podIP, status.podI
 </table>
 
 
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.initContainers[index].env[index].valueFrom.fileKeyRef
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecinitcontainersindexenvindexvaluefrom-1)</sup></sup>
+
+
+
+FileKeyRef selects a key of the env file.
+Requires the EnvFiles feature gate to be enabled.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key within the env file. An invalid key will prevent the pod from starting.
+The keys defined within a source may consist of any printable ASCII characters except '='.
+During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          The path within the volume from which to select the file.
+Must be relative and may not contain the '..' path or start with '..'.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>volumeName</b></td>
+        <td>string</td>
+        <td>
+          The name of the volume mount containing the env file.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the file or its key must be defined. If the file or key
+does not exist, then the env var is not published.
+If optional is set to true and the specified key does not exist,
+the environment variable will not be set in the Pod's containers.
+
+If optional is set to false and the specified key does not exist,
+an error will be returned during Pod creation.<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate.spec.podTemplate.spec.initContainers[index].env[index].valueFrom.resourceFieldRef
 <sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecinitcontainersindexenvindexvaluefrom-1)</sup></sup>
 
@@ -32223,7 +33598,7 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 
 
 
-EnvFromSource represents the source of a set of ConfigMaps
+EnvFromSource represents the source of a set of ConfigMaps or Secrets
 
 <table>
     <thead>
@@ -32245,7 +33620,8 @@ EnvFromSource represents the source of a set of ConfigMaps
         <td><b>prefix</b></td>
         <td>string</td>
         <td>
-          An optional identifier to prepend to each key in the ConfigMap. Must be a C_IDENTIFIER.<br/>
+          Optional text to prepend to the name of each environment variable.
+May consist of any printable ASCII characters except '='.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -32379,6 +33755,15 @@ container will eventually terminate within the Pod's termination grace
 period (unless delayed by finalizers). Other management of the container blocks until the hook completes
 or until the termination grace period is reached.
 More info: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>stopSignal</b></td>
+        <td>string</td>
+        <td>
+          StopSignal defines which signal will be sent to a container when it is being stopped.
+If not specified, the default is defined by the container runtime in use.
+StopSignal can only be set for Pods with a non-empty .spec.os.name<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -33653,7 +35038,7 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-This is an alpha field and requires enabling the
+This field depends on the
 DynamicResourceAllocation feature gate.
 
 This field is immutable. It can only be set for containers.<br/>
@@ -33713,6 +35098,82 @@ inside a container.<br/>
           Request is the name chosen for a request in the referenced claim.
 If empty, everything from the claim is made available, otherwise
 only the result of this request.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.initContainers[index].restartPolicyRules[index]
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecinitcontainersindex-1)</sup></sup>
+
+
+
+ContainerRestartRule describes how a container exit is handled.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>action</b></td>
+        <td>string</td>
+        <td>
+          Specifies the action taken on a container exit if the requirements
+are satisfied. The only possible value is "Restart" to restart the
+container.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecinitcontainersindexrestartpolicyrulesindexexitcodes-1">exitCodes</a></b></td>
+        <td>object</td>
+        <td>
+          Represents the exit codes to check on container exits.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.initContainers[index].restartPolicyRules[index].exitCodes
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecinitcontainersindexrestartpolicyrulesindex-1)</sup></sup>
+
+
+
+Represents the exit codes to check on container exits.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>operator</b></td>
+        <td>string</td>
+        <td>
+          Represents the relationship between the container exit code(s) and the
+specified values. Possible values are:
+- In: the requirement is satisfied if the container exit code is in the
+  set of specified values.
+- NotIn: the requirement is satisfied if the container exit code is
+  not in the set of specified values.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>values</b></td>
+        <td>[]integer</td>
+        <td>
+          Specifies the set of values to check for container exit codes.
+At most 255 elements are allowed.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -34575,6 +36036,7 @@ If the OS field is set to windows, following fields must be unset:
 - spec.hostPID
 - spec.hostIPC
 - spec.hostUsers
+- spec.resources
 - spec.securityContext.appArmorProfile
 - spec.securityContext.seLinuxOptions
 - spec.securityContext.seccompProfile
@@ -34719,7 +36181,7 @@ be set.<br/>
 
 Resources is the total amount of CPU and Memory resources required by all
 containers in the pod. It supports specifying Requests and Limits for
-"cpu" and "memory" resource names only. ResourceClaims are not supported.
+"cpu", "memory" and "hugepages-" resource names only. ResourceClaims are not supported.
 
 This field enables fine-grained control over resource allocation for the
 entire pod, allowing resource sharing among containers in a pod.
@@ -34743,7 +36205,7 @@ gate.
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-This is an alpha field and requires enabling the
+This field depends on the
 DynamicResourceAllocation feature gate.
 
 This field is immutable. It can only be set for containers.<br/>
@@ -35471,8 +36933,7 @@ when calculating pod topology spread skew. Options are:
 - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
 - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
-If this value is nil, the behavior is equivalent to the Honor policy.
-This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.<br/>
+If this value is nil, the behavior is equivalent to the Honor policy.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -35485,8 +36946,7 @@ pod topology spread skew. Options are:
 has a toleration, are included.
 - Ignore: node taints are ignored. All nodes are included.
 
-If this value is nil, the behavior is equivalent to the Ignore policy.
-This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.<br/>
+If this value is nil, the behavior is equivalent to the Ignore policy.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -35758,8 +37218,7 @@ into the Pod's container.<br/>
         <td>object</td>
         <td>
           glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime.
-Deprecated: Glusterfs is deprecated and the in-tree glusterfs type is no longer supported.
-More info: https://examples.k8s.io/volumes/glusterfs/README.md<br/>
+Deprecated: Glusterfs is deprecated and the in-tree glusterfs type is no longer supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -35789,7 +37248,7 @@ A failure to resolve or pull the image during pod startup will block containers 
 The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
 The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
 The volume will be mounted read-only (ro) and non-executable files (noexec).
-Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath).
+Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath) before 1.33.
 The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.<br/>
         </td>
         <td>false</td>
@@ -35799,7 +37258,7 @@ The field spec.securityContext.fsGroupChangePolicy has no effect on this volume 
         <td>
           iscsi represents an ISCSI Disk resource that is attached to a
 kubelet's host machine and then exposed to the pod.
-More info: https://examples.k8s.io/volumes/iscsi/README.md<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volumes/#iscsi<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -35857,8 +37316,7 @@ Deprecated: Quobyte is deprecated and the in-tree quobyte type is no longer supp
         <td>object</td>
         <td>
           rbd represents a Rados Block Device mount on the host that shares a pod's lifetime.
-Deprecated: RBD is deprecated and the in-tree rbd type is no longer supported.
-More info: https://examples.k8s.io/volumes/rbd/README.md<br/>
+Deprecated: RBD is deprecated and the in-tree rbd type is no longer supported.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -36940,15 +38398,13 @@ More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-
           volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
 If specified, the CSI driver will create or update the volume with the attributes defined
 in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-will be set by the persistentvolume controller if it exists.
+it can be changed after the claim is created. An empty string or nil value indicates that no
+VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+this field can be reset to its previous value (including nil) to cancel the modification.
 If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
 set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
 exists.
-More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-(Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).<br/>
+More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -37591,7 +39047,6 @@ the subdirectory with the given name.<br/>
 
 glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime.
 Deprecated: Glusterfs is deprecated and the in-tree glusterfs type is no longer supported.
-More info: https://examples.k8s.io/volumes/glusterfs/README.md
 
 <table>
     <thead>
@@ -37606,8 +39061,7 @@ More info: https://examples.k8s.io/volumes/glusterfs/README.md
         <td><b>endpoints</b></td>
         <td>string</td>
         <td>
-          endpoints is the endpoint name that details Glusterfs topology.
-More info: https://examples.k8s.io/volumes/glusterfs/README.md#create-a-pod<br/>
+          endpoints is the endpoint name that details Glusterfs topology.<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -37690,7 +39144,7 @@ A failure to resolve or pull the image during pod startup will block containers 
 The types of objects that may be mounted by this volume are defined by the container runtime implementation on a host machine and at minimum must include all valid types supported by the container image field.
 The OCI object gets mounted in a single directory (spec.containers[*].volumeMounts.mountPath) by merging the manifest layers in the same way as for container images.
 The volume will be mounted read-only (ro) and non-executable files (noexec).
-Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath).
+Sub path mounts for containers are not supported (spec.containers[*].volumeMounts.subpath) before 1.33.
 The field spec.securityContext.fsGroupChangePolicy has no effect on this volume type.
 
 <table>
@@ -37736,7 +39190,7 @@ container images in workload controllers like Deployments and StatefulSets.<br/>
 
 iscsi represents an ISCSI Disk resource that is attached to a
 kubelet's host machine and then exposed to the pod.
-More info: https://examples.k8s.io/volumes/iscsi/README.md
+More info: https://kubernetes.io/docs/concepts/storage/volumes/#iscsi
 
 <table>
     <thead>
@@ -38132,6 +39586,46 @@ may change the order over time.<br/>
         <td>object</td>
         <td>
           downwardAPI information about the downwardAPI data to project<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindexpodcertificate-1">podCertificate</a></b></td>
+        <td>object</td>
+        <td>
+          Projects an auto-rotating credential bundle (private key and certificate
+chain) that the pod can use either as a TLS client or server.
+
+Kubelet generates a private key and uses it to send a
+PodCertificateRequest to the named signer.  Once the signer approves the
+request and issues a certificate chain, Kubelet writes the key and
+certificate chain to the pod filesystem.  The pod does not start until
+certificates have been issued for each podCertificate projected volume
+source in its spec.
+
+Kubelet will begin trying to rotate the certificate at the time indicated
+by the signer using the PodCertificateRequest.Status.BeginRefreshAt
+timestamp.
+
+Kubelet can write a single file, indicated by the credentialBundlePath
+field, or separate files, indicated by the keyPath and
+certificateChainPath fields.
+
+The credential bundle is a single file in PEM format.  The first PEM
+entry is the private key (in PKCS#8 format), and the remaining PEM
+entries are the certificate chain issued by the signer (typically,
+signers will return their certificate chain in leaf-to-root order).
+
+Prefer using the credential bundle format, since your application code
+can read it atomically.  If you use keyPath and certificateChainPath,
+your application must make two separate file reads. If these coincide
+with a certificate rotation, it is possible that the private key and leaf
+certificate you read may not correspond to each other.  Your application
+will need to check for this condition, and re-read until they are
+consistent.
+
+The named signer controls chooses the format of the certificate it
+issues; consult the signer implementation's documentation to learn how to
+use the certificates it issues.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -38577,6 +40071,142 @@ Selects a resource of the container: only resources limits and requests
 </table>
 
 
+### Stack.spec.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].podCertificate
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindex-1)</sup></sup>
+
+
+
+Projects an auto-rotating credential bundle (private key and certificate
+chain) that the pod can use either as a TLS client or server.
+
+Kubelet generates a private key and uses it to send a
+PodCertificateRequest to the named signer.  Once the signer approves the
+request and issues a certificate chain, Kubelet writes the key and
+certificate chain to the pod filesystem.  The pod does not start until
+certificates have been issued for each podCertificate projected volume
+source in its spec.
+
+Kubelet will begin trying to rotate the certificate at the time indicated
+by the signer using the PodCertificateRequest.Status.BeginRefreshAt
+timestamp.
+
+Kubelet can write a single file, indicated by the credentialBundlePath
+field, or separate files, indicated by the keyPath and
+certificateChainPath fields.
+
+The credential bundle is a single file in PEM format.  The first PEM
+entry is the private key (in PKCS#8 format), and the remaining PEM
+entries are the certificate chain issued by the signer (typically,
+signers will return their certificate chain in leaf-to-root order).
+
+Prefer using the credential bundle format, since your application code
+can read it atomically.  If you use keyPath and certificateChainPath,
+your application must make two separate file reads. If these coincide
+with a certificate rotation, it is possible that the private key and leaf
+certificate you read may not correspond to each other.  Your application
+will need to check for this condition, and re-read until they are
+consistent.
+
+The named signer controls chooses the format of the certificate it
+issues; consult the signer implementation's documentation to learn how to
+use the certificates it issues.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>keyType</b></td>
+        <td>string</td>
+        <td>
+          The type of keypair Kubelet will generate for the pod.
+
+Valid values are "RSA3072", "RSA4096", "ECDSAP256", "ECDSAP384",
+"ECDSAP521", and "ED25519".<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>signerName</b></td>
+        <td>string</td>
+        <td>
+          Kubelet's generated CSRs will be addressed to this signer.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>certificateChainPath</b></td>
+        <td>string</td>
+        <td>
+          Write the certificate chain at this path in the projected volume.
+
+Most applications should use credentialBundlePath.  When using keyPath
+and certificateChainPath, your application needs to check that the key
+and leaf certificate are consistent, because it is possible to read the
+files mid-rotation.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>credentialBundlePath</b></td>
+        <td>string</td>
+        <td>
+          Write the credential bundle at this path in the projected volume.
+
+The credential bundle is a single file that contains multiple PEM blocks.
+The first PEM block is a PRIVATE KEY block, containing a PKCS#8 private
+key.
+
+The remaining blocks are CERTIFICATE blocks, containing the issued
+certificate chain from the signer (leaf and any intermediates).
+
+Using credentialBundlePath lets your Pod's application code make a single
+atomic read that retrieves a consistent key and certificate chain.  If you
+project them to separate files, your application code will need to
+additionally check that the leaf certificate was issued to the key.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>keyPath</b></td>
+        <td>string</td>
+        <td>
+          Write the key at this path in the projected volume.
+
+Most applications should use credentialBundlePath.  When using keyPath
+and certificateChainPath, your application needs to check that the key
+and leaf certificate are consistent, because it is possible to read the
+files mid-rotation.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>maxExpirationSeconds</b></td>
+        <td>integer</td>
+        <td>
+          maxExpirationSeconds is the maximum lifetime permitted for the
+certificate.
+
+Kubelet copies this value verbatim into the PodCertificateRequests it
+generates for this projection.
+
+If omitted, kube-apiserver will set it to 86400(24 hours). kube-apiserver
+will reject values shorter than 3600 (1 hour).  The maximum allowable
+value is 7862400 (91 days).
+
+The signer implementation is then free to issue a certificate with any
+lifetime *shorter* than MaxExpirationSeconds, but no shorter than 3600
+seconds (1 hour).  This constraint is enforced by kube-apiserver.
+`kubernetes.io` signers will never issue certificates with a lifetime
+longer than 24 hours.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate.spec.podTemplate.spec.volumes[index].projected.sources[index].secret
 <sup><sup>[↩ Parent](#stackspecworkspacetemplatespecpodtemplatespecvolumesindexprojectedsourcesindex-1)</sup></sup>
 
@@ -38809,7 +40439,6 @@ Defaults to serivceaccount user<br/>
 
 rbd represents a Rados Block Device mount on the host that shares a pod's lifetime.
 Deprecated: RBD is deprecated and the in-tree rbd type is no longer supported.
-More info: https://examples.k8s.io/volumes/rbd/README.md
 
 <table>
     <thead>
@@ -39364,7 +40993,7 @@ ResourceRequirements describes the compute resource requirements.
           Claims lists the names of resources, defined in spec.resourceClaims,
 that are used by this container.
 
-This is an alpha field and requires enabling the
+This field depends on the
 DynamicResourceAllocation feature gate.
 
 This field is immutable. It can only be set for containers.<br/>
@@ -39526,7 +41155,7 @@ with apply.
         <td>false</td>
       </tr><tr>
         <td><b>value</b></td>
-        <td>string</td>
+        <td>JSON</td>
         <td>
           <br/>
         </td>
@@ -39563,6 +41192,13 @@ with apply.
     <tbody><tr>
         <td><b>env</b></td>
         <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>json</b></td>
+        <td>boolean</td>
         <td>
           <br/>
         </td>
@@ -39616,6 +41252,13 @@ with apply.
           <br/>
           <br/>
             <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>pulumiVersion</b></td>
+        <td>string</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>

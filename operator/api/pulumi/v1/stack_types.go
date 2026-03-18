@@ -33,8 +33,14 @@ type StackStatus struct {
 	// ObservedReconcileRequest records the value of the annotation named for
 	// `ReconcileRequestAnnotation` when it was last seen.
 	ObservedReconcileRequest string `json:"observedReconcileRequest,omitempty"`
+	// Represents the observations of a stack's current state.
+	// Known .status.conditions.type are: "Ready", "Reconciling", "Stalled"
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
 	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 
 	// CurrentUpdate contains details of the status of the current update, if any.
 	// +optional
