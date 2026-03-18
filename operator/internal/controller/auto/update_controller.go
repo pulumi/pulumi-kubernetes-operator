@@ -21,6 +21,7 @@ import (
 	"io"
 	"regexp"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -76,6 +77,11 @@ type UpdateReconciler struct {
 	Scheme            *runtime.Scheme
 	Recorder          record.EventRecorder
 	ConnectionManager *ConnectionManager
+
+	// activeReconciles tracks Updates currently being reconciled by this
+	// process. Used by mapWorkspaceToUpdate to avoid re-enqueuing in-flight
+	// Updates. See https://github.com/pulumi/pulumi-kubernetes-operator/issues/1105
+	activeReconciles sync.Map
 }
 
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates,verbs=get;list;watch;create;update;patch;delete
@@ -97,6 +103,12 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	l = l.WithValues("revision", obj.ResourceVersion)
 	ctx = log.IntoContext(ctx, l)
 	l.Info("Reconciling Update")
+
+	// Track this Update as actively reconciling so that mapWorkspaceToUpdate
+	// can skip it, preventing spurious re-enqueue from workspace watch events.
+	key := req.NamespacedName
+	r.activeReconciles.Store(key, struct{}{})
+	defer r.activeReconciles.Delete(key)
 
 	rs := newReconcileSession(r.Client, r.Recorder, obj)
 
@@ -628,9 +640,21 @@ func (r *UpdateReconciler) mapWorkspaceToUpdate(ctx context.Context, obj client.
 		l.Error(err, "unable to list updates")
 		return nil
 	}
-	requests := make([]reconcile.Request, len(objs.Items))
-	for i, mapped := range objs.Items {
-		requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Name: mapped.Name, Namespace: mapped.Namespace}}
+	var requests []reconcile.Request
+	for _, mapped := range objs.Items {
+		key := types.NamespacedName{Name: mapped.Name, Namespace: mapped.Namespace}
+		// Don't re-enqueue an Update that is actively being reconciled by this
+		// process. Re-entering the reconcile loop while a Pulumi operation is
+		// running would cause the progressing guard to abort the Update spuriously.
+		// Using an in-memory set (rather than checking persisted status) ensures
+		// that stale-progressing Updates from a crashed operator are still
+		// recoverable on restart.
+		// See: https://github.com/pulumi/pulumi-kubernetes-operator/issues/1105
+		if _, active := r.activeReconciles.Load(key); active {
+			l.V(1).Info("skipping actively reconciling update", "update", mapped.Name)
+			continue
+		}
+		requests = append(requests, reconcile.Request{NamespacedName: key})
 	}
 	return requests
 }

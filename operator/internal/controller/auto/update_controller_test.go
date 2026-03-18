@@ -622,3 +622,62 @@ func TestUpdateStatusZeroTimestamps(t *testing.T) {
 	assert.Equal(t, metav1.ConditionTrue, progressing.Status)
 	assert.True(t, result.Status.StartTime.IsZero(), "StartTime should remain unset")
 }
+
+// TestMapWorkspaceToUpdate_SkipsActiveReconciles verifies that
+// mapWorkspaceToUpdate does not enqueue Updates that are actively being
+// reconciled by this process, preventing the race condition described in
+// https://github.com/pulumi/pulumi-kubernetes-operator/issues/1105
+func TestMapWorkspaceToUpdate_SkipsActiveReconciles(t *testing.T) {
+	require.NoError(t, autov1alpha1.AddToScheme(scheme.Scheme))
+
+	ws := &autov1alpha1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-workspace",
+			Namespace: "default",
+		},
+	}
+
+	// An Update that is actively being reconciled (simulated via activeReconciles).
+	activeUpdate := &autov1alpha1.Update{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "update-active",
+			Namespace: "default",
+		},
+		Spec: autov1alpha1.UpdateSpec{
+			WorkspaceName: "my-workspace",
+		},
+	}
+
+	// An Update that is not being reconciled (should be enqueued).
+	pendingUpdate := &autov1alpha1.Update{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "update-pending",
+			Namespace: "default",
+		},
+		Spec: autov1alpha1.UpdateSpec{
+			WorkspaceName: "my-workspace",
+		},
+	}
+
+	c := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(activeUpdate, pendingUpdate).
+		WithIndex(&autov1alpha1.Update{}, UpdateIndexerWorkspace, indexUpdateByWorkspace).
+		Build()
+
+	r := &UpdateReconciler{
+		Client: c,
+		Scheme: scheme.Scheme,
+	}
+
+	// Simulate that activeUpdate is currently being reconciled.
+	r.activeReconciles.Store(types.NamespacedName{Name: "update-active", Namespace: "default"}, struct{}{})
+
+	requests := r.mapWorkspaceToUpdate(t.Context(), ws)
+
+	// Only the pending Update should be enqueued.
+	assert.Len(t, requests, 1)
+	if len(requests) == 1 {
+		assert.Equal(t, "update-pending", requests[0].Name)
+	}
+}
