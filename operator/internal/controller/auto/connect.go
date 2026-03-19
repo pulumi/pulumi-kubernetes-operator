@@ -35,6 +35,7 @@ import (
 
 const (
 	pruneTokensOlderThan = 2 * time.Hour
+	maxRPCMessageSize    = 1024 * 1024 * 400
 )
 
 // ConnectionManager is responsible for managing connections to workspaces.
@@ -75,7 +76,8 @@ func (cm *ConnectionManager) Connect(ctx context.Context, w *autov1alpha1.Worksp
 	conn, err := grpc.NewClient(
 		addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithPerRPCCredentials(creds))
+		grpc.WithPerRPCCredentials(creds),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxRPCMessageSize)))
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to workspace: %w", err)
 	}
