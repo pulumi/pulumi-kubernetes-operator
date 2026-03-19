@@ -116,6 +116,7 @@ prep: ## Prepare the next release (use RELEASE=<next-tag>).
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" deploy/helm/pulumi-operator/Chart.yaml
 	sed -i '' -e "s|$(CURRENT_RELEASE:v%=%)|$(RELEASE:v%=%)|g" deploy/helm/pulumi-operator/Chart.yaml
 	sed -i '' -e "s|$(CURRENT_RELEASE)|$(RELEASE)|g" deploy/helm/pulumi-operator/README.md
+	sed -i '' -e "s|$(CURRENT_RELEASE:v%=%)|$(RELEASE:v%=%)|g" deploy/helm/pulumi-operator/README.md
 
 .PHONY: version
 version:
