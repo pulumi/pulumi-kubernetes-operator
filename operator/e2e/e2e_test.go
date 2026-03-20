@@ -60,8 +60,23 @@ func TestE2E(t *testing.T) {
 	cmd := exec.Command("make", "docker-build", "VERSION="+tag)
 	require.NoError(t, run(cmd), "failed to build image")
 
-	err := loadImageToKindClusterWithName(projectimage)
-	require.NoError(t, err, "failed to load image into kind")
+	// Pre-pull Pulumi base images used by test fixtures and load all images
+	// into the Kind cluster. This avoids image-pull delays during tests which
+	// can cause timeouts, especially on resource-constrained CI nodes.
+	for _, img := range []string{
+		"pulumi/pulumi:3.202.0-nonroot",
+		"pulumi/pulumi:3.197.0-nonroot",
+	} {
+		cmd = exec.Command("docker", "pull", img)
+		require.NoError(t, run(cmd), "failed to pull %s", img)
+	}
+	for _, img := range []string{
+		projectimage,
+		"pulumi/pulumi:3.202.0-nonroot",
+		"pulumi/pulumi:3.197.0-nonroot",
+	} {
+		require.NoError(t, loadImageToKindClusterWithName(img), "failed to load %s into kind", img)
+	}
 
 	cmd = exec.Command("make", "install")
 	require.NoError(t, run(cmd), "failed to install CRDs")
