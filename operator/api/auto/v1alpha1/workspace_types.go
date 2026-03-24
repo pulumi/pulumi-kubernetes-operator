@@ -142,10 +142,11 @@ type GitSource struct {
 }
 
 // GitAuth specifies git authentication configuration options.
-// There are 3 different authentication options:
+// There are 4 different authentication options:
 //   - Personal access token
 //   - SSH private key (and its optional password)
 //   - Basic auth username and password
+//   - GitHub App (app ID, installation ID, and private key)
 //
 // Only 1 authentication mode is valid.
 type GitAuth struct {
@@ -160,6 +161,19 @@ type GitAuth struct {
 	// Token is a Git personal access token in replacement of
 	// your password.
 	Token *corev1.SecretKeySelector `json:"token,omitempty"`
+	// GitHubApp configures GitHub App-based authentication.
+	GitHubApp *GitHubAppAuth `json:"githubApp,omitempty"`
+}
+
+// GitHubAppAuth specifies GitHub App authentication credentials via Kubernetes Secret references.
+// The workspace init container will exchange these for a short-lived installation access token.
+type GitHubAppAuth struct {
+	// AppID is a reference to the GitHub App ID (stored as a string) in a Kubernetes Secret.
+	AppID *corev1.SecretKeySelector `json:"appID"`
+	// InstallationID is a reference to the GitHub App installation ID (stored as a string) in a Kubernetes Secret.
+	InstallationID *corev1.SecretKeySelector `json:"installationID"`
+	// PrivateKey is a reference to the PEM-encoded RSA private key of the GitHub App in a Kubernetes Secret.
+	PrivateKey *corev1.SecretKeySelector `json:"privateKey"`
 }
 
 // FluxSource specifies how to fetch a Flux source artifact.

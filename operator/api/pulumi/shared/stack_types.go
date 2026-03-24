@@ -255,16 +255,30 @@ type RequirementSpec struct {
 }
 
 // GitAuthConfig specifies git authentication configuration options.
-// There are 3 different authentication options:
+// There are 4 different authentication options:
 //   - Personal access token
 //   - SSH private key (and its optional password)
 //   - Basic auth username and password
+//   - GitHub App (app ID, installation ID, and private key)
 //
 // Only 1 authentication mode is valid.
 type GitAuthConfig struct {
-	PersonalAccessToken *ResourceRef `json:"accessToken,omitempty"`
-	SSHAuth             *SSHAuth     `json:"sshAuth,omitempty"`
-	BasicAuth           *BasicAuth   `json:"basicAuth,omitempty"`
+	PersonalAccessToken *ResourceRef    `json:"accessToken,omitempty"`
+	SSHAuth             *SSHAuth        `json:"sshAuth,omitempty"`
+	BasicAuth           *BasicAuth      `json:"basicAuth,omitempty"`
+	GitHubApp           *GitHubAppAuth  `json:"githubApp,omitempty"`
+}
+
+// GitHubAppAuth configures GitHub App-based authentication for git operations.
+// The operator exchanges the app credentials for a short-lived installation access token.
+// All three fields are required and must reference a Kubernetes Secret.
+type GitHubAppAuth struct {
+	// AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.
+	AppID ResourceRef `json:"appID"`
+	// InstallationID is the numeric GitHub App installation ID, stored as a string in a Kubernetes Secret.
+	InstallationID ResourceRef `json:"installationID"`
+	// PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kubernetes Secret.
+	PrivateKey ResourceRef `json:"privateKey"`
 }
 
 // SSHAuth configures ssh-based auth for git authentication.

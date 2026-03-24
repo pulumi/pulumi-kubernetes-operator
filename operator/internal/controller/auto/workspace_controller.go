@@ -164,6 +164,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			source.Git.SSHPrivateKey = w.Spec.Git.Auth.SSHPrivateKey
 			source.Git.Token = w.Spec.Git.Auth.Token
 			source.Git.Username = w.Spec.Git.Auth.Username
+			source.Git.GitHubApp = w.Spec.Git.Auth.GitHubApp
 		}
 	}
 	if w.Spec.Flux != nil {
@@ -744,6 +745,27 @@ ln -s "/share/source/$GIT_DIR" /share/workspace
 				},
 			})
 		}
+		if source.Git.GitHubApp != nil {
+			app := source.Git.GitHubApp
+			if app.AppID != nil {
+				env = append(env, corev1.EnvVar{
+					Name:      "GIT_GITHUB_APP_ID",
+					ValueFrom: &corev1.EnvVarSource{SecretKeyRef: app.AppID},
+				})
+			}
+			if app.InstallationID != nil {
+				env = append(env, corev1.EnvVar{
+					Name:      "GIT_GITHUB_APP_INSTALLATION_ID",
+					ValueFrom: &corev1.EnvVarSource{SecretKeyRef: app.InstallationID},
+				})
+			}
+			if app.PrivateKey != nil {
+				env = append(env, corev1.EnvVar{
+					Name:      "GIT_GITHUB_APP_PRIVATE_KEY",
+					ValueFrom: &corev1.EnvVarSource{SecretKeyRef: app.PrivateKey},
+				})
+			}
+		}
 
 		container := corev1.Container{
 			Name:            "fetch",
@@ -923,6 +945,7 @@ type gitSource struct {
 	Username      *corev1.SecretKeySelector
 	Password      *corev1.SecretKeySelector
 	Token         *corev1.SecretKeySelector
+	GitHubApp     *autov1alpha1.GitHubAppAuth
 }
 
 type fluxSource struct {

@@ -23,10 +23,11 @@ import (
 // GitAuthApplyConfiguration represents a declarative configuration of the GitAuth type for use
 // with apply.
 type GitAuthApplyConfiguration struct {
-	SSHPrivateKey *v1.SecretKeySelector `json:"sshPrivateKey,omitempty"`
-	Username      *v1.SecretKeySelector `json:"username,omitempty"`
-	Password      *v1.SecretKeySelector `json:"password,omitempty"`
-	Token         *v1.SecretKeySelector `json:"token,omitempty"`
+	SSHPrivateKey *v1.SecretKeySelector            `json:"sshPrivateKey,omitempty"`
+	Username      *v1.SecretKeySelector            `json:"username,omitempty"`
+	Password      *v1.SecretKeySelector            `json:"password,omitempty"`
+	Token         *v1.SecretKeySelector            `json:"token,omitempty"`
+	GitHubApp     *GitHubAppAuthApplyConfiguration `json:"githubApp,omitempty"`
 }
 
 // GitAuthApplyConfiguration constructs a declarative configuration of the GitAuth type for use with
@@ -64,5 +65,13 @@ func (b *GitAuthApplyConfiguration) WithPassword(value v1.SecretKeySelector) *Gi
 // If called multiple times, the Token field is set to the value of the last call.
 func (b *GitAuthApplyConfiguration) WithToken(value v1.SecretKeySelector) *GitAuthApplyConfiguration {
 	b.Token = &value
+	return b
+}
+
+// WithGitHubApp sets the GitHubApp field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the GitHubApp field is set to the value of the last call.
+func (b *GitAuthApplyConfiguration) WithGitHubApp(value *GitHubAppAuthApplyConfiguration) *GitAuthApplyConfiguration {
+	b.GitHubApp = value
 	return b
 }

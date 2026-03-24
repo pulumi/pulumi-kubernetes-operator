@@ -103,6 +103,16 @@ func runInit(ctx context.Context,
 		Password:            os.Getenv("GIT_PASSWORD"),
 		PersonalAccessToken: os.Getenv("GIT_TOKEN"),
 	}
+	// If GitHub App credentials are provided, exchange them for an installation token.
+	if appID := os.Getenv("GIT_GITHUB_APP_ID"); appID != "" {
+		installationID := os.Getenv("GIT_GITHUB_APP_INSTALLATION_ID")
+		privateKey := os.Getenv("GIT_GITHUB_APP_PRIVATE_KEY")
+		token, err := getGitHubAppInstallationToken(ctx, appID, installationID, privateKey)
+		if err != nil {
+			return fmt.Errorf("getting GitHub App installation token: %w", err)
+		}
+		auth.PersonalAccessToken = token
+	}
 	repo := auto.GitRepo{
 		URL:        g.URL(),
 		CommitHash: g.Revision(),

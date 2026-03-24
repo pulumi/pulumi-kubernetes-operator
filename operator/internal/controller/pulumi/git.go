@@ -219,9 +219,30 @@ func (sess *stackReconcilerSession) resolveGitAuth(ctx context.Context) (*auto.G
 		return auth, nil
 	}
 
+	if stackAuth.GitHubApp != nil {
+		appID, err := sess.resolveSecretResourceRef(ctx, &stackAuth.GitHubApp.AppID)
+		if err != nil {
+			return auth, fmt.Errorf("resolving gitAuth GitHub App ID: %w", err)
+		}
+		installationID, err := sess.resolveSecretResourceRef(ctx, &stackAuth.GitHubApp.InstallationID)
+		if err != nil {
+			return auth, fmt.Errorf("resolving gitAuth GitHub App installation ID: %w", err)
+		}
+		privateKey, err := sess.resolveSecretResourceRef(ctx, &stackAuth.GitHubApp.PrivateKey)
+		if err != nil {
+			return auth, fmt.Errorf("resolving gitAuth GitHub App private key: %w", err)
+		}
+		token, err := getGitHubAppInstallationToken(ctx, appID, installationID, privateKey)
+		if err != nil {
+			return auth, fmt.Errorf("getting GitHub App installation token: %w", err)
+		}
+		auth.PersonalAccessToken = token
+		return auth, nil
+	}
+
 	if stackAuth.BasicAuth == nil {
 		return auth, errors.New("gitAuth config must specify exactly one of " +
-			"'personalAccessToken', 'sshPrivateKey' or 'basicAuth'")
+			"'personalAccessToken', 'sshPrivateKey', 'basicAuth', or 'githubApp'")
 	}
 
 	username, err := sess.resolveSecretResourceRef(ctx, &sess.stack.GitAuth.BasicAuth.UserName)
@@ -321,6 +342,25 @@ func (sess *stackReconcilerSession) setupWorkspaceFromGitSource(_ context.Contex
 					Name: gs.GitAuth.PersonalAccessToken.SecretRef.Name,
 				},
 				Key: gs.GitAuth.PersonalAccessToken.SecretRef.Key,
+			}
+		}
+		if gs.GitAuth.GitHubApp != nil {
+			app := gs.GitAuth.GitHubApp
+			if app.AppID.SecretRef != nil && app.InstallationID.SecretRef != nil && app.PrivateKey.SecretRef != nil {
+				auth.GitHubApp = &autov1alpha1.GitHubAppAuth{
+					AppID: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: app.AppID.SecretRef.Name},
+						Key:                  app.AppID.SecretRef.Key,
+					},
+					InstallationID: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: app.InstallationID.SecretRef.Name},
+						Key:                  app.InstallationID.SecretRef.Key,
+					},
+					PrivateKey: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: app.PrivateKey.SecretRef.Name},
+						Key:                  app.PrivateKey.SecretRef.Key,
+					},
+				}
 			}
 		}
 	}
