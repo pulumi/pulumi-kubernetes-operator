@@ -10444,6 +10444,9 @@ spec:
             description: StackStatus defines the observed state of Stack
             properties:
               conditions:
+                description: |-
+                  Represents the observations of a stack's current state.
+                  Known .status.conditions.type are: "Ready", "Reconciling", "Stalled"
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -10499,6 +10502,9 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               currentUpdate:
                 description: CurrentUpdate contains details of the status of the current
                   update, if any.
