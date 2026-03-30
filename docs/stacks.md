@@ -331,6 +331,15 @@ and randomized activity timeline for the stack in the Pulumi Service.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>runProgram</b></td>
+        <td>boolean</td>
+        <td>
+          (optional) RunProgram runs the program during destroy and refresh operations.
+This is useful when the program performs setup (e.g., network access, credentials)
+needed for those operations to succeed.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>secrets</b></td>
         <td>map[string]string</td>
         <td>
@@ -2353,6 +2362,13 @@ with apply.
       </tr><tr>
         <td><b>replace</b></td>
         <td>[]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>runProgram</b></td>
+        <td>boolean</td>
         <td>
           <br/>
         </td>
@@ -21144,6 +21160,15 @@ and randomized activity timeline for the stack in the Pulumi Service.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>runProgram</b></td>
+        <td>boolean</td>
+        <td>
+          (optional) RunProgram runs the program during destroy and refresh operations.
+This is useful when the program performs setup (e.g., network access, credentials)
+needed for those operations to succeed.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>secrets</b></td>
         <td>map[string]string</td>
         <td>
@@ -23166,6 +23191,13 @@ with apply.
       </tr><tr>
         <td><b>replace</b></td>
         <td>[]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>runProgram</b></td>
+        <td>boolean</td>
         <td>
           <br/>
         </td>

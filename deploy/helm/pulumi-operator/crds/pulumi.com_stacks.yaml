@@ -894,6 +894,12 @@ spec:
                   all spawned retries succeed. This will also create a more populated,
                   and randomized activity timeline for the stack in the Pulumi Service.
                 type: boolean
+              runProgram:
+                description: |-
+                  (optional) RunProgram runs the program during destroy and refresh operations.
+                  This is useful when the program performs setup (e.g., network access, credentials)
+                  needed for those operations to succeed.
+                type: boolean
               secrets:
                 additionalProperties:
                   type: string
@@ -1103,6 +1109,8 @@ spec:
                         items:
                           type: string
                         type: array
+                      runProgram:
+                        type: boolean
                       stackName:
                         type: string
                       target:
@@ -11456,6 +11464,12 @@ spec:
                   all spawned retries succeed. This will also create a more populated,
                   and randomized activity timeline for the stack in the Pulumi Service.
                 type: boolean
+              runProgram:
+                description: |-
+                  (optional) RunProgram runs the program during destroy and refresh operations.
+                  This is useful when the program performs setup (e.g., network access, credentials)
+                  needed for those operations to succeed.
+                type: boolean
               secrets:
                 additionalProperties:
                   type: string
@@ -11665,6 +11679,8 @@ spec:
                         items:
                           type: string
                         type: array
+                      runProgram:
+                        type: boolean
                       stackName:
                         type: string
                       target:

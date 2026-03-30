@@ -99,6 +99,11 @@ spec:
                 items:
                   type: string
                 type: array
+              runProgram:
+                description: |-
+                  RunProgram runs the program before performing the operation.
+                  Applicable to destroy and refresh operations.
+                type: boolean
               stackName:
                 description: Specify the Pulumi stack to select for the update.
                 type: string

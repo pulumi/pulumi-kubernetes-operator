@@ -138,6 +138,14 @@ have been deleted.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>runProgram</b></td>
+        <td>boolean</td>
+        <td>
+          RunProgram runs the program before performing the operation.
+Applicable to destroy and refresh operations.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>stackName</b></td>
         <td>string</td>
         <td>
