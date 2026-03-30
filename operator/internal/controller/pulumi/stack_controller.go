@@ -1718,6 +1718,7 @@ func (sess *stackReconcilerSession) newDestroy(_ context.Context, o *pulumiv1.St
 			Type:              autov1alpha1.DestroyType,
 			TtlAfterCompleted: &metav1.Duration{Duration: ttlForCompletedUpdate},
 			Message:           ptr.To(message),
+			RunProgram:        ptr.To(o.Spec.RunProgram),
 		},
 	}
 

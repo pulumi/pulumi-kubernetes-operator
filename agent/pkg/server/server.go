@@ -696,6 +696,9 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 	if in.Target != nil {
 		opts = append(opts, optrefresh.Target(in.Target))
 	}
+	if in.GetRunProgram() {
+		opts = append(opts, optrefresh.RunProgram(true))
+	}
 
 	// wire up the logging
 	stdout := &zapio.Writer{Log: s.plog, Level: zap.InfoLevel}
@@ -905,6 +908,9 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 	}
 	if in.GetRemove() {
 		opts = append(opts, optdestroy.Remove())
+	}
+	if in.GetRunProgram() {
+		opts = append(opts, optdestroy.RunProgram(true))
 	}
 
 	// wire up the logging
