@@ -27,6 +27,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/gitauth"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -232,7 +233,7 @@ func (sess *stackReconcilerSession) resolveGitAuth(ctx context.Context) (*auto.G
 		if err != nil {
 			return auth, fmt.Errorf("resolving gitAuth GitHub App private key: %w", err)
 		}
-		token, err := getGitHubAppInstallationToken(ctx, appID, installationID, privateKey)
+		token, err := gitauth.GetGitHubAppInstallationToken(ctx, appID, installationID, privateKey)
 		if err != nil {
 			return auth, fmt.Errorf("getting GitHub App installation token: %w", err)
 		}

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pulumi
+package gitauth
 
 import (
 	"context"
@@ -33,7 +33,7 @@ import (
 // getGitHubAppInstallationToken exchanges GitHub App credentials for a short-lived installation access token.
 // appID and installationID are the string representations of the numeric GitHub App and installation IDs.
 // privateKeyPEM is the PEM-encoded RSA private key of the GitHub App.
-func getGitHubAppInstallationToken(ctx context.Context, appID, installationID, privateKeyPEM string) (string, error) {
+func GetGitHubAppInstallationToken(ctx context.Context, appID, installationID, privateKeyPEM string) (string, error) {
 	jwt, err := createGitHubAppJWT(appID, privateKeyPEM)
 	if err != nil {
 		return "", fmt.Errorf("creating GitHub App JWT: %w", err)

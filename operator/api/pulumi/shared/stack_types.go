@@ -263,10 +263,10 @@ type RequirementSpec struct {
 //
 // Only 1 authentication mode is valid.
 type GitAuthConfig struct {
-	PersonalAccessToken *ResourceRef    `json:"accessToken,omitempty"`
-	SSHAuth             *SSHAuth        `json:"sshAuth,omitempty"`
-	BasicAuth           *BasicAuth      `json:"basicAuth,omitempty"`
-	GitHubApp           *GitHubAppAuth  `json:"githubApp,omitempty"`
+	PersonalAccessToken *ResourceRef   `json:"accessToken,omitempty"`
+	SSHAuth             *SSHAuth       `json:"sshAuth,omitempty"`
+	BasicAuth           *BasicAuth     `json:"basicAuth,omitempty"`
+	GitHubApp           *GitHubAppAuth `json:"githubApp,omitempty"`
 }
 
 // GitHubAppAuth configures GitHub App-based authentication for git operations.

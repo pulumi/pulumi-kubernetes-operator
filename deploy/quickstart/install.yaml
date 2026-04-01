@@ -742,6 +742,197 @@ spec:
                     - password
                     - userName
                     type: object
+                  githubApp:
+                    description: |-
+                      GitHubAppAuth configures GitHub App-based authentication for git operations.
+                      The operator exchanges the app credentials for a short-lived installation access token.
+                      All three fields are required and must reference a Kubernetes Secret.
+                    properties:
+                      appID:
+                        description: AppID is the numeric GitHub App ID, stored as
+                          a string in a Kubernetes Secret.
+                        properties:
+                          env:
+                            description: Env selects an environment variable set on
+                              the operator process
+                            properties:
+                              name:
+                                description: Name of the environment variable
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          filesystem:
+                            description: FileSystem selects a file on the operator's
+                              file system
+                            properties:
+                              path:
+                                description: Path on the filesystem to use to load
+                                  information from.
+                                type: string
+                            required:
+                            - path
+                            type: object
+                          literal:
+                            description: LiteralRef refers to a literal value
+                            properties:
+                              value:
+                                description: Value to load
+                                type: string
+                            required:
+                            - value
+                            type: object
+                          secret:
+                            description: SecretRef refers to a Kubernetes Secret
+                            properties:
+                              key:
+                                description: Key within the Secret to use.
+                                type: string
+                              name:
+                                description: Name of the Secret
+                                type: string
+                              namespace:
+                                description: |-
+                                  Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                  unless namespace isolation is disabled in the controller.
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                          type:
+                            description: |-
+                              SelectorType is required and signifies the type of selector. Must be one of:
+                              Env, FS, Secret, Literal
+                            type: string
+                        required:
+                        - type
+                        type: object
+                      installationID:
+                        description: InstallationID is the numeric GitHub App installation
+                          ID, stored as a string in a Kubernetes Secret.
+                        properties:
+                          env:
+                            description: Env selects an environment variable set on
+                              the operator process
+                            properties:
+                              name:
+                                description: Name of the environment variable
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          filesystem:
+                            description: FileSystem selects a file on the operator's
+                              file system
+                            properties:
+                              path:
+                                description: Path on the filesystem to use to load
+                                  information from.
+                                type: string
+                            required:
+                            - path
+                            type: object
+                          literal:
+                            description: LiteralRef refers to a literal value
+                            properties:
+                              value:
+                                description: Value to load
+                                type: string
+                            required:
+                            - value
+                            type: object
+                          secret:
+                            description: SecretRef refers to a Kubernetes Secret
+                            properties:
+                              key:
+                                description: Key within the Secret to use.
+                                type: string
+                              name:
+                                description: Name of the Secret
+                                type: string
+                              namespace:
+                                description: |-
+                                  Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                  unless namespace isolation is disabled in the controller.
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                          type:
+                            description: |-
+                              SelectorType is required and signifies the type of selector. Must be one of:
+                              Env, FS, Secret, Literal
+                            type: string
+                        required:
+                        - type
+                        type: object
+                      privateKey:
+                        description: PrivateKey is the PEM-encoded RSA private key
+                          of the GitHub App, stored in a Kubernetes Secret.
+                        properties:
+                          env:
+                            description: Env selects an environment variable set on
+                              the operator process
+                            properties:
+                              name:
+                                description: Name of the environment variable
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          filesystem:
+                            description: FileSystem selects a file on the operator's
+                              file system
+                            properties:
+                              path:
+                                description: Path on the filesystem to use to load
+                                  information from.
+                                type: string
+                            required:
+                            - path
+                            type: object
+                          literal:
+                            description: LiteralRef refers to a literal value
+                            properties:
+                              value:
+                                description: Value to load
+                                type: string
+                            required:
+                            - value
+                            type: object
+                          secret:
+                            description: SecretRef refers to a Kubernetes Secret
+                            properties:
+                              key:
+                                description: Key within the Secret to use.
+                                type: string
+                              name:
+                                description: Name of the Secret
+                                type: string
+                              namespace:
+                                description: |-
+                                  Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                  unless namespace isolation is disabled in the controller.
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                          type:
+                            description: |-
+                              SelectorType is required and signifies the type of selector. Must be one of:
+                              Env, FS, Secret, Literal
+                            type: string
+                        required:
+                        - type
+                        type: object
+                    required:
+                    - appID
+                    - installationID
+                    - privateKey
+                    type: object
                   sshAuth:
                     description: |-
                       SSHAuth configures ssh-based auth for git authentication.
@@ -1566,6 +1757,87 @@ spec:
                               GitAuthApplyConfiguration represents a declarative configuration of the GitAuth type for use
                               with apply.
                             properties:
+                              githubApp:
+                                description: |-
+                                  GitHubAppAuthApplyConfiguration represents a declarative configuration of the GitHubAppAuth type for use
+                                  with apply.
+                                properties:
+                                  appID:
+                                    description: SecretKeySelector selects a key of
+                                      a Secret.
+                                    properties:
+                                      key:
+                                        description: The key of the secret to select
+                                          from.  Must be a valid secret key.
+                                        type: string
+                                      name:
+                                        default: ""
+                                        description: |-
+                                          Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
+                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                        type: string
+                                      optional:
+                                        description: Specify whether the Secret or
+                                          its key must be defined
+                                        type: boolean
+                                    required:
+                                    - key
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                  installationID:
+                                    description: SecretKeySelector selects a key of
+                                      a Secret.
+                                    properties:
+                                      key:
+                                        description: The key of the secret to select
+                                          from.  Must be a valid secret key.
+                                        type: string
+                                      name:
+                                        default: ""
+                                        description: |-
+                                          Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
+                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                        type: string
+                                      optional:
+                                        description: Specify whether the Secret or
+                                          its key must be defined
+                                        type: boolean
+                                    required:
+                                    - key
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                  privateKey:
+                                    description: SecretKeySelector selects a key of
+                                      a Secret.
+                                    properties:
+                                      key:
+                                        description: The key of the secret to select
+                                          from.  Must be a valid secret key.
+                                        type: string
+                                      name:
+                                        default: ""
+                                        description: |-
+                                          Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
+                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                        type: string
+                                      optional:
+                                        description: Specify whether the Secret or
+                                          its key must be defined
+                                        type: boolean
+                                    required:
+                                    - key
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                type: object
                               password:
                                 description: SecretKeySelector selects a key of a
                                   Secret.
@@ -10444,6 +10716,9 @@ spec:
             description: StackStatus defines the observed state of Stack
             properties:
               conditions:
+                description: |-
+                  Represents the observations of a stack's current state.
+                  Known .status.conditions.type are: "Ready", "Reconciling", "Stalled"
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -10499,6 +10774,9 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               currentUpdate:
                 description: CurrentUpdate contains details of the status of the current
                   update, if any.
@@ -11021,6 +11299,197 @@ spec:
                     required:
                     - password
                     - userName
+                    type: object
+                  githubApp:
+                    description: |-
+                      GitHubAppAuth configures GitHub App-based authentication for git operations.
+                      The operator exchanges the app credentials for a short-lived installation access token.
+                      All three fields are required and must reference a Kubernetes Secret.
+                    properties:
+                      appID:
+                        description: AppID is the numeric GitHub App ID, stored as
+                          a string in a Kubernetes Secret.
+                        properties:
+                          env:
+                            description: Env selects an environment variable set on
+                              the operator process
+                            properties:
+                              name:
+                                description: Name of the environment variable
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          filesystem:
+                            description: FileSystem selects a file on the operator's
+                              file system
+                            properties:
+                              path:
+                                description: Path on the filesystem to use to load
+                                  information from.
+                                type: string
+                            required:
+                            - path
+                            type: object
+                          literal:
+                            description: LiteralRef refers to a literal value
+                            properties:
+                              value:
+                                description: Value to load
+                                type: string
+                            required:
+                            - value
+                            type: object
+                          secret:
+                            description: SecretRef refers to a Kubernetes Secret
+                            properties:
+                              key:
+                                description: Key within the Secret to use.
+                                type: string
+                              name:
+                                description: Name of the Secret
+                                type: string
+                              namespace:
+                                description: |-
+                                  Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                  unless namespace isolation is disabled in the controller.
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                          type:
+                            description: |-
+                              SelectorType is required and signifies the type of selector. Must be one of:
+                              Env, FS, Secret, Literal
+                            type: string
+                        required:
+                        - type
+                        type: object
+                      installationID:
+                        description: InstallationID is the numeric GitHub App installation
+                          ID, stored as a string in a Kubernetes Secret.
+                        properties:
+                          env:
+                            description: Env selects an environment variable set on
+                              the operator process
+                            properties:
+                              name:
+                                description: Name of the environment variable
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          filesystem:
+                            description: FileSystem selects a file on the operator's
+                              file system
+                            properties:
+                              path:
+                                description: Path on the filesystem to use to load
+                                  information from.
+                                type: string
+                            required:
+                            - path
+                            type: object
+                          literal:
+                            description: LiteralRef refers to a literal value
+                            properties:
+                              value:
+                                description: Value to load
+                                type: string
+                            required:
+                            - value
+                            type: object
+                          secret:
+                            description: SecretRef refers to a Kubernetes Secret
+                            properties:
+                              key:
+                                description: Key within the Secret to use.
+                                type: string
+                              name:
+                                description: Name of the Secret
+                                type: string
+                              namespace:
+                                description: |-
+                                  Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                  unless namespace isolation is disabled in the controller.
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                          type:
+                            description: |-
+                              SelectorType is required and signifies the type of selector. Must be one of:
+                              Env, FS, Secret, Literal
+                            type: string
+                        required:
+                        - type
+                        type: object
+                      privateKey:
+                        description: PrivateKey is the PEM-encoded RSA private key
+                          of the GitHub App, stored in a Kubernetes Secret.
+                        properties:
+                          env:
+                            description: Env selects an environment variable set on
+                              the operator process
+                            properties:
+                              name:
+                                description: Name of the environment variable
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          filesystem:
+                            description: FileSystem selects a file on the operator's
+                              file system
+                            properties:
+                              path:
+                                description: Path on the filesystem to use to load
+                                  information from.
+                                type: string
+                            required:
+                            - path
+                            type: object
+                          literal:
+                            description: LiteralRef refers to a literal value
+                            properties:
+                              value:
+                                description: Value to load
+                                type: string
+                            required:
+                            - value
+                            type: object
+                          secret:
+                            description: SecretRef refers to a Kubernetes Secret
+                            properties:
+                              key:
+                                description: Key within the Secret to use.
+                                type: string
+                              name:
+                                description: Name of the Secret
+                                type: string
+                              namespace:
+                                description: |-
+                                  Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                                  unless namespace isolation is disabled in the controller.
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                          type:
+                            description: |-
+                              SelectorType is required and signifies the type of selector. Must be one of:
+                              Env, FS, Secret, Literal
+                            type: string
+                        required:
+                        - type
+                        type: object
+                    required:
+                    - appID
+                    - installationID
+                    - privateKey
                     type: object
                   sshAuth:
                     description: |-
@@ -11846,6 +12315,87 @@ spec:
                               GitAuthApplyConfiguration represents a declarative configuration of the GitAuth type for use
                               with apply.
                             properties:
+                              githubApp:
+                                description: |-
+                                  GitHubAppAuthApplyConfiguration represents a declarative configuration of the GitHubAppAuth type for use
+                                  with apply.
+                                properties:
+                                  appID:
+                                    description: SecretKeySelector selects a key of
+                                      a Secret.
+                                    properties:
+                                      key:
+                                        description: The key of the secret to select
+                                          from.  Must be a valid secret key.
+                                        type: string
+                                      name:
+                                        default: ""
+                                        description: |-
+                                          Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
+                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                        type: string
+                                      optional:
+                                        description: Specify whether the Secret or
+                                          its key must be defined
+                                        type: boolean
+                                    required:
+                                    - key
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                  installationID:
+                                    description: SecretKeySelector selects a key of
+                                      a Secret.
+                                    properties:
+                                      key:
+                                        description: The key of the secret to select
+                                          from.  Must be a valid secret key.
+                                        type: string
+                                      name:
+                                        default: ""
+                                        description: |-
+                                          Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
+                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                        type: string
+                                      optional:
+                                        description: Specify whether the Secret or
+                                          its key must be defined
+                                        type: boolean
+                                    required:
+                                    - key
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                  privateKey:
+                                    description: SecretKeySelector selects a key of
+                                      a Secret.
+                                    properties:
+                                      key:
+                                        description: The key of the secret to select
+                                          from.  Must be a valid secret key.
+                                        type: string
+                                      name:
+                                        default: ""
+                                        description: |-
+                                          Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
+                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                        type: string
+                                      optional:
+                                        description: Specify whether the Secret or
+                                          its key must be defined
+                                        type: boolean
+                                    required:
+                                    - key
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                type: object
                               password:
                                 description: SecretKeySelector selects a key of a
                                   Secret.
@@ -21295,6 +21845,90 @@ spec:
                       Auth contains optional authentication information to use when cloning
                       the repository.
                     properties:
+                      githubApp:
+                        description: GitHubApp configures GitHub App-based authentication.
+                        properties:
+                          appID:
+                            description: AppID is a reference to the GitHub App ID
+                              (stored as a string) in a Kubernetes Secret.
+                            properties:
+                              key:
+                                description: The key of the secret to select from.  Must
+                                  be a valid secret key.
+                                type: string
+                              name:
+                                default: ""
+                                description: |-
+                                  Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                type: string
+                              optional:
+                                description: Specify whether the Secret or its key
+                                  must be defined
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          installationID:
+                            description: InstallationID is a reference to the GitHub
+                              App installation ID (stored as a string) in a Kubernetes
+                              Secret.
+                            properties:
+                              key:
+                                description: The key of the secret to select from.  Must
+                                  be a valid secret key.
+                                type: string
+                              name:
+                                default: ""
+                                description: |-
+                                  Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                type: string
+                              optional:
+                                description: Specify whether the Secret or its key
+                                  must be defined
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          privateKey:
+                            description: PrivateKey is a reference to the PEM-encoded
+                              RSA private key of the GitHub App in a Kubernetes Secret.
+                            properties:
+                              key:
+                                description: The key of the secret to select from.  Must
+                                  be a valid secret key.
+                                type: string
+                              name:
+                                default: ""
+                                description: |-
+                                  Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                type: string
+                              optional:
+                                description: Specify whether the Secret or its key
+                                  must be defined
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                            x-kubernetes-map-type: atomic
+                        required:
+                        - appID
+                        - installationID
+                        - privateKey
+                        type: object
                       password:
                         description: The password that pairs with a username or as
                           part of an SSH Private Key.
