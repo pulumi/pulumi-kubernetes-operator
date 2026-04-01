@@ -718,7 +718,7 @@ func TestSetupGitAuthWithRefs(t *testing.T) {
 		{
 			name:    "EmptyGitAuth",
 			gitAuth: &shared.GitAuthConfig{},
-			err:     fmt.Errorf("gitAuth config must specify exactly one of 'personalAccessToken', 'sshPrivateKey' or 'basicAuth'"),
+			err:     fmt.Errorf("gitAuth config must specify exactly one of 'personalAccessToken', 'sshPrivateKey', 'basicAuth', or 'githubApp'"),
 		},
 		{
 			name: "GitAuthValidSecretReference",
