@@ -24,6 +24,7 @@ import (
 	"github.com/blang/semver"
 	"github.com/fluxcd/pkg/http/fetch"
 	git "github.com/go-git/go-git/v5"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/gitauth"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -102,6 +103,16 @@ func runInit(ctx context.Context,
 		Username:            os.Getenv("GIT_USERNAME"),
 		Password:            os.Getenv("GIT_PASSWORD"),
 		PersonalAccessToken: os.Getenv("GIT_TOKEN"),
+	}
+	// If GitHub App credentials are provided, exchange them for an installation token.
+	if appID := os.Getenv("GIT_GITHUB_APP_ID"); appID != "" {
+		installationID := os.Getenv("GIT_GITHUB_APP_INSTALLATION_ID")
+		privateKey := os.Getenv("GIT_GITHUB_APP_PRIVATE_KEY")
+		token, err := gitauth.GetGitHubAppInstallationToken(ctx, appID, installationID, privateKey)
+		if err != nil {
+			return fmt.Errorf("getting GitHub App installation token: %w", err)
+		}
+		auth.PersonalAccessToken = token
 	}
 	repo := auto.GitRepo{
 		URL:        g.URL(),

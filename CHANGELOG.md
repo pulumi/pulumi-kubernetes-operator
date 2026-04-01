@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+- Add GitHub App authentication for git sources [#1167](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1167)
+
 ## 2.6.0 (2026-03-19)
 
 - Fix Update controller status write conflicts by migrating to Server-Side Apply [#1141](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1141)

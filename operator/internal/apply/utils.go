@@ -44,6 +44,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &autov1alpha1.FluxSourceApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("GitAuth"):
 		return &autov1alpha1.GitAuthApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("GitHubAppAuth"):
+		return &autov1alpha1.GitHubAppAuthApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("GitSource"):
 		return &autov1alpha1.GitSourceApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("LocalSource"):
