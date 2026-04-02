@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+- Fix Stack stuck in StackProcessing after successful update, preventing infinite reconciliation loop and unbounded secret accumulation [#1172](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1172)
+
 ## 2.6.0 (2026-03-19)
 
 - Fix Update controller status write conflicts by migrating to Server-Side Apply [#1141](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1141)
