@@ -646,6 +646,16 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 		toBeFinalized = sess.update
 		instance.Status.CurrentUpdate = nil
+
+		// Persist the update completion immediately. This ensures that the
+		// cleared CurrentUpdate and updated LastUpdate are saved even if
+		// subsequent steps (source resolution, workspace setup) fail.
+		// Without this, a transient error in later steps causes the next
+		// reconciliation to re-read the old status (with CurrentUpdate still
+		// set), creating an infinite StackProcessing loop.
+		if err := saveStatus(); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	// We can exit early if there is no clean-up to do.
