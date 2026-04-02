@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -2140,6 +2141,25 @@ func TestIsSynced(t *testing.T) {
 			wantMessage:   "Resync time elapsed: 1m0s",
 		},
 		{
+			name: "negative resyncFrequencySeconds with ContinueResyncOnCommitMatch disables periodic resyncs",
+			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{
+					ContinueResyncOnCommitMatch: true,
+					ResyncFrequencySeconds:      -1,
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "sha",
+						LastResyncTime:       metav1.NewTime(time.Now().Add(-24 * time.Hour)),
+					},
+				},
+			},
+			currentCommit: "sha",
+			want:          true,
+			wantMessage:   "",
+		},
+		{
 			name: "last update failed but we're inside the cooldown interval",
 			stack: pulumiv1.Stack{
 				Spec: shared.StackSpec{},
@@ -2697,4 +2717,26 @@ func TestStackStatusConcurrentModification(t *testing.T) {
 
 	readyCond := meta.FindStatusCondition(result.Status.Conditions, pulumiv1.ReadyCondition)
 	require.NotNil(t, readyCond, "expected Ready condition on stack")
+}
+
+func TestResyncFreq(t *testing.T) {
+	tests := []struct {
+		name     string
+		seconds  int64
+		expected time.Duration
+	}{
+		{"negative value disables resyncs", -1, time.Duration(math.MaxInt64)},
+		{"zero defaults to 60s", 0, 60 * time.Second},
+		{"values below 60 are clamped to 60s", 30, 60 * time.Second},
+		{"60 seconds", 60, 60 * time.Second},
+		{"custom value", 300, 300 * time.Second},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stack := &pulumiv1.Stack{
+				Spec: shared.StackSpec{ResyncFrequencySeconds: tt.seconds},
+			}
+			assert.Equal(t, tt.expected, resyncFreq(stack))
+		})
+	}
 }

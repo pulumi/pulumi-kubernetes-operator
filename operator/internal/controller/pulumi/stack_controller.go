@@ -1263,6 +1263,10 @@ func cooldown(stack *pulumiv1.Stack) time.Duration {
 // resyncFreq determines how often a stack should be re-synced, for example to
 // poll for new commits.
 func resyncFreq(stack *pulumiv1.Stack) time.Duration {
+	if stack.Spec.ResyncFrequencySeconds < 0 {
+		// A negative value disables periodic resyncs.
+		return time.Duration(math.MaxInt64)
+	}
 	resyncFreq := time.Duration(stack.Spec.ResyncFrequencySeconds) * time.Second
 	if resyncFreq.Seconds() < 60 {
 		resyncFreq = 60 * time.Second

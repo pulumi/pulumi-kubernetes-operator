@@ -150,6 +150,7 @@ type StackSpec struct {
 	// the specified frequency even if no changes to the custom resource are detected.
 	// If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency.
 	// The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.
+	// Set to a negative value (e.g. -1) to disable periodic resyncs.
 	ResyncFrequencySeconds int64 `json:"resyncFrequencySeconds,omitempty"`
 
 	// ServiceAccountName is the Kubernetes service account identity of the stack's workspace.
