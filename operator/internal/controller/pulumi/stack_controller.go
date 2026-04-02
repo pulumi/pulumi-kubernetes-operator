@@ -509,7 +509,7 @@ var errProgramNotFound = fmt.Errorf("unable to retrieve program for stack")
 //+kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=ocirepositories,verbs=get;list;watch
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=workspaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=auto.pulumi.com,resources=updates,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;delete
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;update;patch
 
@@ -1101,6 +1101,15 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 			}
 		}
 		instance.Status.Outputs = outputs
+
+		// Delete the outputs secret now that its data has been absorbed into
+		// the stack status. This prevents accumulation of output secrets when
+		// stacks are frequently resynced. The secret will eventually be GC'd
+		// with its owner Update CR anyway, but eager deletion avoids pressure
+		// on etcd from unbounded secret growth.
+		if err := r.Delete(ctx, &secret); client.IgnoreNotFound(err) != nil {
+			ctrllog.FromContext(ctx).Error(err, "unable to delete outputs secret (best-effort)", "secret", secret.Name)
+		}
 	}
 
 	instance.Status.LastUpdate = &shared.StackUpdateState{
