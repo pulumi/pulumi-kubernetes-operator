@@ -121,6 +121,7 @@ type StackSpec struct {
 	// where GitOps style commit tracking is not sufficient.  Defaults to false, i.e. when a
 	// particular revision is successfully run, the operator will not attempt to rerun the program
 	// at that revision again.
+	// When enabled, the resync frequency is controlled by ResyncFrequencySeconds (default 60s).
 	ContinueResyncOnCommitMatch bool `json:"continueResyncOnCommitMatch,omitempty"`
 
 	// (optional) Refresh can be set to true to refresh the stack before it is updated.
@@ -146,10 +147,11 @@ type StackSpec struct {
 	// The default behavior is to create a stack if it doesn't exist.
 	UseLocalStackOnly bool `json:"useLocalStackOnly,omitempty"`
 
-	// (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at
-	// the specified frequency even if no changes to the custom resource are detected.
-	// If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency.
-	// The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.
+	// (optional) ResyncFrequencySeconds controls the frequency of periodic resyncs when
+	// ContinueResyncOnCommitMatch is true, and the frequency of commit polling when branch
+	// tracking is enabled. Has no effect when ContinueResyncOnCommitMatch is false and no
+	// branch is being tracked.
+	// The minimal resync frequency supported is 60 seconds. The default value is 60 seconds.
 	ResyncFrequencySeconds int64 `json:"resyncFrequencySeconds,omitempty"`
 
 	// ServiceAccountName is the Kubernetes service account identity of the stack's workspace.
