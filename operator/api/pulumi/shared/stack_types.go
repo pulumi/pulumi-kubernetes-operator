@@ -133,9 +133,9 @@ type StackSpec struct {
 	ExpectNoRefreshChanges bool `json:"expectNoRefreshChanges,omitempty"`
 	// (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the Stack custom resource.
 	DestroyOnFinalize bool `json:"destroyOnFinalize,omitempty"`
-	// (optional) RunProgram runs the program during destroy and refresh operations.
+	// (optional) RunProgram runs the program during destroy operations (when destroyOnFinalize is set).
 	// This is useful when the program performs setup (e.g., network access, credentials)
-	// needed for those operations to succeed.
+	// needed for the destroy to succeed.
 	RunProgram bool `json:"runProgram,omitempty"`
 	// (optional) RetryOnUpdateConflict issues a stack update retry reconciliation loop
 	// in the event that the update hits a HTTP 409 conflict due to

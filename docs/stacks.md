@@ -157,7 +157,8 @@ to update stacks even if the revision of the source matches. This might be usefu
 environments where Pulumi programs have dynamic elements for example, calls to internal APIs
 where GitOps style commit tracking is not sufficient.  Defaults to false, i.e. when a
 particular revision is successfully run, the operator will not attempt to rerun the program
-at that revision again.<br/>
+at that revision again.
+When enabled, the resync frequency is controlled by ResyncFrequencySeconds (default 60s).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -297,10 +298,13 @@ in the project source root.<br/>
         <td><b>resyncFrequencySeconds</b></td>
         <td>integer</td>
         <td>
-          (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at
-the specified frequency even if no changes to the custom resource are detected.
-If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency.
-The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.<br/>
+          (optional) ResyncFrequencySeconds controls two periodic behaviors:
+  1. When ContinueResyncOnCommitMatch is true, how often to re-run the stack
+     update for drift detection, even if the source revision hasn't changed.
+  2. When a git source with a branch is configured, how often to poll for
+     new commits on that branch.
+The minimum value is 60 seconds; values below 60 (including 0) are treated as 60.
+When unset, defaults to 60 seconds.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -334,9 +338,9 @@ and randomized activity timeline for the stack in the Pulumi Service.<br/>
         <td><b>runProgram</b></td>
         <td>boolean</td>
         <td>
-          (optional) RunProgram runs the program during destroy and refresh operations.
+          (optional) RunProgram runs the program during destroy operations (when destroyOnFinalize is set).
 This is useful when the program performs setup (e.g., network access, credentials)
-needed for those operations to succeed.<br/>
+needed for the destroy to succeed.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -779,6 +783,15 @@ strings are currently supported.<br/>
         <td>
           BasicAuth configures git authentication through basic auth —
 i.e. username and password. Both UserName and Password are required.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubapp">githubApp</a></b></td>
+        <td>object</td>
+        <td>
+          GitHubAppAuth configures GitHub App-based authentication for git operations.
+The operator exchanges the app credentials for a short-lived installation access token.
+All three fields are required and must reference a Kubernetes Secret.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1335,6 +1348,586 @@ LiteralRef refers to a literal value
 
 ### Stack.spec.gitAuth.basicAuth.userName.secret
 <sup><sup>[↩ Parent](#stackspecgitauthbasicauthusername)</sup></sup>
+
+
+
+SecretRef refers to a Kubernetes Secret
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the Secret to use.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the Secret<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp
+<sup><sup>[↩ Parent](#stackspecgitauth)</sup></sup>
+
+
+
+GitHubAppAuth configures GitHub App-based authentication for git operations.
+The operator exchanges the app credentials for a short-lived installation access token.
+All three fields are required and must reference a Kubernetes Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#stackspecgitauthgithubappappid">appID</a></b></td>
+        <td>object</td>
+        <td>
+          AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappinstallationid">installationID</a></b></td>
+        <td>object</td>
+        <td>
+          InstallationID is the numeric GitHub App installation ID, stored as a string in a Kubernetes Secret.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappprivatekey">privateKey</a></b></td>
+        <td>object</td>
+        <td>
+          PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kubernetes Secret.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.appID
+<sup><sup>[↩ Parent](#stackspecgitauthgithubapp)</sup></sup>
+
+
+
+AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappappidenv">env</a></b></td>
+        <td>object</td>
+        <td>
+          Env selects an environment variable set on the operator process<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappappidfilesystem">filesystem</a></b></td>
+        <td>object</td>
+        <td>
+          FileSystem selects a file on the operator's file system<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappappidliteral">literal</a></b></td>
+        <td>object</td>
+        <td>
+          LiteralRef refers to a literal value<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappappidsecret">secret</a></b></td>
+        <td>object</td>
+        <td>
+          SecretRef refers to a Kubernetes Secret<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.appID.env
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappappid)</sup></sup>
+
+
+
+Env selects an environment variable set on the operator process
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the environment variable<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.appID.filesystem
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappappid)</sup></sup>
+
+
+
+FileSystem selects a file on the operator's file system
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Path on the filesystem to use to load information from.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.appID.literal
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappappid)</sup></sup>
+
+
+
+LiteralRef refers to a literal value
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>value</b></td>
+        <td>string</td>
+        <td>
+          Value to load<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.appID.secret
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappappid)</sup></sup>
+
+
+
+SecretRef refers to a Kubernetes Secret
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the Secret to use.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the Secret<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.installationID
+<sup><sup>[↩ Parent](#stackspecgitauthgithubapp)</sup></sup>
+
+
+
+InstallationID is the numeric GitHub App installation ID, stored as a string in a Kubernetes Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappinstallationidenv">env</a></b></td>
+        <td>object</td>
+        <td>
+          Env selects an environment variable set on the operator process<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappinstallationidfilesystem">filesystem</a></b></td>
+        <td>object</td>
+        <td>
+          FileSystem selects a file on the operator's file system<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappinstallationidliteral">literal</a></b></td>
+        <td>object</td>
+        <td>
+          LiteralRef refers to a literal value<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappinstallationidsecret">secret</a></b></td>
+        <td>object</td>
+        <td>
+          SecretRef refers to a Kubernetes Secret<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.installationID.env
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappinstallationid)</sup></sup>
+
+
+
+Env selects an environment variable set on the operator process
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the environment variable<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.installationID.filesystem
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappinstallationid)</sup></sup>
+
+
+
+FileSystem selects a file on the operator's file system
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Path on the filesystem to use to load information from.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.installationID.literal
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappinstallationid)</sup></sup>
+
+
+
+LiteralRef refers to a literal value
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>value</b></td>
+        <td>string</td>
+        <td>
+          Value to load<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.installationID.secret
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappinstallationid)</sup></sup>
+
+
+
+SecretRef refers to a Kubernetes Secret
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the Secret to use.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the Secret<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.privateKey
+<sup><sup>[↩ Parent](#stackspecgitauthgithubapp)</sup></sup>
+
+
+
+PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kubernetes Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappprivatekeyenv">env</a></b></td>
+        <td>object</td>
+        <td>
+          Env selects an environment variable set on the operator process<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappprivatekeyfilesystem">filesystem</a></b></td>
+        <td>object</td>
+        <td>
+          FileSystem selects a file on the operator's file system<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappprivatekeyliteral">literal</a></b></td>
+        <td>object</td>
+        <td>
+          LiteralRef refers to a literal value<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappprivatekeysecret">secret</a></b></td>
+        <td>object</td>
+        <td>
+          SecretRef refers to a Kubernetes Secret<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.privateKey.env
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappprivatekey)</sup></sup>
+
+
+
+Env selects an environment variable set on the operator process
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the environment variable<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.privateKey.filesystem
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappprivatekey)</sup></sup>
+
+
+
+FileSystem selects a file on the operator's file system
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Path on the filesystem to use to load information from.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.privateKey.literal
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappprivatekey)</sup></sup>
+
+
+
+LiteralRef refers to a literal value
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>value</b></td>
+        <td>string</td>
+        <td>
+          Value to load<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.privateKey.secret
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappprivatekey)</sup></sup>
 
 
 
@@ -3506,6 +4099,14 @@ with apply.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecgitauthgithubapp">githubApp</a></b></td>
+        <td>object</td>
+        <td>
+          GitHubAppAuthApplyConfiguration represents a declarative configuration of the GitHubAppAuth type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecgitauthpassword">password</a></b></td>
         <td>object</td>
         <td>
@@ -3531,6 +4132,189 @@ with apply.
         <td>object</td>
         <td>
           SecretKeySelector selects a key of a Secret.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.git.auth.githubApp
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecgitauth)</sup></sup>
+
+
+
+GitHubAppAuthApplyConfiguration represents a declarative configuration of the GitHubAppAuth type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecgitauthgithubappappid">appID</a></b></td>
+        <td>object</td>
+        <td>
+          SecretKeySelector selects a key of a Secret.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecgitauthgithubappinstallationid">installationID</a></b></td>
+        <td>object</td>
+        <td>
+          SecretKeySelector selects a key of a Secret.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecgitauthgithubappprivatekey">privateKey</a></b></td>
+        <td>object</td>
+        <td>
+          SecretKeySelector selects a key of a Secret.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.git.auth.githubApp.appID
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecgitauthgithubapp)</sup></sup>
+
+
+
+SecretKeySelector selects a key of a Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key of the secret to select from.  Must be a valid secret key.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.git.auth.githubApp.installationID
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecgitauthgithubapp)</sup></sup>
+
+
+
+SecretKeySelector selects a key of a Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key of the secret to select from.  Must be a valid secret key.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.git.auth.githubApp.privateKey
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecgitauthgithubapp)</sup></sup>
+
+
+
+SecretKeySelector selects a key of a Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key of the secret to select from.  Must be a valid secret key.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the Secret or its key must be defined<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -20986,7 +21770,8 @@ to update stacks even if the revision of the source matches. This might be usefu
 environments where Pulumi programs have dynamic elements for example, calls to internal APIs
 where GitOps style commit tracking is not sufficient.  Defaults to false, i.e. when a
 particular revision is successfully run, the operator will not attempt to rerun the program
-at that revision again.<br/>
+at that revision again.
+When enabled, the resync frequency is controlled by ResyncFrequencySeconds (default 60s).<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -21126,10 +21911,13 @@ in the project source root.<br/>
         <td><b>resyncFrequencySeconds</b></td>
         <td>integer</td>
         <td>
-          (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at
-the specified frequency even if no changes to the custom resource are detected.
-If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency.
-The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.<br/>
+          (optional) ResyncFrequencySeconds controls two periodic behaviors:
+  1. When ContinueResyncOnCommitMatch is true, how often to re-run the stack
+     update for drift detection, even if the source revision hasn't changed.
+  2. When a git source with a branch is configured, how often to poll for
+     new commits on that branch.
+The minimum value is 60 seconds; values below 60 (including 0) are treated as 60.
+When unset, defaults to 60 seconds.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -21163,9 +21951,9 @@ and randomized activity timeline for the stack in the Pulumi Service.<br/>
         <td><b>runProgram</b></td>
         <td>boolean</td>
         <td>
-          (optional) RunProgram runs the program during destroy and refresh operations.
+          (optional) RunProgram runs the program during destroy operations (when destroyOnFinalize is set).
 This is useful when the program performs setup (e.g., network access, credentials)
-needed for those operations to succeed.<br/>
+needed for the destroy to succeed.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -21608,6 +22396,15 @@ strings are currently supported.<br/>
         <td>
           BasicAuth configures git authentication through basic auth —
 i.e. username and password. Both UserName and Password are required.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubapp-1">githubApp</a></b></td>
+        <td>object</td>
+        <td>
+          GitHubAppAuth configures GitHub App-based authentication for git operations.
+The operator exchanges the app credentials for a short-lived installation access token.
+All three fields are required and must reference a Kubernetes Secret.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22164,6 +22961,586 @@ LiteralRef refers to a literal value
 
 ### Stack.spec.gitAuth.basicAuth.userName.secret
 <sup><sup>[↩ Parent](#stackspecgitauthbasicauthusername-1)</sup></sup>
+
+
+
+SecretRef refers to a Kubernetes Secret
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the Secret to use.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the Secret<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp
+<sup><sup>[↩ Parent](#stackspecgitauth-1)</sup></sup>
+
+
+
+GitHubAppAuth configures GitHub App-based authentication for git operations.
+The operator exchanges the app credentials for a short-lived installation access token.
+All three fields are required and must reference a Kubernetes Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#stackspecgitauthgithubappappid-1">appID</a></b></td>
+        <td>object</td>
+        <td>
+          AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappinstallationid-1">installationID</a></b></td>
+        <td>object</td>
+        <td>
+          InstallationID is the numeric GitHub App installation ID, stored as a string in a Kubernetes Secret.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappprivatekey-1">privateKey</a></b></td>
+        <td>object</td>
+        <td>
+          PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kubernetes Secret.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.appID
+<sup><sup>[↩ Parent](#stackspecgitauthgithubapp-1)</sup></sup>
+
+
+
+AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappappidenv-1">env</a></b></td>
+        <td>object</td>
+        <td>
+          Env selects an environment variable set on the operator process<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappappidfilesystem-1">filesystem</a></b></td>
+        <td>object</td>
+        <td>
+          FileSystem selects a file on the operator's file system<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappappidliteral-1">literal</a></b></td>
+        <td>object</td>
+        <td>
+          LiteralRef refers to a literal value<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappappidsecret-1">secret</a></b></td>
+        <td>object</td>
+        <td>
+          SecretRef refers to a Kubernetes Secret<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.appID.env
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappappid-1)</sup></sup>
+
+
+
+Env selects an environment variable set on the operator process
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the environment variable<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.appID.filesystem
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappappid-1)</sup></sup>
+
+
+
+FileSystem selects a file on the operator's file system
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Path on the filesystem to use to load information from.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.appID.literal
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappappid-1)</sup></sup>
+
+
+
+LiteralRef refers to a literal value
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>value</b></td>
+        <td>string</td>
+        <td>
+          Value to load<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.appID.secret
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappappid-1)</sup></sup>
+
+
+
+SecretRef refers to a Kubernetes Secret
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the Secret to use.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the Secret<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.installationID
+<sup><sup>[↩ Parent](#stackspecgitauthgithubapp-1)</sup></sup>
+
+
+
+InstallationID is the numeric GitHub App installation ID, stored as a string in a Kubernetes Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappinstallationidenv-1">env</a></b></td>
+        <td>object</td>
+        <td>
+          Env selects an environment variable set on the operator process<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappinstallationidfilesystem-1">filesystem</a></b></td>
+        <td>object</td>
+        <td>
+          FileSystem selects a file on the operator's file system<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappinstallationidliteral-1">literal</a></b></td>
+        <td>object</td>
+        <td>
+          LiteralRef refers to a literal value<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappinstallationidsecret-1">secret</a></b></td>
+        <td>object</td>
+        <td>
+          SecretRef refers to a Kubernetes Secret<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.installationID.env
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappinstallationid-1)</sup></sup>
+
+
+
+Env selects an environment variable set on the operator process
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the environment variable<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.installationID.filesystem
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappinstallationid-1)</sup></sup>
+
+
+
+FileSystem selects a file on the operator's file system
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Path on the filesystem to use to load information from.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.installationID.literal
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappinstallationid-1)</sup></sup>
+
+
+
+LiteralRef refers to a literal value
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>value</b></td>
+        <td>string</td>
+        <td>
+          Value to load<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.installationID.secret
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappinstallationid-1)</sup></sup>
+
+
+
+SecretRef refers to a Kubernetes Secret
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          Key within the Secret to use.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the Secret<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>namespace</b></td>
+        <td>string</td>
+        <td>
+          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+unless namespace isolation is disabled in the controller.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.privateKey
+<sup><sup>[↩ Parent](#stackspecgitauthgithubapp-1)</sup></sup>
+
+
+
+PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kubernetes Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          SelectorType is required and signifies the type of selector. Must be one of:
+Env, FS, Secret, Literal<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappprivatekeyenv-1">env</a></b></td>
+        <td>object</td>
+        <td>
+          Env selects an environment variable set on the operator process<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappprivatekeyfilesystem-1">filesystem</a></b></td>
+        <td>object</td>
+        <td>
+          FileSystem selects a file on the operator's file system<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappprivatekeyliteral-1">literal</a></b></td>
+        <td>object</td>
+        <td>
+          LiteralRef refers to a literal value<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecgitauthgithubappprivatekeysecret-1">secret</a></b></td>
+        <td>object</td>
+        <td>
+          SecretRef refers to a Kubernetes Secret<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.privateKey.env
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappprivatekey-1)</sup></sup>
+
+
+
+Env selects an environment variable set on the operator process
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the environment variable<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.privateKey.filesystem
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappprivatekey-1)</sup></sup>
+
+
+
+FileSystem selects a file on the operator's file system
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>path</b></td>
+        <td>string</td>
+        <td>
+          Path on the filesystem to use to load information from.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.privateKey.literal
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappprivatekey-1)</sup></sup>
+
+
+
+LiteralRef refers to a literal value
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>value</b></td>
+        <td>string</td>
+        <td>
+          Value to load<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.gitAuth.githubApp.privateKey.secret
+<sup><sup>[↩ Parent](#stackspecgitauthgithubappprivatekey-1)</sup></sup>
 
 
 
@@ -24335,6 +25712,14 @@ with apply.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecgitauthgithubapp-1">githubApp</a></b></td>
+        <td>object</td>
+        <td>
+          GitHubAppAuthApplyConfiguration represents a declarative configuration of the GitHubAppAuth type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecgitauthpassword-1">password</a></b></td>
         <td>object</td>
         <td>
@@ -24360,6 +25745,189 @@ with apply.
         <td>object</td>
         <td>
           SecretKeySelector selects a key of a Secret.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.git.auth.githubApp
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecgitauth-1)</sup></sup>
+
+
+
+GitHubAppAuthApplyConfiguration represents a declarative configuration of the GitHubAppAuth type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecgitauthgithubappappid-1">appID</a></b></td>
+        <td>object</td>
+        <td>
+          SecretKeySelector selects a key of a Secret.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecgitauthgithubappinstallationid-1">installationID</a></b></td>
+        <td>object</td>
+        <td>
+          SecretKeySelector selects a key of a Secret.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecgitauthgithubappprivatekey-1">privateKey</a></b></td>
+        <td>object</td>
+        <td>
+          SecretKeySelector selects a key of a Secret.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.git.auth.githubApp.appID
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecgitauthgithubapp-1)</sup></sup>
+
+
+
+SecretKeySelector selects a key of a Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key of the secret to select from.  Must be a valid secret key.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.git.auth.githubApp.installationID
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecgitauthgithubapp-1)</sup></sup>
+
+
+
+SecretKeySelector selects a key of a Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key of the secret to select from.  Must be a valid secret key.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.git.auth.githubApp.privateKey
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecgitauthgithubapp-1)</sup></sup>
+
+
+
+SecretKeySelector selects a key of a Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key of the secret to select from.  Must be a valid secret key.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the Secret or its key must be defined<br/>
         </td>
         <td>false</td>
       </tr></tbody>

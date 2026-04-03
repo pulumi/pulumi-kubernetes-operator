@@ -896,9 +896,9 @@ spec:
                 type: boolean
               runProgram:
                 description: |-
-                  (optional) RunProgram runs the program during destroy and refresh operations.
+                  (optional) RunProgram runs the program during destroy operations (when destroyOnFinalize is set).
                   This is useful when the program performs setup (e.g., network access, credentials)
-                  needed for those operations to succeed.
+                  needed for the destroy to succeed.
                 type: boolean
               secrets:
                 additionalProperties:
@@ -11466,9 +11466,9 @@ spec:
                 type: boolean
               runProgram:
                 description: |-
-                  (optional) RunProgram runs the program during destroy and refresh operations.
+                  (optional) RunProgram runs the program during destroy operations (when destroyOnFinalize is set).
                   This is useful when the program performs setup (e.g., network access, credentials)
-                  needed for those operations to succeed.
+                  needed for the destroy to succeed.
                 type: boolean
               secrets:
                 additionalProperties:
