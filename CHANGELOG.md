@@ -3,7 +3,7 @@ CHANGELOG
 
 ## Unreleased
 
-## 2.6.0 (2026-04-06)
+## 2.7.0 (2026-04-06)
 
 - Add GitHub App authentication for git sources [#1167](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1167)
 - Support for `runProgram`: Add `runProgram` field to Stack CRD to support `--run-program` on destroy and refresh operations [#1171](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1171)
