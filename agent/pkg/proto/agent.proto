@@ -144,6 +144,8 @@ message RefreshRequest {
   optional bool expect_no_changes = 3;
   // Specify an exclusive list of resource URNs to refresh
   repeated string target = 4;
+  // Run the program in the workspace during refresh.
+  optional bool run_program = 5;
 }
 
 message RefreshStream {
@@ -275,6 +277,8 @@ message DestroyRequest {
   // Remove the stack and its configuration after all resources in the stack
   // have been deleted.
   optional bool remove = 7;
+  // Run the program in the workspace before destroying resources.
+  optional bool run_program = 8;
 }
 
 message DestroyStream {

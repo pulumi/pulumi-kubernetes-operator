@@ -1129,6 +1129,12 @@ func TestRefresh(t *testing.T) {
 			serverOpts: &Options{PulumiLogLevel: 11},
 			req:        &pb.RefreshRequest{},
 		},
+		{
+			name:       "with run-program",
+			projectDir: "./testdata/simple",
+			stacks:     []string{TestStackName},
+			req:        &pb.RefreshRequest{RunProgram: ptr.To(true)},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1217,6 +1223,12 @@ func TestDestroy(t *testing.T) {
 			stacks:     []string{TestStackName},
 			serverOpts: &Options{PulumiLogLevel: 11},
 			req:        &pb.DestroyRequest{},
+		},
+		{
+			name:       "with run-program",
+			projectDir: "./testdata/simple",
+			stacks:     []string{TestStackName},
+			req:        &pb.DestroyRequest{RunProgram: ptr.To(true)},
 		},
 	}
 	for _, tt := range tests {

@@ -73,6 +73,10 @@ type UpdateSpec struct {
 	// Remove the stack and its configuration after all resources in the stack
 	// have been deleted.
 	Remove *bool `json:"remove,omitempty"`
+	// RunProgram runs the program before performing the operation.
+	// Applicable to destroy and refresh operations.
+	// +optional
+	RunProgram *bool `json:"runProgram,omitempty"`
 }
 
 // UpdateStatus defines the observed state of Update

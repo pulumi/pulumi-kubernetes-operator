@@ -500,6 +500,7 @@ func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update
 		Message:         obj.Spec.Message,
 		ExpectNoChanges: obj.Spec.ExpectNoChanges,
 		Target:          obj.Spec.Target,
+		RunProgram:      obj.Spec.RunProgram,
 	}
 
 	l.Info("Executing refresh operation", "request", autoReq)
@@ -539,6 +540,7 @@ func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update
 		Refresh:          obj.Spec.Refresh,
 		ContinueOnError:  obj.Spec.ContinueOnError,
 		Remove:           obj.Spec.Remove,
+		RunProgram:       obj.Spec.RunProgram,
 	}
 
 	l.Info("Executing destroy operation", "request", autoReq)

@@ -1699,7 +1699,7 @@ func (sess *stackReconcilerSession) newUp(_ context.Context, o *pulumiv1.Stack, 
 	return update, nil
 }
 
-// newUp runs `pulumi destroy` on the stack.
+// newDestroy runs `pulumi destroy` on the stack.
 func (sess *stackReconcilerSession) newDestroy(_ context.Context, o *pulumiv1.Stack, message string) (*autov1alpha1.Update, error) {
 	labels := labelsForWorkspace(&o.ObjectMeta)
 	update := &autov1alpha1.Update{
@@ -1718,6 +1718,7 @@ func (sess *stackReconcilerSession) newDestroy(_ context.Context, o *pulumiv1.St
 			Type:              autov1alpha1.DestroyType,
 			TtlAfterCompleted: &metav1.Duration{Duration: ttlForCompletedUpdate},
 			Message:           ptr.To(message),
+			RunProgram:        ptr.To(o.Spec.RunProgram),
 		},
 	}
 
