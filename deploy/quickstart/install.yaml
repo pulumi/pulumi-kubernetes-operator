@@ -410,6 +410,7 @@ spec:
                   where GitOps style commit tracking is not sufficient.  Defaults to false, i.e. when a
                   particular revision is successfully run, the operator will not attempt to rerun the program
                   at that revision again.
+                  When enabled, the resync frequency is controlled by ResyncFrequencySeconds (default 60s).
                 type: boolean
               destroyOnFinalize:
                 description: (optional) DestroyOnFinalize can be set to true to destroy
@@ -1140,10 +1141,13 @@ spec:
                 type: string
               resyncFrequencySeconds:
                 description: |-
-                  (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at
-                  the specified frequency even if no changes to the custom resource are detected.
-                  If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency.
-                  The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.
+                  (optional) ResyncFrequencySeconds controls two periodic behaviors:
+                    1. When ContinueResyncOnCommitMatch is true, how often to re-run the stack
+                       update for drift detection, even if the source revision hasn't changed.
+                    2. When a git source with a branch is configured, how often to poll for
+                       new commits on that branch.
+                  The minimum value is 60 seconds; values below 60 (including 0) are treated as 60.
+                  When unset, defaults to 60 seconds.
                 format: int64
                 type: integer
               retryMaxBackoffDurationSeconds:
@@ -1163,6 +1167,12 @@ spec:
                   idempotent, and if you are willing to accept retry loops until
                   all spawned retries succeed. This will also create a more populated,
                   and randomized activity timeline for the stack in the Pulumi Service.
+                type: boolean
+              runProgram:
+                description: |-
+                  (optional) RunProgram runs the program during destroy operations (when destroyOnFinalize is set).
+                  This is useful when the program performs setup (e.g., network access, credentials)
+                  needed for the destroy to succeed.
                 type: boolean
               secrets:
                 additionalProperties:
@@ -1373,6 +1383,8 @@ spec:
                         items:
                           type: string
                         type: array
+                      runProgram:
+                        type: boolean
                       stackName:
                         type: string
                       target:
@@ -10968,6 +10980,7 @@ spec:
                   where GitOps style commit tracking is not sufficient.  Defaults to false, i.e. when a
                   particular revision is successfully run, the operator will not attempt to rerun the program
                   at that revision again.
+                  When enabled, the resync frequency is controlled by ResyncFrequencySeconds (default 60s).
                 type: boolean
               destroyOnFinalize:
                 description: (optional) DestroyOnFinalize can be set to true to destroy
@@ -11698,10 +11711,13 @@ spec:
                 type: string
               resyncFrequencySeconds:
                 description: |-
-                  (optional) ResyncFrequencySeconds when set to a non-zero value, triggers a resync of the stack at
-                  the specified frequency even if no changes to the custom resource are detected.
-                  If branch tracking is enabled (branch is non-empty), commit polling will occur at this frequency.
-                  The minimal resync frequency supported is 60 seconds. The default value for this field is 60 seconds.
+                  (optional) ResyncFrequencySeconds controls two periodic behaviors:
+                    1. When ContinueResyncOnCommitMatch is true, how often to re-run the stack
+                       update for drift detection, even if the source revision hasn't changed.
+                    2. When a git source with a branch is configured, how often to poll for
+                       new commits on that branch.
+                  The minimum value is 60 seconds; values below 60 (including 0) are treated as 60.
+                  When unset, defaults to 60 seconds.
                 format: int64
                 type: integer
               retryMaxBackoffDurationSeconds:
@@ -11721,6 +11737,12 @@ spec:
                   idempotent, and if you are willing to accept retry loops until
                   all spawned retries succeed. This will also create a more populated,
                   and randomized activity timeline for the stack in the Pulumi Service.
+                type: boolean
+              runProgram:
+                description: |-
+                  (optional) RunProgram runs the program during destroy operations (when destroyOnFinalize is set).
+                  This is useful when the program performs setup (e.g., network access, credentials)
+                  needed for the destroy to succeed.
                 type: boolean
               secrets:
                 additionalProperties:
@@ -11931,6 +11953,8 @@ spec:
                         items:
                           type: string
                         type: array
+                      runProgram:
+                        type: boolean
                       stackName:
                         type: string
                       target:
@@ -21436,6 +21460,11 @@ spec:
                 items:
                   type: string
                 type: array
+              runProgram:
+                description: |-
+                  RunProgram runs the program before performing the operation.
+                  Applicable to destroy and refresh operations.
+                type: boolean
               stackName:
                 description: Specify the Pulumi stack to select for the update.
                 type: string
@@ -31207,7 +31236,7 @@ spec:
           value: 10s
         - name: KUBE_API_TIMEOUT
           value: 30s
-        image: pulumi/pulumi-kubernetes-operator:v2.6.0
+        image: pulumi/pulumi-kubernetes-operator:v2.7.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
