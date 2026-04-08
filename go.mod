@@ -1,6 +1,6 @@
 module github.com/pulumi/pulumi-kubernetes-operator/v2
 
-go 1.25.6
+go 1.25.8
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
@@ -18,7 +18,7 @@ require (
 	github.com/operator-framework/operator-lib v0.15.0
 	github.com/prometheus/client_golang v1.22.0
 	github.com/prometheus/client_model v0.6.1
-	github.com/pulumi/pulumi/sdk/v3 v3.226.0
+	github.com/pulumi/pulumi/sdk/v3 v3.228.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.4.0
