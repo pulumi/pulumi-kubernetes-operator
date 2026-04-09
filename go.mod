@@ -1,12 +1,12 @@
 module github.com/pulumi/pulumi-kubernetes-operator/v2
 
-go 1.25.6
+go 1.25.8
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/fluxcd/pkg/http/fetch v0.11.0
 	github.com/fluxcd/source-controller/api v1.3.0
-	github.com/go-git/go-git/v5 v5.17.1
+	github.com/go-git/go-git/v5 v5.17.2
 	github.com/go-logr/logr v1.4.3
 	github.com/gogo/protobuf v1.3.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
@@ -18,13 +18,13 @@ require (
 	github.com/operator-framework/operator-lib v0.15.0
 	github.com/prometheus/client_golang v1.22.0
 	github.com/prometheus/client_model v0.6.1
-	github.com/pulumi/pulumi/sdk/v3 v3.226.0
+	github.com/pulumi/pulumi/sdk/v3 v3.230.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/mock v0.4.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/oauth2 v0.35.0
-	google.golang.org/grpc v1.79.3
+	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11
 	k8s.io/api v0.34.1
 	k8s.io/apiextensions-apiserver v0.34.1
