@@ -6,8 +6,8 @@
         "typescript": "^5.0.0"
     },
     "dependencies": {
-        "@pulumi/kubernetes": "4.28.0",
-        "@pulumi/pulumi": "3.230.0",
+        "@pulumi/kubernetes": "4.29.0",
+        "@pulumi/pulumi": "3.231.0",
         "@pulumi/pulumiservice": "0.36.0"
     }
 }
