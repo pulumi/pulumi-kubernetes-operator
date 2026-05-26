@@ -2062,12 +2062,28 @@ func TestIsSynced(t *testing.T) {
 			wantMessage: "Stack marked for deletion",
 		},
 		{
-			name: "marked for deletion",
+			name: "marked for deletion after successful up (destroy still needs to run)",
 			stack: pulumiv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},
 				Status: pulumiv1.StackStatus{
 					LastUpdate: &shared.StackUpdateState{
 						State:                shared.SucceededStackStateMessage,
+						Type:                 autov1alpha1.UpType,
+						LastSuccessfulCommit: "something-else",
+					},
+				},
+			},
+			want:        false,
+			wantMessage: "New commit detected: \"\"",
+		},
+		{
+			name: "marked for deletion after successful destroy (safe to finalize)",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						Type:                 autov1alpha1.DestroyType,
 						LastSuccessfulCommit: "something-else",
 					},
 				},

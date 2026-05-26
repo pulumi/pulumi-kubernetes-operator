@@ -1176,7 +1176,7 @@ func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.St
 	}
 
 	if stack.Status.LastUpdate.State == shared.SucceededStackStateMessage {
-		if stack.DeletionTimestamp != nil { // Marked for deletion (and has already been destroyed).
+		if stack.DeletionTimestamp != nil && stack.Status.LastUpdate.Type == autov1alpha1.DestroyType {
 			return true, ""
 		}
 		if stack.Status.LastUpdate.LastSuccessfulCommit != currentCommit {
