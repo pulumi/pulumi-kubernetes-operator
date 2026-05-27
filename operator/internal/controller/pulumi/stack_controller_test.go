@@ -2062,18 +2062,50 @@ func TestIsSynced(t *testing.T) {
 			wantMessage: "Stack marked for deletion",
 		},
 		{
-			name: "marked for deletion",
+			name: "marked for deletion after successful up, matching commit (destroy still needs to run)",
 			stack: pulumiv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},
 				Status: pulumiv1.StackStatus{
 					LastUpdate: &shared.StackUpdateState{
 						State:                shared.SucceededStackStateMessage,
-						LastSuccessfulCommit: "something-else",
+						Type:                 autov1alpha1.UpType,
+						LastSuccessfulCommit: "abc",
 					},
 				},
 			},
-			want:        true,
-			wantMessage: "",
+			currentCommit: "abc",
+			want:          false,
+			wantMessage:   "Stack marked for deletion",
+		},
+		{
+			name: "marked for deletion after successful up, no source (LastSuccessfulCommit and currentCommit both empty)",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State: shared.SucceededStackStateMessage,
+						Type:  autov1alpha1.UpType,
+					},
+				},
+			},
+			want:        false,
+			wantMessage: "Stack marked for deletion",
+		},
+		{
+			name: "marked for deletion after successful destroy (safe to finalize)",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(metav1.Now())},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						Type:                 autov1alpha1.DestroyType,
+						LastSuccessfulCommit: "abc",
+					},
+				},
+			},
+			currentCommit: "abc",
+			want:          true,
+			wantMessage:   "",
 		},
 		{
 			name: "last update succeeeded but a new commit is available",

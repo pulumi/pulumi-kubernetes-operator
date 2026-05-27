@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+- Fix `destroyOnFinalize: true` silently skipping `pulumi destroy` for any Stack that had been successfully reconciled [#1223](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1223)
+
 ## 2.7.0 (2026-04-06)
 
 - Add GitHub App authentication for git sources [#1167](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1167)
