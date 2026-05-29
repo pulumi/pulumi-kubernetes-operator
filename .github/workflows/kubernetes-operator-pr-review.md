@@ -18,8 +18,10 @@ imports:
 - shared/review.md
 - shared/plugins/code-review/code-review.md
 description: Automated PR review for trusted internal contributors.
-source: pulumi-labs/gh-aw-internal/.github/workflows/gh-aw-pr-review.md@8a92f53fac170563f7727cacab2dbedb5d5b9e29
+source: pulumi-labs/gh-aw-internal/.github/workflows/gh-aw-pr-review.md@242988150273951aad5f67b008256266bdff6112
 strict: true
 timeout-minutes: 15
 ---
 # Internal Trusted PR Reviewer
+
+Draft review policy: This workflow may review draft PRs only when manually dispatched with `workflow_dispatch`. For automatic `pull_request` runs, call `noop` if the pull request is a draft.
