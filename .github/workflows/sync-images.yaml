@@ -36,7 +36,7 @@ jobs:
     steps:
       - name: Fetch secrets from ESC
         id: esc-secrets
-        uses: pulumi/esc-action@197ccaa42ab49560ce838a3010eb8345ce086896 # v1
+        uses: pulumi/esc-action@f3cfbabf37488463817366338165b92b5f99117e # v2
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4
         with:
