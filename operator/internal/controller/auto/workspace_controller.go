@@ -51,7 +51,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -577,11 +576,6 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 		command = append(command, "--pulumi-log-level", strconv.Itoa(int(w.Spec.PulumiLogVerbosity)))
 	}
 
-	boot, err := bootstrapContainer(image, imagePullPolicy, source.Stub)
-	if err != nil {
-		return nil, err
-	}
-
 	statefulset := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "StatefulSet",
@@ -614,7 +608,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 					},
 					TerminationGracePeriodSeconds: ptr.To[int64](WorkspacePodTerminationGracePeriodSeconds),
 					InitContainers: []corev1.Container{
-						boot,
+						bootstrapContainer(image, imagePullPolicy),
 					},
 					Containers: []corev1.Container{
 						{
@@ -806,6 +800,33 @@ ln -s "/share/source/$FLUX_DIR" /share/workspace
 		statefulset.Spec.Template.Spec.InitContainers = append(statefulset.Spec.Template.Spec.InitContainers, container)
 	}
 
+	if source.ProjectInfo != nil {
+		script := `/share/agent init -t /share/workspace --project-name "$PROJECT_NAME" --project-runtime "$PROJECT_RUNTIME"`
+		container := corev1.Container{
+			Name:            "fetch",
+			Image:           image,
+			ImagePullPolicy: imagePullPolicy,
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      WorkspaceShareVolumeName,
+					MountPath: WorkspaceShareMountPath,
+				},
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "PROJECT_NAME",
+					Value: source.ProjectInfo.Name,
+				},
+				{
+					Name:  "PROJECT_RUNTIME",
+					Value: source.ProjectInfo.Runtime,
+				},
+			},
+			Args: []string{"sh", "-c", script},
+		}
+		statefulset.Spec.Template.Spec.InitContainers = append(statefulset.Spec.Template.Spec.InitContainers, container)
+	}
+
 	// apply the 'restricted' security profile as necessary
 	if w.Spec.SecurityProfile == autov1alpha1.SecurityProfileRestricted {
 		sc := statefulset.Spec.Template.Spec.SecurityContext
@@ -900,7 +921,7 @@ type sourceSpec struct {
 	Git          *gitSource
 	Flux         *fluxSource
 	Local        *localSource
-	Stub         *stubSource
+	ProjectInfo  *projectInfoSource
 }
 
 type gitSource struct {
@@ -925,7 +946,7 @@ type localSource struct {
 	Dir string
 }
 
-type stubSource struct {
+type projectInfoSource struct {
 	Name    string
 	Runtime string
 }
@@ -965,24 +986,24 @@ func newSourceSpec(w *autov1alpha1.Workspace) *sourceSpec {
 			Dir: w.Spec.Local.Dir,
 		}
 	}
-	if w.Spec.Stub != nil {
-		s.Stub = &stubSource{
-			Name:    w.Spec.Stub.Name,
-			Runtime: w.Spec.Stub.Runtime,
+	if w.Spec.ProjectInfo != nil {
+		s.ProjectInfo = &projectInfoSource{
+			Name:    w.Spec.ProjectInfo.Name,
+			Runtime: w.Spec.ProjectInfo.Runtime,
 		}
 	}
 	return s
 }
 
 // bootstrapContainer builds the workspace's bootstrap init container. The
-// non-stub variant just copies the agent + tini binaries into the shared
+// non-project-info variant just copies the agent + tini binaries into the shared
 // volume; a separate `fetch` init container handles source resolution. The
-// stub variant additionally creates the workspace dir and writes a minimal
+// project-info variant additionally creates the workspace dir and writes a minimal
 // Pulumi.yaml derived from the cached project info, so the agent can start
-// and select the stack without source — used for state-only destroy when
+// and select the stack without source — used for project-info destroy when
 // the source artifact is unavailable (#1222).
-func bootstrapContainer(image string, pullPolicy corev1.PullPolicy, stub *stubSource) (corev1.Container, error) {
-	c := corev1.Container{
+func bootstrapContainer(image string, pullPolicy corev1.PullPolicy) corev1.Container {
+	return corev1.Container{
 		Name:            "bootstrap",
 		Image:           image,
 		ImagePullPolicy: pullPolicy,
@@ -994,22 +1015,6 @@ func bootstrapContainer(image string, pullPolicy corev1.PullPolicy, stub *stubSo
 		},
 		Args: []string{"cp", "/agent", "/tini", "/share/"},
 	}
-	if stub != nil {
-		// Render the stub Pulumi.yaml in Go so the project name and runtime are valid
-		// YAML regardless of their contents, then write it verbatim in the pod.
-		projectYAML, err := yaml.Marshal(struct {
-			Name    string `json:"name"`
-			Runtime string `json:"runtime"`
-		}{Name: stub.Name, Runtime: stub.Runtime})
-		if err != nil {
-			return corev1.Container{}, fmt.Errorf("rendering stub Pulumi.yaml: %w", err)
-		}
-		c.Args = []string{"sh", "-c", `cp /agent /tini /share/ && mkdir -p /share/workspace && printf '%s' "$STUB_PULUMI_YAML" > /share/workspace/Pulumi.yaml`}
-		c.Env = []corev1.EnvVar{
-			{Name: "STUB_PULUMI_YAML", Value: string(projectYAML)},
-		}
-	}
-	return c, nil
 }
 
 func (s *sourceSpec) Hash() string {

@@ -886,8 +886,8 @@ func TestWorkspaceStatusConcurrentModification(t *testing.T) {
 }
 
 // TestToSourceSpec covers the translation from Workspace.Spec source fields
-// into the internal sourceSpec used for StatefulSet generation. The Stub
-// variant (#1222) must round-trip from Workspace.Spec.Stub → sourceSpec.Stub.
+// into the internal sourceSpec used for StatefulSet generation. The ProjectInfo
+// variant (#1222) must round-trip from Workspace.Spec.ProjectInfo → sourceSpec.ProjectInfo.
 func TestToSourceSpec(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -907,7 +907,7 @@ func TestToSourceSpec(t *testing.T) {
 				assert.Equal(t, "main", got.Git.Ref)
 				assert.Nil(t, got.Flux)
 				assert.Nil(t, got.Local)
-				assert.Nil(t, got.Stub)
+				assert.Nil(t, got.ProjectInfo)
 			},
 		},
 		{
@@ -920,7 +920,7 @@ func TestToSourceSpec(t *testing.T) {
 			check: func(t *testing.T, got *sourceSpec) {
 				require.NotNil(t, got.Flux)
 				assert.Equal(t, "http://flux/artifact.tgz", got.Flux.Url)
-				assert.Nil(t, got.Stub)
+				assert.Nil(t, got.ProjectInfo)
 			},
 		},
 		{
@@ -933,20 +933,20 @@ func TestToSourceSpec(t *testing.T) {
 			check: func(t *testing.T, got *sourceSpec) {
 				require.NotNil(t, got.Local)
 				assert.Equal(t, "/workspace/project", got.Local.Dir)
-				assert.Nil(t, got.Stub)
+				assert.Nil(t, got.ProjectInfo)
 			},
 		},
 		{
-			name: "Stub source (#1222)",
+			name: "ProjectInfo source (#1222)",
 			workspace: &autov1alpha1.Workspace{
 				Spec: autov1alpha1.WorkspaceSpec{
-					Stub: &autov1alpha1.StubSource{Name: "myproject", Runtime: "yaml"},
+					ProjectInfo: &autov1alpha1.ProjectInfoSource{Name: "myproject", Runtime: "yaml"},
 				},
 			},
 			check: func(t *testing.T, got *sourceSpec) {
-				require.NotNil(t, got.Stub, "Workspace.Spec.Stub must be translated to sourceSpec.Stub")
-				assert.Equal(t, "myproject", got.Stub.Name)
-				assert.Equal(t, "yaml", got.Stub.Runtime)
+				require.NotNil(t, got.ProjectInfo, "Workspace.Spec.ProjectInfo must be translated to sourceSpec.ProjectInfo")
+				assert.Equal(t, "myproject", got.ProjectInfo.Name)
+				assert.Equal(t, "yaml", got.ProjectInfo.Runtime)
 				assert.Nil(t, got.Git)
 				assert.Nil(t, got.Flux)
 				assert.Nil(t, got.Local)
@@ -963,15 +963,15 @@ func TestToSourceSpec(t *testing.T) {
 	}
 }
 
-// TestNewStatefulSet_StubSource covers the destroy-from-state path (#1222):
-// when sourceSpec has a Stub set, the generated StatefulSet must omit the
-// `fetch` init container entirely (no source to fetch) and the `bootstrap`
-// init container must write a minimal Pulumi.yaml derived from the stub
-// fields so the agent can start and select the stack.
-func TestNewStatefulSet_StubSource(t *testing.T) {
+// TestNewStatefulSet_ProjectInfoSource covers the destroy-from-state path (#1222):
+// when sourceSpec has a ProjectInfo set, the generated StatefulSet must include a
+// `fetch` init container that runs `agent init` with the projectInfo fields (so the
+// agent writes a minimal Pulumi.yaml), exactly like the git/flux/local sources.
+// The `bootstrap` init container stays copy-only.
+func TestNewStatefulSet_ProjectInfoSource(t *testing.T) {
 	w := &autov1alpha1.Workspace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ws-stub",
+			Name:      "ws-project-info",
 			Namespace: "default",
 		},
 		Spec: autov1alpha1.WorkspaceSpec{
@@ -979,7 +979,7 @@ func TestNewStatefulSet_StubSource(t *testing.T) {
 		},
 	}
 	src := &sourceSpec{
-		Stub: &stubSource{
+		ProjectInfo: &projectInfoSource{
 			Name:    "myproject",
 			Runtime: "yaml",
 		},
@@ -990,13 +990,30 @@ func TestNewStatefulSet_StubSource(t *testing.T) {
 
 	initContainers := ss.Spec.Template.Spec.InitContainers
 
-	t.Run("no fetch init container", func(t *testing.T) {
-		for _, c := range initContainers {
-			assert.NotEqual(t, "fetch", c.Name, "stub source must not produce a fetch init container")
+	t.Run("fetch init container runs agent init with projectInfo fields", func(t *testing.T) {
+		var fetch *corev1.Container
+		for i := range initContainers {
+			if initContainers[i].Name == "fetch" {
+				fetch = &initContainers[i]
+				break
+			}
 		}
+		require.NotNil(t, fetch, "expected a fetch init container for the projectInfo source")
+
+		argsJoined := strings.Join(fetch.Args, " ")
+		assert.Contains(t, argsJoined, "agent init", "fetch must invoke 'agent init'")
+		assert.Contains(t, argsJoined, "--project-name", "fetch must pass the projectInfo name flag")
+		assert.Contains(t, argsJoined, "--project-runtime", "fetch must pass the projectInfo runtime flag")
+
+		envByName := map[string]string{}
+		for _, e := range fetch.Env {
+			envByName[e.Name] = e.Value
+		}
+		assert.Equal(t, "myproject", envByName["PROJECT_NAME"], "projectInfo project name must be passed via env")
+		assert.Equal(t, "yaml", envByName["PROJECT_RUNTIME"], "projectInfo runtime must be passed via env")
 	})
 
-	t.Run("bootstrap init container writes a stub Pulumi.yaml", func(t *testing.T) {
+	t.Run("bootstrap init container only copies the agent binary", func(t *testing.T) {
 		var bootstrap *corev1.Container
 		for i := range initContainers {
 			if initContainers[i].Name == "bootstrap" {
@@ -1005,23 +1022,9 @@ func TestNewStatefulSet_StubSource(t *testing.T) {
 			}
 		}
 		require.NotNil(t, bootstrap, "expected a bootstrap init container")
-
-		// The container must reference Pulumi.yaml in its script (args).
 		argsJoined := strings.Join(bootstrap.Args, " ")
-		assert.Contains(t, argsJoined, "Pulumi.yaml", "bootstrap args must reference Pulumi.yaml when stub is set")
-
-		// The project name and runtime must be reachable from the container —
-		// either inlined in args or surfaced via env. Env is preferred for
-		// safety against shell injection.
-		envByName := map[string]string{}
-		for _, e := range bootstrap.Env {
-			envByName[e.Name] = e.Value
-		}
-		nameFound := strings.Contains(argsJoined, "myproject") || envByName["STUB_NAME"] == "myproject"
-		runtimeFound := strings.Contains(argsJoined, "\"yaml\"") || envByName["STUB_RUNTIME"] == "yaml" ||
-			strings.Contains(argsJoined, "runtime: yaml")
-		assert.True(t, nameFound, "stub project name must be available to the bootstrap container (args or env)")
-		assert.True(t, runtimeFound, "stub runtime name must be available to the bootstrap container (args or env)")
+		assert.NotContains(t, argsJoined, "Pulumi.yaml",
+			"bootstrap must not write Pulumi.yaml; that is the fetch container's job")
 	})
 }
 

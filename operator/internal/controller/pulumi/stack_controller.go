@@ -671,8 +671,8 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	// Step 1. Resolve the source and perform some preliminary workspace setup (but without actually
 	// creating the workspace yet, since it may or may not be needed).
 
-	if stubBypass(instance, &sess.ws.Spec) {
-		log.Info("Using stub workspace for destroy; skipping source resolution",
+	if projectInfoBypass(instance, &sess.ws.Spec) {
+		log.Info("Using project-info workspace for destroy; skipping source resolution",
 			"project", instance.Status.ProjectInfo.Name, "runtime", instance.Status.ProjectInfo.Runtime)
 		currentCommit = ""
 	} else {
@@ -1236,8 +1236,8 @@ func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.St
 	return true, ""
 }
 
-// shouldUseStubWorkspaceForDestroy reports whether the reconciler should
-// provision a stub workspace (no source fetch, stub Pulumi.yaml derived from
+// shouldUseProjectInfoWorkspaceForDestroy reports whether the reconciler should
+// provision a project-info workspace (no source fetch, project-info Pulumi.yaml derived from
 // Status.ProjectInfo) and destroy from the saved state, rather than resolving
 // the Stack's source. This decouples destroy from source availability — see #1222.
 //
@@ -1246,8 +1246,8 @@ func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.St
 //   - destroyOnFinalize=true (the user actually wants a destroy on finalize)
 //   - preview=false (preview never creates resources, so there's nothing to destroy)
 //   - runProgram=false (runProgram=true explicitly requires the source to be runnable)
-//   - Status.ProjectInfo is populated (we need project name+runtime to write the stub)
-func shouldUseStubWorkspaceForDestroy(stack *pulumiv1.Stack) bool {
+//   - Status.ProjectInfo is populated (we need project name+runtime to write the projectInfo)
+func shouldUseProjectInfoWorkspaceForDestroy(stack *pulumiv1.Stack) bool {
 	return stack.GetDeletionTimestamp() != nil &&
 		stack.Spec.DestroyOnFinalize &&
 		!stack.Spec.Preview &&
@@ -1255,8 +1255,8 @@ func shouldUseStubWorkspaceForDestroy(stack *pulumiv1.Stack) bool {
 		stack.Status.ProjectInfo != nil
 }
 
-func setStubSource(ws *autov1alpha1.WorkspaceSpec, info *shared.ProjectInfo) {
-	ws.Stub = &autov1alpha1.StubSource{
+func setProjectInfoSource(ws *autov1alpha1.WorkspaceSpec, info *shared.ProjectInfo) {
+	ws.ProjectInfo = &autov1alpha1.ProjectInfoSource{
 		Name:    info.Name,
 		Runtime: info.Runtime,
 	}
@@ -1265,11 +1265,11 @@ func setStubSource(ws *autov1alpha1.WorkspaceSpec, info *shared.ProjectInfo) {
 	ws.Local = nil
 }
 
-func stubBypass(stack *pulumiv1.Stack, ws *autov1alpha1.WorkspaceSpec) bool {
-	if !shouldUseStubWorkspaceForDestroy(stack) {
+func projectInfoBypass(stack *pulumiv1.Stack, ws *autov1alpha1.WorkspaceSpec) bool {
+	if !shouldUseProjectInfoWorkspaceForDestroy(stack) {
 		return false
 	}
-	setStubSource(ws, stack.Status.ProjectInfo)
+	setProjectInfoSource(ws, stack.Status.ProjectInfo)
 	return true
 }
 

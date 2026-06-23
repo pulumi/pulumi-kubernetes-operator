@@ -48,7 +48,7 @@ type StackStatus struct {
 
 	// ProjectInfo caches the project name and runtime from Pulumi.yaml as
 	// reported by the agent during a successful operation. Used to bootstrap
-	// a stub workspace for destroy when the source artifact is unavailable.
+	// a project-info workspace for destroy when the source artifact is unavailable.
 	// Persisted across the Stack's lifetime in etcd.
 	// +optional
 	ProjectInfo *shared.ProjectInfo `json:"projectInfo,omitempty"`

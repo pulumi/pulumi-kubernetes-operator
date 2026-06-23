@@ -16,23 +16,23 @@
 
 package v1alpha1
 
-// StubSourceApplyConfiguration represents a declarative configuration of the StubSource type for use
+// ProjectInfoSourceApplyConfiguration represents a declarative configuration of the ProjectInfoSource type for use
 // with apply.
-type StubSourceApplyConfiguration struct {
+type ProjectInfoSourceApplyConfiguration struct {
 	Name    *string `json:"name,omitempty"`
 	Runtime *string `json:"runtime,omitempty"`
 }
 
-// StubSourceApplyConfiguration constructs a declarative configuration of the StubSource type for use with
+// ProjectInfoSourceApplyConfiguration constructs a declarative configuration of the ProjectInfoSource type for use with
 // apply.
-func StubSource() *StubSourceApplyConfiguration {
-	return &StubSourceApplyConfiguration{}
+func ProjectInfoSource() *ProjectInfoSourceApplyConfiguration {
+	return &ProjectInfoSourceApplyConfiguration{}
 }
 
 // WithName sets the Name field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Name field is set to the value of the last call.
-func (b *StubSourceApplyConfiguration) WithName(value string) *StubSourceApplyConfiguration {
+func (b *ProjectInfoSourceApplyConfiguration) WithName(value string) *ProjectInfoSourceApplyConfiguration {
 	b.Name = &value
 	return b
 }
@@ -40,7 +40,7 @@ func (b *StubSourceApplyConfiguration) WithName(value string) *StubSourceApplyCo
 // WithRuntime sets the Runtime field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Runtime field is set to the value of the last call.
-func (b *StubSourceApplyConfiguration) WithRuntime(value string) *StubSourceApplyConfiguration {
+func (b *ProjectInfoSourceApplyConfiguration) WithRuntime(value string) *ProjectInfoSourceApplyConfiguration {
 	b.Runtime = &value
 	return b
 }

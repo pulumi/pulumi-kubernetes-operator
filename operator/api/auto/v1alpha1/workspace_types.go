@@ -76,12 +76,12 @@ type WorkspaceSpec struct {
 	// +optional
 	Local *LocalSource `json:"local,omitempty"`
 
-	// Stub instructs the workspace to bypass source fetching entirely and
-	// bootstrap with a minimal Pulumi.yaml derived from the stub fields. This
-	// is used by the Stack controller for state-only destroy when the upstream
+	// ProjectInfo instructs the workspace to bypass source fetching entirely and
+	// bootstrap with a minimal Pulumi.yaml derived from the project-info fields. This
+	// is used by the Stack controller for project-info destroy when the upstream
 	// source artifact is unavailable.
 	// +optional
-	Stub *StubSource `json:"stub,omitempty"`
+	ProjectInfo *ProjectInfoSource `json:"projectInfo,omitempty"`
 
 	// List of sources to populate environment variables in the workspace.
 	// The keys defined within a source must be a C_IDENTIFIER. All invalid keys
@@ -202,12 +202,12 @@ type LocalSource struct {
 	Dir string `json:"dir,omitempty"`
 }
 
-// StubSource carries the minimal project metadata needed for the workspace
+// ProjectInfoSource carries the minimal project metadata needed for the workspace
 // to start without fetching source.
-type StubSource struct {
-	// Name is the Pulumi project name to write into the stub Pulumi.yaml.
+type ProjectInfoSource struct {
+	// Name is the Pulumi project name to write into the project-info Pulumi.yaml.
 	Name string `json:"name"`
-	// Runtime is the Pulumi runtime to declare in the stub Pulumi.yaml.
+	// Runtime is the Pulumi runtime to declare in the project-info Pulumi.yaml.
 	Runtime string `json:"runtime"`
 }
 

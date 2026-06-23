@@ -8970,6 +8970,25 @@ spec:
                     - containers
                     type: object
                 type: object
+              projectInfo:
+                description: |-
+                  ProjectInfo instructs the workspace to bypass source fetching entirely and
+                  bootstrap with a minimal Pulumi.yaml derived from the project-info fields. This
+                  is used by the Stack controller for project-info destroy when the upstream
+                  source artifact is unavailable.
+                properties:
+                  name:
+                    description: Name is the Pulumi project name to write into the
+                      project-info Pulumi.yaml.
+                    type: string
+                  runtime:
+                    description: Runtime is the Pulumi runtime to declare in the project-info
+                      Pulumi.yaml.
+                    type: string
+                required:
+                - name
+                - runtime
+                type: object
               pulumiLogLevel:
                 description: |-
                   PulumiLogVerbosity is the log verbosity level to use for the Pulumi CLI.
@@ -9130,25 +9149,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
-              stub:
-                description: |-
-                  Stub instructs the workspace to bypass source fetching entirely and
-                  bootstrap with a minimal Pulumi.yaml derived from the stub fields. This
-                  is used by the Stack controller for state-only destroy when the upstream
-                  source artifact is unavailable (see #1222).
-                properties:
-                  name:
-                    description: Name is the Pulumi project name to write into the
-                      stub Pulumi.yaml.
-                    type: string
-                  runtime:
-                    description: Runtime is the Pulumi runtime to declare in the stub
-                      Pulumi.yaml.
-                    type: string
-                required:
-                - name
-                - runtime
-                type: object
             type: object
           status:
             description: WorkspaceStatus defines the observed state of Workspace

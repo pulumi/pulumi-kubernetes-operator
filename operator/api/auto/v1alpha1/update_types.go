@@ -123,7 +123,7 @@ type UpdateStatus struct {
 }
 
 // ProjectInfo captures the minimal Pulumi project metadata observed during
-// an update. Used by the Stack controller to enable state-only destroy when
+// an update. Used by the Stack controller to enable destroy from state when
 // the source artifact is unavailable.
 type ProjectInfo struct {
 	Name    string `json:"name"`

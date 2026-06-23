@@ -463,7 +463,7 @@ type StackStatus struct {
 type StackOutputs map[string]apiextensionsv1.JSON
 
 // ProjectInfo captures the minimal Pulumi project metadata needed to
-// bootstrap a workspace for state-only operations (notably destroy with
+// bootstrap a workspace for source-free operations (notably destroy with
 // runProgram=false) when the source artifact is unavailable. Populated by
 // the controller after the agent reports project settings during a
 // successful operation.

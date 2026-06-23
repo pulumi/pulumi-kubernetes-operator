@@ -10305,6 +10305,16 @@ spec:
                             - containers
                             type: object
                         type: object
+                      projectInfo:
+                        description: |-
+                          ProjectInfoSourceApplyConfiguration represents a declarative configuration of the ProjectInfoSource type for use
+                          with apply.
+                        properties:
+                          name:
+                            type: string
+                          runtime:
+                            type: string
+                        type: object
                       pulumiLogLevel:
                         format: int32
                         type: integer
@@ -10420,16 +10430,6 @@ spec:
                               type: string
                           type: object
                         type: array
-                      stub:
-                        description: |-
-                          StubSourceApplyConfiguration represents a declarative configuration of the StubSource type for use
-                          with apply.
-                        properties:
-                          name:
-                            type: string
-                          runtime:
-                            type: string
-                        type: object
                     type: object
                   status:
                     description: |-
@@ -10625,8 +10625,8 @@ spec:
                 description: |-
                   ProjectInfo caches the project name and runtime from Pulumi.yaml as
                   reported by the agent during a successful operation. Used to bootstrap
-                  a stub workspace for destroy when the source artifact is unavailable
-                  (see #1222). Persisted across the Stack's lifetime in etcd.
+                  a project-info workspace for destroy when the source artifact is unavailable.
+                  Persisted across the Stack's lifetime in etcd.
                 properties:
                   name:
                     description: Name is the Pulumi project name (the `name:` field
@@ -20914,6 +20914,16 @@ spec:
                             - containers
                             type: object
                         type: object
+                      projectInfo:
+                        description: |-
+                          ProjectInfoSourceApplyConfiguration represents a declarative configuration of the ProjectInfoSource type for use
+                          with apply.
+                        properties:
+                          name:
+                            type: string
+                          runtime:
+                            type: string
+                        type: object
                       pulumiLogLevel:
                         format: int32
                         type: integer
@@ -21029,16 +21039,6 @@ spec:
                               type: string
                           type: object
                         type: array
-                      stub:
-                        description: |-
-                          StubSourceApplyConfiguration represents a declarative configuration of the StubSource type for use
-                          with apply.
-                        properties:
-                          name:
-                            type: string
-                          runtime:
-                            type: string
-                        type: object
                     type: object
                   status:
                     description: |-

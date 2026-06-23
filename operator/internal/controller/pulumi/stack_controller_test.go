@@ -2287,10 +2287,10 @@ func TestIsSynced(t *testing.T) {
 	}
 }
 
-// TestShouldUseStubWorkspaceForDestroy covers the predicate that decides
-// whether the reconciler should bypass source resolution and use a stub
+// TestShouldUseProjectInfoWorkspaceForDestroy covers the predicate that decides
+// whether the reconciler should bypass source resolution and use a projectInfo
 // workspace to run `pulumi destroy` against backend state alone (see #1222).
-func TestShouldUseStubWorkspaceForDestroy(t *testing.T) {
+func TestShouldUseProjectInfoWorkspaceForDestroy(t *testing.T) {
 	now := metav1.Now()
 	withProjectInfo := &shared.ProjectInfo{Name: "myproject", Runtime: "yaml"}
 
@@ -2356,7 +2356,7 @@ func TestShouldUseStubWorkspaceForDestroy(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "marked for deletion, destroyOnFinalize=true, runProgram=false, ProjectInfo cached (the stub-destroy path)",
+			name: "marked for deletion, destroyOnFinalize=true, runProgram=false, ProjectInfo cached (the projectInfo-destroy path)",
 			stack: pulumiv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(now)},
 				Spec: shared.StackSpec{
@@ -2370,13 +2370,13 @@ func TestShouldUseStubWorkspaceForDestroy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := shouldUseStubWorkspaceForDestroy(&tt.stack)
+			got := shouldUseProjectInfoWorkspaceForDestroy(&tt.stack)
 			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
-func TestSetStubSource(t *testing.T) {
+func TestSetProjectInfoSource(t *testing.T) {
 	info := &shared.ProjectInfo{Name: "myproject", Runtime: "yaml"}
 
 	tests := []struct {
@@ -2410,11 +2410,11 @@ func TestSetStubSource(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ws := tt.ws.DeepCopy()
-			setStubSource(ws, info)
+			setProjectInfoSource(ws, info)
 
-			require.NotNil(t, ws.Stub, "Stub must be set")
-			assert.Equal(t, "myproject", ws.Stub.Name)
-			assert.Equal(t, "yaml", ws.Stub.Runtime)
+			require.NotNil(t, ws.ProjectInfo, "ProjectInfo must be set")
+			assert.Equal(t, "myproject", ws.ProjectInfo.Name)
+			assert.Equal(t, "yaml", ws.ProjectInfo.Runtime)
 			assert.Nil(t, ws.Git, "Git source must be cleared")
 			assert.Nil(t, ws.Flux, "Flux source must be cleared")
 			assert.Nil(t, ws.Local, "Local source must be cleared")
@@ -2422,20 +2422,20 @@ func TestSetStubSource(t *testing.T) {
 	}
 }
 
-func TestStubBypass(t *testing.T) {
+func TestProjectInfoBypass(t *testing.T) {
 	now := metav1.Now()
 	info := &shared.ProjectInfo{Name: "myproject", Runtime: "yaml"}
 
 	tests := []struct {
-		name        string
-		stack       pulumiv1.Stack
-		ws          autov1alpha1.WorkspaceSpec
-		wantBypass  bool
-		wantStub    bool
-		wantSrcKept bool
+		name            string
+		stack           pulumiv1.Stack
+		ws              autov1alpha1.WorkspaceSpec
+		wantBypass      bool
+		wantProjectInfo bool
+		wantSrcKept     bool
 	}{
 		{
-			name: "qualifies for stub destroy: bypass fires, ws is rewritten",
+			name: "qualifies for projectInfo destroy: bypass fires, ws is rewritten",
 			stack: pulumiv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(now)},
 				Spec:       shared.StackSpec{DestroyOnFinalize: true},
@@ -2444,9 +2444,9 @@ func TestStubBypass(t *testing.T) {
 			ws: autov1alpha1.WorkspaceSpec{
 				Flux: &autov1alpha1.FluxSource{Url: "http://flux/x.tgz"},
 			},
-			wantBypass:  true,
-			wantStub:    true,
-			wantSrcKept: false,
+			wantBypass:      true,
+			wantProjectInfo: true,
+			wantSrcKept:     false,
 		},
 		{
 			name: "not marked for deletion: no bypass, ws untouched",
@@ -2457,9 +2457,9 @@ func TestStubBypass(t *testing.T) {
 			ws: autov1alpha1.WorkspaceSpec{
 				Flux: &autov1alpha1.FluxSource{Url: "http://flux/x.tgz"},
 			},
-			wantBypass:  false,
-			wantStub:    false,
-			wantSrcKept: true,
+			wantBypass:      false,
+			wantProjectInfo: false,
+			wantSrcKept:     true,
 		},
 		{
 			name: "no cached ProjectInfo: no bypass even with deletion + destroyOnFinalize",
@@ -2471,21 +2471,21 @@ func TestStubBypass(t *testing.T) {
 			ws: autov1alpha1.WorkspaceSpec{
 				Flux: &autov1alpha1.FluxSource{Url: "http://flux/x.tgz"},
 			},
-			wantBypass:  false,
-			wantStub:    false,
-			wantSrcKept: true,
+			wantBypass:      false,
+			wantProjectInfo: false,
+			wantSrcKept:     true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ws := tt.ws.DeepCopy()
-			got := stubBypass(&tt.stack, ws)
+			got := projectInfoBypass(&tt.stack, ws)
 			assert.Equal(t, tt.wantBypass, got, "return value")
-			if tt.wantStub {
-				assert.NotNil(t, ws.Stub, "Stub must be set")
+			if tt.wantProjectInfo {
+				assert.NotNil(t, ws.ProjectInfo, "ProjectInfo must be set")
 			} else {
-				assert.Nil(t, ws.Stub, "Stub must remain unset")
+				assert.Nil(t, ws.ProjectInfo, "ProjectInfo must remain unset")
 			}
 			if tt.wantSrcKept {
 				assert.NotNil(t, ws.Flux, "original source must be preserved")
@@ -2877,7 +2877,7 @@ func TestWorkspaceStalledPropagation(t *testing.T) {
 	}
 }
 
-func TestStubDestroyBypassesUnavailableSource(t *testing.T) {
+func TestProjectInfoDestroyBypassesUnavailableSource(t *testing.T) {
 	testScheme := scheme.Scheme
 	require.NoError(t, pulumiv1.AddToScheme(testScheme))
 	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
@@ -2898,7 +2898,7 @@ func TestStubDestroyBypassesUnavailableSource(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	stackName := types.NamespacedName{Name: "stub-destroy", Namespace: "default"}
+	stackName := types.NamespacedName{Name: "project-info-destroy", Namespace: "default"}
 
 	stack := &pulumiv1.Stack{
 		TypeMeta: metav1.TypeMeta{
@@ -2939,7 +2939,7 @@ func TestStubDestroyBypassesUnavailableSource(t *testing.T) {
 		Recorder: record.NewFakeRecorder(10),
 	}
 
-	// First reconcile: takes the stub bypass and applies a stub workspace,
+	// First reconcile: takes the projectInfo bypass and applies a projectInfo workspace,
 	// then waits for workspace readiness.
 	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
 	require.NoError(t, err)
@@ -2950,11 +2950,11 @@ func TestStubDestroyBypassesUnavailableSource(t *testing.T) {
 	}
 	var ws autov1alpha1.Workspace
 	require.NoError(t, k8sclient.Get(ctx, wsName, &ws))
-	require.NotNil(t, ws.Spec.Stub, "Workspace.Spec.Stub must be set for stub-destroy path")
-	assert.Equal(t, "myproject", ws.Spec.Stub.Name)
-	assert.Equal(t, "yaml", ws.Spec.Stub.Runtime)
-	assert.Nil(t, ws.Spec.Flux, "Flux source must be cleared on stub path")
-	assert.Nil(t, ws.Spec.Git, "Git source must be cleared on stub path")
+	require.NotNil(t, ws.Spec.ProjectInfo, "Workspace.Spec.ProjectInfo must be set for projectInfo-destroy path")
+	assert.Equal(t, "myproject", ws.Spec.ProjectInfo.Name)
+	assert.Equal(t, "yaml", ws.Spec.ProjectInfo.Runtime)
+	assert.Nil(t, ws.Spec.Flux, "Flux source must be cleared on projectInfo path")
+	assert.Nil(t, ws.Spec.Git, "Git source must be cleared on projectInfo path")
 
 	// Simulate the workspace controller marking the workspace Ready so the
 	// Stack controller can proceed to create the destroy Update.
@@ -2979,7 +2979,7 @@ func TestStubDestroyBypassesUnavailableSource(t *testing.T) {
 	stalledCond := meta.FindStatusCondition(updated.Status.Conditions, pulumiv1.StalledCondition)
 	if stalledCond != nil {
 		assert.NotEqual(t, pulumiv1.StalledSourceUnavailableReason, stalledCond.Reason,
-			"Stack should NOT be stalled on SourceUnavailable; stub path should bypass source resolution")
+			"Stack should NOT be stalled on SourceUnavailable; projectInfo path should bypass source resolution")
 	}
 
 	require.NotNil(t, updated.Status.CurrentUpdate, "a destroy Update should have been initiated")
