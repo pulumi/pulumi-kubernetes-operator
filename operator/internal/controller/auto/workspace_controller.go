@@ -51,6 +51,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -149,7 +150,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// determine the source revision to use in later steps.
-	source := toSourceSpec(w)
+	source := newSourceSpec(w)
 	sourceHash := source.Hash()
 	l.Info("Applying StatefulSet", "hash", sourceHash, "source", source)
 
@@ -576,6 +577,11 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 		command = append(command, "--pulumi-log-level", strconv.Itoa(int(w.Spec.PulumiLogVerbosity)))
 	}
 
+	boot, err := bootstrapContainer(image, imagePullPolicy, source.Stub)
+	if err != nil {
+		return nil, err
+	}
+
 	statefulset := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "StatefulSet",
@@ -608,7 +614,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 					},
 					TerminationGracePeriodSeconds: ptr.To[int64](WorkspacePodTerminationGracePeriodSeconds),
 					InitContainers: []corev1.Container{
-						bootstrapContainer(image, imagePullPolicy, source.Stub),
+						boot,
 					},
 					Containers: []corev1.Container{
 						{
@@ -894,11 +900,7 @@ type sourceSpec struct {
 	Git          *gitSource
 	Flux         *fluxSource
 	Local        *localSource
-	// Stub causes the workspace to bypass source fetching entirely. The
-	// bootstrap init container writes a minimal Pulumi.yaml derived from
-	// these fields so the agent can start and select the stack. Used for
-	// state-only destroy when the source artifact is unavailable (#1222).
-	Stub *stubSource
+	Stub         *stubSource
 }
 
 type gitSource struct {
@@ -928,11 +930,11 @@ type stubSource struct {
 	Runtime string
 }
 
-// toSourceSpec translates the workspace's API-level source declaration into
+// newSourceSpec translates the workspace's API-level source declaration into
 // the internal sourceSpec used to generate the StatefulSet. Exactly one
 // source variant is expected to be set on the Workspace, but the translation
 // is order-independent.
-func toSourceSpec(w *autov1alpha1.Workspace) *sourceSpec {
+func newSourceSpec(w *autov1alpha1.Workspace) *sourceSpec {
 	s := &sourceSpec{
 		Generation: w.Generation,
 	}
@@ -979,7 +981,7 @@ func toSourceSpec(w *autov1alpha1.Workspace) *sourceSpec {
 // Pulumi.yaml derived from the cached project info, so the agent can start
 // and select the stack without source — used for state-only destroy when
 // the source artifact is unavailable (#1222).
-func bootstrapContainer(image string, pullPolicy corev1.PullPolicy, stub *stubSource) corev1.Container {
+func bootstrapContainer(image string, pullPolicy corev1.PullPolicy, stub *stubSource) (corev1.Container, error) {
 	c := corev1.Container{
 		Name:            "bootstrap",
 		Image:           image,
@@ -993,13 +995,21 @@ func bootstrapContainer(image string, pullPolicy corev1.PullPolicy, stub *stubSo
 		Args: []string{"cp", "/agent", "/tini", "/share/"},
 	}
 	if stub != nil {
-		c.Args = []string{"sh", "-c", `cp /agent /tini /share/ && mkdir -p /share/workspace && printf 'name: %s\nruntime: %s\n' "$STUB_NAME" "$STUB_RUNTIME" > /share/workspace/Pulumi.yaml`}
+		// Render the stub Pulumi.yaml in Go so the project name and runtime are valid
+		// YAML regardless of their contents, then write it verbatim in the pod.
+		projectYAML, err := yaml.Marshal(struct {
+			Name    string `json:"name"`
+			Runtime string `json:"runtime"`
+		}{Name: stub.Name, Runtime: stub.Runtime})
+		if err != nil {
+			return corev1.Container{}, fmt.Errorf("rendering stub Pulumi.yaml: %w", err)
+		}
+		c.Args = []string{"sh", "-c", `cp /agent /tini /share/ && mkdir -p /share/workspace && printf '%s' "$STUB_PULUMI_YAML" > /share/workspace/Pulumi.yaml`}
 		c.Env = []corev1.EnvVar{
-			{Name: "STUB_NAME", Value: stub.Name},
-			{Name: "STUB_RUNTIME", Value: stub.Runtime},
+			{Name: "STUB_PULUMI_YAML", Value: string(projectYAML)},
 		}
 	}
-	return c
+	return c, nil
 }
 
 func (s *sourceSpec) Hash() string {

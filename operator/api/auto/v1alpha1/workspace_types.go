@@ -79,7 +79,7 @@ type WorkspaceSpec struct {
 	// Stub instructs the workspace to bypass source fetching entirely and
 	// bootstrap with a minimal Pulumi.yaml derived from the stub fields. This
 	// is used by the Stack controller for state-only destroy when the upstream
-	// source artifact is unavailable (see #1222).
+	// source artifact is unavailable.
 	// +optional
 	Stub *StubSource `json:"stub,omitempty"`
 
@@ -203,10 +203,7 @@ type LocalSource struct {
 }
 
 // StubSource carries the minimal project metadata needed for the workspace
-// to start without fetching source. The bootstrap init container writes a
-// Pulumi.yaml containing just `name:` and `runtime:` so the agent can load
-// project settings and select the stack. Used by the Stack controller for
-// state-only destroy when the source artifact is unavailable (see #1222).
+// to start without fetching source.
 type StubSource struct {
 	// Name is the Pulumi project name to write into the stub Pulumi.yaml.
 	Name string `json:"name"`

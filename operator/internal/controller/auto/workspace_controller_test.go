@@ -956,7 +956,7 @@ func TestToSourceSpec(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := toSourceSpec(tt.workspace)
+			got := newSourceSpec(tt.workspace)
 			require.NotNil(t, got)
 			tt.check(t, got)
 		})
