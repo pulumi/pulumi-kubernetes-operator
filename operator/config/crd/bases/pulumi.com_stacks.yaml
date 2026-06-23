@@ -1165,6 +1165,16 @@ spec:
                         type: string
                       permalink:
                         type: string
+                      projectInfo:
+                        description: |-
+                          ProjectInfoApplyConfiguration represents a declarative configuration of the ProjectInfo type for use
+                          with apply.
+                        properties:
+                          name:
+                            type: string
+                          runtime:
+                            type: string
+                        type: object
                       startTime:
                         format: date-time
                         type: string
@@ -10410,6 +10420,16 @@ spec:
                               type: string
                           type: object
                         type: array
+                      stub:
+                        description: |-
+                          StubSourceApplyConfiguration represents a declarative configuration of the StubSource type for use
+                          with apply.
+                        properties:
+                          name:
+                            type: string
+                          runtime:
+                            type: string
+                        type: object
                     type: object
                   status:
                     description: |-
@@ -10600,6 +10620,25 @@ spec:
                   x-kubernetes-preserve-unknown-fields: true
                 description: Outputs contains the exported stack output variables
                   resulting from a deployment.
+                type: object
+              projectInfo:
+                description: |-
+                  ProjectInfo caches the project name and runtime from Pulumi.yaml as
+                  reported by the agent during a successful operation. Used to bootstrap
+                  a stub workspace for destroy when the source artifact is unavailable
+                  (see #1222). Persisted across the Stack's lifetime in etcd.
+                properties:
+                  name:
+                    description: Name is the Pulumi project name (the `name:` field
+                      in Pulumi.yaml).
+                    type: string
+                  runtime:
+                    description: Runtime is the Pulumi runtime declaration (the `runtime:`
+                      field in Pulumi.yaml).
+                    type: string
+                required:
+                - name
+                - runtime
                 type: object
             type: object
         type: object
@@ -11735,6 +11774,16 @@ spec:
                         type: string
                       permalink:
                         type: string
+                      projectInfo:
+                        description: |-
+                          ProjectInfoApplyConfiguration represents a declarative configuration of the ProjectInfo type for use
+                          with apply.
+                        properties:
+                          name:
+                            type: string
+                          runtime:
+                            type: string
+                        type: object
                       startTime:
                         format: date-time
                         type: string
@@ -20980,6 +21029,16 @@ spec:
                               type: string
                           type: object
                         type: array
+                      stub:
+                        description: |-
+                          StubSourceApplyConfiguration represents a declarative configuration of the StubSource type for use
+                          with apply.
+                        properties:
+                          name:
+                            type: string
+                          runtime:
+                            type: string
+                        type: object
                     type: object
                   status:
                     description: |-

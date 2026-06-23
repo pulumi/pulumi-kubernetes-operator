@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"net"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -882,6 +883,146 @@ func TestWorkspaceStatusConcurrentModification(t *testing.T) {
 	require.NotNil(t, readyCond, "expected Ready condition on workspace")
 	assert.Equal(t, result.Generation, result.Status.ObservedGeneration,
 		"ObservedGeneration must match the workspace generation")
+}
+
+// TestToSourceSpec covers the translation from Workspace.Spec source fields
+// into the internal sourceSpec used for StatefulSet generation. The Stub
+// variant (#1222) must round-trip from Workspace.Spec.Stub → sourceSpec.Stub.
+func TestToSourceSpec(t *testing.T) {
+	tests := []struct {
+		name      string
+		workspace *autov1alpha1.Workspace
+		check     func(t *testing.T, got *sourceSpec)
+	}{
+		{
+			name: "Git source",
+			workspace: &autov1alpha1.Workspace{
+				Spec: autov1alpha1.WorkspaceSpec{
+					Git: &autov1alpha1.GitSource{URL: "https://example.com/repo.git", Ref: "main"},
+				},
+			},
+			check: func(t *testing.T, got *sourceSpec) {
+				require.NotNil(t, got.Git)
+				assert.Equal(t, "https://example.com/repo.git", got.Git.URL)
+				assert.Equal(t, "main", got.Git.Ref)
+				assert.Nil(t, got.Flux)
+				assert.Nil(t, got.Local)
+				assert.Nil(t, got.Stub)
+			},
+		},
+		{
+			name: "Flux source",
+			workspace: &autov1alpha1.Workspace{
+				Spec: autov1alpha1.WorkspaceSpec{
+					Flux: &autov1alpha1.FluxSource{Url: "http://flux/artifact.tgz", Digest: "sha256:abc"},
+				},
+			},
+			check: func(t *testing.T, got *sourceSpec) {
+				require.NotNil(t, got.Flux)
+				assert.Equal(t, "http://flux/artifact.tgz", got.Flux.Url)
+				assert.Nil(t, got.Stub)
+			},
+		},
+		{
+			name: "Local source",
+			workspace: &autov1alpha1.Workspace{
+				Spec: autov1alpha1.WorkspaceSpec{
+					Local: &autov1alpha1.LocalSource{Dir: "/workspace/project"},
+				},
+			},
+			check: func(t *testing.T, got *sourceSpec) {
+				require.NotNil(t, got.Local)
+				assert.Equal(t, "/workspace/project", got.Local.Dir)
+				assert.Nil(t, got.Stub)
+			},
+		},
+		{
+			name: "Stub source (#1222)",
+			workspace: &autov1alpha1.Workspace{
+				Spec: autov1alpha1.WorkspaceSpec{
+					Stub: &autov1alpha1.StubSource{Name: "myproject", Runtime: "yaml"},
+				},
+			},
+			check: func(t *testing.T, got *sourceSpec) {
+				require.NotNil(t, got.Stub, "Workspace.Spec.Stub must be translated to sourceSpec.Stub")
+				assert.Equal(t, "myproject", got.Stub.Name)
+				assert.Equal(t, "yaml", got.Stub.Runtime)
+				assert.Nil(t, got.Git)
+				assert.Nil(t, got.Flux)
+				assert.Nil(t, got.Local)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := toSourceSpec(tt.workspace)
+			require.NotNil(t, got)
+			tt.check(t, got)
+		})
+	}
+}
+
+// TestNewStatefulSet_StubSource covers the destroy-from-state path (#1222):
+// when sourceSpec has a Stub set, the generated StatefulSet must omit the
+// `fetch` init container entirely (no source to fetch) and the `bootstrap`
+// init container must write a minimal Pulumi.yaml derived from the stub
+// fields so the agent can start and select the stack.
+func TestNewStatefulSet_StubSource(t *testing.T) {
+	w := &autov1alpha1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ws-stub",
+			Namespace: "default",
+		},
+		Spec: autov1alpha1.WorkspaceSpec{
+			Image: "pulumi/pulumi:latest-nonroot",
+		},
+	}
+	src := &sourceSpec{
+		Stub: &stubSource{
+			Name:    "myproject",
+			Runtime: "yaml",
+		},
+	}
+
+	ss, err := newStatefulSet(context.Background(), w, src)
+	require.NoError(t, err)
+
+	initContainers := ss.Spec.Template.Spec.InitContainers
+
+	t.Run("no fetch init container", func(t *testing.T) {
+		for _, c := range initContainers {
+			assert.NotEqual(t, "fetch", c.Name, "stub source must not produce a fetch init container")
+		}
+	})
+
+	t.Run("bootstrap init container writes a stub Pulumi.yaml", func(t *testing.T) {
+		var bootstrap *corev1.Container
+		for i := range initContainers {
+			if initContainers[i].Name == "bootstrap" {
+				bootstrap = &initContainers[i]
+				break
+			}
+		}
+		require.NotNil(t, bootstrap, "expected a bootstrap init container")
+
+		// The container must reference Pulumi.yaml in its script (args).
+		argsJoined := strings.Join(bootstrap.Args, " ")
+		assert.Contains(t, argsJoined, "Pulumi.yaml", "bootstrap args must reference Pulumi.yaml when stub is set")
+
+		// The project name and runtime must be reachable from the container —
+		// either inlined in args or surfaced via env. Env is preferred for
+		// safety against shell injection.
+		envByName := map[string]string{}
+		for _, e := range bootstrap.Env {
+			envByName[e.Name] = e.Value
+		}
+		nameFound := strings.Contains(argsJoined, "myproject") || envByName["STUB_NAME"] == "myproject"
+		runtimeFound := strings.Contains(argsJoined, "\"yaml\"") || envByName["STUB_RUNTIME"] == "yaml" ||
+			strings.Contains(argsJoined, "runtime: yaml")
+		assert.True(t, nameFound, "stub project name must be available to the bootstrap container (args or env)")
+		assert.True(t, runtimeFound, "stub runtime name must be available to the bootstrap container (args or env)")
+	})
 }
 
 func TestMergePodTemplateSpec(t *testing.T) {

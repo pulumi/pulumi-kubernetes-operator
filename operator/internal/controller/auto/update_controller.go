@@ -372,6 +372,13 @@ func (rs *reconcileSession) updateStatus(ctx context.Context, obj *autov1alpha1.
 	if !obj.Status.EndTime.IsZero() {
 		statusApply = statusApply.WithEndTime(obj.Status.EndTime)
 	}
+	if obj.Status.ProjectInfo != nil {
+		statusApply = statusApply.WithProjectInfo(
+			updateapply.ProjectInfo().
+				WithName(obj.Status.ProjectInfo.Name).
+				WithRuntime(obj.Status.ProjectInfo.Runtime),
+		)
+	}
 
 	patch := updateapply.Update(obj.Name, obj.Namespace).WithStatus(statusApply)
 
@@ -762,6 +769,7 @@ func (s streamReader[T]) Result() (result, error) {
 		if link := res.GetPermalink(); link != "" {
 			s.obj.Status.Permalink = link
 		}
+		applyProjectInfoToUpdate(s.obj, res.GetProjectInfo())
 		s.u.progressing.Status = metav1.ConditionFalse
 		s.u.progressing.Reason = UpdateConditionReasonComplete
 		s.u.complete.Status = metav1.ConditionTrue
@@ -843,6 +851,17 @@ type getResulter[T stream] struct {
 type result interface {
 	GetSummary() *agentpb.UpdateSummary
 	GetPermalink() string
+	GetProjectInfo() *agentpb.ProjectInfo
+}
+
+func applyProjectInfoToUpdate(obj *autov1alpha1.Update, info *agentpb.ProjectInfo) {
+	if info == nil {
+		return
+	}
+	obj.Status.ProjectInfo = &autov1alpha1.ProjectInfo{
+		Name:    info.Name,
+		Runtime: info.Runtime,
+	}
 }
 
 // getResult returns nil if the underlying stream doesn't yet have a result;

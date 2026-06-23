@@ -50,6 +50,10 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &autov1alpha1.GitSourceApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("LocalSource"):
 		return &autov1alpha1.LocalSourceApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("ProjectInfo"):
+		return &autov1alpha1.ProjectInfoApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("StubSource"):
+		return &autov1alpha1.StubSourceApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("Update"):
 		return &autov1alpha1.UpdateApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("UpdateSpec"):

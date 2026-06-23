@@ -71,6 +71,7 @@ type Server struct {
 	stackLock      sync.Mutex
 	stack          *auto.Stack
 	pulumiLogLevel uint
+	projectInfo    *pb.ProjectInfo
 
 	pb.UnimplementedAutomationServiceServer
 }
@@ -131,6 +132,10 @@ func NewServer(ctx context.Context, ws auto.Workspace, opts *Options) (*Server, 
 		return nil, fmt.Errorf("unable to load project: %w", err)
 	}
 	log.Infow("project serving", "project", proj.Name, "runtime", proj.Runtime.Name())
+	server.projectInfo = &pb.ProjectInfo{
+		Name:    string(proj.Name),
+		Runtime: proj.Runtime.Name(),
+	}
 
 	return server, nil
 }
@@ -647,8 +652,9 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 	s.log.Infow("preview completed")
 
 	resp := &pb.PreviewResult{
-		Stdout: res.StdOut,
-		Stderr: res.StdErr,
+		Stdout:      res.StdOut,
+		Stderr:      res.StdErr,
+		ProjectInfo: s.projectInfo,
 	}
 	// TODO: ChangeSummary
 	permalink, err := res.GetPermalink()
@@ -735,9 +741,10 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 	s.log.Infow("refresh completed", "result", res.Summary.Result, "message", res.Summary.Message)
 
 	resp := &pb.RefreshResult{
-		Stdout:  res.StdOut,
-		Stderr:  res.StdErr,
-		Summary: marshalUpdateSummary(res.Summary),
+		Stdout:      res.StdOut,
+		Stderr:      res.StdErr,
+		Summary:     marshalUpdateSummary(res.Summary),
+		ProjectInfo: s.projectInfo,
 	}
 	permalink, err := res.GetPermalink()
 	if err != nil && err != auto.ErrParsePermalinkFailed {
@@ -844,10 +851,11 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 	}
 
 	resp := &pb.UpResult{
-		Stdout:  res.StdOut,
-		Stderr:  res.StdErr,
-		Outputs: outputs,
-		Summary: marshalUpdateSummary(res.Summary),
+		Stdout:      res.StdOut,
+		Stderr:      res.StdErr,
+		Outputs:     outputs,
+		Summary:     marshalUpdateSummary(res.Summary),
+		ProjectInfo: s.projectInfo,
 	}
 	permalink, err := res.GetPermalink()
 	if err != nil && err != auto.ErrParsePermalinkFailed {
@@ -954,9 +962,10 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 	}
 
 	resp := &pb.DestroyResult{
-		Stdout:  res.StdOut,
-		Stderr:  res.StdErr,
-		Summary: marshalUpdateSummary(res.Summary),
+		Stdout:      res.StdOut,
+		Stderr:      res.StdErr,
+		Summary:     marshalUpdateSummary(res.Summary),
+		ProjectInfo: s.projectInfo,
 	}
 	permalink, err := res.GetPermalink()
 	if err != nil && err != auto.ErrParsePermalinkFailed {

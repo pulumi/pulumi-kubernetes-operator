@@ -149,36 +149,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// determine the source revision to use in later steps.
-	source := &sourceSpec{
-		Generation: w.Generation,
-	}
-	if w.Spec.Git != nil {
-		source.Git = &gitSource{
-			URL:     w.Spec.Git.URL,
-			Dir:     w.Spec.Git.Dir,
-			Ref:     w.Spec.Git.Ref,
-			Shallow: w.Spec.Git.Shallow,
-		}
-		if w.Spec.Git.Auth != nil {
-			source.Git.Password = w.Spec.Git.Auth.Password
-			source.Git.SSHPrivateKey = w.Spec.Git.Auth.SSHPrivateKey
-			source.Git.Token = w.Spec.Git.Auth.Token
-			source.Git.Username = w.Spec.Git.Auth.Username
-			source.Git.GitHubApp = w.Spec.Git.Auth.GitHubApp
-		}
-	}
-	if w.Spec.Flux != nil {
-		source.Flux = &fluxSource{
-			Url:    w.Spec.Flux.Url,
-			Digest: w.Spec.Flux.Digest,
-			Dir:    w.Spec.Flux.Dir,
-		}
-	}
-	if w.Spec.Local != nil {
-		source.Local = &localSource{
-			Dir: w.Spec.Local.Dir,
-		}
-	}
+	source := toSourceSpec(w)
 	sourceHash := source.Hash()
 	l.Info("Applying StatefulSet", "hash", sourceHash, "source", source)
 
@@ -637,18 +608,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 					},
 					TerminationGracePeriodSeconds: ptr.To[int64](WorkspacePodTerminationGracePeriodSeconds),
 					InitContainers: []corev1.Container{
-						{
-							Name:            "bootstrap",
-							Image:           image,
-							ImagePullPolicy: imagePullPolicy,
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      WorkspaceShareVolumeName,
-									MountPath: WorkspaceShareMountPath,
-								},
-							},
-							Args: []string{"cp", "/agent", "/tini", "/share/"},
-						},
+						bootstrapContainer(image, imagePullPolicy, source.Stub),
 					},
 					Containers: []corev1.Container{
 						{
@@ -934,6 +894,11 @@ type sourceSpec struct {
 	Git          *gitSource
 	Flux         *fluxSource
 	Local        *localSource
+	// Stub causes the workspace to bypass source fetching entirely. The
+	// bootstrap init container writes a minimal Pulumi.yaml derived from
+	// these fields so the agent can start and select the stack. Used for
+	// state-only destroy when the source artifact is unavailable (#1222).
+	Stub *stubSource
 }
 
 type gitSource struct {
@@ -956,6 +921,85 @@ type fluxSource struct {
 
 type localSource struct {
 	Dir string
+}
+
+type stubSource struct {
+	Name    string
+	Runtime string
+}
+
+// toSourceSpec translates the workspace's API-level source declaration into
+// the internal sourceSpec used to generate the StatefulSet. Exactly one
+// source variant is expected to be set on the Workspace, but the translation
+// is order-independent.
+func toSourceSpec(w *autov1alpha1.Workspace) *sourceSpec {
+	s := &sourceSpec{
+		Generation: w.Generation,
+	}
+	if w.Spec.Git != nil {
+		s.Git = &gitSource{
+			URL:     w.Spec.Git.URL,
+			Dir:     w.Spec.Git.Dir,
+			Ref:     w.Spec.Git.Ref,
+			Shallow: w.Spec.Git.Shallow,
+		}
+		if w.Spec.Git.Auth != nil {
+			s.Git.Password = w.Spec.Git.Auth.Password
+			s.Git.SSHPrivateKey = w.Spec.Git.Auth.SSHPrivateKey
+			s.Git.Token = w.Spec.Git.Auth.Token
+			s.Git.Username = w.Spec.Git.Auth.Username
+			s.Git.GitHubApp = w.Spec.Git.Auth.GitHubApp
+		}
+	}
+	if w.Spec.Flux != nil {
+		s.Flux = &fluxSource{
+			Url:    w.Spec.Flux.Url,
+			Digest: w.Spec.Flux.Digest,
+			Dir:    w.Spec.Flux.Dir,
+		}
+	}
+	if w.Spec.Local != nil {
+		s.Local = &localSource{
+			Dir: w.Spec.Local.Dir,
+		}
+	}
+	if w.Spec.Stub != nil {
+		s.Stub = &stubSource{
+			Name:    w.Spec.Stub.Name,
+			Runtime: w.Spec.Stub.Runtime,
+		}
+	}
+	return s
+}
+
+// bootstrapContainer builds the workspace's bootstrap init container. The
+// non-stub variant just copies the agent + tini binaries into the shared
+// volume; a separate `fetch` init container handles source resolution. The
+// stub variant additionally creates the workspace dir and writes a minimal
+// Pulumi.yaml derived from the cached project info, so the agent can start
+// and select the stack without source — used for state-only destroy when
+// the source artifact is unavailable (#1222).
+func bootstrapContainer(image string, pullPolicy corev1.PullPolicy, stub *stubSource) corev1.Container {
+	c := corev1.Container{
+		Name:            "bootstrap",
+		Image:           image,
+		ImagePullPolicy: pullPolicy,
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      WorkspaceShareVolumeName,
+				MountPath: WorkspaceShareMountPath,
+			},
+		},
+		Args: []string{"cp", "/agent", "/tini", "/share/"},
+	}
+	if stub != nil {
+		c.Args = []string{"sh", "-c", `cp /agent /tini /share/ && mkdir -p /share/workspace && printf 'name: %s\nruntime: %s\n' "$STUB_NAME" "$STUB_RUNTIME" > /share/workspace/Pulumi.yaml`}
+		c.Env = []corev1.EnvVar{
+			{Name: "STUB_NAME", Value: stub.Name},
+			{Name: "STUB_RUNTIME", Value: stub.Runtime},
+		}
+	}
+	return c
 }
 
 func (s *sourceSpec) Hash() string {

@@ -212,6 +212,21 @@ spec:
                 description: Represents the permalink URL in the Pulumi Console for
                   the operation. Not available for DIY backends.
                 type: string
+              projectInfo:
+                description: |-
+                  ProjectInfo records the Pulumi project name and runtime as observed by
+                  the agent during this update. The Stack controller copies this to
+                  Stack.Status.ProjectInfo so that subsequent destroy operations can
+                  proceed without the source artifact.
+                properties:
+                  name:
+                    type: string
+                  runtime:
+                    type: string
+                required:
+                - name
+                - runtime
+                type: object
               startTime:
                 description: The start time of the operation.
                 format: date-time

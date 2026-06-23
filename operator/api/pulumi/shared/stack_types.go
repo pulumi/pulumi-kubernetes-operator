@@ -462,6 +462,18 @@ type StackStatus struct {
 
 type StackOutputs map[string]apiextensionsv1.JSON
 
+// ProjectInfo captures the minimal Pulumi project metadata needed to
+// bootstrap a workspace for state-only operations (notably destroy with
+// runProgram=false) when the source artifact is unavailable. Populated by
+// the controller after the agent reports project settings during a
+// successful operation.
+type ProjectInfo struct {
+	// Name is the Pulumi project name (the `name:` field in Pulumi.yaml).
+	Name string `json:"name"`
+	// Runtime is the Pulumi runtime declaration (the `runtime:` field in Pulumi.yaml).
+	Runtime string `json:"runtime"`
+}
+
 // StackUpdateState is the status of a stack update
 type StackUpdateState struct {
 	// Generation is the stack generation associated with the update.

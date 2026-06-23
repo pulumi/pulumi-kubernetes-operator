@@ -31,6 +31,7 @@ type WorkspaceSpecApplyConfiguration struct {
 	Git                *GitSourceApplyConfiguration               `json:"git,omitempty"`
 	Flux               *FluxSourceApplyConfiguration              `json:"flux,omitempty"`
 	Local              *LocalSourceApplyConfiguration             `json:"local,omitempty"`
+	Stub               *StubSourceApplyConfiguration              `json:"stub,omitempty"`
 	EnvFrom            []v1.EnvFromSource                         `json:"envFrom,omitempty"`
 	Env                []v1.EnvVar                                `json:"env,omitempty"`
 	Resources          *v1.ResourceRequirements                   `json:"resources,omitempty"`
@@ -98,6 +99,14 @@ func (b *WorkspaceSpecApplyConfiguration) WithFlux(value *FluxSourceApplyConfigu
 // If called multiple times, the Local field is set to the value of the last call.
 func (b *WorkspaceSpecApplyConfiguration) WithLocal(value *LocalSourceApplyConfiguration) *WorkspaceSpecApplyConfiguration {
 	b.Local = value
+	return b
+}
+
+// WithStub sets the Stub field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Stub field is set to the value of the last call.
+func (b *WorkspaceSpecApplyConfiguration) WithStub(value *StubSourceApplyConfiguration) *WorkspaceSpecApplyConfiguration {
+	b.Stub = value
 	return b
 }
 

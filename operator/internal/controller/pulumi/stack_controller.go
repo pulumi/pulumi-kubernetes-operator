@@ -580,6 +580,9 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		if instance.Status.CurrentUpdate != nil {
 			statusApply = statusApply.WithCurrentUpdate(*instance.Status.CurrentUpdate)
 		}
+		if instance.Status.ProjectInfo != nil {
+			statusApply = statusApply.WithProjectInfo(*instance.Status.ProjectInfo)
+		}
 		patch := stackapply.Stack(instance.Name, instance.Namespace).WithStatus(statusApply)
 		oldRevision := instance.ResourceVersion
 		if err := r.Status().Patch(ctx, instance, &applyConfiguration{config: patch},
@@ -668,112 +671,118 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	// Step 1. Resolve the source and perform some preliminary workspace setup (but without actually
 	// creating the workspace yet, since it may or may not be needed).
 
-	// Check which kind of source we have.
-	switch {
-	case stack.GitSource != nil:
-		auth, err := sess.resolveGitAuth(ctx)
-		if err != nil {
-			emitEvent(r.Recorder, instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
-			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
-			return reconcile.Result{}, saveStatus()
-		}
-
-		gs, err := NewGitSource(*stack.GitSource, auth)
-		if err != nil {
-			emitEvent(r.Recorder, instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
-			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
-			return reconcile.Result{}, saveStatus()
-		}
-
-		currentCommit, err = gs.CurrentCommit(ctx)
-		if err != nil {
-			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
-			return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
-		}
-
-		err = sess.setupWorkspaceFromGitSource(ctx, currentCommit)
-		if err != nil {
-			log.Error(err, "Failed to setup Pulumi workspace with git source")
-			return reconcile.Result{}, err
-		}
-
-	case stack.FluxSource != nil:
-		fluxSource := stack.FluxSource
-
-		// Watch this kind of source, if we haven't already.
-		if err := r.maybeWatchFluxSourceKind(fluxSource.SourceRef); err != nil {
-			reterr := fmt.Errorf("cannot process source reference: %w", err)
-			instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, reterr.Error())
-			return reconcile.Result{}, saveStatus()
-		}
-
-		var sourceObject unstructured.Unstructured
-		sourceObject.SetAPIVersion(fluxSource.SourceRef.APIVersion)
-		sourceObject.SetKind(fluxSource.SourceRef.Kind)
-		if err := r.Get(ctx, client.ObjectKey{
-			Name:      fluxSource.SourceRef.Name,
-			Namespace: request.Namespace,
-		}, &sourceObject); err != nil {
-			if apierrors.IsNotFound(err) {
-				// The watch mechanism will requeue this when the source appears; we also
-				// requeue on a timer as a safety net.
-				reterr := fmt.Errorf("could not resolve sourceRef: %w", err)
-				instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, reterr.Error())
-				return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
-			}
-			log.Error(err, "Failed to get Flux source", "Name", fluxSource.SourceRef.Name)
-			return reconcile.Result{}, err
-		}
-
-		artifact, _, _ := getArtifact(sourceObject)
-		if artifact == nil {
-			// The watch mechanism will requeue this when the artifact appears; we also
-			// requeue on a timer as a safety net.
-			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, "Flux source has no artifact")
-			return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
-		}
-		currentCommit = artifact.Revision
-		if err := sess.SetupWorkspaceFromFluxSource(ctx, sourceObject, *artifact, fluxSource.Dir); err != nil {
-			log.Error(err, "Failed to setup Pulumi workspace with flux source")
-			return reconcile.Result{}, err
-		}
-
-	case stack.ProgramRef != nil:
-		var program unstructured.Unstructured
-		program.SetAPIVersion(pulumiv1.GroupVersion.String())
-		program.SetKind("Program")
-		if err := r.Get(ctx, client.ObjectKey{
-			Name:      stack.ProgramRef.Name,
-			Namespace: request.Namespace,
-		}, &program); err != nil {
-			if apierrors.IsNotFound(err) {
-				// The watch mechanism will requeue this when the source appears; we also
-				// requeue on a timer as a safety net.
-				instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, errProgramNotFound.Error())
-				return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
-			}
-			log.Error(err, "Failed to get Program object", "Name", stack.ProgramRef.Name)
-			return reconcile.Result{}, err
-		}
-
-		// The Program.status is setup to mimic a FluxSource, so we can use the same function to
-		// initiate the workspace.
-		artifact, _, _ := getArtifact(program)
-		if artifact == nil {
-			// The watch mechanism will requeue this when the artifact appears; we also
-			// requeue on a timer as a safety net.
-			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, "Program has no artifact")
-			return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
-		}
-		currentCommit = artifact.Revision
-		if err := sess.SetupWorkspaceFromFluxSource(ctx, program, *artifact, ""); err != nil {
-			log.Error(err, "Failed to setup Pulumi workspace with Program source")
-			return reconcile.Result{}, err
-		}
-
-	default:
-		log.V(1).Info("No source specified")
+	if stubBypass(instance, &sess.ws.Spec) {
+		log.Info("Using stub workspace for destroy; skipping source resolution",
+			"project", instance.Status.ProjectInfo.Name, "runtime", instance.Status.ProjectInfo.Runtime)
 		currentCommit = ""
+	} else {
+		// Check which kind of source we have.
+		switch {
+		case stack.GitSource != nil:
+			auth, err := sess.resolveGitAuth(ctx)
+			if err != nil {
+				emitEvent(r.Recorder, instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
+				instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
+				return reconcile.Result{}, saveStatus()
+			}
+
+			gs, err := NewGitSource(*stack.GitSource, auth)
+			if err != nil {
+				emitEvent(r.Recorder, instance, pulumiv1.StackConfigInvalidEvent(), err.Error())
+				instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, err.Error())
+				return reconcile.Result{}, saveStatus()
+			}
+
+			currentCommit, err = gs.CurrentCommit(ctx)
+			if err != nil {
+				instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
+				return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
+			}
+
+			err = sess.setupWorkspaceFromGitSource(ctx, currentCommit)
+			if err != nil {
+				log.Error(err, "Failed to setup Pulumi workspace with git source")
+				return reconcile.Result{}, err
+			}
+
+		case stack.FluxSource != nil:
+			fluxSource := stack.FluxSource
+
+			// Watch this kind of source, if we haven't already.
+			if err := r.maybeWatchFluxSourceKind(fluxSource.SourceRef); err != nil {
+				reterr := fmt.Errorf("cannot process source reference: %w", err)
+				instance.Status.MarkStalledCondition(pulumiv1.StalledSpecInvalidReason, reterr.Error())
+				return reconcile.Result{}, saveStatus()
+			}
+
+			var sourceObject unstructured.Unstructured
+			sourceObject.SetAPIVersion(fluxSource.SourceRef.APIVersion)
+			sourceObject.SetKind(fluxSource.SourceRef.Kind)
+			if err := r.Get(ctx, client.ObjectKey{
+				Name:      fluxSource.SourceRef.Name,
+				Namespace: request.Namespace,
+			}, &sourceObject); err != nil {
+				if apierrors.IsNotFound(err) {
+					// The watch mechanism will requeue this when the source appears; we also
+					// requeue on a timer as a safety net.
+					reterr := fmt.Errorf("could not resolve sourceRef: %w", err)
+					instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, reterr.Error())
+					return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
+				}
+				log.Error(err, "Failed to get Flux source", "Name", fluxSource.SourceRef.Name)
+				return reconcile.Result{}, err
+			}
+
+			artifact, _, _ := getArtifact(sourceObject)
+			if artifact == nil {
+				// The watch mechanism will requeue this when the artifact appears; we also
+				// requeue on a timer as a safety net.
+				instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, "Flux source has no artifact")
+				return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
+			}
+			currentCommit = artifact.Revision
+			if err := sess.SetupWorkspaceFromFluxSource(ctx, sourceObject, *artifact, fluxSource.Dir); err != nil {
+				log.Error(err, "Failed to setup Pulumi workspace with flux source")
+				return reconcile.Result{}, err
+			}
+
+		case stack.ProgramRef != nil:
+			var program unstructured.Unstructured
+			program.SetAPIVersion(pulumiv1.GroupVersion.String())
+			program.SetKind("Program")
+			if err := r.Get(ctx, client.ObjectKey{
+				Name:      stack.ProgramRef.Name,
+				Namespace: request.Namespace,
+			}, &program); err != nil {
+				if apierrors.IsNotFound(err) {
+					// The watch mechanism will requeue this when the source appears; we also
+					// requeue on a timer as a safety net.
+					instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, errProgramNotFound.Error())
+					return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
+				}
+				log.Error(err, "Failed to get Program object", "Name", stack.ProgramRef.Name)
+				return reconcile.Result{}, err
+			}
+
+			// The Program.status is setup to mimic a FluxSource, so we can use the same function to
+			// initiate the workspace.
+			artifact, _, _ := getArtifact(program)
+			if artifact == nil {
+				// The watch mechanism will requeue this when the artifact appears; we also
+				// requeue on a timer as a safety net.
+				instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, "Program has no artifact")
+				return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
+			}
+			currentCommit = artifact.Revision
+			if err := sess.SetupWorkspaceFromFluxSource(ctx, program, *artifact, ""); err != nil {
+				log.Error(err, "Failed to setup Pulumi workspace with Program source")
+				return reconcile.Result{}, err
+			}
+
+		default:
+			log.V(1).Info("No source specified")
+			currentCommit = ""
+		}
 	}
 
 	// If there are extra environment variables, read them in now and use them for subsequent commands.
@@ -1106,6 +1115,8 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 		Failures:             0,
 	}
 
+	applyProjectInfoToStack(instance, update)
+
 	emitEvent(r.Recorder, instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack")
 	return nil
 }
@@ -1223,6 +1234,53 @@ func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.St
 	// We should never get here; if we do the Update is in an unknown state so
 	// don't trigger work for it.
 	return true, ""
+}
+
+// shouldUseStubWorkspaceForDestroy reports whether the reconciler should
+// provision a stub workspace (no source fetch, stub Pulumi.yaml derived from
+// Status.ProjectInfo) and destroy from the saved state, rather than resolving
+// the Stack's source. This decouples destroy from source availability — see #1222.
+//
+// All of the following must hold:
+//   - the Stack is marked for deletion (a destroy is what we're being asked to do)
+//   - destroyOnFinalize=true (the user actually wants a destroy on finalize)
+//   - preview=false (preview never creates resources, so there's nothing to destroy)
+//   - runProgram=false (runProgram=true explicitly requires the source to be runnable)
+//   - Status.ProjectInfo is populated (we need project name+runtime to write the stub)
+func shouldUseStubWorkspaceForDestroy(stack *pulumiv1.Stack) bool {
+	return stack.GetDeletionTimestamp() != nil &&
+		stack.Spec.DestroyOnFinalize &&
+		!stack.Spec.Preview &&
+		!stack.Spec.RunProgram &&
+		stack.Status.ProjectInfo != nil
+}
+
+func setStubSource(ws *autov1alpha1.WorkspaceSpec, info *shared.ProjectInfo) {
+	ws.Stub = &autov1alpha1.StubSource{
+		Name:    info.Name,
+		Runtime: info.Runtime,
+	}
+	ws.Git = nil
+	ws.Flux = nil
+	ws.Local = nil
+}
+
+func stubBypass(stack *pulumiv1.Stack, ws *autov1alpha1.WorkspaceSpec) bool {
+	if !shouldUseStubWorkspaceForDestroy(stack) {
+		return false
+	}
+	setStubSource(ws, stack.Status.ProjectInfo)
+	return true
+}
+
+func applyProjectInfoToStack(stack *pulumiv1.Stack, update *autov1alpha1.Update) {
+	if update.Status.ProjectInfo == nil {
+		return
+	}
+	stack.Status.ProjectInfo = &shared.ProjectInfo{
+		Name:    update.Status.ProjectInfo.Name,
+		Runtime: update.Status.ProjectInfo.Runtime,
+	}
 }
 
 // cooldown returns the amount of time to wait before a failed Update should be

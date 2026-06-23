@@ -76,6 +76,13 @@ type WorkspaceSpec struct {
 	// +optional
 	Local *LocalSource `json:"local,omitempty"`
 
+	// Stub instructs the workspace to bypass source fetching entirely and
+	// bootstrap with a minimal Pulumi.yaml derived from the stub fields. This
+	// is used by the Stack controller for state-only destroy when the upstream
+	// source artifact is unavailable (see #1222).
+	// +optional
+	Stub *StubSource `json:"stub,omitempty"`
+
 	// List of sources to populate environment variables in the workspace.
 	// The keys defined within a source must be a C_IDENTIFIER. All invalid keys
 	// will be reported as an event when the container is starting. When a key exists in multiple
@@ -193,6 +200,18 @@ type LocalSource struct {
 	// Dir gives the subdirectory containing the Pulumi project (i.e., containing Pulumi.yaml) of
 	// interest, within the workspace image.
 	Dir string `json:"dir,omitempty"`
+}
+
+// StubSource carries the minimal project metadata needed for the workspace
+// to start without fetching source. The bootstrap init container writes a
+// Pulumi.yaml containing just `name:` and `runtime:` so the agent can load
+// project settings and select the stack. Used by the Stack controller for
+// state-only destroy when the source artifact is unavailable (see #1222).
+type StubSource struct {
+	// Name is the Pulumi project name to write into the stub Pulumi.yaml.
+	Name string `json:"name"`
+	// Runtime is the Pulumi runtime to declare in the stub Pulumi.yaml.
+	Runtime string `json:"runtime"`
 }
 
 type WorkspaceStack struct {

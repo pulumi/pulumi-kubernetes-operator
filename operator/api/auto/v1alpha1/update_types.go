@@ -113,6 +113,21 @@ type UpdateStatus struct {
 	// +listMapKey=type
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+
+	// ProjectInfo records the Pulumi project name and runtime as observed by
+	// the agent during this update. The Stack controller copies this to
+	// Stack.Status.ProjectInfo so that subsequent destroy operations can
+	// proceed without the source artifact.
+	// +optional
+	ProjectInfo *ProjectInfo `json:"projectInfo,omitempty"`
+}
+
+// ProjectInfo captures the minimal Pulumi project metadata observed during
+// an update. Used by the Stack controller to enable state-only destroy when
+// the source artifact is unavailable.
+type ProjectInfo struct {
+	Name    string `json:"name"`
+	Runtime string `json:"runtime"`
 }
 
 //+genclient
