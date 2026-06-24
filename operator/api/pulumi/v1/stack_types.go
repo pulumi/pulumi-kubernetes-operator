@@ -45,6 +45,13 @@ type StackStatus struct {
 	// CurrentUpdate contains details of the status of the current update, if any.
 	// +optional
 	CurrentUpdate *shared.CurrentStackUpdate `json:"currentUpdate,omitempty"`
+
+	// ProjectInfo caches the project name and runtime from Pulumi.yaml as
+	// reported by the agent during a successful operation. Used to bootstrap
+	// a project-info workspace for destroy when the source artifact is unavailable.
+	// Persisted across the Stack's lifetime in etcd.
+	// +optional
+	ProjectInfo *shared.ProjectInfo `json:"projectInfo,omitempty"`
 }
 
 // The conditions form part of the API. They are used to implement a "ready protocol" which works

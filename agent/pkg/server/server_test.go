@@ -984,6 +984,25 @@ func TestUp(t *testing.T) {
 	}
 }
 
+func TestUpReportsProjectInfo(t *testing.T) {
+	t.Parallel()
+	ctx := newContext(t)
+	tc := newTC(ctx, t, tcOptions{
+		ProjectDir: "./testdata/simple",
+		Stacks:     []string{TestStackName},
+	})
+
+	srv := &upStream{
+		ctx:    ctx,
+		events: make([]*structpb.Struct, 0, 100),
+	}
+	require.NoError(t, tc.server.Up(&pb.UpRequest{}, srv))
+	require.NotNil(t, srv.result)
+	require.NotNil(t, srv.result.ProjectInfo, "UpResult must include ProjectInfo")
+	assert.Equal(t, "simple", srv.result.ProjectInfo.Name)
+	assert.Equal(t, "yaml", srv.result.ProjectInfo.Runtime)
+}
+
 type upStream struct {
 	grpc.ServerStream
 	ctx    context.Context

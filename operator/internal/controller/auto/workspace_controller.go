@@ -149,36 +149,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// determine the source revision to use in later steps.
-	source := &sourceSpec{
-		Generation: w.Generation,
-	}
-	if w.Spec.Git != nil {
-		source.Git = &gitSource{
-			URL:     w.Spec.Git.URL,
-			Dir:     w.Spec.Git.Dir,
-			Ref:     w.Spec.Git.Ref,
-			Shallow: w.Spec.Git.Shallow,
-		}
-		if w.Spec.Git.Auth != nil {
-			source.Git.Password = w.Spec.Git.Auth.Password
-			source.Git.SSHPrivateKey = w.Spec.Git.Auth.SSHPrivateKey
-			source.Git.Token = w.Spec.Git.Auth.Token
-			source.Git.Username = w.Spec.Git.Auth.Username
-			source.Git.GitHubApp = w.Spec.Git.Auth.GitHubApp
-		}
-	}
-	if w.Spec.Flux != nil {
-		source.Flux = &fluxSource{
-			Url:    w.Spec.Flux.Url,
-			Digest: w.Spec.Flux.Digest,
-			Dir:    w.Spec.Flux.Dir,
-		}
-	}
-	if w.Spec.Local != nil {
-		source.Local = &localSource{
-			Dir: w.Spec.Local.Dir,
-		}
-	}
+	source := newSourceSpec(w)
 	sourceHash := source.Hash()
 	l.Info("Applying StatefulSet", "hash", sourceHash, "source", source)
 
@@ -637,18 +608,7 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 					},
 					TerminationGracePeriodSeconds: ptr.To[int64](WorkspacePodTerminationGracePeriodSeconds),
 					InitContainers: []corev1.Container{
-						{
-							Name:            "bootstrap",
-							Image:           image,
-							ImagePullPolicy: imagePullPolicy,
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      WorkspaceShareVolumeName,
-									MountPath: WorkspaceShareMountPath,
-								},
-							},
-							Args: []string{"cp", "/agent", "/tini", "/share/"},
-						},
+						bootstrapContainer(image, imagePullPolicy),
 					},
 					Containers: []corev1.Container{
 						{
@@ -840,6 +800,33 @@ ln -s "/share/source/$FLUX_DIR" /share/workspace
 		statefulset.Spec.Template.Spec.InitContainers = append(statefulset.Spec.Template.Spec.InitContainers, container)
 	}
 
+	if source.ProjectInfo != nil {
+		script := `/share/agent init -t /share/workspace --project-name "$PROJECT_NAME" --project-runtime "$PROJECT_RUNTIME"`
+		container := corev1.Container{
+			Name:            "fetch",
+			Image:           image,
+			ImagePullPolicy: imagePullPolicy,
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      WorkspaceShareVolumeName,
+					MountPath: WorkspaceShareMountPath,
+				},
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "PROJECT_NAME",
+					Value: source.ProjectInfo.Name,
+				},
+				{
+					Name:  "PROJECT_RUNTIME",
+					Value: source.ProjectInfo.Runtime,
+				},
+			},
+			Args: []string{"sh", "-c", script},
+		}
+		statefulset.Spec.Template.Spec.InitContainers = append(statefulset.Spec.Template.Spec.InitContainers, container)
+	}
+
 	// apply the 'restricted' security profile as necessary
 	if w.Spec.SecurityProfile == autov1alpha1.SecurityProfileRestricted {
 		sc := statefulset.Spec.Template.Spec.SecurityContext
@@ -934,6 +921,7 @@ type sourceSpec struct {
 	Git          *gitSource
 	Flux         *fluxSource
 	Local        *localSource
+	ProjectInfo  *projectInfoSource
 }
 
 type gitSource struct {
@@ -956,6 +944,77 @@ type fluxSource struct {
 
 type localSource struct {
 	Dir string
+}
+
+type projectInfoSource struct {
+	Name    string
+	Runtime string
+}
+
+// newSourceSpec translates the workspace's API-level source declaration into
+// the internal sourceSpec used to generate the StatefulSet. Exactly one
+// source variant is expected to be set on the Workspace, but the translation
+// is order-independent.
+func newSourceSpec(w *autov1alpha1.Workspace) *sourceSpec {
+	s := &sourceSpec{
+		Generation: w.Generation,
+	}
+	if w.Spec.Git != nil {
+		s.Git = &gitSource{
+			URL:     w.Spec.Git.URL,
+			Dir:     w.Spec.Git.Dir,
+			Ref:     w.Spec.Git.Ref,
+			Shallow: w.Spec.Git.Shallow,
+		}
+		if w.Spec.Git.Auth != nil {
+			s.Git.Password = w.Spec.Git.Auth.Password
+			s.Git.SSHPrivateKey = w.Spec.Git.Auth.SSHPrivateKey
+			s.Git.Token = w.Spec.Git.Auth.Token
+			s.Git.Username = w.Spec.Git.Auth.Username
+			s.Git.GitHubApp = w.Spec.Git.Auth.GitHubApp
+		}
+	}
+	if w.Spec.Flux != nil {
+		s.Flux = &fluxSource{
+			Url:    w.Spec.Flux.Url,
+			Digest: w.Spec.Flux.Digest,
+			Dir:    w.Spec.Flux.Dir,
+		}
+	}
+	if w.Spec.Local != nil {
+		s.Local = &localSource{
+			Dir: w.Spec.Local.Dir,
+		}
+	}
+	if w.Spec.ProjectInfo != nil {
+		s.ProjectInfo = &projectInfoSource{
+			Name:    w.Spec.ProjectInfo.Name,
+			Runtime: w.Spec.ProjectInfo.Runtime,
+		}
+	}
+	return s
+}
+
+// bootstrapContainer builds the workspace's bootstrap init container. The
+// non-project-info variant just copies the agent + tini binaries into the shared
+// volume; a separate `fetch` init container handles source resolution. The
+// project-info variant additionally creates the workspace dir and writes a minimal
+// Pulumi.yaml derived from the cached project info, so the agent can start
+// and select the stack without source — used for project-info destroy when
+// the source artifact is unavailable (#1222).
+func bootstrapContainer(image string, pullPolicy corev1.PullPolicy) corev1.Container {
+	return corev1.Container{
+		Name:            "bootstrap",
+		Image:           image,
+		ImagePullPolicy: pullPolicy,
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      WorkspaceShareVolumeName,
+				MountPath: WorkspaceShareMountPath,
+			},
+		},
+		Args: []string{"cp", "/agent", "/tini", "/share/"},
+	}
 }
 
 func (s *sourceSpec) Hash() string {

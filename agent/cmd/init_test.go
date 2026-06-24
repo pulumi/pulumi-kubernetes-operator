@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/go-git/go-git/v5"
@@ -40,6 +42,19 @@ func TestInitFluxSource(t *testing.T) {
 
 	err := runInit(t.Context(), log, dir, f, nil)
 	assert.NoError(t, err)
+}
+
+func TestWriteProjectFile(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	err := writeProjectFile(dir, "myproject", "yaml")
+	assert.NoError(t, err)
+
+	data, err := os.ReadFile(filepath.Join(dir, "Pulumi.yaml"))
+	assert.NoError(t, err)
+	assert.Contains(t, string(data), "name: myproject")
+	assert.Contains(t, string(data), "runtime: yaml")
 }
 
 func TestInitGitSource(t *testing.T) {

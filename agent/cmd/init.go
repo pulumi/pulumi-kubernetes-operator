@@ -20,22 +20,27 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/blang/semver"
 	"github.com/fluxcd/pkg/http/fetch"
 	git "github.com/go-git/go-git/v5"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/gitauth"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
 
 var (
-	_targetDir   string
-	_fluxURL     string
-	_fluxDigest  string
-	_gitURL      string
-	_gitRevision string
+	_targetDir      string
+	_fluxURL        string
+	_fluxDigest     string
+	_gitURL         string
+	_gitRevision    string
+	_projectName    string
+	_projectRuntime string
 )
 
 // initCmd represents the init command
@@ -49,6 +54,15 @@ For Flux sources:
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
+		// Don't display usage on error.
+		cmd.SilenceUsage = true
+
+		// A project-info workspace has no source to fetch; synthesize a minimal Pulumi.yaml
+		// (project name + runtime) so the agent can start without a program.
+		if _projectName != "" {
+			return writeProjectFile(_targetDir, _projectName, _projectRuntime)
+		}
+
 		var f fetchWithContexter
 		var g newLocalWorkspacer
 
@@ -66,8 +80,6 @@ For Flux sources:
 					fetch.WithUntar()),
 			}
 		}
-		// Don't display usage on error.
-		cmd.SilenceUsage = true
 		return runInit(ctx, log, _targetDir, f, g)
 	},
 }
@@ -142,6 +154,22 @@ func runInit(ctx context.Context,
 	return nil
 }
 
+// writeProjectFile writes a minimal Pulumi.yaml (project name + runtime) into
+// targetDir for a project-info workspace that has no source to fetch.
+func writeProjectFile(targetDir, name, runtime string) error {
+	if err := os.MkdirAll(targetDir, 0o750); err != nil {
+		return fmt.Errorf("unable to make target directory: %w", err)
+	}
+	proj := &workspace.Project{
+		Name:    tokens.PackageName(name),
+		Runtime: workspace.NewProjectRuntimeInfo(runtime, nil),
+	}
+	if err := proj.Save(filepath.Join(targetDir, "Pulumi.yaml")); err != nil {
+		return fmt.Errorf("writing project-info Pulumi.yaml: %w", err)
+	}
+	return nil
+}
+
 type fetchWithContexter interface {
 	FetchWithContext(ctx context.Context, archiveURL, digest, dir string) error
 	URL() string
@@ -212,6 +240,10 @@ func init() {
 	initCmd.Flags().StringVar(&_gitRevision, "git-revision", "", "Git revision (tag or commit SHA)")
 	initCmd.MarkFlagsRequiredTogether("git-url", "git-revision")
 
-	initCmd.MarkFlagsOneRequired("git-url", "flux-url")
-	initCmd.MarkFlagsMutuallyExclusive("git-url", "flux-url")
+	initCmd.Flags().StringVar(&_projectName, "project-name", "", "Project name for a project-info (sourceless) workspace")
+	initCmd.Flags().StringVar(&_projectRuntime, "project-runtime", "", "Project runtime for a project-info workspace")
+	initCmd.MarkFlagsRequiredTogether("project-name", "project-runtime")
+
+	initCmd.MarkFlagsOneRequired("git-url", "flux-url", "project-name")
+	initCmd.MarkFlagsMutuallyExclusive("git-url", "flux-url", "project-name")
 }

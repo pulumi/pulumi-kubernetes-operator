@@ -30,6 +30,7 @@ type StackStatusApplyConfiguration struct {
 	ObservedReconcileRequest *string                              `json:"observedReconcileRequest,omitempty"`
 	Conditions               []metav1.ConditionApplyConfiguration `json:"conditions,omitempty"`
 	CurrentUpdate            *shared.CurrentStackUpdate           `json:"currentUpdate,omitempty"`
+	ProjectInfo              *shared.ProjectInfo                  `json:"projectInfo,omitempty"`
 }
 
 // StackStatusApplyConfiguration constructs a declarative configuration of the StackStatus type for use with
@@ -88,5 +89,13 @@ func (b *StackStatusApplyConfiguration) WithConditions(values ...*metav1.Conditi
 // If called multiple times, the CurrentUpdate field is set to the value of the last call.
 func (b *StackStatusApplyConfiguration) WithCurrentUpdate(value shared.CurrentStackUpdate) *StackStatusApplyConfiguration {
 	b.CurrentUpdate = &value
+	return b
+}
+
+// WithProjectInfo sets the ProjectInfo field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ProjectInfo field is set to the value of the last call.
+func (b *StackStatusApplyConfiguration) WithProjectInfo(value shared.ProjectInfo) *StackStatusApplyConfiguration {
+	b.ProjectInfo = &value
 	return b
 }

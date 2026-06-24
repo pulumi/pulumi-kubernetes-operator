@@ -625,6 +625,33 @@ func TestUpdateStatusZeroTimestamps(t *testing.T) {
 
 // TestMapWorkspaceToUpdate_SkipsActiveReconciles verifies that
 // mapWorkspaceToUpdate does not enqueue Updates that are actively being
+func TestApplyProjectInfoToUpdate(t *testing.T) {
+	tests := []struct {
+		name string
+		info *agentpb.ProjectInfo
+		want *autov1alpha1.ProjectInfo
+	}{
+		{
+			name: "nil info leaves status untouched",
+			info: nil,
+			want: nil,
+		},
+		{
+			name: "populated info translates to status",
+			info: &agentpb.ProjectInfo{Name: "myproject", Runtime: "yaml"},
+			want: &autov1alpha1.ProjectInfo{Name: "myproject", Runtime: "yaml"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			obj := &autov1alpha1.Update{}
+			applyProjectInfoToUpdate(obj, tt.info)
+			assert.Equal(t, tt.want, obj.Status.ProjectInfo)
+		})
+	}
+}
+
 // reconciled by this process, preventing the race condition described in
 // https://github.com/pulumi/pulumi-kubernetes-operator/issues/1105
 func TestMapWorkspaceToUpdate_SkipsActiveReconciles(t *testing.T) {

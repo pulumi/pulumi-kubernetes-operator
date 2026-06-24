@@ -31,6 +31,7 @@ type UpdateStatusApplyConfiguration struct {
 	Message            *string                              `json:"message,omitempty"`
 	Outputs            *string                              `json:"outputs,omitempty"`
 	Conditions         []metav1.ConditionApplyConfiguration `json:"conditions,omitempty"`
+	ProjectInfo        *ProjectInfoApplyConfiguration       `json:"projectInfo,omitempty"`
 }
 
 // UpdateStatusApplyConfiguration constructs a declarative configuration of the UpdateStatus type for use with
@@ -97,5 +98,13 @@ func (b *UpdateStatusApplyConfiguration) WithConditions(values ...*metav1.Condit
 		}
 		b.Conditions = append(b.Conditions, *values[i])
 	}
+	return b
+}
+
+// WithProjectInfo sets the ProjectInfo field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ProjectInfo field is set to the value of the last call.
+func (b *UpdateStatusApplyConfiguration) WithProjectInfo(value *ProjectInfoApplyConfiguration) *UpdateStatusApplyConfiguration {
+	b.ProjectInfo = value
 	return b
 }

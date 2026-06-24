@@ -2287,6 +2287,262 @@ func TestIsSynced(t *testing.T) {
 	}
 }
 
+// TestShouldUseProjectInfoWorkspaceForDestroy covers the predicate that decides
+// whether the reconciler should bypass source resolution and use a projectInfo
+// workspace to run `pulumi destroy` against backend state alone (see #1222).
+func TestShouldUseProjectInfoWorkspaceForDestroy(t *testing.T) {
+	now := metav1.Now()
+	withProjectInfo := &shared.ProjectInfo{Name: "myproject", Runtime: "yaml"}
+
+	tests := []struct {
+		name  string
+		stack pulumiv1.Stack
+		want  bool
+	}{
+		{
+			name: "not marked for deletion",
+			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{
+					DestroyOnFinalize: true,
+				},
+				Status: pulumiv1.StackStatus{ProjectInfo: withProjectInfo},
+			},
+			want: false,
+		},
+		{
+			name: "marked for deletion, but destroyOnFinalize=false",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(now)},
+				Spec: shared.StackSpec{
+					DestroyOnFinalize: false,
+				},
+				Status: pulumiv1.StackStatus{ProjectInfo: withProjectInfo},
+			},
+			want: false,
+		},
+		{
+			name: "marked for deletion, destroyOnFinalize=true, but preview=true (no resources to destroy)",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(now)},
+				Spec: shared.StackSpec{
+					DestroyOnFinalize: true,
+					Preview:           true,
+				},
+				Status: pulumiv1.StackStatus{ProjectInfo: withProjectInfo},
+			},
+			want: false,
+		},
+		{
+			name: "marked for deletion, destroyOnFinalize=true, runProgram=true (need real source)",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(now)},
+				Spec: shared.StackSpec{
+					DestroyOnFinalize: true,
+					RunProgram:        true,
+				},
+				Status: pulumiv1.StackStatus{ProjectInfo: withProjectInfo},
+			},
+			want: false,
+		},
+		{
+			name: "marked for deletion, destroyOnFinalize=true, runProgram=false, no cached ProjectInfo",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(now)},
+				Spec: shared.StackSpec{
+					DestroyOnFinalize: true,
+				},
+				Status: pulumiv1.StackStatus{ProjectInfo: nil},
+			},
+			want: false,
+		},
+		{
+			name: "marked for deletion, destroyOnFinalize=true, runProgram=false, ProjectInfo cached (the projectInfo-destroy path)",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(now)},
+				Spec: shared.StackSpec{
+					DestroyOnFinalize: true,
+				},
+				Status: pulumiv1.StackStatus{ProjectInfo: withProjectInfo},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldUseProjectInfoWorkspaceForDestroy(&tt.stack)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestSetProjectInfoSource(t *testing.T) {
+	info := &shared.ProjectInfo{Name: "myproject", Runtime: "yaml"}
+
+	tests := []struct {
+		name string
+		ws   autov1alpha1.WorkspaceSpec
+	}{
+		{
+			name: "empty spec",
+			ws:   autov1alpha1.WorkspaceSpec{},
+		},
+		{
+			name: "displaces Git source",
+			ws: autov1alpha1.WorkspaceSpec{
+				Git: &autov1alpha1.GitSource{URL: "https://example.com/repo.git", Ref: "main"},
+			},
+		},
+		{
+			name: "displaces Flux source",
+			ws: autov1alpha1.WorkspaceSpec{
+				Flux: &autov1alpha1.FluxSource{Url: "http://flux/artifact.tgz", Digest: "sha256:abc"},
+			},
+		},
+		{
+			name: "displaces Local source",
+			ws: autov1alpha1.WorkspaceSpec{
+				Local: &autov1alpha1.LocalSource{Dir: "/workspace/project"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ws := tt.ws.DeepCopy()
+			setProjectInfoSource(ws, info)
+
+			require.NotNil(t, ws.ProjectInfo, "ProjectInfo must be set")
+			assert.Equal(t, "myproject", ws.ProjectInfo.Name)
+			assert.Equal(t, "yaml", ws.ProjectInfo.Runtime)
+			assert.Nil(t, ws.Git, "Git source must be cleared")
+			assert.Nil(t, ws.Flux, "Flux source must be cleared")
+			assert.Nil(t, ws.Local, "Local source must be cleared")
+		})
+	}
+}
+
+func TestProjectInfoBypass(t *testing.T) {
+	now := metav1.Now()
+	info := &shared.ProjectInfo{Name: "myproject", Runtime: "yaml"}
+
+	tests := []struct {
+		name            string
+		stack           pulumiv1.Stack
+		ws              autov1alpha1.WorkspaceSpec
+		wantBypass      bool
+		wantProjectInfo bool
+		wantSrcKept     bool
+	}{
+		{
+			name: "qualifies for projectInfo destroy: bypass fires, ws is rewritten",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(now)},
+				Spec:       shared.StackSpec{DestroyOnFinalize: true},
+				Status:     pulumiv1.StackStatus{ProjectInfo: info},
+			},
+			ws: autov1alpha1.WorkspaceSpec{
+				Flux: &autov1alpha1.FluxSource{Url: "http://flux/x.tgz"},
+			},
+			wantBypass:      true,
+			wantProjectInfo: true,
+			wantSrcKept:     false,
+		},
+		{
+			name: "not marked for deletion: no bypass, ws untouched",
+			stack: pulumiv1.Stack{
+				Spec:   shared.StackSpec{DestroyOnFinalize: true},
+				Status: pulumiv1.StackStatus{ProjectInfo: info},
+			},
+			ws: autov1alpha1.WorkspaceSpec{
+				Flux: &autov1alpha1.FluxSource{Url: "http://flux/x.tgz"},
+			},
+			wantBypass:      false,
+			wantProjectInfo: false,
+			wantSrcKept:     true,
+		},
+		{
+			name: "no cached ProjectInfo: no bypass even with deletion + destroyOnFinalize",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: ptr.To(now)},
+				Spec:       shared.StackSpec{DestroyOnFinalize: true},
+				Status:     pulumiv1.StackStatus{ProjectInfo: nil},
+			},
+			ws: autov1alpha1.WorkspaceSpec{
+				Flux: &autov1alpha1.FluxSource{Url: "http://flux/x.tgz"},
+			},
+			wantBypass:      false,
+			wantProjectInfo: false,
+			wantSrcKept:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ws := tt.ws.DeepCopy()
+			got := projectInfoBypass(&tt.stack, ws)
+			assert.Equal(t, tt.wantBypass, got, "return value")
+			if tt.wantProjectInfo {
+				assert.NotNil(t, ws.ProjectInfo, "ProjectInfo must be set")
+			} else {
+				assert.Nil(t, ws.ProjectInfo, "ProjectInfo must remain unset")
+			}
+			if tt.wantSrcKept {
+				assert.NotNil(t, ws.Flux, "original source must be preserved")
+			} else {
+				assert.Nil(t, ws.Flux, "original source must be cleared")
+			}
+		})
+	}
+}
+
+func TestApplyProjectInfoToStack(t *testing.T) {
+	tests := []struct {
+		name   string
+		stack  pulumiv1.Stack
+		update autov1alpha1.Update
+		want   *shared.ProjectInfo
+	}{
+		{
+			name:   "update has no ProjectInfo: stack untouched",
+			stack:  pulumiv1.Stack{},
+			update: autov1alpha1.Update{},
+			want:   nil,
+		},
+		{
+			name:  "update has ProjectInfo: stack picks it up",
+			stack: pulumiv1.Stack{},
+			update: autov1alpha1.Update{
+				Status: autov1alpha1.UpdateStatus{
+					ProjectInfo: &autov1alpha1.ProjectInfo{Name: "myproject", Runtime: "yaml"},
+				},
+			},
+			want: &shared.ProjectInfo{Name: "myproject", Runtime: "yaml"},
+		},
+		{
+			name: "update has ProjectInfo: overwrites stale value on stack",
+			stack: pulumiv1.Stack{
+				Status: pulumiv1.StackStatus{
+					ProjectInfo: &shared.ProjectInfo{Name: "old", Runtime: "yaml"},
+				},
+			},
+			update: autov1alpha1.Update{
+				Status: autov1alpha1.UpdateStatus{
+					ProjectInfo: &autov1alpha1.ProjectInfo{Name: "new", Runtime: "python"},
+				},
+			},
+			want: &shared.ProjectInfo{Name: "new", Runtime: "python"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			applyProjectInfoToStack(&tt.stack, &tt.update)
+			assert.Equal(t, tt.want, tt.stack.Status.ProjectInfo)
+		})
+	}
+}
+
 func TestAddUpdateFinalizer(t *testing.T) {
 	ctx := context.Background()
 
@@ -2619,6 +2875,121 @@ func TestWorkspaceStalledPropagation(t *testing.T) {
 			assert.Nil(t, reconcilingCond, "expected Reconciling condition to be removed")
 		})
 	}
+}
+
+func TestProjectInfoDestroyBypassesUnavailableSource(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, pulumiv1.AddToScheme(testScheme))
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+		},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	k8sclient, err := client.New(cfg, client.Options{Scheme: testScheme})
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	stackName := types.NamespacedName{Name: "project-info-destroy", Namespace: "default"}
+
+	stack := &pulumiv1.Stack{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: pulumiv1.GroupVersion.String(),
+			Kind:       "Stack",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       stackName.Name,
+			Namespace:  stackName.Namespace,
+			Finalizers: []string{testFinalizer, PulumiFinalizer},
+		},
+		Spec: shared.StackSpec{
+			Stack:             "dev",
+			DestroyOnFinalize: true,
+			ProgramRef:        &shared.ProgramReference{Name: "deleted-program"},
+		},
+	}
+	require.NoError(t, k8sclient.Create(ctx, stack))
+	t.Cleanup(func() { _ = k8sclient.Delete(ctx, stack) })
+
+	stack.Status.ProjectInfo = &shared.ProjectInfo{Name: "myproject", Runtime: "yaml"}
+	stack.Status.LastUpdate = &shared.StackUpdateState{
+		Generation:           stack.Generation,
+		Name:                 "update-prior",
+		Type:                 autov1alpha1.UpType,
+		State:                shared.SucceededStackStateMessage,
+		LastAttemptedCommit:  "abc",
+		LastSuccessfulCommit: "abc",
+		LastResyncTime:       metav1.Now(),
+	}
+	require.NoError(t, k8sclient.Status().Update(ctx, stack))
+
+	require.NoError(t, k8sclient.Delete(ctx, stack))
+
+	r := &StackReconciler{
+		Client:   k8sclient,
+		Scheme:   testScheme,
+		Recorder: record.NewFakeRecorder(10),
+	}
+
+	// First reconcile: takes the projectInfo bypass and applies a projectInfo workspace,
+	// then waits for workspace readiness.
+	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
+	require.NoError(t, err)
+
+	wsName := types.NamespacedName{
+		Name:      nameForWorkspace(&stack.ObjectMeta),
+		Namespace: stackName.Namespace,
+	}
+	var ws autov1alpha1.Workspace
+	require.NoError(t, k8sclient.Get(ctx, wsName, &ws))
+	require.NotNil(t, ws.Spec.ProjectInfo, "Workspace.Spec.ProjectInfo must be set for projectInfo-destroy path")
+	assert.Equal(t, "myproject", ws.Spec.ProjectInfo.Name)
+	assert.Equal(t, "yaml", ws.Spec.ProjectInfo.Runtime)
+	assert.Nil(t, ws.Spec.Flux, "Flux source must be cleared on projectInfo path")
+	assert.Nil(t, ws.Spec.Git, "Git source must be cleared on projectInfo path")
+
+	// Simulate the workspace controller marking the workspace Ready so the
+	// Stack controller can proceed to create the destroy Update.
+	ws.Status.ObservedGeneration = ws.Generation
+	ws.Status.Conditions = []metav1.Condition{
+		{
+			Type:               autov1alpha1.WorkspaceReady,
+			Status:             metav1.ConditionTrue,
+			Reason:             "Succeeded",
+			LastTransitionTime: metav1.Now(),
+		},
+	}
+	require.NoError(t, k8sclient.Status().Update(ctx, &ws))
+
+	// Second reconcile: workspace is Ready, destroy Update is created.
+	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
+	require.NoError(t, err)
+
+	var updated pulumiv1.Stack
+	require.NoError(t, k8sclient.Get(ctx, stackName, &updated))
+
+	stalledCond := meta.FindStatusCondition(updated.Status.Conditions, pulumiv1.StalledCondition)
+	if stalledCond != nil {
+		assert.NotEqual(t, pulumiv1.StalledSourceUnavailableReason, stalledCond.Reason,
+			"Stack should NOT be stalled on SourceUnavailable; projectInfo path should bypass source resolution")
+	}
+
+	require.NotNil(t, updated.Status.CurrentUpdate, "a destroy Update should have been initiated")
+
+	var update autov1alpha1.Update
+	require.NoError(t, k8sclient.Get(ctx, types.NamespacedName{
+		Name:      updated.Status.CurrentUpdate.Name,
+		Namespace: stackName.Namespace,
+	}, &update))
+	assert.Equal(t, autov1alpha1.DestroyType, update.Spec.Type, "Update CR must be of type destroy")
 }
 
 // TestStackStatusConcurrentModification proves that the Stack controller's
