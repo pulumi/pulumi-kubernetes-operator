@@ -86,6 +86,8 @@ const (
 	ReconcilingProcessingUpdateMessage    = "stack is being processed"
 	// Reconciling because it failed, and has been requeued
 	ReconcilingRetryReason = "RetryingAfterFailure"
+	// Reconciling because a preview failed; the proposed update would not apply
+	ReconcilingPreviewFailedReason = "PreviewFailed"
 	// Reconciling because a prerequisite was not satisfied
 	ReconcilingPrerequisiteNotSatisfiedReason = "PrerequisiteNotSatisfied"
 
@@ -99,6 +101,8 @@ const (
 	StalledPulumiVersionTooLowReason = "PulumiVersionTooLow"
 	// Stalled because the workspace failed to initialize or install dependencies.
 	StalledWorkspaceFailedReason = "WorkspaceFailed"
+	// Stalled because the update has failed repeatedly; the operator keeps retrying with backoff
+	StalledUpdateFailedReason = "UpdateFailed"
 
 	// Ready because processing has completed
 	ReadyCompletedReason = "ProcessingCompleted"

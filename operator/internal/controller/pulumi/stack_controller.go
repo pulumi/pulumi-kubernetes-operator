@@ -805,11 +805,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	if synced {
 		// We don't mark the stack as ready if its update failed so downstream
 		// Stack dependencies aren't triggered.
-		if instance.Status.LastUpdate.State == shared.SucceededStackStateMessage {
-			instance.Status.MarkReadyCondition()
-		} else {
-			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason, fmt.Sprintf("%d update failure(s)", instance.Status.LastUpdate.Failures))
-		}
+		markStackResult(&instance.Status)
 
 		if isStackMarkedToBeDeleted {
 			log.Info("Stack was destroyed; finalizing now.")
@@ -825,10 +821,13 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		requeueAfter := time.Duration(0)
 		updateFailed := false
 
-		// Try again with exponential backoff if the update failed.
+		// Try again with exponential backoff if the update failed, until the retry
+		// limit is reached.
 		if instance.Status.LastUpdate.State == shared.FailedStackStateMessage {
 			updateFailed = true
-			requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(cooldown(instance))))
+			if instance.Status.LastUpdate.Failures < maxUpdateFailures {
+				requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(cooldown(instance))))
+			}
 		}
 		// Schedule another poll if ContinueResyncOnCommitMatch is set, for drift detection or to maintain dynamic resources.
 		if instance.Status.LastUpdate.State == shared.SucceededStackStateMessage && sess.stack.ContinueResyncOnCommitMatch {
@@ -1049,6 +1048,39 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	return reconcile.Result{}, nil
 }
 
+// maxUpdateFailures bounds how many times a failing update is retried before the
+// operator gives up. Below the limit a failure is treated as transient: the Stack stays
+// Reconciling and retries with backoff.
+//
+// TODO: promote to a spec field.
+const maxUpdateFailures = 3
+
+// markStackResult sets the ready-protocol condition from the outcome of the last update.
+// A failed preview is reported distinctly from a failed up/refresh/destroy so consumers
+// (e.g. ArgoCD health checks) can tell a bad proposed change apart from a failed live update.
+func markStackResult(status *pulumiv1.StackStatus) {
+	last := status.LastUpdate
+	if last.State == shared.SucceededStackStateMessage {
+		status.MarkReadyCondition()
+		return
+	}
+	// The update failed. Once the retry limit is reached we stop retrying, so this
+	// Stalled takes precedence over the per-type reasons below regardless of update type.
+	if last.Failures >= maxUpdateFailures {
+		status.MarkStalledCondition(pulumiv1.StalledUpdateFailedReason,
+			fmt.Sprintf("%s failed %d times; not retrying until the spec or source changes", last.Type, last.Failures))
+		return
+	}
+	// Still within the retry budget: surface a failed preview distinctly from a failed live update.
+	if last.Type == autov1alpha1.PreviewType {
+		status.MarkReconcilingCondition(pulumiv1.ReconcilingPreviewFailedReason,
+			fmt.Sprintf("preview failed (%d attempt(s))", last.Failures))
+		return
+	}
+	status.MarkReconcilingCondition(pulumiv1.ReconcilingRetryReason,
+		fmt.Sprintf("%d update failure(s)", last.Failures))
+}
+
 // markStackFailed updates the status of the Stack object `instance` locally, to reflect a failure to process the stack.
 func (r *StackReconciler) markStackFailed(sess *stackReconcilerSession, instance *pulumiv1.Stack, current *shared.CurrentStackUpdate, update *autov1alpha1.Update) {
 	sess.logger.Info("Failed to update Stack", "Stack.Name", sess.stack.Stack, "Message", update.Status.Message)
@@ -1220,6 +1252,12 @@ func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.St
 			msg := fmt.Sprintf("New commit detected: %q", currentCommit)
 			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), msg)
 			return false, msg
+		}
+		if stack.Status.LastUpdate.Failures >= maxUpdateFailures {
+			// Retry limit reached with unchanged inputs; stop retrying.
+			log.V(1).Info("Synced: update retry limit reached; not retrying until inputs change",
+				"failures", stack.Status.LastUpdate.Failures)
+			return true, ""
 		}
 		c := cooldown(stack)
 		if time.Since(stack.Status.LastUpdate.LastResyncTime.Time) >= c {
