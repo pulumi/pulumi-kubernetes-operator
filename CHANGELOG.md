@@ -8,6 +8,7 @@ CHANGELOG
 - Fix `destroyOnFinalize: true` getting stuck in `Stalled / SourceUnavailable` when a Stack is deleted together with its source (an inline `Program` or a Flux source); the operator now destroys from backend state without re-fetching the source [#1222](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1222) [#441](https://github.com/pulumi/pulumi-kubernetes-operator/issues/441)
 - Re-generate shipped CRDs and docs to match `config/crd/bases`, and add a CI gate that fails on codegen drift [#1252](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1252)
 - Bound update retries: after repeated failures a Stack is marked `Stalled` and stops retrying until its spec or source changes [#1007](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1007)
+- Surface a `Stalled / NamespaceTerminating` condition (with manual-recovery instructions) and retain the finalizer, when a `destroyOnFinalize` Stack cannot be destroyed because its namespace is terminating — instead of hanging silently or orphaning resources [#1181](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1181)
 
 ## 2.7.0 (2026-04-06)
 

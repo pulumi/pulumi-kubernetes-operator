@@ -103,6 +103,9 @@ const (
 	StalledWorkspaceFailedReason = "WorkspaceFailed"
 	// Stalled because the update has failed repeatedly; the operator keeps retrying with backoff
 	StalledUpdateFailedReason = "UpdateFailed"
+	// Stalled because the Stack's namespace is terminating, so a workspace cannot be
+	// created to run destroy. Resources must be cleaned up manually.
+	StalledNamespaceTerminatingReason = "NamespaceTerminating"
 
 	// Ready because processing has completed
 	ReadyCompletedReason = "ProcessingCompleted"

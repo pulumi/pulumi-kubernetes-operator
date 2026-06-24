@@ -3056,6 +3056,107 @@ func TestFailedDestroyRetainsFinalizer(t *testing.T) {
 	assert.Contains(t, updated.Finalizers, PulumiFinalizer)
 }
 
+func TestStackDestroyStalledWhenNamespaceTerminating(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, pulumiv1.AddToScheme(testScheme))
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+		},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	k8sclient, err := client.New(cfg, client.Options{Scheme: testScheme})
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	nsName := "terminating-ns"
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsName}}
+	require.NoError(t, k8sclient.Create(ctx, ns))
+
+	stackName := types.NamespacedName{Name: "stalled-destroy", Namespace: nsName}
+
+	// A Program with a ready artifact so the destroy path resolves its source successfully.
+	program := &pulumiv1.Program{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      stackName.Name + "-program",
+			Namespace: nsName,
+		},
+		Program: pulumiv1.ProgramSpec{
+			Resources: map[string]pulumiv1.Resource{
+				"password": {Type: "random:RandomPassword"},
+			},
+		},
+	}
+	require.NoError(t, k8sclient.Create(ctx, program))
+	program.Status.Artifact = &pulumiv1.Artifact{
+		Revision:       "test-revision",
+		LastUpdateTime: metav1.Now(),
+	}
+	program.Status.ObservedGeneration = program.Generation
+	require.NoError(t, k8sclient.Status().Update(ctx, program))
+
+	// A Stack with destroyOnFinalize, mid-deletion and held by the Pulumi finalizer.
+	stack := &pulumiv1.Stack{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: pulumiv1.GroupVersion.String(),
+			Kind:       "Stack",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       stackName.Name,
+			Namespace:  nsName,
+			Finalizers: []string{PulumiFinalizer},
+		},
+		Spec: shared.StackSpec{
+			Stack:             "dev",
+			DestroyOnFinalize: true,
+			ProgramRef:        &shared.ProgramReference{Name: program.Name},
+		},
+	}
+	require.NoError(t, k8sclient.Create(ctx, stack))
+	require.NoError(t, k8sclient.Delete(ctx, stack))
+
+	// envtest has no namespace controller, so a deleted namespace stays Terminating
+	// indefinitely — exactly the state that blocks workspace creation.
+	require.NoError(t, k8sclient.Delete(ctx, ns))
+	require.Eventually(t, func() bool {
+		var got corev1.Namespace
+		if err := k8sclient.Get(ctx, types.NamespacedName{Name: nsName}, &got); err != nil {
+			return false
+		}
+		return got.Status.Phase == corev1.NamespaceTerminating
+	}, 10*time.Second, 100*time.Millisecond, "namespace should be Terminating")
+
+	recorder := record.NewFakeRecorder(10)
+	r := &StackReconciler{
+		Client:   k8sclient,
+		Scheme:   testScheme,
+		Recorder: recorder,
+	}
+	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
+	require.NoError(t, err)
+
+	var updated pulumiv1.Stack
+	require.NoError(t, k8sclient.Get(ctx, stackName, &updated))
+
+	stalledCond := meta.FindStatusCondition(updated.Status.Conditions, pulumiv1.StalledCondition)
+	require.NotNil(t, stalledCond, "expected Stalled condition on Stack")
+	assert.Equal(t, metav1.ConditionTrue, stalledCond.Status)
+	assert.Equal(t, pulumiv1.StalledNamespaceTerminatingReason, stalledCond.Reason)
+	assert.Contains(t, stalledCond.Message, "terminating")
+	assert.Contains(t, stalledCond.Message, "kubectl patch", "message should tell the user how to release the Stack")
+
+	assert.Contains(t, updated.Finalizers, PulumiFinalizer, "finalizer must be retained so resources are not silently orphaned")
+}
+
 // TestStackStatusConcurrentModification proves that the Stack controller's
 // SSA-based status writes succeed even when another client concurrently modifies
 // metadata (e.g. sets a label), which bumps the object's resourceVersion. The

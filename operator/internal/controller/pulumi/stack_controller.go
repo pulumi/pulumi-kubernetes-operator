@@ -967,6 +967,25 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	}
 
 	if err := sess.CreateWorkspace(ctx); err != nil {
+		// A workspace can't be created in a deleting namespace, so destroy can't run.
+		// Surface a Stalled condition and keep the finalizer rather than silently orphaning
+		// resources. (An Event can't be emitted here: it too is a namespaced object the API
+		// server rejects in a terminating namespace, so the condition is the only signal that
+		// reaches the user.)
+		if isStackMarkedToBeDeleted && apierrors.HasStatusCause(err, corev1.NamespaceTerminatingCause) {
+			detail := "the Pulumi backend"
+			if instance.Status.LastUpdate != nil && instance.Status.LastUpdate.Permalink != "" {
+				detail = string(instance.Status.LastUpdate.Permalink)
+			}
+			msg := fmt.Sprintf("namespace %q is terminating, so a workspace cannot be created to run "+
+				"destroy; cloud resources will NOT be deleted and must be cleaned up manually (see %s). "+
+				"The finalizer is retained to avoid silently orphaning resources. Once the resources are "+
+				"handled, release the Stack with: kubectl patch stack %s -n %s --type=merge "+
+				`-p '{"metadata":{"finalizers":[]}}'`,
+				instance.Namespace, detail, instance.Name, instance.Namespace)
+			instance.Status.MarkStalledCondition(pulumiv1.StalledNamespaceTerminatingReason, msg)
+			return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
+		}
 		log.Error(err, "cannot create workspace")
 		return reconcile.Result{}, fmt.Errorf("unable to create workspace: %w", err)
 	}
