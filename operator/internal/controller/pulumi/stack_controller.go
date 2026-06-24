@@ -812,6 +812,15 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		}
 
 		if isStackMarkedToBeDeleted {
+			// Only finalize if the destroy succeeded; a failed destroy must retain the
+			// finalizer and retry, not silently orphan the stack's resources.
+			if instance.Status.LastUpdate.State != shared.SucceededStackStateMessage {
+				log.Info("Destroy failed; retaining finalizer and retrying after backoff",
+					"failures", instance.Status.LastUpdate.Failures, "message", instance.Status.LastUpdate.Message)
+				requeueAfter := max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(cooldown(instance))))
+				return reconcile.Result{RequeueAfter: requeueAfter}, saveStatus()
+			}
+
 			log.Info("Stack was destroyed; finalizing now.")
 			_ = saveStatus()
 			if controllerutil.RemoveFinalizer(instance, PulumiFinalizer) {
