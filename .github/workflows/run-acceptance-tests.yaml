@@ -108,10 +108,6 @@ jobs:
       - name: Verify generated CRDs and docs are up to date
         run: |
           make codegen
-          # `make manifests` stamps the build image tag (from $VERSION) into
-          # config/manager; that's build metadata, not codegen output. Discard it
-          # so the freshness check only sees real CRD/docs drift.
-          git checkout -- operator/config/manager/kustomization.yaml
           if ! git diff --exit-code; then
             echo "::error::Generated CRDs/docs are stale. Run 'make codegen' and commit the result."
             exit 1
