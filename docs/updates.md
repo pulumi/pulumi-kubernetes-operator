@@ -257,6 +257,16 @@ Known .status.conditions.type are: "Complete", "Failed", and "Progressing"<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#updatestatusprojectinfo">projectInfo</a></b></td>
+        <td>object</td>
+        <td>
+          ProjectInfo records the Pulumi project name and runtime as observed by
+the agent during this update. The Stack controller copies this to
+Stack.Status.ProjectInfo so that subsequent destroy operations can
+proceed without the source artifact.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>startTime</b></td>
         <td>string</td>
         <td>
@@ -342,5 +352,42 @@ with respect to the current state of the instance.<br/>
             <i>Minimum</i>: 0<br/>
         </td>
         <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Update.status.projectInfo
+<sup><sup>[↩ Parent](#updatestatus)</sup></sup>
+
+
+
+ProjectInfo records the Pulumi project name and runtime as observed by
+the agent during this update. The Stack controller copies this to
+Stack.Status.ProjectInfo so that subsequent destroy operations can
+proceed without the source artifact.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>runtime</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
