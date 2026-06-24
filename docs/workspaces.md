@@ -151,6 +151,16 @@ More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#workspacespecprojectinfo">projectInfo</a></b></td>
+        <td>object</td>
+        <td>
+          ProjectInfo instructs the workspace to bypass source fetching entirely and
+bootstrap with a minimal Pulumi.yaml derived from the project-info fields. This
+is used by the Stack controller for project-info destroy when the upstream
+source artifact is unavailable.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>pulumiLogLevel</b></td>
         <td>integer</td>
         <td>
@@ -784,6 +794,13 @@ the repository.
         </tr>
     </thead>
     <tbody><tr>
+        <td><b><a href="#workspacespecgitauthgithubapp">githubApp</a></b></td>
+        <td>object</td>
+        <td>
+          GitHubApp configures GitHub App-based authentication.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#workspacespecgitauthpassword">password</a></b></td>
         <td>object</td>
         <td>
@@ -812,6 +829,188 @@ your password.<br/>
         <td>object</td>
         <td>
           Username is the username to use when authenticating to a git repository.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Workspace.spec.git.auth.githubApp
+<sup><sup>[↩ Parent](#workspacespecgitauth)</sup></sup>
+
+
+
+GitHubApp configures GitHub App-based authentication.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#workspacespecgitauthgithubappappid">appID</a></b></td>
+        <td>object</td>
+        <td>
+          AppID is a reference to the GitHub App ID (stored as a string) in a Kubernetes Secret.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#workspacespecgitauthgithubappinstallationid">installationID</a></b></td>
+        <td>object</td>
+        <td>
+          InstallationID is a reference to the GitHub App installation ID (stored as a string) in a Kubernetes Secret.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b><a href="#workspacespecgitauthgithubappprivatekey">privateKey</a></b></td>
+        <td>object</td>
+        <td>
+          PrivateKey is a reference to the PEM-encoded RSA private key of the GitHub App in a Kubernetes Secret.<br/>
+        </td>
+        <td>true</td>
+      </tr></tbody>
+</table>
+
+
+### Workspace.spec.git.auth.githubApp.appID
+<sup><sup>[↩ Parent](#workspacespecgitauthgithubapp)</sup></sup>
+
+
+
+AppID is a reference to the GitHub App ID (stored as a string) in a Kubernetes Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key of the secret to select from.  Must be a valid secret key.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Workspace.spec.git.auth.githubApp.installationID
+<sup><sup>[↩ Parent](#workspacespecgitauthgithubapp)</sup></sup>
+
+
+
+InstallationID is a reference to the GitHub App installation ID (stored as a string) in a Kubernetes Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key of the secret to select from.  Must be a valid secret key.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the Secret or its key must be defined<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Workspace.spec.git.auth.githubApp.privateKey
+<sup><sup>[↩ Parent](#workspacespecgitauthgithubapp)</sup></sup>
+
+
+
+PrivateKey is a reference to the PEM-encoded RSA private key of the GitHub App in a Kubernetes Secret.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>key</b></td>
+        <td>string</td>
+        <td>
+          The key of the secret to select from.  Must be a valid secret key.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name of the referent.
+This field is effectively required, but due to backwards compatibility is
+allowed to be empty. Instances of this type with an empty value here are
+almost certainly wrong.
+More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names<br/>
+          <br/>
+            <i>Default</i>: <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>optional</b></td>
+        <td>boolean</td>
+        <td>
+          Specify whether the Secret or its key must be defined<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -17458,6 +17657,43 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
           storagePolicyName is the storage Policy Based Management (SPBM) profile name.<br/>
         </td>
         <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Workspace.spec.projectInfo
+<sup><sup>[↩ Parent](#workspacespec)</sup></sup>
+
+
+
+ProjectInfo instructs the workspace to bypass source fetching entirely and
+bootstrap with a minimal Pulumi.yaml derived from the project-info fields. This
+is used by the Stack controller for project-info destroy when the upstream
+source artifact is unavailable.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the Pulumi project name to write into the project-info Pulumi.yaml.<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>runtime</b></td>
+        <td>string</td>
+        <td>
+          Runtime is the Pulumi runtime to declare in the project-info Pulumi.yaml.<br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
 

@@ -8970,6 +8970,25 @@ spec:
                     - containers
                     type: object
                 type: object
+              projectInfo:
+                description: |-
+                  ProjectInfo instructs the workspace to bypass source fetching entirely and
+                  bootstrap with a minimal Pulumi.yaml derived from the project-info fields. This
+                  is used by the Stack controller for project-info destroy when the upstream
+                  source artifact is unavailable.
+                properties:
+                  name:
+                    description: Name is the Pulumi project name to write into the
+                      project-info Pulumi.yaml.
+                    type: string
+                  runtime:
+                    description: Runtime is the Pulumi runtime to declare in the project-info
+                      Pulumi.yaml.
+                    type: string
+                required:
+                - name
+                - runtime
+                type: object
               pulumiLogLevel:
                 description: |-
                   PulumiLogVerbosity is the log verbosity level to use for the Pulumi CLI.

@@ -3076,6 +3076,14 @@ with apply.
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#stackspecupdatetemplatestatusprojectinfo">projectInfo</a></b></td>
+        <td>object</td>
+        <td>
+          ProjectInfoApplyConfiguration represents a declarative configuration of the ProjectInfo type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>startTime</b></td>
         <td>string</td>
         <td>
@@ -3146,6 +3154,41 @@ with apply.
         <td>false</td>
       </tr><tr>
         <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.updateTemplate.status.projectInfo
+<sup><sup>[↩ Parent](#stackspecupdatetemplatestatus)</sup></sup>
+
+
+
+ProjectInfoApplyConfiguration represents a declarative configuration of the ProjectInfo type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>runtime</b></td>
         <td>string</td>
         <td>
           <br/>
@@ -3477,6 +3520,14 @@ with apply.<br/>
         <td>object</td>
         <td>
           EmbeddedPodTemplateSpecApplyConfiguration represents a declarative configuration of the EmbeddedPodTemplateSpec type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecprojectinfo">projectInfo</a></b></td>
+        <td>object</td>
+        <td>
+          ProjectInfoSourceApplyConfiguration represents a declarative configuration of the ProjectInfoSource type for use
 with apply.<br/>
         </td>
         <td>false</td>
@@ -20957,6 +21008,41 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
 </table>
 
 
+### Stack.spec.workspaceTemplate.spec.projectInfo
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespec)</sup></sup>
+
+
+
+ProjectInfoSourceApplyConfiguration represents a declarative configuration of the ProjectInfoSource type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>runtime</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate.spec.resources
 <sup><sup>[↩ Parent](#stackspecworkspacetemplatespec)</sup></sup>
 
@@ -21381,6 +21467,16 @@ Known .status.conditions.type are: "Ready", "Reconciling", "Stalled"<br/>
           Outputs contains the exported stack output variables resulting from a deployment.<br/>
         </td>
         <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackstatusprojectinfo">projectInfo</a></b></td>
+        <td>object</td>
+        <td>
+          ProjectInfo caches the project name and runtime from Pulumi.yaml as
+reported by the agent during a successful operation. Used to bootstrap
+a project-info workspace for destroy when the source artifact is unavailable.
+Persisted across the Stack's lifetime in etcd.<br/>
+        </td>
+        <td>false</td>
       </tr></tbody>
 </table>
 
@@ -21613,6 +21709,43 @@ in case the failure was due to transient conditions.<br/>
           Type is the type of update.<br/>
         </td>
         <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.status.projectInfo
+<sup><sup>[↩ Parent](#stackstatus)</sup></sup>
+
+
+
+ProjectInfo caches the project name and runtime from Pulumi.yaml as
+reported by the agent during a successful operation. Used to bootstrap
+a project-info workspace for destroy when the source artifact is unavailable.
+Persisted across the Stack's lifetime in etcd.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          Name is the Pulumi project name (the `name:` field in Pulumi.yaml).<br/>
+        </td>
+        <td>true</td>
+      </tr><tr>
+        <td><b>runtime</b></td>
+        <td>string</td>
+        <td>
+          Runtime is the Pulumi runtime declaration (the `runtime:` field in Pulumi.yaml).<br/>
+        </td>
+        <td>true</td>
       </tr></tbody>
 </table>
 
@@ -24689,6 +24822,14 @@ with apply.
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#stackspecupdatetemplatestatusprojectinfo-1">projectInfo</a></b></td>
+        <td>object</td>
+        <td>
+          ProjectInfoApplyConfiguration represents a declarative configuration of the ProjectInfo type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>startTime</b></td>
         <td>string</td>
         <td>
@@ -24759,6 +24900,41 @@ with apply.
         <td>false</td>
       </tr><tr>
         <td><b>type</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.updateTemplate.status.projectInfo
+<sup><sup>[↩ Parent](#stackspecupdatetemplatestatus-1)</sup></sup>
+
+
+
+ProjectInfoApplyConfiguration represents a declarative configuration of the ProjectInfo type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>runtime</b></td>
         <td>string</td>
         <td>
           <br/>
@@ -25090,6 +25266,14 @@ with apply.<br/>
         <td>object</td>
         <td>
           EmbeddedPodTemplateSpecApplyConfiguration represents a declarative configuration of the EmbeddedPodTemplateSpec type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecprojectinfo-1">projectInfo</a></b></td>
+        <td>object</td>
+        <td>
+          ProjectInfoSourceApplyConfiguration represents a declarative configuration of the ProjectInfoSource type for use
 with apply.<br/>
         </td>
         <td>false</td>
@@ -42564,6 +42748,41 @@ Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.<br/>
         <td>string</td>
         <td>
           storagePolicyName is the storage Policy Based Management (SPBM) profile name.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.projectInfo
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespec-1)</sup></sup>
+
+
+
+ProjectInfoSourceApplyConfiguration represents a declarative configuration of the ProjectInfoSource type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>name</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>runtime</b></td>
+        <td>string</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>
