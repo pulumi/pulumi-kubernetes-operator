@@ -90,6 +90,29 @@ jobs:
       - name: Lint pulumi-kubernetes-operator codebase
         run: make lint
 
+  codegen:
+    runs-on: ubuntu-latest
+    name: Codegen freshness
+    steps:
+      - name: Fetch secrets from ESC
+        id: esc-secrets
+        uses: pulumi/esc-action@8afe12bb7bb3df0a599e5309ee429ff1079ba85f # v3
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+      - name: Verify generated CRDs and docs are up to date
+        run: |
+          make codegen
+          if ! git diff --exit-code; then
+            echo "::error::Generated CRDs/docs are stale. Run 'make codegen' and commit the result."
+            exit 1
+          fi
+
   unit-tests:
     runs-on: ubuntu-latest
     name: Unit tests
