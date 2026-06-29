@@ -891,7 +891,7 @@ var _ = Describe("Stack Controller", func() {
 					LastResyncTime:       metav1.Now(),
 					LastAttemptedCommit:  fluxRepo.Status.Artifact.Revision,
 					LastSuccessfulCommit: "",
-					Failures:             3,
+					Failures:             maxUpdateFailures - 1, // one below the limit: still retrying
 				}
 			})
 
@@ -899,9 +899,9 @@ var _ = Describe("Stack Controller", func() {
 				It("backs off exponentially", func(ctx context.Context) {
 					res, err := reconcileF(ctx)
 					Expect(err).NotTo(HaveOccurred())
-					// 10 seconds * 3^3 = 4m30s
-					Expect(res.RequeueAfter).To(BeNumerically("~", 4*time.Minute, time.Minute))
-					ByMarkingAsReconciling(pulumiv1.ReconcilingRetryReason, Equal("3 update failure(s)"))
+					// 10 seconds * 3^2 = 1m30s
+					Expect(res.RequeueAfter).To(BeNumerically("~", 90*time.Second, 30*time.Second))
+					ByMarkingAsReconciling(pulumiv1.ReconcilingRetryReason, Equal("2 update failure(s)"))
 				})
 
 				When("the WorkspaceReclaimPolicy is set to Delete", func() {
@@ -928,32 +928,28 @@ var _ = Describe("Stack Controller", func() {
 			})
 		})
 
-		When("the last update was not successful and max retry cooldown is set", func() {
+		When("the update has failed past the retry limit", func() {
 			BeforeEach(func(ctx context.Context) {
 				obj.Status.LastUpdate = &shared.StackUpdateState{
 					Generation:           1,
 					State:                shared.FailedStackStateMessage,
 					Name:                 "update-abcdef",
 					Type:                 autov1alpha1.UpType,
-					LastResyncTime:       metav1.Now(),
+					LastResyncTime:       metav1.NewTime(time.Now().Add(-1 * time.Hour)), // cooldown long elapsed
 					LastAttemptedCommit:  fluxRepo.Status.Artifact.Revision,
 					LastSuccessfulCommit: "",
-					Failures:             10,
+					Failures:             10, // past maxUpdateFailures
 				}
-				// Set a custom max backoff duration (e.g., 5 minutes)
-				obj.Spec.RetryMaxBackoffDurationSeconds = int64(300)
 			})
-			When("done cooling down with the custom duration", func() {
-				It("backs off according to the max backoff", func(ctx context.Context) {
-					res, err := reconcileF(ctx)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(res.RequeueAfter).To(BeNumerically("~", 5*time.Minute, time.Minute))
-				})
-				It("reconciles", func(ctx context.Context) {
-					_, err := reconcileF(ctx)
-					Expect(err).NotTo(HaveOccurred())
-					ByMarkingAsReconciling(pulumiv1.ReconcilingRetryReason, Equal("10 update failure(s)"))
-				})
+			It("stops retrying - no backoff requeue", func(ctx context.Context) {
+				res, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res.RequeueAfter).To(BeZero())
+			})
+			It("marks the stack as stalled", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				ByMarkingAsStalled(pulumiv1.StalledUpdateFailedReason, Equal("up failed 10 times; not retrying until the spec or source changes"))
 			})
 		})
 
