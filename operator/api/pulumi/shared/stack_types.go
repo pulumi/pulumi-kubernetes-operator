@@ -132,6 +132,8 @@ type StackSpec struct {
 	// (e.g., metadata, timestamps).
 	ExpectNoRefreshChanges bool `json:"expectNoRefreshChanges,omitempty"`
 	// (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the Stack custom resource.
+	// NOTE: destroy runs in a workspace pod, which cannot be created in a Terminating namespace; delete the Stack's
+	// namespace separately or destroy can deadlock and orphan resources. See the troubleshooting guide for recovery.
 	DestroyOnFinalize bool `json:"destroyOnFinalize,omitempty"`
 	// (optional) RunProgram runs the program during destroy operations (when destroyOnFinalize is set).
 	// This is useful when the program performs setup (e.g., network access, credentials)

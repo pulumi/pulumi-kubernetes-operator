@@ -165,7 +165,9 @@ When enabled, the resync frequency is controlled by ResyncFrequencySeconds (defa
         <td><b>destroyOnFinalize</b></td>
         <td>boolean</td>
         <td>
-          (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the Stack custom resource.<br/>
+          (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the Stack custom resource.
+NOTE: destroy runs in a workspace pod, which cannot be created in a Terminating namespace; delete the Stack's
+namespace separately or destroy can deadlock and orphan resources. See the troubleshooting guide for recovery.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -21911,7 +21913,9 @@ When enabled, the resync frequency is controlled by ResyncFrequencySeconds (defa
         <td><b>destroyOnFinalize</b></td>
         <td>boolean</td>
         <td>
-          (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the Stack custom resource.<br/>
+          (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the Stack custom resource.
+NOTE: destroy runs in a workspace pod, which cannot be created in a Terminating namespace; delete the Stack's
+namespace separately or destroy can deadlock and orphan resources. See the troubleshooting guide for recovery.<br/>
         </td>
         <td>false</td>
       </tr><tr>
