@@ -18,7 +18,7 @@ imports:
 - shared/review.md
 - shared/plugins/code-review/code-review.md
 description: Automated PR review for trusted internal contributors.
-source: pulumi-labs/gh-aw-internal/.github/workflows/gh-aw-pr-review.md@242988150273951aad5f67b008256266bdff6112
+source: pulumi-labs/gh-aw-internal/.github/workflows/gh-aw-pr-review.md@fccb0509de811cdc59bfe4e77504af0d4b5ebaa1
 strict: true
 timeout-minutes: 15
 ---

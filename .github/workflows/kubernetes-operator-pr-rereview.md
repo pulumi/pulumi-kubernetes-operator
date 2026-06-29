@@ -15,7 +15,7 @@ imports:
 - shared/review.md
 - shared/plugins/code-review/code-review.md
 description: Run PR re-review on explicit maintainer slash command.
-source: pulumi-labs/gh-aw-internal/.github/workflows/gh-aw-pr-rereview.md@242988150273951aad5f67b008256266bdff6112
+source: pulumi-labs/gh-aw-internal/.github/workflows/gh-aw-pr-rereview.md@fccb0509de811cdc59bfe4e77504af0d4b5ebaa1
 strict: true
 timeout-minutes: 15
 ---
