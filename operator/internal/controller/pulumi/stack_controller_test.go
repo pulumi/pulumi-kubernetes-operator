@@ -2988,6 +2988,74 @@ func TestProjectInfoDestroyBypassesUnavailableSource(t *testing.T) {
 	assert.Equal(t, autov1alpha1.DestroyType, update.Spec.Type, "Update CR must be of type destroy")
 }
 
+func TestFailedDestroyRetainsFinalizer(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, pulumiv1.AddToScheme(testScheme))
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+		},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	k8sclient, err := client.New(cfg, client.Options{Scheme: testScheme})
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	stackName := types.NamespacedName{Name: "failed-destroy", Namespace: "default"}
+
+	stack := &pulumiv1.Stack{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: pulumiv1.GroupVersion.String(),
+			Kind:       "Stack",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       stackName.Name,
+			Namespace:  stackName.Namespace,
+			Finalizers: []string{testFinalizer, PulumiFinalizer},
+		},
+		Spec: shared.StackSpec{Stack: "dev", DestroyOnFinalize: true},
+	}
+	require.NoError(t, k8sclient.Create(ctx, stack))
+	t.Cleanup(func() { _ = k8sclient.Delete(ctx, stack) })
+
+	// Mark for deletion, then record a destroy that just FAILED (still within its backoff
+	// cooldown). ProjectInfo makes the destroy take the source-less bypass (currentCommit == "");
+	// seeding the status after the delete keeps LastUpdate.Generation aligned with the
+	// post-delete generation. Together these make isSynced return true on the failed-update
+	// path — exactly where the old code removed the finalizer.
+	require.NoError(t, k8sclient.Delete(ctx, stack))
+	require.NoError(t, k8sclient.Get(ctx, stackName, stack))
+	stack.Status.ProjectInfo = &shared.ProjectInfo{Name: "myproject", Runtime: "yaml"}
+	stack.Status.LastUpdate = &shared.StackUpdateState{
+		Generation:     stack.Generation,
+		Name:           "destroy-failed",
+		Type:           autov1alpha1.DestroyType,
+		State:          shared.FailedStackStateMessage,
+		Message:        "destroy failed: BucketNotEmpty",
+		LastResyncTime: metav1.Now(),
+		Failures:       1,
+	}
+	require.NoError(t, k8sclient.Status().Update(ctx, stack))
+
+	r := &StackReconciler{Client: k8sclient, Scheme: testScheme, Recorder: record.NewFakeRecorder(10)}
+	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
+	require.NoError(t, err)
+
+	// A failed destroy must not delete the Stack and orphan its resources. testFinalizer keeps
+	// the object queryable, so the assertion isolates PulumiFinalizer.
+	var updated pulumiv1.Stack
+	require.NoError(t, k8sclient.Get(ctx, stackName, &updated))
+	assert.Contains(t, updated.Finalizers, PulumiFinalizer)
+}
+
 // TestStackStatusConcurrentModification proves that the Stack controller's
 // SSA-based status writes succeed even when another client concurrently modifies
 // metadata (e.g. sets a label), which bumps the object's resourceVersion. The
