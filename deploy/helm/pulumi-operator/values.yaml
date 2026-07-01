@@ -50,6 +50,26 @@ kubeAPI:
   # Increase this value if experiencing kube-apiserver slowness that causes leader election failures
   timeout: "30s"
 
+# Liveness probe for the controller manager (/healthz on :8081)
+# Increase timeoutSeconds/failureThreshold if long-running Pulumi operations can briefly
+# starve the manager's health endpoint and cause spurious restarts.
+livenessProbe:
+  initialDelaySeconds: 15
+  periodSeconds: 20
+  # -- Seconds before the probe times out (Kubernetes default is 1, which is aggressive under load)
+  timeoutSeconds: 1
+  # -- Consecutive failures before the container is restarted
+  failureThreshold: 3
+
+# Readiness probe for the controller manager (/readyz on :8081)
+readinessProbe:
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  # -- Seconds before the probe times out (Kubernetes default is 1, which is aggressive under load)
+  timeoutSeconds: 1
+  # -- Consecutive failures before the pod is marked NotReady
+  failureThreshold: 3
+
 # -- Extra Environments to be passed to the operator
 extraEnv: []
 
