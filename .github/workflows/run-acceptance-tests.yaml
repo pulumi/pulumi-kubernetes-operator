@@ -44,7 +44,7 @@ jobs:
     steps:
       - name: Fetch secrets from ESC
         id: esc-secrets
-        uses: pulumi/esc-action@8afe12bb7bb3df0a599e5309ee429ff1079ba85f # v3
+        uses: pulumi/esc-action@3af4859af8a73a362fb599b944124097d4bb80c5 # v3
       - name: Check out code
         uses: actions/checkout@v4
         with:
@@ -78,7 +78,7 @@ jobs:
     steps:
       - name: Fetch secrets from ESC
         id: esc-secrets
-        uses: pulumi/esc-action@8afe12bb7bb3df0a599e5309ee429ff1079ba85f # v3
+        uses: pulumi/esc-action@3af4859af8a73a362fb599b944124097d4bb80c5 # v3
       - name: Check out code
         uses: actions/checkout@v4
         with:
@@ -96,7 +96,7 @@ jobs:
     steps:
       - name: Fetch secrets from ESC
         id: esc-secrets
-        uses: pulumi/esc-action@8afe12bb7bb3df0a599e5309ee429ff1079ba85f # v3
+        uses: pulumi/esc-action@3af4859af8a73a362fb599b944124097d4bb80c5 # v3
       - name: Check out code
         uses: actions/checkout@v4
         with:
@@ -121,7 +121,7 @@ jobs:
     steps:
       - name: Fetch secrets from ESC
         id: esc-secrets
-        uses: pulumi/esc-action@8afe12bb7bb3df0a599e5309ee429ff1079ba85f # v3
+        uses: pulumi/esc-action@3af4859af8a73a362fb599b944124097d4bb80c5 # v3
       - name: Check out code
         uses: actions/checkout@v4
         with:
@@ -153,7 +153,7 @@ jobs:
     steps:
       - name: Fetch secrets from ESC
         id: esc-secrets
-        uses: pulumi/esc-action@8afe12bb7bb3df0a599e5309ee429ff1079ba85f # v3
+        uses: pulumi/esc-action@3af4859af8a73a362fb599b944124097d4bb80c5 # v3
       - name: Setup cluster
         uses: helm/kind-action@v1
         with:
