@@ -71,6 +71,10 @@ spec:
         - name: KUBE_API_TIMEOUT
           value: {{ .Values.kubeAPI.timeout | quote }}
         {{- end }}
+        {{- if and .Values.flux (ne (toString .Values.flux.maxUntarSizeBytes) "") }}
+        - name: FLUX_MAX_UNTAR_SIZE_BYTES
+          value: {{ .Values.flux.maxUntarSizeBytes | quote }}
+        {{- end }}
         ports:
         - containerPort: 8383
           name: http-metrics

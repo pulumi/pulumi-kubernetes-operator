@@ -84,6 +84,18 @@ the pod connects to the `source-controller` pod in the `flux-system` namespace.
 If your cluster has [Network Policy](https://kubernetes.io/docs/concepts/services-networking/network-policies/) enabled,
 a policy must be configured to allow the above traffic. Apply this manifest: [operator/config/flux/network_policy.yaml](./operator/config/flux/network_policy.yaml).
 
+#### Flux artifact exceeds the extraction size limit
+
+The `fetch` init container extracts the Flux artifact with a default cap of 100 MiB on the *uncompressed*
+contents. A larger artifact fails init with an error such as `bigger than max archive size`.
+
+Raise the cap by setting the `FLUX_MAX_UNTAR_SIZE_BYTES` environment variable on the operator (bytes; `-1`
+disables the limit):
+
+- **Helm**: set `flux.maxUntarSizeBytes`, e.g. `--set flux.maxUntarSizeBytes=524288000`.
+- **Kustomize / raw manifests**: add the env var to the manager container.
+- **Local (`make run`)**: `export FLUX_MAX_UNTAR_SIZE_BYTES=524288000` before running.
+
 ### Stack Conflicts
 
 On rare occasion, your Pulumi stack may become locked in the state backend. To unlock your stack:

@@ -50,6 +50,12 @@ kubeAPI:
   # Increase this value if experiencing kube-apiserver slowness that causes leader election failures
   timeout: "30s"
 
+# Flux source configuration
+flux:
+  # -- Max size in bytes for extracting a Flux source artifact. Empty uses the
+  # built-in default (100 MiB); set higher for large artifacts, or -1 to disable the limit.
+  maxUntarSizeBytes: ""
+
 # -- Extra Environments to be passed to the operator
 extraEnv: []
 

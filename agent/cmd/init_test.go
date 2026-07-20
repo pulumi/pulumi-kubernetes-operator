@@ -15,6 +15,13 @@
 package cmd
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,6 +29,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 )
@@ -42,6 +50,78 @@ func TestInitFluxSource(t *testing.T) {
 
 	err := runInit(t.Context(), log, dir, f, nil)
 	assert.NoError(t, err)
+}
+
+func TestFluxUntarOptions(t *testing.T) {
+	t.Run("unset does not override the default", func(t *testing.T) {
+		t.Setenv("FLUX_MAX_UNTAR_SIZE_BYTES", "")
+		opts, err := fluxUntarOptions()
+		assert.NoError(t, err)
+		assert.Nil(t, opts)
+	})
+
+	t.Run("a valid size is accepted", func(t *testing.T) {
+		t.Setenv("FLUX_MAX_UNTAR_SIZE_BYTES", "524288000")
+		opts, err := fluxUntarOptions()
+		assert.NoError(t, err)
+		assert.NotEmpty(t, opts)
+	})
+
+	t.Run("a non-numeric value errors", func(t *testing.T) {
+		t.Setenv("FLUX_MAX_UNTAR_SIZE_BYTES", "big")
+		_, err := fluxUntarOptions()
+		assert.Error(t, err)
+	})
+}
+
+func TestInitFluxSource_UntarSizeLimit(t *testing.T) {
+	const extractedSize = 2048
+
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	content := bytes.Repeat([]byte("a"), extractedSize)
+	require.NoError(t, tw.WriteHeader(&tar.Header{
+		Typeflag: tar.TypeReg,
+		Name:     "data.txt",
+		Mode:     0o600,
+		Size:     int64(len(content)),
+	}))
+	_, err := tw.Write(content)
+	require.NoError(t, err)
+	require.NoError(t, tw.Close())
+	require.NoError(t, gz.Close())
+	archive := buf.Bytes()
+
+	sum := sha256.Sum256(archive)
+	digest := "sha256:" + hex.EncodeToString(sum[:])
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(archive)
+	}))
+	t.Cleanup(srv.Close)
+
+	fetchInto := func(t *testing.T, targetDir string) error {
+		f, err := newFluxFetcher(srv.URL, digest)
+		require.NoError(t, err)
+		return runInit(t.Context(), zap.L().Named(t.Name()).Sugar(), targetDir, f, nil)
+	}
+
+	t.Run("fails when the artifact exceeds the configured limit", func(t *testing.T) {
+		t.Setenv("FLUX_MAX_UNTAR_SIZE_BYTES", "1024")
+		err := fetchInto(t, t.TempDir())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "bigger than max archive size")
+	})
+
+	t.Run("succeeds when the limit is raised above the artifact size", func(t *testing.T) {
+		t.Setenv("FLUX_MAX_UNTAR_SIZE_BYTES", "1048576")
+		dir := t.TempDir()
+		require.NoError(t, fetchInto(t, dir))
+		extracted, err := os.ReadFile(filepath.Join(dir, "data.txt"))
+		require.NoError(t, err)
+		assert.Len(t, extracted, extractedSize)
+	})
 }
 
 func TestWriteProjectFile(t *testing.T) {

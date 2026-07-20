@@ -101,7 +101,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fluxcd/pkg/apis/acl v0.3.0 // indirect
 	github.com/fluxcd/pkg/apis/meta v1.5.0 // indirect
-	github.com/fluxcd/pkg/tar v0.7.0 // indirect
+	github.com/fluxcd/pkg/tar v0.7.0
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.9.0 // indirect
