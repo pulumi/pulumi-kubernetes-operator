@@ -413,8 +413,10 @@ spec:
                   When enabled, the resync frequency is controlled by ResyncFrequencySeconds (default 60s).
                 type: boolean
               destroyOnFinalize:
-                description: (optional) DestroyOnFinalize can be set to true to destroy
-                  the stack completely upon deletion of the Stack custom resource.
+                description: |-
+                  (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the Stack custom resource.
+                  NOTE: destroy runs in a workspace pod, which cannot be created in a Terminating namespace; delete the Stack's
+                  namespace separately or destroy can deadlock and orphan resources. See the troubleshooting guide for recovery.
                 type: boolean
               envRefs:
                 additionalProperties:
@@ -11022,8 +11024,10 @@ spec:
                   When enabled, the resync frequency is controlled by ResyncFrequencySeconds (default 60s).
                 type: boolean
               destroyOnFinalize:
-                description: (optional) DestroyOnFinalize can be set to true to destroy
-                  the stack completely upon deletion of the Stack custom resource.
+                description: |-
+                  (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the Stack custom resource.
+                  NOTE: destroy runs in a workspace pod, which cannot be created in a Terminating namespace; delete the Stack's
+                  namespace separately or destroy can deadlock and orphan resources. See the troubleshooting guide for recovery.
                 type: boolean
               envRefs:
                 additionalProperties:
