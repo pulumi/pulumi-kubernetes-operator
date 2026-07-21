@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+## 2.8.0 (2026-07-21)
+
 - Make the Flux source artifact extraction size limit configurable via the `flux.maxUntarSizeBytes` Helm value (`FLUX_MAX_UNTAR_SIZE_BYTES`), overriding the built-in 100 MiB cap [#1261](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1261)
 - Fix `destroyOnFinalize: true` silently skipping `pulumi destroy` for any Stack that had been successfully reconciled [#1223](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1223)
 - Fix `destroyOnFinalize: true` removing the finalizer and silently orphaning a Stack's cloud resources when `pulumi destroy` fails; the operator now retains the finalizer and retries the destroy with backoff instead of deleting the Stack [#1233](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1233)
