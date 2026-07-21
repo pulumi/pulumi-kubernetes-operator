@@ -21,9 +21,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/blang/semver"
 	"github.com/fluxcd/pkg/http/fetch"
+	"github.com/fluxcd/pkg/tar"
 	git "github.com/go-git/go-git/v5"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/gitauth"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -71,14 +73,11 @@ For Flux sources:
 		}
 		// https://github.com/fluxcd/kustomize-controller/blob/a1a33f2adda783dd2a17234f5d8e84caca4e24e2/internal/controller/kustomization_controller.go#L328
 		if _fluxURL != "" {
-			f = &fluxFetcher{
-				url:    _fluxURL,
-				digest: _fluxDigest,
-				wrapped: fetch.New(
-					fetch.WithRetries(3),
-					fetch.WithHostnameOverwrite(os.Getenv("SOURCE_CONTROLLER_LOCALHOST")),
-					fetch.WithUntar()),
+			ff, err := newFluxFetcher(_fluxURL, _fluxDigest)
+			if err != nil {
+				return err
 			}
+			f = ff
 		}
 		return runInit(ctx, log, _targetDir, f, g)
 	},
@@ -168,6 +167,38 @@ func writeProjectFile(targetDir, name, runtime string) error {
 		return fmt.Errorf("writing project-info Pulumi.yaml: %w", err)
 	}
 	return nil
+}
+
+// newFluxFetcher builds a fluxFetcher for the given artifact, applying the
+// configured untar size limit (see fluxUntarOptions).
+func newFluxFetcher(url, digest string) (*fluxFetcher, error) {
+	untarOpts, err := fluxUntarOptions()
+	if err != nil {
+		return nil, err
+	}
+	return &fluxFetcher{
+		url:    url,
+		digest: digest,
+		wrapped: fetch.New(
+			fetch.WithRetries(3),
+			fetch.WithHostnameOverwrite(os.Getenv("SOURCE_CONTROLLER_LOCALHOST")),
+			fetch.WithUntar(untarOpts...)),
+	}, nil
+}
+
+// fluxUntarOptions derives the tar options for extracting a Flux artifact. The
+// FLUX_MAX_UNTAR_SIZE_BYTES environment variable overrides fluxcd/pkg/tar's
+// default 100 MiB cap; a value of -1 disables the limit entirely.
+func fluxUntarOptions() ([]tar.TarOption, error) {
+	v := os.Getenv("FLUX_MAX_UNTAR_SIZE_BYTES")
+	if v == "" {
+		return nil, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return nil, fmt.Errorf("invalid FLUX_MAX_UNTAR_SIZE_BYTES %q: %w", v, err)
+	}
+	return []tar.TarOption{tar.WithMaxUntarSize(n)}, nil
 }
 
 type fetchWithContexter interface {

@@ -774,6 +774,12 @@ ln -s "/share/source/$FLUX_DIR" /share/workspace
 			},
 			Args: []string{"sh", "-c", script},
 		}
+		if v := os.Getenv("FLUX_MAX_UNTAR_SIZE_BYTES"); v != "" {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  "FLUX_MAX_UNTAR_SIZE_BYTES",
+				Value: v,
+			})
+		}
 		statefulset.Spec.Template.Spec.InitContainers = append(statefulset.Spec.Template.Spec.InitContainers, container)
 	}
 
