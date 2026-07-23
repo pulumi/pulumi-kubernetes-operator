@@ -3,7 +3,7 @@ CHANGELOG
 
 ## Unreleased
 
-- Add `serviceTemplate` to the Workspace spec, allowing custom annotations and labels on the headless Service that fronts a workspace's pods; settable from a Stack via `spec.workspaceTemplate.spec.serviceTemplate.metadata`
+- Add `serviceTemplate` to the Workspace spec, allowing custom annotations and labels on the headless Service that fronts a workspace's pods; settable from a Stack via `spec.workspaceTemplate.spec.serviceTemplate.metadata` [#1280](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1280)
 
 ## 2.8.0 (2026-07-21)
 
