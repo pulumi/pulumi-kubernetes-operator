@@ -203,6 +203,15 @@ the Baseline policy of the Pod Security Standards.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#workspacespecservicetemplate">serviceTemplate</a></b></td>
+        <td>object</td>
+        <td>
+          ServiceTemplate defines a template for the Workspace's Service metadata.
+Use this to add annotations or labels to the headless Service that
+fronts the Workspace's pods.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#workspacespecstacksindex">stacks</a></b></td>
         <td>[]object</td>
         <td>
@@ -17782,6 +17791,75 @@ inside a container.<br/>
           Request is the name chosen for a request in the referenced claim.
 If empty, everything from the claim is made available, otherwise
 only the result of this request.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Workspace.spec.serviceTemplate
+<sup><sup>[↩ Parent](#workspacespec)</sup></sup>
+
+
+
+ServiceTemplate defines a template for the Workspace's Service metadata.
+Use this to add annotations or labels to the headless Service that
+fronts the Workspace's pods.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#workspacespecservicetemplatemetadata">metadata</a></b></td>
+        <td>object</td>
+        <td>
+          EmbeddedMetadata contains metadata relevant to an embedded resource.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Workspace.spec.serviceTemplate.metadata
+<sup><sup>[↩ Parent](#workspacespecservicetemplate)</sup></sup>
+
+
+
+EmbeddedMetadata contains metadata relevant to an embedded resource.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>annotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          Annotations is an unstructured key value map stored with a resource that may be
+set by external tools to store and retrieve arbitrary metadata. They are not
+queryable and should be preserved when modifying objects.
+More info: http://kubernetes.io/docs/user-guide/annotations<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>labels</b></td>
+        <td>map[string]string</td>
+        <td>
+          Map of string keys and values that can be used to organize and categorize
+(scope and select) objects. May match selectors of replication controllers
+and services.
+More info: http://kubernetes.io/docs/user-guide/labels<br/>
         </td>
         <td>false</td>
       </tr></tbody>

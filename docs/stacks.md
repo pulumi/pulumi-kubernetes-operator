@@ -3564,6 +3564,14 @@ with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecservicetemplate">serviceTemplate</a></b></td>
+        <td>object</td>
+        <td>
+          EmbeddedServiceTemplateSpecApplyConfiguration represents a declarative configuration of the EmbeddedServiceTemplateSpec type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecstacksindex">stacks</a></b></td>
         <td>[]object</td>
         <td>
@@ -21134,6 +21142,70 @@ only the result of this request.<br/>
 </table>
 
 
+### Stack.spec.workspaceTemplate.spec.serviceTemplate
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespec)</sup></sup>
+
+
+
+EmbeddedServiceTemplateSpecApplyConfiguration represents a declarative configuration of the EmbeddedServiceTemplateSpec type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecservicetemplatemetadata">metadata</a></b></td>
+        <td>object</td>
+        <td>
+          EmbeddedObjectMetaApplyConfiguration represents a declarative configuration of the EmbeddedObjectMeta type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.serviceTemplate.metadata
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecservicetemplate)</sup></sup>
+
+
+
+EmbeddedObjectMetaApplyConfiguration represents a declarative configuration of the EmbeddedObjectMeta type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>annotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>labels</b></td>
+        <td>map[string]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
 ### Stack.spec.workspaceTemplate.spec.stacks[index]
 <sup><sup>[↩ Parent](#stackspecworkspacetemplatespec)</sup></sup>
 
@@ -25309,6 +25381,14 @@ with apply.<br/>
         <td>string</td>
         <td>
           <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecservicetemplate-1">serviceTemplate</a></b></td>
+        <td>object</td>
+        <td>
+          EmbeddedServiceTemplateSpecApplyConfiguration represents a declarative configuration of the EmbeddedServiceTemplateSpec type for use
+with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -42876,6 +42956,70 @@ inside a container.<br/>
           Request is the name chosen for a request in the referenced claim.
 If empty, everything from the claim is made available, otherwise
 only the result of this request.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.serviceTemplate
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespec-1)</sup></sup>
+
+
+
+EmbeddedServiceTemplateSpecApplyConfiguration represents a declarative configuration of the EmbeddedServiceTemplateSpec type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b><a href="#stackspecworkspacetemplatespecservicetemplatemetadata-1">metadata</a></b></td>
+        <td>object</td>
+        <td>
+          EmbeddedObjectMetaApplyConfiguration represents a declarative configuration of the EmbeddedObjectMeta type for use
+with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr></tbody>
+</table>
+
+
+### Stack.spec.workspaceTemplate.spec.serviceTemplate.metadata
+<sup><sup>[↩ Parent](#stackspecworkspacetemplatespecservicetemplate-1)</sup></sup>
+
+
+
+EmbeddedObjectMetaApplyConfiguration represents a declarative configuration of the EmbeddedObjectMeta type for use
+with apply.
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody><tr>
+        <td><b>annotations</b></td>
+        <td>map[string]string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>labels</b></td>
+        <td>map[string]string</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr></tbody>

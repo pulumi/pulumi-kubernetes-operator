@@ -1028,6 +1028,64 @@ func TestNewStatefulSet_ProjectInfoSource(t *testing.T) {
 	})
 }
 
+func TestNewService(t *testing.T) {
+	w := &autov1alpha1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ws-service",
+			Namespace: "default",
+		},
+	}
+	systemLabels := labelsForStatefulSet(w)
+
+	t.Run("without a service template only system labels are set", func(t *testing.T) {
+		svc := newService(w)
+		assert.Equal(t, systemLabels, svc.Labels)
+		assert.Nil(t, svc.Annotations)
+		assert.Equal(t, systemLabels, svc.Spec.Selector)
+	})
+
+	t.Run("template annotations and labels are merged", func(t *testing.T) {
+		wt := w.DeepCopy()
+		wt.Spec.ServiceTemplate = &autov1alpha1.EmbeddedServiceTemplateSpec{
+			Metadata: autov1alpha1.EmbeddedObjectMeta{
+				Annotations: map[string]string{"prometheus.io/scrape": "true"},
+				Labels:      map[string]string{"team": "platform"},
+			},
+		}
+
+		svc := newService(wt)
+
+		assert.Equal(t, "true", svc.Annotations["prometheus.io/scrape"])
+		assert.Equal(t, "platform", svc.Labels["team"])
+		// System labels are still present on the metadata.
+		for k, v := range systemLabels {
+			assert.Equal(t, v, svc.Labels[k], "system label %q must be preserved", k)
+		}
+		// The selector must remain the system labels only so pod routing is unaffected.
+		assert.Equal(t, systemLabels, svc.Spec.Selector)
+		assert.NotContains(t, svc.Spec.Selector, "team", "user labels must not leak into the selector")
+	})
+
+	t.Run("system labels win over conflicting template labels", func(t *testing.T) {
+		wt := w.DeepCopy()
+		var conflictKey string
+		for k := range systemLabels {
+			conflictKey = k
+			break
+		}
+		require.NotEmpty(t, conflictKey, "expected at least one system label")
+		wt.Spec.ServiceTemplate = &autov1alpha1.EmbeddedServiceTemplateSpec{
+			Metadata: autov1alpha1.EmbeddedObjectMeta{
+				Labels: map[string]string{conflictKey: "hijacked"},
+			},
+		}
+
+		svc := newService(wt)
+		assert.Equal(t, systemLabels[conflictKey], svc.Labels[conflictKey],
+			"system label value must not be overridden by the template")
+	})
+}
+
 func TestMergePodTemplateSpec(t *testing.T) {
 
 	tests := []struct {

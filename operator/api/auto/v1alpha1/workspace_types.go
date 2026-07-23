@@ -110,6 +110,13 @@ type WorkspaceSpec struct {
 	// +optional
 	PodTemplate *EmbeddedPodTemplateSpec `json:"podTemplate,omitempty"`
 
+	// ServiceTemplate defines a template for the Workspace's Service metadata.
+	// Use this to add annotations or labels to the headless Service that
+	// fronts the Workspace's pods.
+	//
+	// +optional
+	ServiceTemplate *EmbeddedServiceTemplateSpec `json:"serviceTemplate,omitempty"`
+
 	// PulumiLogVerbosity is the log verbosity level to use for the Pulumi CLI.
 	// If unset,verbose logging is disabled.
 	// See: https://www.pulumi.com/docs/iac/support/troubleshooting/#verbose-logging
@@ -282,6 +289,14 @@ type EmbeddedPodTemplateSpec struct {
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
 	// +optional
 	Spec *corev1.PodSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+}
+
+// EmbeddedServiceTemplateSpec is a reduced template for the Workspace's Service.
+// It contains only the metadata that is safe to customize.
+type EmbeddedServiceTemplateSpec struct {
+	// EmbeddedMetadata contains metadata relevant to an embedded resource.
+	// +optional
+	Metadata EmbeddedObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 }
 
 // EmbeddedObjectMeta contains a subset of the fields included in k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta

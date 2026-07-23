@@ -24,20 +24,21 @@ import (
 // WorkspaceSpecApplyConfiguration represents a declarative configuration of the WorkspaceSpec type for use
 // with apply.
 type WorkspaceSpecApplyConfiguration struct {
-	ServiceAccountName *string                                    `json:"serviceAccountName,omitempty"`
-	SecurityProfile    *autov1alpha1.SecurityProfile              `json:"securityProfile,omitempty"`
-	Image              *string                                    `json:"image,omitempty"`
-	ImagePullPolicy    *v1.PullPolicy                             `json:"imagePullPolicy,omitempty"`
-	Git                *GitSourceApplyConfiguration               `json:"git,omitempty"`
-	Flux               *FluxSourceApplyConfiguration              `json:"flux,omitempty"`
-	Local              *LocalSourceApplyConfiguration             `json:"local,omitempty"`
-	ProjectInfo        *ProjectInfoSourceApplyConfiguration       `json:"projectInfo,omitempty"`
-	EnvFrom            []v1.EnvFromSource                         `json:"envFrom,omitempty"`
-	Env                []v1.EnvVar                                `json:"env,omitempty"`
-	Resources          *v1.ResourceRequirements                   `json:"resources,omitempty"`
-	PodTemplate        *EmbeddedPodTemplateSpecApplyConfiguration `json:"podTemplate,omitempty"`
-	PulumiLogVerbosity *uint32                                    `json:"pulumiLogLevel,omitempty"`
-	Stacks             []WorkspaceStackApplyConfiguration         `json:"stacks,omitempty"`
+	ServiceAccountName *string                                        `json:"serviceAccountName,omitempty"`
+	SecurityProfile    *autov1alpha1.SecurityProfile                  `json:"securityProfile,omitempty"`
+	Image              *string                                        `json:"image,omitempty"`
+	ImagePullPolicy    *v1.PullPolicy                                 `json:"imagePullPolicy,omitempty"`
+	Git                *GitSourceApplyConfiguration                   `json:"git,omitempty"`
+	Flux               *FluxSourceApplyConfiguration                  `json:"flux,omitempty"`
+	Local              *LocalSourceApplyConfiguration                 `json:"local,omitempty"`
+	ProjectInfo        *ProjectInfoSourceApplyConfiguration           `json:"projectInfo,omitempty"`
+	EnvFrom            []v1.EnvFromSource                             `json:"envFrom,omitempty"`
+	Env                []v1.EnvVar                                    `json:"env,omitempty"`
+	Resources          *v1.ResourceRequirements                       `json:"resources,omitempty"`
+	PodTemplate        *EmbeddedPodTemplateSpecApplyConfiguration     `json:"podTemplate,omitempty"`
+	ServiceTemplate    *EmbeddedServiceTemplateSpecApplyConfiguration `json:"serviceTemplate,omitempty"`
+	PulumiLogVerbosity *uint32                                        `json:"pulumiLogLevel,omitempty"`
+	Stacks             []WorkspaceStackApplyConfiguration             `json:"stacks,omitempty"`
 }
 
 // WorkspaceSpecApplyConfiguration constructs a declarative configuration of the WorkspaceSpec type for use with
@@ -143,6 +144,14 @@ func (b *WorkspaceSpecApplyConfiguration) WithResources(value v1.ResourceRequire
 // If called multiple times, the PodTemplate field is set to the value of the last call.
 func (b *WorkspaceSpecApplyConfiguration) WithPodTemplate(value *EmbeddedPodTemplateSpecApplyConfiguration) *WorkspaceSpecApplyConfiguration {
 	b.PodTemplate = value
+	return b
+}
+
+// WithServiceTemplate sets the ServiceTemplate field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ServiceTemplate field is set to the value of the last call.
+func (b *WorkspaceSpecApplyConfiguration) WithServiceTemplate(value *EmbeddedServiceTemplateSpecApplyConfiguration) *WorkspaceSpecApplyConfiguration {
+	b.ServiceTemplate = value
 	return b
 }
 

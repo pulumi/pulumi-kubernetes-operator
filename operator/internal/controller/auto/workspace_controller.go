@@ -896,15 +896,27 @@ ln -s "/share/source/$FLUX_DIR" /share/workspace
 
 func newService(w *autov1alpha1.Workspace) *corev1.Service {
 	labels := labelsForStatefulSet(w)
+
+	// Merge user-supplied labels/annotations from the service template. System
+	// labels take precedence so the Service stays discoverable, and the selector
+	// is kept to the system labels only so pod routing is never affected.
+	serviceLabels := labels
+	var annotations map[string]string
+	if w.Spec.ServiceTemplate != nil {
+		serviceLabels = mergeStringMaps(w.Spec.ServiceTemplate.Metadata.Labels, labels)
+		annotations = mergeStringMaps(w.Spec.ServiceTemplate.Metadata.Annotations, nil)
+	}
+
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      nameForService(w),
-			Namespace: w.Namespace,
-			Labels:    labels,
+			Name:        nameForService(w),
+			Namespace:   w.Namespace,
+			Labels:      serviceLabels,
+			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: corev1.ClusterIPNone,
@@ -919,6 +931,22 @@ func newService(w *autov1alpha1.Workspace) *corev1.Service {
 	}
 
 	return service
+}
+
+// mergeStringMaps returns a new map containing all entries from base, with
+// entries from override applied on top. It returns nil if both are empty.
+func mergeStringMaps(base, override map[string]string) map[string]string {
+	if len(base) == 0 && len(override) == 0 {
+		return nil
+	}
+	merged := make(map[string]string, len(base)+len(override))
+	for k, v := range base {
+		merged[k] = v
+	}
+	for k, v := range override {
+		merged[k] = v
+	}
+	return merged
 }
 
 type sourceSpec struct {

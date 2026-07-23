@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+- Add `serviceTemplate` to the Workspace spec, allowing custom annotations and labels on the headless Service that fronts a workspace's pods; settable from a Stack via `spec.workspaceTemplate.spec.serviceTemplate.metadata`
+
 ## 2.8.0 (2026-07-21)
 
 - Make the Flux source artifact extraction size limit configurable via the `flux.maxUntarSizeBytes` Helm value (`FLUX_MAX_UNTAR_SIZE_BYTES`), overriding the built-in 100 MiB cap [#1261](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1261)
