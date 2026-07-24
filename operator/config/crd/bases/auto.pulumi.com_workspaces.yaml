@@ -9072,6 +9072,36 @@ spec:
                 description: ServiceAccountName is the Kubernetes service account
                   identity of the workspace.
                 type: string
+              serviceTemplate:
+                description: |-
+                  ServiceTemplate defines a template for the Workspace's Service metadata.
+                  Use this to add annotations or labels to the headless Service that
+                  fronts the Workspace's pods.
+                properties:
+                  metadata:
+                    description: EmbeddedMetadata contains metadata relevant to an
+                      embedded resource.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          Annotations is an unstructured key value map stored with a resource that may be
+                          set by external tools to store and retrieve arbitrary metadata. They are not
+                          queryable and should be preserved when modifying objects.
+                          More info: http://kubernetes.io/docs/user-guide/annotations
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          Map of string keys and values that can be used to organize and categorize
+                          (scope and select) objects. May match selectors of replication controllers
+                          and services.
+                          More info: http://kubernetes.io/docs/user-guide/labels
+                        type: object
+                    type: object
+                type: object
               stacks:
                 description: List of stacks this workspace manages.
                 items:
