@@ -1055,15 +1055,16 @@ func TestNewService(t *testing.T) {
 
 		svc := newService(wt)
 
-		assert.Equal(t, "true", svc.Annotations["prometheus.io/scrape"])
-		assert.Equal(t, "platform", svc.Labels["team"])
-		// System labels are still present on the metadata.
+		assert.Equal(t, map[string]string{"prometheus.io/scrape": "true"}, svc.Annotations)
+
+		expectedLabels := map[string]string{"team": "platform"}
 		for k, v := range systemLabels {
-			assert.Equal(t, v, svc.Labels[k], "system label %q must be preserved", k)
+			expectedLabels[k] = v
 		}
+		assert.Equal(t, expectedLabels, svc.Labels)
+
 		// The selector must remain the system labels only so pod routing is unaffected.
 		assert.Equal(t, systemLabels, svc.Spec.Selector)
-		assert.NotContains(t, svc.Spec.Selector, "team", "user labels must not leak into the selector")
 	})
 
 	t.Run("system labels win over conflicting template labels", func(t *testing.T) {

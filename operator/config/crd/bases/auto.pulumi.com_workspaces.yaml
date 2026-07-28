@@ -9079,8 +9079,8 @@ spec:
                   fronts the Workspace's pods.
                 properties:
                   metadata:
-                    description: EmbeddedMetadata contains metadata relevant to an
-                      embedded resource.
+                    description: Metadata contains the labels and annotations to apply
+                      to the Service.
                     properties:
                       annotations:
                         additionalProperties:

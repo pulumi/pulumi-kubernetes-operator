@@ -17819,7 +17819,7 @@ fronts the Workspace's pods.
         <td><b><a href="#workspacespecservicetemplatemetadata">metadata</a></b></td>
         <td>object</td>
         <td>
-          EmbeddedMetadata contains metadata relevant to an embedded resource.<br/>
+          Metadata contains the labels and annotations to apply to the Service.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -17831,7 +17831,7 @@ fronts the Workspace's pods.
 
 
 
-EmbeddedMetadata contains metadata relevant to an embedded resource.
+Metadata contains the labels and annotations to apply to the Service.
 
 <table>
     <thead>

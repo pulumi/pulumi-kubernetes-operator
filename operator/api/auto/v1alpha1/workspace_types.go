@@ -294,7 +294,7 @@ type EmbeddedPodTemplateSpec struct {
 // EmbeddedServiceTemplateSpec is a reduced template for the Workspace's Service.
 // It contains only the metadata that is safe to customize.
 type EmbeddedServiceTemplateSpec struct {
-	// EmbeddedMetadata contains metadata relevant to an embedded resource.
+	// Metadata contains the labels and annotations to apply to the Service.
 	// +optional
 	Metadata EmbeddedObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 }

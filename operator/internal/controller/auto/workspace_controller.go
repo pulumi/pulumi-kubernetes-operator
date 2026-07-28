@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -895,16 +896,16 @@ ln -s "/share/source/$FLUX_DIR" /share/workspace
 }
 
 func newService(w *autov1alpha1.Workspace) *corev1.Service {
-	labels := labelsForStatefulSet(w)
+	systemLabels := labelsForStatefulSet(w)
 
 	// Merge user-supplied labels/annotations from the service template. System
 	// labels take precedence so the Service stays discoverable, and the selector
 	// is kept to the system labels only so pod routing is never affected.
-	serviceLabels := labels
+	serviceLabels := systemLabels
 	var annotations map[string]string
 	if w.Spec.ServiceTemplate != nil {
-		serviceLabels = mergeStringMaps(w.Spec.ServiceTemplate.Metadata.Labels, labels)
-		annotations = mergeStringMaps(w.Spec.ServiceTemplate.Metadata.Annotations, nil)
+		serviceLabels = labels.Merge(w.Spec.ServiceTemplate.Metadata.Labels, systemLabels)
+		annotations = w.Spec.ServiceTemplate.Metadata.Annotations
 	}
 
 	service := &corev1.Service{
@@ -920,7 +921,7 @@ func newService(w *autov1alpha1.Workspace) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: corev1.ClusterIPNone,
-			Selector:  labels,
+			Selector:  systemLabels,
 			Ports: []corev1.ServicePort{
 				{
 					Name: "grpc",
@@ -931,22 +932,6 @@ func newService(w *autov1alpha1.Workspace) *corev1.Service {
 	}
 
 	return service
-}
-
-// mergeStringMaps returns a new map containing all entries from base, with
-// entries from override applied on top. It returns nil if both are empty.
-func mergeStringMaps(base, override map[string]string) map[string]string {
-	if len(base) == 0 && len(override) == 0 {
-		return nil
-	}
-	merged := make(map[string]string, len(base)+len(override))
-	for k, v := range base {
-		merged[k] = v
-	}
-	for k, v := range override {
-		merged[k] = v
-	}
-	return merged
 }
 
 type sourceSpec struct {
