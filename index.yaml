@@ -7,6 +7,53 @@ entries:
       artifacthub.io/containsSecurityUpdates: "false"
       artifacthub.io/images: |
         - name: pulumi-kubernetes-operator
+          image: docker.io/pulumi/pulumi-kubernetes-operator:v2.9.0
+          platforms:
+            - linux/amd64
+            - linux/arm64
+      artifacthub.io/license: Apache-2.0
+      artifacthub.io/links: |
+        - name: website
+          url: https://pulumi.com
+      artifacthub.io/maintainers: |-
+        - name: Bryce Lampe
+          email: bryce@pulumi.com
+        - name: dirien
+          email: engin@pulumi.com
+        - name: Eron Wright
+          email: eron@pulumi.com
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
+    appVersion: v2.9.0
+    created: "2026-07-29T18:40:50.534089645Z"
+    description: A Helm chart for the Pulumi Kubernetes Operator
+    digest: 1b9d36685e667580ec0d37f7dd389951688737a502bafaf95e8e453a0dccf688
+    home: https://pulumi.com
+    icon: https://www.pulumi.com/logos/brand/avatar-on-white.svg
+    keywords:
+    - pulumi
+    - kubernetes
+    - operator
+    maintainers:
+    - email: bryce@pulumi.com
+      name: Bryce Lampe
+    - email: engin@pulumi.com
+      name: dirien
+    - email: eron@pulumi.com
+      name: Eron Wright
+    name: pulumi-kubernetes-operator
+    sources:
+    - https://github.com/pulumi/pulumi-kubernetes-operator
+    type: application
+    urls:
+    - https://github.com/pulumi/pulumi-kubernetes-operator/releases/download/pulumi-kubernetes-operator-2.9.0/pulumi-kubernetes-operator-2.9.0.tgz
+    version: 2.9.0
+  - annotations:
+      artifacthub.io/changes: |
+        - New operator version
+      artifacthub.io/containsSecurityUpdates: "false"
+      artifacthub.io/images: |
+        - name: pulumi-kubernetes-operator
           image: docker.io/pulumi/pulumi-kubernetes-operator:v2.8.0
           platforms:
             - linux/amd64
@@ -983,4 +1030,4 @@ entries:
     urls:
     - https://github.com/pulumi/pulumi-kubernetes-operator/releases/download/pulumi-kubernetes-operator-0.1.0/pulumi-kubernetes-operator-0.1.0.tgz
     version: 0.1.0
-generated: "2026-07-21T20:06:45.979133251Z"
+generated: "2026-07-29T18:40:50.534298075Z"
