@@ -10386,6 +10386,26 @@ spec:
                         type: string
                       serviceAccountName:
                         type: string
+                      serviceTemplate:
+                        description: |-
+                          EmbeddedServiceTemplateSpecApplyConfiguration represents a declarative configuration of the EmbeddedServiceTemplateSpec type for use
+                          with apply.
+                        properties:
+                          metadata:
+                            description: |-
+                              EmbeddedObjectMetaApplyConfiguration represents a declarative configuration of the EmbeddedObjectMeta type for use
+                              with apply.
+                            properties:
+                              annotations:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              labels:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                            type: object
+                        type: object
                       stacks:
                         items:
                           description: |-
@@ -20997,6 +21017,26 @@ spec:
                         type: string
                       serviceAccountName:
                         type: string
+                      serviceTemplate:
+                        description: |-
+                          EmbeddedServiceTemplateSpecApplyConfiguration represents a declarative configuration of the EmbeddedServiceTemplateSpec type for use
+                          with apply.
+                        properties:
+                          metadata:
+                            description: |-
+                              EmbeddedObjectMetaApplyConfiguration represents a declarative configuration of the EmbeddedObjectMeta type for use
+                              with apply.
+                            properties:
+                              annotations:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                              labels:
+                                additionalProperties:
+                                  type: string
+                                type: object
+                            type: object
+                        type: object
                       stacks:
                         items:
                           description: |-

@@ -40,6 +40,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &autov1alpha1.EmbeddedObjectMetaApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("EmbeddedPodTemplateSpec"):
 		return &autov1alpha1.EmbeddedPodTemplateSpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("EmbeddedServiceTemplateSpec"):
+		return &autov1alpha1.EmbeddedServiceTemplateSpecApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("FluxSource"):
 		return &autov1alpha1.FluxSourceApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("GitAuth"):
