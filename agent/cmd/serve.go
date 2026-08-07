@@ -151,7 +151,12 @@ var serveCmd = &cobra.Command{
 		log.Infow("opened a local workspace", "workspace", workDir,
 			"project", proj.Name, "runtime", proj.Runtime.Name())
 
-		if !_skipInstall {
+		// A prebuilt program has nothing to resolve, so installing would only impose a language
+		// toolchain on the workspace. Applied here as well as in the Install RPC so that the rule
+		// is the same however the agent is driven.
+		skipInstall := _skipInstall || server.HasPrebuiltBinary(proj)
+
+		if !skipInstall {
 			plog := zap.L().Named("pulumi")
 			stdout := &zapio.Writer{Log: plog, Level: zap.InfoLevel}
 			defer stdout.Close()

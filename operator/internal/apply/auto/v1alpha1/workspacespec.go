@@ -38,6 +38,7 @@ type WorkspaceSpecApplyConfiguration struct {
 	PodTemplate        *EmbeddedPodTemplateSpecApplyConfiguration     `json:"podTemplate,omitempty"`
 	ServiceTemplate    *EmbeddedServiceTemplateSpecApplyConfiguration `json:"serviceTemplate,omitempty"`
 	PulumiLogVerbosity *uint32                                        `json:"pulumiLogLevel,omitempty"`
+	SkipInstall        *bool                                          `json:"skipInstall,omitempty"`
 	Stacks             []WorkspaceStackApplyConfiguration             `json:"stacks,omitempty"`
 }
 
@@ -160,6 +161,14 @@ func (b *WorkspaceSpecApplyConfiguration) WithServiceTemplate(value *EmbeddedSer
 // If called multiple times, the PulumiLogVerbosity field is set to the value of the last call.
 func (b *WorkspaceSpecApplyConfiguration) WithPulumiLogVerbosity(value uint32) *WorkspaceSpecApplyConfiguration {
 	b.PulumiLogVerbosity = &value
+	return b
+}
+
+// WithSkipInstall sets the SkipInstall field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the SkipInstall field is set to the value of the last call.
+func (b *WorkspaceSpecApplyConfiguration) WithSkipInstall(value bool) *WorkspaceSpecApplyConfiguration {
+	b.SkipInstall = &value
 	return b
 }
 

@@ -124,6 +124,16 @@ type WorkspaceSpec struct {
 	// +optional
 	PulumiLogVerbosity uint32 `json:"pulumiLogLevel,omitempty"`
 
+	// SkipInstall disables the `pulumi install` step that resolves the program's dependencies
+	// and plugins before an update. Set this when the workspace image already has everything the
+	// program needs -- vendored dependencies, or a prebuilt binary -- so that installing is
+	// wasted work whose failure would otherwise stall the workspace.
+	//
+	// A project that declares `runtime.options.binary` is detected automatically and needs no
+	// setting here.
+	// +optional
+	SkipInstall *bool `json:"skipInstall,omitempty"`
+
 	// List of stacks this workspace manages.
 	// +optional
 	// +patchMergeKey=name
