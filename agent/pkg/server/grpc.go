@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"net"
+	"time"
 
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
@@ -24,6 +25,14 @@ import (
 	pb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
+)
+
+const (
+	// keepaliveTime is how long the server waits for traffic before pinging the client, and
+	// keepaliveTimeout is how long it then waits for the reply before closing the transport.
+	keepaliveTime    = 30 * time.Second
+	keepaliveTimeout = 20 * time.Second
 )
 
 // GRPC serves the automation service.
@@ -54,6 +63,21 @@ func NewGRPC(rootLogger *zap.SugaredLogger, server *Server, authF grpc_auth.Auth
 
 	// Create the gRPC server.
 	s := grpc.NewServer(
+		// Probe the client during long-running operations. A Pulumi operation streams for as
+		// long as it takes, and can be silent for minutes at a stretch, so without probes a
+		// disappeared operator leaves the handler -- and the `pulumi` subprocess it started --
+		// running with nobody to deliver the result to. Detecting it closes the transport,
+		// which cancels the stream context and lets the operation unwind.
+		//
+		// Server-initiated pings are not subject to any keepalive enforcement policy, so this
+		// needs no cooperation from the client and is safe against every operator version. Note
+		// that no EnforcementPolicy is set here on purpose: tightening the policy's MinTime
+		// would let this agent reject pings from a client that is behaving correctly for the
+		// default policy it was written against.
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    keepaliveTime,
+			Timeout: keepaliveTimeout,
+		}),
 		grpc.ChainUnaryInterceptor(
 			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
 			grpc_zap.UnaryServerInterceptor(log.Desugar(), serverOpts...),

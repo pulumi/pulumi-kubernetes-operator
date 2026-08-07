@@ -15,9 +15,11 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -83,6 +85,12 @@ func main() {
 		leaderElectionRenewDeadline time.Duration
 		leaderElectionRetryPeriod   time.Duration
 		kubeAPITimeout              time.Duration
+
+		// Flags for configuring reconcile concurrency and update liveness.
+		maxConcurrentReconciles       int
+		updateMaxConcurrentReconciles int
+		updateIdleTimeout             time.Duration
+		gracefulShutdownTimeout       time.Duration
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metric endpoint binds to. "+
@@ -111,6 +119,25 @@ func main() {
 	flag.DurationVar(&kubeAPITimeout, "kube-api-timeout", 30*time.Second,
 		"Timeout for requests to the Kubernetes API server. "+
 			"Can also be set via KUBE_API_TIMEOUT environment variable.")
+	flag.IntVar(&maxConcurrentReconciles, "max-concurrent-reconciles", 25,
+		"Maximum number of concurrent reconciles per controller. "+
+			"Can also be set via MAX_CONCURRENT_RECONCILES environment variable.")
+	flag.IntVar(&updateMaxConcurrentReconciles, "update-max-concurrent-reconciles", 0,
+		"Maximum number of concurrent reconciles for the update controller specifically, whose "+
+			"reconciles block for the duration of the Pulumi operation. 0 uses "+
+			"--max-concurrent-reconciles. Can also be set via "+
+			"UPDATE_MAX_CONCURRENT_RECONCILES environment variable.")
+	flag.DurationVar(&updateIdleTimeout, "update-idle-timeout", autocontroller.DefaultUpdateIdleTimeout,
+		"How long an update may produce no output before the operator abandons it and marks it "+
+			"failed, bounding how long a wedged update can hold a reconcile worker. Measures "+
+			"silence, not total duration, so a slow but progressing update is unaffected. "+
+			"0 disables it. Overridable per update via Update.spec.idleTimeout. "+
+			"Can also be set via UPDATE_IDLE_TIMEOUT environment variable.")
+	flag.DurationVar(&gracefulShutdownTimeout, "graceful-shutdown-timeout", 5*time.Minute,
+		"How long to allow in-flight reconciles to finish when shutting down. Should be no "+
+			"larger than the pod's terminationGracePeriodSeconds. Reconciles cut short here "+
+			"leave their Updates Progressing until the operator restarts and aborts them. "+
+			"Can also be set via GRACEFUL_SHUTDOWN_TIMEOUT_DURATION environment variable.")
 
 	// Configure Zap-based logging for klog/v2 and for the controller manager.
 	// Write to stdout by default.
@@ -171,34 +198,40 @@ func main() {
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
 	}
 
-	// Override leader election timeouts from environment variables if set
-	if s, ok := os.LookupEnv("LEADER_ELECTION_LEASE_DURATION"); ok {
-		if d, err := time.ParseDuration(s); err == nil {
-			leaderElectionLeaseDuration = d
-		}
-	}
-	if s, ok := os.LookupEnv("LEADER_ELECTION_RENEW_DEADLINE"); ok {
-		if d, err := time.ParseDuration(s); err == nil {
-			leaderElectionRenewDeadline = d
-		}
-	}
-	if s, ok := os.LookupEnv("LEADER_ELECTION_RETRY_PERIOD"); ok {
-		if d, err := time.ParseDuration(s); err == nil {
-			leaderElectionRetryPeriod = d
-		}
-	}
-	if s, ok := os.LookupEnv("KUBE_API_TIMEOUT"); ok {
-		if d, err := time.ParseDuration(s); err == nil {
-			kubeAPITimeout = d
+	// Override from environment variables if set. A malformed value is fatal rather than
+	// ignored: silently falling back to the default leaves the operator running with settings
+	// the deployment did not ask for, which is very hard to notice after the fact. In
+	// particular, a bad MAX_CONCURRENT_RECONCILES used to yield 0, which controller-runtime
+	// treats as 1 -- a silent collapse from 25 workers to one, with nothing in the logs.
+	for _, err := range []error{
+		envDuration("LEADER_ELECTION_LEASE_DURATION", &leaderElectionLeaseDuration),
+		envDuration("LEADER_ELECTION_RENEW_DEADLINE", &leaderElectionRenewDeadline),
+		envDuration("LEADER_ELECTION_RETRY_PERIOD", &leaderElectionRetryPeriod),
+		envDuration("KUBE_API_TIMEOUT", &kubeAPITimeout),
+		envDuration("UPDATE_IDLE_TIMEOUT", &updateIdleTimeout),
+		envDuration("GRACEFUL_SHUTDOWN_TIMEOUT_DURATION", &gracefulShutdownTimeout),
+		envInt("MAX_CONCURRENT_RECONCILES", &maxConcurrentReconciles),
+		envInt("UPDATE_MAX_CONCURRENT_RECONCILES", &updateMaxConcurrentReconciles),
+	} {
+		if err != nil {
+			setupLog.Error(err, "invalid configuration")
+			os.Exit(1)
 		}
 	}
 
+	if err := validateConcurrency(maxConcurrentReconciles, updateMaxConcurrentReconciles, updateIdleTimeout); err != nil {
+		setupLog.Error(err, "invalid configuration")
+		os.Exit(1)
+	}
+
 	controllerOpts := config.Controller{
-		MaxConcurrentReconciles: 25,
+		MaxConcurrentReconciles: maxConcurrentReconciles,
 	}
-	if s, ok := os.LookupEnv("MAX_CONCURRENT_RECONCILES"); ok {
-		controllerOpts.MaxConcurrentReconciles, _ = strconv.Atoi(s)
-	}
+	setupLog.Info("Configured controller concurrency",
+		"maxConcurrentReconciles", maxConcurrentReconciles,
+		"updateMaxConcurrentReconciles", cmp.Or(updateMaxConcurrentReconciles, maxConcurrentReconciles),
+		"updateIdleTimeout", updateIdleTimeout,
+	)
 
 	// Configure REST client with custom timeout
 	restConfig := ctrl.GetConfigOrDie()
@@ -227,6 +260,10 @@ func main() {
 		LeaseDuration:          &leaderElectionLeaseDuration,
 		RenewDeadline:          &leaderElectionRenewDeadline,
 		RetryPeriod:            &leaderElectionRetryPeriod,
+		// Give in-flight reconciles a chance to finish. An update controller reconcile runs for
+		// the length of its Pulumi operation, and one cut short leaves its Update Progressing
+		// until a restarted operator aborts it, so the 30s default is far too short here.
+		GracefulShutdownTimeout: &gracefulShutdownTimeout,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -277,10 +314,12 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&autocontroller.UpdateReconciler{
-		Client:            mgr.GetClient(),
-		Scheme:            mgr.GetScheme(),
-		Recorder:          mgr.GetEventRecorderFor("update-controller"),
-		ConnectionManager: cm,
+		Client:                  mgr.GetClient(),
+		Scheme:                  mgr.GetScheme(),
+		Recorder:                mgr.GetEventRecorderFor("update-controller"),
+		ConnectionManager:       cm,
+		MaxConcurrentReconciles: updateMaxConcurrentReconciles,
+		IdleTimeout:             updateIdleTimeout,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Update")
 		os.Exit(1)
@@ -385,6 +424,53 @@ func determineAdvAddr(addr string) string {
 		}
 	}
 	return net.JoinHostPort(host, port)
+}
+
+// validateConcurrency rejects settings that controller-runtime would otherwise accept and
+// quietly reinterpret. A non-positive MaxConcurrentReconciles becomes 1, which reads as an
+// unexplained throughput collapse rather than a configuration error.
+func validateConcurrency(maxConcurrentReconciles, updateMaxConcurrentReconciles int, updateIdleTimeout time.Duration) error {
+	if maxConcurrentReconciles <= 0 {
+		return fmt.Errorf("max-concurrent-reconciles must be greater than zero, got %d", maxConcurrentReconciles)
+	}
+	if updateMaxConcurrentReconciles < 0 {
+		return fmt.Errorf("update-max-concurrent-reconciles must not be negative, got %d", updateMaxConcurrentReconciles)
+	}
+	if updateIdleTimeout < 0 {
+		return fmt.Errorf("update-idle-timeout must not be negative, got %s", updateIdleTimeout)
+	}
+	return nil
+}
+
+// envDuration overrides target from an environment variable, reporting a malformed value rather
+// than ignoring it. Silently keeping the default would leave the operator running on settings
+// the deployment did not ask for, which is close to impossible to spot after the fact.
+func envDuration(envName string, target *time.Duration) error {
+	s, ok := os.LookupEnv(envName)
+	if !ok {
+		return nil
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return fmt.Errorf("invalid duration in %s=%q: %w", envName, s, err)
+	}
+	*target = d
+	return nil
+}
+
+// envInt overrides target from an environment variable, reporting a malformed value rather than
+// ignoring it. See envDuration.
+func envInt(envName string, target *int) error {
+	s, ok := os.LookupEnv(envName)
+	if !ok {
+		return nil
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return fmt.Errorf("invalid integer in %s=%q: %w", envName, s, err)
+	}
+	*target = n
+	return nil
 }
 
 func envOrDefault(envName, defaultValue string) string {
