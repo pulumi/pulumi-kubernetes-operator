@@ -82,6 +82,8 @@ const (
 	fluxSourceIndexFieldName     = ".spec.fluxSource.sourceRef" // an arbitrary name, named for the field it indexes
 	ttlForCompletedUpdate        = time.Hour * 24
 	sourceUnavailableRequeueWait = 30 * time.Second // safety-net requeue in case a watch event is missed
+	updateCacheLagRequeue        = 5 * time.Second  // the current Update exists but hasn't reached our cache yet
+	updateInFlightRequeue        = 5 * time.Minute  // safety-net poll while an update is running
 )
 
 const (
@@ -98,6 +100,9 @@ const prerequisiteIndexFieldName = "spec.prerequisites.name"
 // SetupWithManager sets up the controller with the Manager.
 func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	var err error
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
 	blder := ctrl.NewControllerManagedBy(mgr).Named("stack-controller")
 	opts := controller.Options{}
 
@@ -438,8 +443,23 @@ func (workspaceReadyPredicate) Generic(_ event.GenericEvent) bool {
 	return false
 }
 
+// isUpdateComplete reports whether an Update has reached a terminal state, meaning its result is
+// final and can be absorbed into the owning Stack's status.
+//
+// This deliberately does not require .status.observedGeneration to match .metadata.generation.
+// Nothing ever writes an Update's status again once it is Complete -- the update controller
+// short-circuits on the Complete condition -- while the apiserver *does* bump generation when a
+// deletion is blocked by a finalizer. So an Update that completes and is then deleted (by its
+// TTL, or by a workspace cascade) ends up permanently at generation N+1 with observedGeneration
+// N. Requiring them to match made such an Update look forever unfinished, which left the owning
+// Stack waiting on it indefinitely and, because the Stack removes the finalizer only after
+// absorbing the result, left the Update stuck Terminating as well.
+//
+// Ignoring observedGeneration is safe here because an Update's spec is never modified after
+// creation, so a generation bump cannot mean the recorded result is stale.
+// See https://github.com/pulumi/pulumi-kubernetes-operator/issues/1292.
 func isUpdateComplete(update *autov1alpha1.Update) bool {
-	if update == nil || update.Generation != update.Status.ObservedGeneration {
+	if update == nil {
 		return false
 	}
 	return meta.IsStatusConditionTrue(update.Status.Conditions, autov1alpha1.UpdateConditionTypeComplete)
@@ -475,6 +495,11 @@ type StackReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
+
+	// APIReader reads directly from the apiserver, bypassing the cache. It is used to
+	// confirm that an Update named by .status.currentUpdate is really gone, rather than
+	// merely absent from a stale cache, before the reference is cleared.
+	APIReader client.Reader
 
 	// this is initialised by add(), to be available to Reconcile
 	maybeWatchFluxSourceKind func(shared.FluxSourceReference) error
@@ -600,16 +625,28 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 				"conditions", instance.Status.Conditions)
 		}
 		if toBeFinalized != nil {
-			// Remove the finalizer from the Update object using SSA. This is best-effort
-			// since the status update (indicating the update was processed) has already
-			// completed. If removal fails, the Update will be cleaned up by TTL or manual
-			// intervention.
+			// Remove the finalizer from the Update object using SSA. This is best-effort since
+			// the status update (indicating the update was processed) has already completed.
+			// A failure here is not lost: reapTerminatingUpdates picks up any Update left
+			// holding the finalizer on a later reconcile. It must, because a TTL or cascade
+			// delete cannot complete while the finalizer is present -- the object parks in
+			// Terminating indefinitely.
 			if err := r.removeUpdateFinalizer(ctx, toBeFinalized); err != nil {
 				log.Error(err, "unable to remove finalizer from current update (best-effort)")
 			}
 			toBeFinalized = nil
 		}
 		return nil
+	}
+
+	// Release any Update that is being deleted but still holds our finalizer. Normally the
+	// finalizer is dropped as soon as the Stack absorbs the result, but if that write failed --
+	// or was skipped by an older version of the operator -- the object cannot finish deleting,
+	// and freeing it otherwise requires an operator to force-patch a controller-owned field.
+	// See https://github.com/pulumi/pulumi-kubernetes-operator/issues/1293.
+	if err := r.reapTerminatingUpdates(ctx, instance, request.Namespace); err != nil {
+		// Not fatal to this reconcile: the sweep is idempotent and runs again next time.
+		log.Error(err, "unable to release finalizers from deleted updates (best-effort)")
 	}
 
 	// Check for an outstanding update, and absorb the result into status if the update is complete.
@@ -619,20 +656,37 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			Namespace: request.Namespace,
 		}); err != nil {
 			if apierrors.IsNotFound(err) {
-				// the cache is probably out of date; wait for a watch event.
-				log.Info("update object not found; will retry", "Name", instance.Status.CurrentUpdate.Name)
+				// The Update is missing from the cache. That is usually just cache lag, but it
+				// can also mean the object is genuinely gone -- in which case no watch event
+				// will ever arrive and waiting would wedge the Stack forever. Confirm against
+				// the apiserver before deciding.
+				missing, rerr := r.updateIsGone(ctx, types.NamespacedName{
+					Name:      instance.Status.CurrentUpdate.Name,
+					Namespace: request.Namespace,
+				})
+				if rerr != nil {
+					return reconcile.Result{}, fmt.Errorf("confirming current update is gone: %w", rerr)
+				}
 				instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingProcessingReason, pulumiv1.ReconcilingProcessingUpdateMessage)
-				return reconcile.Result{}, saveStatus()
+				if !missing {
+					// The object does exist (possibly Terminating); the cache is behind. Retry
+					// shortly rather than relying solely on a watch event we may have missed.
+					log.Info("update object not in cache but present in the API; will retry",
+						"Name", instance.Status.CurrentUpdate.Name)
+					return reconcile.Result{RequeueAfter: updateCacheLagRequeue}, saveStatus()
+				}
+				return r.healLostUpdate(ctx, instance, request.Namespace, saveStatus)
 			}
 			return reconcile.Result{}, fmt.Errorf("get current update: %w", err)
 		}
 
-		completed := sess.update.Generation == sess.update.Status.ObservedGeneration &&
-			meta.IsStatusConditionTrue(sess.update.Status.Conditions, autov1alpha1.UpdateConditionTypeComplete)
-		if !completed {
-			// wait for the update to complete
+		if !isUpdateComplete(sess.update) {
+			// Wait for the update to complete. The Update watch normally drives this, but
+			// requeue on a slow timer as well so that an Update which never reaches a terminal
+			// state cannot strand the Stack. Keep this coarse: each pass re-resolves the
+			// source, which for a git source means a network round trip.
 			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingProcessingReason, pulumiv1.ReconcilingProcessingUpdateMessage)
-			return reconcile.Result{}, saveStatus()
+			return reconcile.Result{RequeueAfter: updateInFlightRequeue}, saveStatus()
 		}
 
 		// The update is complete. If it failed, we need to mark the stack as failed.
@@ -1054,9 +1108,14 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	err = r.Create(ctx, update, client.FieldOwner(FieldManager))
 	if err != nil {
 		// the update object couldn't be created; remove the currentUpdate and try again later.
+		// The status write must not be dropped: if it fails silently, .status.currentUpdate is
+		// left naming an Update that may never exist, which wedges the Stack permanently.
 		log.Error(err, "failed to create an Update for the stack; will retry later")
 		instance.Status.CurrentUpdate = nil
-		_ = saveStatus()
+		if serr := saveStatus(); serr != nil {
+			return reconcile.Result{}, fmt.Errorf(
+				"unable to create update for stack: %w (and clearing the current update failed: %w)", err, serr)
+		}
 		return reconcile.Result{}, fmt.Errorf("unable to create update for stack: %w", err)
 	}
 
@@ -1067,8 +1126,13 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		log.Error(err, "failed to add finalizer to Update")
 		// Delete the update since we couldn't finalize it properly
 		_ = r.Delete(ctx, update)
+		// As above, dropping this status write would leave .status.currentUpdate naming an
+		// Update we just deleted, which wedges the Stack permanently.
 		instance.Status.CurrentUpdate = nil
-		_ = saveStatus()
+		if serr := saveStatus(); serr != nil {
+			return reconcile.Result{}, fmt.Errorf(
+				"unable to add finalizer to update: %w (and clearing the current update failed: %w)", err, serr)
+		}
 		return reconcile.Result{}, fmt.Errorf("unable to add finalizer to update: %w", err)
 	}
 
@@ -1897,6 +1961,155 @@ func (sess *stackReconcilerSession) setOwnerReferences(o *pulumiv1.Stack, update
 
 func makeUpdateName(o *pulumiv1.Stack) string {
 	return fmt.Sprintf("%s-%x", o.Name, time.Now().UnixMilli())
+}
+
+// updateIsGone reports whether the named Update is really absent, by reading straight from
+// the apiserver rather than the (possibly stale) cache. An object that exists but is
+// Terminating is reported as present: its deletion bumps .metadata.generation, which wakes
+// the update controller, which drives it to a terminal state that this controller can then
+// absorb normally.
+func (r *StackReconciler) updateIsGone(ctx context.Context, name types.NamespacedName) (bool, error) {
+	u := &autov1alpha1.Update{}
+	err := r.APIReader.Get(ctx, name, u)
+	if apierrors.IsNotFound(err) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return false, nil
+}
+
+// healLostUpdate recovers a Stack whose .status.currentUpdate names an Update that no longer
+// exists. Without this the Stack retries against an object that can never come back and stops
+// reconciling its resources entirely.
+//
+// If an in-flight Update for this Stack is still around -- which happens when the reference was
+// lost rather than the object -- it is adopted instead of being abandoned, so that we do not
+// start a second concurrent pulumi operation against the same workspace.
+//
+// Otherwise the reference is cleared and an error is returned. Returning an error is
+// deliberate: it puts the Stack on the workqueue's exponential backoff, so that an Update
+// which is being deleted systemically (for example because its Workspace is gone, and every
+// replacement is cascade-deleted in turn) cannot become an unbounded create/delete loop. The
+// retry then takes the ordinary path and creates a fresh Update.
+//
+// .status.lastUpdate is deliberately left alone. The real outcome of the lost update is
+// unknown -- most often it never ran at all -- so recording a synthetic failure would both
+// misreport history and spend the Stack's retry budget (maxUpdateFailures) on an operator-side
+// fault. Leaving it untouched lets isSynced correctly see the Stack as out of sync.
+func (r *StackReconciler) healLostUpdate(
+	ctx context.Context,
+	instance *pulumiv1.Stack,
+	namespace string,
+	saveStatus func() error,
+) (reconcile.Result, error) {
+	log := ctrllog.FromContext(ctx)
+	lostName := instance.Status.CurrentUpdate.Name
+
+	adopted, err := r.findInFlightUpdate(ctx, instance, namespace)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("looking for an in-flight update to adopt: %w", err)
+	}
+	if adopted != nil {
+		log.Info("current update object not found, but an in-flight update exists; adopting it",
+			"Name", lostName, "AdoptedName", adopted.Name)
+		instance.Status.CurrentUpdate.Name = adopted.Name
+		return reconcile.Result{RequeueAfter: updateCacheLagRequeue}, saveStatus()
+	}
+
+	log.Info("current update object no longer exists; clearing it and starting a new update",
+		"Name", lostName)
+	emitEvent(r.Recorder, instance, pulumiv1.StackUpdateLostEvent(),
+		"The update %q no longer exists; its result could not be recorded. Starting a new update.", lostName)
+	instance.Status.CurrentUpdate = nil
+	if err := saveStatus(); err != nil {
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, fmt.Errorf("update %q no longer exists; cleared it to start a new update", lostName)
+}
+
+// reapTerminatingUpdates removes this controller's finalizer from the Stack's Updates that are
+// being deleted and have already reached a terminal state.
+//
+// The finalizer exists so that a completed Update survives long enough for the Stack to record
+// its result. Once the Update is terminal that purpose is served, and holding on cannot help:
+// there is no operation left to cancel, so an Update kept in Terminating is strictly worse than
+// one that is gone. Updates that are not yet terminal are left alone -- the update controller
+// marks those Canceled first, and this sweep collects them on a later pass.
+func (r *StackReconciler) reapTerminatingUpdates(ctx context.Context, instance *pulumiv1.Stack, namespace string) error {
+	log := ctrllog.FromContext(ctx)
+
+	updates := &autov1alpha1.UpdateList{}
+	if err := r.List(ctx, updates,
+		client.InNamespace(namespace),
+		client.MatchingLabels(labelsForWorkspace(&instance.ObjectMeta)),
+	); err != nil {
+		return err
+	}
+
+	var errs []error
+	for i := range updates.Items {
+		u := &updates.Items[i]
+		if u.DeletionTimestamp.IsZero() || !slices.Contains(u.Finalizers, PulumiFinalizer) {
+			continue
+		}
+		// Don't release the update we are still waiting on a result from.
+		if instance.Status.CurrentUpdate != nil && instance.Status.CurrentUpdate.Name == u.Name {
+			continue
+		}
+		if !isUpdateComplete(u) {
+			continue
+		}
+		log.Info("Releasing finalizer from a deleted update", "Name", u.Name)
+		// Read-modify-write rather than the SSA apply used on the happy path. The apply only
+		// drops the finalizer when StackFinalizerFieldManager owns it, so a finalizer written
+		// by an older operator version -- under the shared field manager -- would silently
+		// survive, which is one of the ways an Update ends up unable to delete at all. A
+		// conflict here just means the next reconcile tries again.
+		if !controllerutil.RemoveFinalizer(u, PulumiFinalizer) {
+			continue
+		}
+		if err := r.Update(ctx, u, client.FieldOwner(FieldManager)); err != nil {
+			if apierrors.IsNotFound(err) || apierrors.IsConflict(err) {
+				continue
+			}
+			errs = append(errs, fmt.Errorf("releasing finalizer from update %q: %w", u.Name, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// findInFlightUpdate returns the Stack's own Update that is still running, if there is exactly
+// one. Anything complete, being deleted, or ambiguous yields nil so that the caller falls back
+// to starting a fresh update.
+func (r *StackReconciler) findInFlightUpdate(
+	ctx context.Context,
+	instance *pulumiv1.Stack,
+	namespace string,
+) (*autov1alpha1.Update, error) {
+	updates := &autov1alpha1.UpdateList{}
+	if err := r.APIReader.List(ctx, updates,
+		client.InNamespace(namespace),
+		client.MatchingLabels(labelsForWorkspace(&instance.ObjectMeta)),
+	); err != nil {
+		return nil, err
+	}
+
+	var found *autov1alpha1.Update
+	for i := range updates.Items {
+		u := &updates.Items[i]
+		if !u.DeletionTimestamp.IsZero() || isUpdateComplete(u) {
+			continue
+		}
+		if found != nil {
+			// More than one candidate: we cannot tell which (if either) belongs to this
+			// Stack's lost reference, so don't guess.
+			return nil, nil
+		}
+		found = u
+	}
+	return found, nil
 }
 
 func (sess *stackReconcilerSession) readCurrentUpdate(ctx context.Context, name types.NamespacedName) error {
