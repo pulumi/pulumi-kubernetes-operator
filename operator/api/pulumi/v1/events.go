@@ -48,6 +48,7 @@ const (
 	StackUpdateFailure          StackEventReason = "StackUpdateFailure"
 	StackUpdateConflictDetected StackEventReason = "StackUpdateConflictDetected"
 	StackOutputRetrievalFailure StackEventReason = "StackOutputRetrievalFailure"
+	StackUpdateLost             StackEventReason = "StackUpdateLost"
 
 	// Normals
 
@@ -80,6 +81,13 @@ func StackUpdateConflictDetectedEvent() StackEvent {
 
 func StackOutputRetrievalFailureEvent() StackEvent {
 	return StackEvent{eventType: EventTypeWarning, reason: StackOutputRetrievalFailure}
+}
+
+// StackUpdateLostEvent reports that the Update named by .status.currentUpdate no longer
+// exists, so its outcome could not be recorded. The stack controller clears the reference
+// and starts a fresh update.
+func StackUpdateLostEvent() StackEvent {
+	return StackEvent{eventType: EventTypeWarning, reason: StackUpdateLost}
 }
 
 func StackUpdateDetectedEvent() StackEvent {
