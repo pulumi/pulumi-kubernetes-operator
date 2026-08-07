@@ -28,9 +28,21 @@ The current implementation explicitly emits the following metrics:
 In addition, we find tracking the following metrics emitted by the controller-runtime would be useful to track:
 
 1. `controller_runtime_active_workers{controller="stack-controller"}` - `gauge` that tracks the number of concurrent stacks being processed
-2. `controller_runtime_max_concurrent_reconciles{controller="stack-controller"}` - `gauge` that tracks the max concurrent stack reconciles configured. This defaults to 10 but can be controlled through `MAX_CONCURRENT_RECONCILES` environment variable passed to the Operator container.
+2. `controller_runtime_max_concurrent_reconciles{controller="stack-controller"}` - `gauge` that tracks the max concurrent stack reconciles configured. This defaults to 25 but can be controlled through the `--max-concurrent-reconciles` flag or the `MAX_CONCURRENT_RECONCILES` environment variable passed to the Operator container. The update controller can be sized separately with `--update-max-concurrent-reconciles` / `UPDATE_MAX_CONCURRENT_RECONCILES`, since its reconciles block for the duration of the Pulumi operation.
 3. `controller_runtime_reconcile_total{controller="stack-controller",result="error"}` - `counter` for errored reconciles
 4. `controller_runtime_reconcile_total{controller="stack-controller",result="requeue"}` - `counter` for requeued reconciles
+
+For the update controller specifically, watch the workqueue rather than CPU and memory. A reconcile there blocks for the whole Pulumi operation while the real work happens in the workspace pod, so a fully saturated operator looks idle by resource usage — only these distinguish the two:
+
+1. `controller_runtime_active_workers{controller="update-controller"}` - at `controller_runtime_max_concurrent_reconciles` the controller has no spare capacity
+2. `workqueue_depth{name="update-controller"}` - a persistently deep queue means updates are waiting for a worker, not running
+3. `workqueue_longest_running_processor_seconds{name="update-controller"}` - the age of the longest *actively running* reconcile
+
+Note what metric 3 cannot tell you. It reports only the longest reconcile currently on a worker, so it is blind to Updates stranded at `Progressing=True` whose reconcile already ended — for instance because the operator was killed mid-operation. Nor is a large value proof of a problem: legitimate updates can run for many hours, so age alone does not distinguish a healthy long update from a wedged one.
+
+To find stranded Updates, look at the objects rather than the metrics: list Updates whose `Progressing` condition is `True` and group them by `lastTransitionTime`. A cluster of Updates sharing one timestamp to the second is the signature of an operator restart that left them behind. Before deleting any of them, confirm the operation is really gone by checking that the workspace's `pulumi` **container** started *after* that transition — container start, not pod start, since a restarted container leaves `.status.startTime` on the pod unchanged.
+
+`--update-idle-timeout` bounds the separate case of a reconcile that is still running but whose update has stopped producing output.
 
 The next section walks through setting up `Kube-Prometheus-Stack` on an existing Kubernetes cluster and configuring metrics for the operator.
 

@@ -459,6 +459,123 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
+// TestUpdateIdleTimeout proves that a stream which stops producing output is abandoned rather
+// than blocking the reconcile forever, and -- crucially -- that the terminal status still
+// reaches the API server. Cancelling the reconcile context to stop the stream would also kill
+// that write, leaving the Update Progressing and its worker slot effectively lost.
+// See https://github.com/pulumi/pulumi-kubernetes-operator/issues/1293.
+func TestUpdateIdleTimeout(t *testing.T) {
+	g := NewWithT(t)
+	ctx := t.Context()
+	scheme.Scheme.AddKnownTypes(
+		schema.GroupVersion{Group: "auto.pulumi.com", Version: "v1alpha1"},
+		&autov1alpha1.Update{},
+	)
+
+	obj := autov1alpha1.Update{ObjectMeta: metav1.ObjectMeta{Name: "foo", UID: "uid"}}
+	kclient := fake.NewClientBuilder().WithObjects(&obj).WithStatusSubresource(&obj).Build()
+	recorder := record.NewFakeRecorder(10)
+	rs := newReconcileSession(kclient, recorder, &obj)
+	rs.idleTimeout = 50 * time.Millisecond
+
+	ctrl := gomock.NewController(t)
+	upper := NewMockupper(ctrl)
+	recver := NewMockrecver[agentpb.UpStream](ctrl)
+
+	// A silent agent: the stream is open and healthy, but nothing ever arrives. Recv unblocks
+	// only when the operation's context is cancelled, which is what the watchdog does.
+	var opCtx context.Context
+	upper.EXPECT().
+		Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}, grpc.WaitForReady(true)).
+		DoAndReturn(func(c context.Context, _ *agentpb.UpRequest, _ ...grpc.CallOption) (grpc.ServerStreamingClient[agentpb.UpStream], error) {
+			opCtx = c
+			return recver, nil
+		})
+	recver.EXPECT().Recv().DoAndReturn(func() (*agentpb.UpStream, error) {
+		<-opCtx.Done()
+		return nil, status.FromContextError(opCtx.Err()).Err()
+	})
+	recver.EXPECT().CloseSend().Return(nil).AnyTimes()
+
+	_, err := rs.Update(ctx, &obj, upper, NewMockcreator(ctrl))
+
+	assert.ErrorContains(t, err, "no output from the update for 50ms")
+	assert.ErrorIs(t, err, errIdleTimeout)
+	g.Expect(recorder.Events).To(Receive(matchEvent(string(autov1alpha1.UpdateFailed))))
+
+	// The terminal status must have reached the API server despite the cancellation.
+	var res autov1alpha1.Update
+	require.NoError(t, kclient.Get(ctx, types.NamespacedName{Name: obj.Name}, &res))
+	g.Expect(meta.IsStatusConditionTrue(res.Status.Conditions, UpdateConditionTypeComplete)).To(BeTrue())
+	g.Expect(meta.IsStatusConditionTrue(res.Status.Conditions, UpdateConditionTypeProgressing)).To(BeFalse())
+	failed := meta.FindStatusCondition(res.Status.Conditions, UpdateConditionTypeFailed)
+	g.Expect(failed).NotTo(BeNil())
+	g.Expect(failed.Status).To(Equal(metav1.ConditionTrue))
+	g.Expect(failed.Reason).To(Equal(UpdateConditionReasonIdleTimeout))
+	g.Expect(res.Status.Message).To(ContainSubstring("produced no output"))
+}
+
+// TestUpdateIdleTimeoutDisabled proves the watchdog is opt-out, and that a zero timeout does
+// not abandon a stream immediately.
+func TestUpdateIdleTimeoutDisabled(t *testing.T) {
+	scheme.Scheme.AddKnownTypes(
+		schema.GroupVersion{Group: "auto.pulumi.com", Version: "v1alpha1"},
+		&autov1alpha1.Update{},
+	)
+
+	obj := autov1alpha1.Update{ObjectMeta: metav1.ObjectMeta{Name: "foo", UID: "uid"}}
+	kclient := fake.NewClientBuilder().WithObjects(&obj).WithStatusSubresource(&obj).Build()
+	rs := newReconcileSession(kclient, record.NewFakeRecorder(10), &obj)
+	rs.idleTimeout = 0
+
+	ctrl := gomock.NewController(t)
+	upper := NewMockupper(ctrl)
+	recver := NewMockrecver[agentpb.UpStream](ctrl)
+
+	result := &agentpb.UpStream_Result{Result: &agentpb.UpResult{
+		Summary: &agentpb.UpdateSummary{Result: "succeeded"},
+	}}
+	gomock.InOrder(
+		upper.EXPECT().
+			Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}, grpc.WaitForReady(true)).
+			Return(recver, nil),
+		// A gap longer than any plausible watchdog, to show nothing is armed.
+		recver.EXPECT().Recv().DoAndReturn(func() (*agentpb.UpStream, error) {
+			time.Sleep(100 * time.Millisecond)
+			return &agentpb.UpStream{Response: result}, nil
+		}),
+		recver.EXPECT().CloseSend().Return(nil),
+	)
+	c := NewMockcreator(ctrl)
+	c.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+	_, err := rs.Update(t.Context(), &obj, upper, c)
+	assert.NoError(t, err)
+}
+
+// TestIdleTimeoutFor checks the precedence between the per-Update setting and the
+// operator-wide default, including that an explicit zero disables the watchdog.
+func TestIdleTimeoutFor(t *testing.T) {
+	tests := []struct {
+		name string
+		def  time.Duration
+		spec *metav1.Duration
+		want time.Duration
+	}{
+		{name: "falls back to the operator default", def: 30 * time.Minute, want: 30 * time.Minute},
+		{name: "the object overrides the default", def: 30 * time.Minute, spec: &metav1.Duration{Duration: time.Minute}, want: time.Minute},
+		{name: "an explicit zero disables it", def: 30 * time.Minute, spec: &metav1.Duration{}, want: 0},
+		{name: "disabled by default", def: 0, want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &UpdateReconciler{IdleTimeout: tt.def}
+			obj := &autov1alpha1.Update{Spec: autov1alpha1.UpdateSpec{IdleTimeout: tt.spec}}
+			assert.Equal(t, tt.want, r.idleTimeoutFor(obj))
+		})
+	}
+}
+
 type protoMatcher struct {
 	proto.Message
 }

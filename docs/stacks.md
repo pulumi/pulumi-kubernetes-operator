@@ -2925,6 +2925,13 @@ with apply.
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>idleTimeout</b></td>
+        <td>string</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>message</b></td>
         <td>string</td>
         <td>
@@ -24740,6 +24747,13 @@ with apply.
       </tr><tr>
         <td><b>expectNoChanges</b></td>
         <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>idleTimeout</b></td>
+        <td>string</td>
         <td>
           <br/>
         </td>

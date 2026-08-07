@@ -1098,6 +1098,8 @@ spec:
                         type: boolean
                       expectNoChanges:
                         type: boolean
+                      idleTimeout:
+                        type: string
                       message:
                         type: string
                       parallel:
@@ -11729,6 +11731,8 @@ spec:
                         type: boolean
                       expectNoChanges:
                         type: boolean
+                      idleTimeout:
+                        type: string
                       message:
                         type: string
                       parallel:
