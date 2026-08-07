@@ -38,6 +38,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -185,6 +186,20 @@ func makeUpdate(name types.NamespacedName, stack *pulumiv1.Stack, spec autov1alp
 	}
 }
 
+// updateHidingClient is a cached-client stand-in that reports one named Update as absent,
+// reproducing a cold or lagging informer while the object really does exist in the API.
+type updateHidingClient struct {
+	client.Client
+	hidden string
+}
+
+func (c updateHidingClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if _, ok := obj.(*autov1alpha1.Update); ok && key.Name == c.hidden {
+		return apierrors.NewNotFound(autov1alpha1.GroupVersion.WithResource("updates").GroupResource(), key.Name)
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
+}
+
 var _ = Describe("Stack Controller", func() {
 	var r *StackReconciler
 	var objName types.NamespacedName
@@ -197,9 +212,10 @@ var _ = Describe("Stack Controller", func() {
 
 	BeforeEach(func(ctx context.Context) {
 		r = &StackReconciler{
-			Client:   k8sClient,
-			Scheme:   k8sClient.Scheme(),
-			Recorder: record.NewFakeRecorder(10),
+			Client:    k8sClient,
+			APIReader: k8sClient,
+			Scheme:    k8sClient.Scheme(),
+			Recorder:  record.NewFakeRecorder(10),
 			maybeWatchFluxSourceKind: func(fsr shared.FluxSourceReference) error {
 				return nil
 			},
@@ -556,23 +572,91 @@ var _ = Describe("Stack Controller", func() {
 			}
 		})
 
-		When("the update is not found", func() {
+		When("the update is gone", func() {
+			var lostName string
 			JustBeforeEach(func(ctx context.Context) {
+				lostName = currentUpdate.Name
 				currentUpdate.Finalizers = []string{}
 				Expect(k8sClient.Update(ctx, currentUpdate)).To(Succeed())
 				Expect(k8sClient.Delete(ctx, currentUpdate)).To(Succeed())
 			})
-			It("reconciles", func(ctx context.Context) {
+			It("clears the reference so a new update can start", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+
+				By("returning an error to put the Stack on the workqueue's backoff")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(lostName))
+
+				By("clearing the current update")
+				Expect(obj.Status.CurrentUpdate).To(BeNil())
+
+				By("leaving the last update untouched, to preserve the retry budget")
+				Expect(obj.Status.LastUpdate).To(BeNil())
+
+				By("emitting an event so the condition is distinguishable from a healthy Stack")
+				Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(
+					ContainSubstring(string(pulumiv1.StackUpdateLost))))
+			})
+
+			It("starts a fresh update on the following reconcile", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+				Expect(err).To(HaveOccurred())
+				Expect(obj.Status.CurrentUpdate).To(BeNil())
+
+				// The retry needs a ready workspace to get as far as creating an Update.
+				ws.Status.ObservedGeneration = ws.Generation
+				ws.Status.Conditions = []metav1.Condition{
+					{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Succeeded", LastTransitionTime: metav1.Now()},
+				}
+				Expect(k8sClient.Status().Update(ctx, ws, client.FieldOwner(FieldManager))).To(Succeed())
+
+				_, err = reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("naming a different update than the one that was lost")
+				Expect(obj.Status.CurrentUpdate).NotTo(BeNil())
+				Expect(obj.Status.CurrentUpdate.Name).NotTo(Equal(lostName))
+			})
+		})
+
+		When("the update is missing from the cache but present in the API", func() {
+			It("retains the reference and retries", func(ctx context.Context) {
+				// Reconcile with an APIReader that still sees the object, but a cached client
+				// that does not -- the situation a cold or lagging informer produces.
+				r.Client = updateHidingClient{Client: k8sClient, hidden: currentUpdate.Name}
+
 				result, err := reconcileF(ctx)
 				Expect(err).NotTo(HaveOccurred())
 
 				ByMarkingAsReconciling(pulumiv1.ReconcilingProcessingReason, Equal(pulumiv1.ReconcilingProcessingUpdateMessage))
 
-				By("retaining the current update")
+				By("retaining the current update rather than starting a second one")
 				Expect(obj.Status.CurrentUpdate).NotTo(BeNil())
+				Expect(obj.Status.CurrentUpdate.Name).To(Equal(currentUpdate.Name))
 
-				By("not requeuing and by watching for Update status changes")
-				Expect(result).To(Equal(reconcile.Result{}))
+				By("requeuing so a missed watch event cannot strand the Stack")
+				Expect(result.RequeueAfter).To(Equal(updateCacheLagRequeue))
+			})
+		})
+
+		When("the reference is lost but the update itself is still running", func() {
+			var orphanName string
+			JustBeforeEach(func(ctx context.Context) {
+				// The Stack's Update is alive and unfinished, but .status.currentUpdate names
+				// something that never existed -- the shape produced when the status write that
+				// recorded the reference was lost.
+				orphanName = currentUpdate.Name
+				obj.Status.CurrentUpdate.Name = "does-not-exist"
+				Expect(k8sClient.Status().Patch(ctx, obj, stackStatusSSAPatch(obj),
+					client.FieldOwner(StackStatusFieldManager), client.ForceOwnership)).To(Succeed())
+			})
+			It("adopts it instead of starting a second pulumi operation", func(ctx context.Context) {
+				result, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(obj.Status.CurrentUpdate).NotTo(BeNil())
+				Expect(obj.Status.CurrentUpdate.Name).To(Equal(orphanName))
+				Expect(result.RequeueAfter).To(Equal(updateCacheLagRequeue))
 			})
 		})
 
@@ -597,8 +681,109 @@ var _ = Describe("Stack Controller", func() {
 				By("retaining the current update")
 				Expect(obj.Status.CurrentUpdate).NotTo(BeNil())
 
-				By("not requeuing and by watching for Update status changes")
-				Expect(result).To(Equal(reconcile.Result{}))
+				By("polling on a slow timer so a stuck Update cannot strand the Stack")
+				Expect(result).To(Equal(reconcile.Result{RequeueAfter: updateInFlightRequeue}))
+			})
+		})
+
+		// An Update that completed and was then deleted sits at generation N+1 with
+		// observedGeneration N forever: the apiserver bumps generation when the Stack's finalizer
+		// blocks the deletion, and nothing writes an Update's status again once it is Complete.
+		// Requiring the two to match left the Stack waiting on a result that was already final --
+		// and because the Stack drops the finalizer only after absorbing it, left the Update
+		// stuck Terminating too. See https://github.com/pulumi/pulumi-kubernetes-operator/issues/1292.
+		When("the update is terminal but its generation was bumped by a blocked deletion", func() {
+			BeforeEach(func(ctx context.Context) {
+				currentUpdate.Status.ObservedGeneration = 1
+				currentUpdate.Status.Conditions = []metav1.Condition{
+					{
+						Type:               autov1alpha1.UpdateConditionTypeComplete,
+						Status:             metav1.ConditionTrue,
+						Reason:             "Updated",
+						LastTransitionTime: metav1.Now(),
+					},
+					{
+						Type:               autov1alpha1.UpdateConditionTypeFailed,
+						Status:             metav1.ConditionTrue,
+						Reason:             "unknown",
+						LastTransitionTime: metav1.Now(),
+					},
+				}
+			})
+			JustBeforeEach(func(ctx context.Context) {
+				// Deleting an Update that still carries the Stack's finalizer leaves it
+				// Terminating with generation bumped past observedGeneration.
+				Expect(k8sClient.Delete(ctx, currentUpdate)).To(Succeed())
+				live := &autov1alpha1.Update{}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(currentUpdate), live)).To(Succeed())
+				Expect(live.DeletionTimestamp).NotTo(BeNil())
+				Expect(live.Generation).To(BeNumerically(">", live.Status.ObservedGeneration))
+			})
+			It("absorbs the result rather than waiting on it forever", func(ctx context.Context) {
+				_, err := reconcileF(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("clearing the current update")
+				Expect(obj.Status.CurrentUpdate).To(BeNil())
+
+				By("recording the terminal result")
+				Expect(obj.Status.LastUpdate).NotTo(BeNil())
+				Expect(obj.Status.LastUpdate.State).To(Equal(shared.FailedStackStateMessage))
+			})
+		})
+
+		// An Update left Terminating with our finalizer can never finish deleting, and freeing it
+		// otherwise means force-patching a controller-owned field by hand.
+		//
+		// The finalizer here is written by a plain Create rather than by SSA under
+		// StackFinalizerFieldManager, which models the harder case: an Update finalized by an
+		// older operator version. The happy-path SSA apply cannot remove a finalizer it does not
+		// own, so the sweep has to be ownership-agnostic.
+		// See https://github.com/pulumi/pulumi-kubernetes-operator/issues/1293.
+		When("a previous update is stuck Terminating with our finalizer", func() {
+			var stuck *autov1alpha1.Update
+			JustBeforeEach(func(ctx context.Context) {
+				stuck = makeUpdate(objName, obj, autov1alpha1.UpdateSpec{
+					WorkspaceName: nameForWorkspace(&obj.ObjectMeta),
+					StackName:     obj.Spec.Stack,
+					Type:          autov1alpha1.UpType,
+				})
+				Expect(controllerutil.SetControllerReference(obj, stuck, k8sClient.Scheme())).To(Succeed())
+				Expect(k8sClient.Create(ctx, stuck)).To(Succeed())
+				stuck.Status.Conditions = []metav1.Condition{{
+					Type:               autov1alpha1.UpdateConditionTypeComplete,
+					Status:             metav1.ConditionTrue,
+					Reason:             "Updated",
+					LastTransitionTime: metav1.Now(),
+				}}
+				Expect(k8sClient.Status().Update(ctx, stuck)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, stuck)).To(Succeed())
+
+				live := &autov1alpha1.Update{}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(stuck), live)).To(Succeed())
+				Expect(live.Finalizers).To(ContainElement(PulumiFinalizer))
+			})
+			It("releases the finalizer so the object can finish deleting", func(ctx context.Context) {
+				_, _ = reconcileF(ctx)
+
+				live := &autov1alpha1.Update{}
+				err := k8sClient.Get(ctx, client.ObjectKeyFromObject(stuck), live)
+				if err == nil {
+					Expect(live.Finalizers).NotTo(ContainElement(PulumiFinalizer))
+				} else {
+					Expect(apierrors.IsNotFound(err)).To(BeTrue(), "the update should be gone once released")
+				}
+			})
+			It("does not release the update it is still waiting on", func(ctx context.Context) {
+				// currentUpdate names a different, still-running Update; it must be untouched.
+				live := &autov1alpha1.Update{}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(currentUpdate), live)).To(Succeed())
+				Expect(live.Finalizers).To(ContainElement(PulumiFinalizer))
+
+				_, _ = reconcileF(ctx)
+
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(currentUpdate), live)).To(Succeed())
+				Expect(live.Finalizers).To(ContainElement(PulumiFinalizer))
 			})
 		})
 
@@ -2845,9 +3030,10 @@ func TestWorkspaceStalledPropagation(t *testing.T) {
 
 			// 4. Reconcile.
 			r := &StackReconciler{
-				Client:   k8sclient,
-				Scheme:   testScheme,
-				Recorder: record.NewFakeRecorder(10),
+				Client:    k8sclient,
+				APIReader: k8sclient,
+				Scheme:    testScheme,
+				Recorder:  record.NewFakeRecorder(10),
 			}
 			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
 			require.NoError(t, err)
@@ -2930,9 +3116,10 @@ func TestProjectInfoDestroyBypassesUnavailableSource(t *testing.T) {
 	require.NoError(t, k8sclient.Delete(ctx, stack))
 
 	r := &StackReconciler{
-		Client:   k8sclient,
-		Scheme:   testScheme,
-		Recorder: record.NewFakeRecorder(10),
+		Client:    k8sclient,
+		APIReader: k8sclient,
+		Scheme:    testScheme,
+		Recorder:  record.NewFakeRecorder(10),
 	}
 
 	// First reconcile: takes the projectInfo bypass and applies a projectInfo workspace,
@@ -3045,7 +3232,7 @@ func TestFailedDestroyRetainsFinalizer(t *testing.T) {
 	}
 	require.NoError(t, k8sclient.Status().Update(ctx, stack))
 
-	r := &StackReconciler{Client: k8sclient, Scheme: testScheme, Recorder: record.NewFakeRecorder(10)}
+	r := &StackReconciler{Client: k8sclient, APIReader: k8sclient, Scheme: testScheme, Recorder: record.NewFakeRecorder(10)}
 	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
 	require.NoError(t, err)
 
@@ -3137,9 +3324,10 @@ func TestStackDestroyStalledWhenNamespaceTerminating(t *testing.T) {
 
 	recorder := record.NewFakeRecorder(10)
 	r := &StackReconciler{
-		Client:   k8sclient,
-		Scheme:   testScheme,
-		Recorder: recorder,
+		Client:    k8sclient,
+		APIReader: k8sclient,
+		Scheme:    testScheme,
+		Recorder:  recorder,
 	}
 	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
 	require.NoError(t, err)
@@ -3224,9 +3412,10 @@ func TestStackStatusConcurrentModification(t *testing.T) {
 	require.NoError(t, k8sClient.Create(ctx, stack))
 
 	reconciler := &StackReconciler{
-		Client:   k8sClient,
-		Scheme:   testScheme,
-		Recorder: record.NewFakeRecorder(10),
+		Client:    k8sClient,
+		APIReader: k8sClient,
+		Scheme:    testScheme,
+		Recorder:  record.NewFakeRecorder(10),
 	}
 
 	// Step 3: First reconciliation — writes status via SSA.
