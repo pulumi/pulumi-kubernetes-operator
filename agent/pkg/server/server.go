@@ -48,6 +48,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource/config"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 )
 
 var _userAgent = fmt.Sprintf("pulumi-kubernetes-operator/%s", version.Version)
@@ -554,6 +555,16 @@ func (s *Server) AddEnvironments(ctx context.Context, in *pb.AddEnvironmentsRequ
 }
 
 func (s *Server) Install(ctx context.Context, in *pb.InstallRequest) (*pb.InstallResult, error) {
+	proj, err := s.ws.ProjectSettings(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Aborted, "unable to load project: %s", err)
+	}
+	if HasPrebuiltBinary(proj) {
+		s.log.Infow("skipping installation; the project runs a prebuilt binary",
+			"project", proj.Name, "runtime", proj.Runtime.Name())
+		return &pb.InstallResult{Skipped: true, Reason: SkipReasonPrebuiltBinary}, nil
+	}
+
 	stdout := &zapio.Writer{Log: s.plog, Level: zap.InfoLevel}
 	defer stdout.Close()
 	stderr := &zapio.Writer{Log: s.plog, Level: zap.WarnLevel}
@@ -572,6 +583,34 @@ func (s *Server) Install(ctx context.Context, in *pb.InstallRequest) (*pb.Instal
 
 	resp := &pb.InstallResult{}
 	return resp, nil
+}
+
+// SkipReasonPrebuiltBinary explains an install that was skipped because the project runs an
+// already-compiled program.
+const SkipReasonPrebuiltBinary = "the project runs a prebuilt binary (runtime.options.binary), so there are no dependencies to resolve"
+
+// HasPrebuiltBinary reports whether the project runs an already-compiled program, declared as
+// `runtime.options.binary` in Pulumi.yaml.
+//
+// `pulumi install` resolves language dependencies, which for such a project is work with no
+// result: the program is already built. Worse than wasted, it makes the workspace need a
+// complete language toolchain -- writable build and module caches, a matching compiler version,
+// network access to a module proxy -- any of which failing stalls the workspace and stops
+// updates entirely. Skipping keeps the workspace to what a prebuilt program actually needs,
+// which is only to run.
+//
+// Note this also skips plugin acquisition, which `pulumi install` would otherwise do. The engine
+// acquires missing plugins during an update by default, so this is normally invisible; a
+// deployment that disables automatic plugin acquisition must pre-seed plugins in its image.
+//
+// See https://github.com/pulumi/pulumi-kubernetes-operator/issues/1297.
+func HasPrebuiltBinary(proj *workspace.Project) bool {
+	if proj == nil {
+		return false
+	}
+	// Options is an untyped map; the SDK has no typed field or constant for "binary".
+	binary, ok := proj.Runtime.Options()["binary"].(string)
+	return ok && binary != ""
 }
 
 // Preview implements proto.AutomationServiceServer.

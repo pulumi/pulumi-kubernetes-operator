@@ -3,6 +3,10 @@ CHANGELOG
 
 ## Unreleased
 
+- Skip `pulumi install` for a project that runs a prebuilt binary (`runtime.options.binary`), where there are no dependencies to resolve. Installing such a project made the workspace require a complete language toolchain — writable build and module caches, a matching compiler, a reachable module proxy — and any of those failing stalled the workspace and stopped all updates. Note this also skips plugin acquisition, which the engine normally performs during an update; a deployment that sets `PULUMI_DISABLE_AUTOMATIC_PLUGIN_ACQUISITION` must pre-seed plugins in its image [#1297](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1297)
+- Add `Workspace.spec.skipInstall` (settable per Stack via `spec.workspaceTemplate.spec.skipInstall`) to disable the install step for workspaces whose image already has everything the program needs, and emit an `InstallationSkipped` event whenever installation is skipped [#1297](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1297)
+- Stop running `pulumi install` on project-info workspaces, which are bootstrapped from a synthesized `Pulumi.yaml` with no program so that a Stack can be destroyed from backend state once its source is gone. Installing there failed for every runtime except `yaml`, stalling the workspace and leaving the Stack unable to destroy — retaining its finalizer and stranding its cloud resources [#1299](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1299)
+
 ## 2.9.0 (2026-07-29)
 
 - Add `serviceTemplate` to the Workspace spec, allowing custom annotations and labels on the headless Service that fronts a workspace's pods; settable from a Stack via `spec.workspaceTemplate.spec.serviceTemplate.metadata` [#1280](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1280)

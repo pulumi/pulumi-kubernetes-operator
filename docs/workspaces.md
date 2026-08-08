@@ -212,6 +212,19 @@ fronts the Workspace's pods.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>skipInstall</b></td>
+        <td>boolean</td>
+        <td>
+          SkipInstall disables the `pulumi install` step that resolves the program's dependencies
+and plugins before an update. Set this when the workspace image already has everything the
+program needs -- vendored dependencies, or a prebuilt binary -- so that installing is
+wasted work whose failure would otherwise stall the workspace.
+
+A project that declares `runtime.options.binary` is detected automatically and needs no
+setting here.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#workspacespecstacksindex">stacks</a></b></td>
         <td>[]object</td>
         <td>

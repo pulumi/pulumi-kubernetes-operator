@@ -886,10 +886,11 @@ func TestInstall(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
-		projectDir string
-		req        *pb.InstallRequest
-		wantErr    types.GomegaMatcher
+		name        string
+		projectDir  string
+		req         *pb.InstallRequest
+		wantSkipped bool
+		wantErr     types.GomegaMatcher
 	}{
 		{
 			name:       "simple",
@@ -902,6 +903,16 @@ func TestInstall(t *testing.T) {
 			req:        &pb.InstallRequest{},
 			wantErr:    HasStatusCode(codes.Aborted, gomega.ContainSubstring("go.mod file not found")),
 		},
+		{
+			// Same shape as "uninstallable" -- runtime go, no go.mod -- but declaring a prebuilt
+			// binary. The pair is the assertion: installing would fail here, so succeeding proves
+			// it was skipped rather than attempted.
+			// See https://github.com/pulumi/pulumi-kubernetes-operator/issues/1297.
+			name:        "prebuilt binary is not installed",
+			projectDir:  "./testdata/prebuilt",
+			req:         &pb.InstallRequest{},
+			wantSkipped: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -909,16 +920,54 @@ func TestInstall(t *testing.T) {
 			g := gomega.NewWithT(t)
 			ctx := newContext(t)
 			tc := newTC(ctx, t, tcOptions{ProjectDir: tt.projectDir})
-			_, err := tc.server.Install(ctx, tt.req)
+			res, err := tc.server.Install(ctx, tt.req)
 			if tt.wantErr != nil {
 				g.Expect(err).To(gomega.HaveOccurred())
 				g.Expect(err).To(tt.wantErr)
 				// g.Expect(err).To(gomega.MatchError(tt.wantErr))
+				return
+			}
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(res.GetSkipped()).To(gomega.Equal(tt.wantSkipped))
+			if tt.wantSkipped {
+				g.Expect(res.GetReason()).ToNot(gomega.BeEmpty())
 			} else {
-				g.Expect(err).ToNot(gomega.HaveOccurred())
+				g.Expect(res.GetReason()).To(gomega.BeEmpty())
 			}
 		})
 	}
+}
+
+func TestHasPrebuiltBinary(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		options map[string]any
+		want    bool
+	}{
+		{name: "no options", options: nil},
+		{name: "unrelated options", options: map[string]any{"buildTarget": "./bin"}},
+		{name: "binary set", options: map[string]any{"binary": "./app"}, want: true},
+		{name: "binary empty", options: map[string]any{"binary": ""}},
+		// Options is map[string]any, so a non-string value must not be treated as a binary.
+		{name: "binary not a string", options: map[string]any{"binary": true}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			proj := &workspace.Project{
+				Name:    "test",
+				Runtime: workspace.NewProjectRuntimeInfo("go", tt.options),
+			}
+			assert.Equal(t, tt.want, HasPrebuiltBinary(proj))
+		})
+	}
+
+	t.Run("nil project", func(t *testing.T) {
+		t.Parallel()
+		assert.False(t, HasPrebuiltBinary(nil))
+	})
 }
 
 func TestUp(t *testing.T) {
