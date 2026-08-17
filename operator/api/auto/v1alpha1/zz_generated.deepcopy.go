@@ -363,6 +363,11 @@ func (in *UpdateSpec) DeepCopyInto(out *UpdateSpec) {
 		*out = new(v1.Duration)
 		**out = **in
 	}
+	if in.IdleTimeout != nil {
+		in, out := &in.IdleTimeout, &out.IdleTimeout
+		*out = new(v1.Duration)
+		**out = **in
+	}
 	if in.Parallel != nil {
 		in, out := &in.Parallel, &out.Parallel
 		*out = new(int32)

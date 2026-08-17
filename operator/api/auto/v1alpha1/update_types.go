@@ -44,6 +44,14 @@ type UpdateSpec struct {
 	// TTL for a completed update object.
 	// +optional
 	TtlAfterCompleted *metav1.Duration `json:"ttlAfterCompleted,omitempty"`
+	// IdleTimeout is how long the update may produce no output at all before the operator
+	// gives up on it and marks it failed. It bounds the time a wedged update can hold one of
+	// the operator's reconcile workers, which is otherwise occupied for the whole operation.
+	// Because it measures silence rather than total duration, a slow but progressing update
+	// is never interrupted. Zero disables the timeout. Defaults to the operator's
+	// --update-idle-timeout.
+	// +optional
+	IdleTimeout *metav1.Duration `json:"idleTimeout,omitempty"`
 	// Parallel is the number of resource operations to run in parallel at once
 	// (1 for no parallelism). Defaults to unbounded.
 	// +optional

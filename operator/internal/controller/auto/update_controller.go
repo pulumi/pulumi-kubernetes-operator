@@ -17,6 +17,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -43,6 +44,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -69,7 +71,17 @@ const (
 	UpdateConditionReasonCanceled        = "Canceled"
 	UpdateConditionReasonUpdateFailed    = "UpdateFailed"
 	UpdateConditionReasonUpdateSucceeded = "UpdateSucceeded"
+	UpdateConditionReasonIdleTimeout     = "IdleTimeout"
+
+	// DefaultUpdateIdleTimeout is how long an update may produce no output before the operator
+	// abandons it. Generous, because it has to accommodate a single slow resource operation;
+	// its job is to bound a wedged worker, not to enforce a schedule.
+	DefaultUpdateIdleTimeout = 30 * time.Minute
 )
+
+// errIdleTimeout marks a stream that was abandoned for producing no output, distinguishing it
+// from a cancellation caused by the manager shutting down.
+var errIdleTimeout = errors.New("idle timeout exceeded")
 
 // UpdateReconciler reconciles a Update object
 type UpdateReconciler struct {
@@ -77,6 +89,16 @@ type UpdateReconciler struct {
 	Scheme            *runtime.Scheme
 	Recorder          record.EventRecorder
 	ConnectionManager *ConnectionManager
+
+	// MaxConcurrentReconciles bounds how many updates this controller runs at once. It is
+	// separate from the manager-wide default because a reconcile here blocks for the entire
+	// Pulumi operation, so this controller's budget must be sized against update concurrency
+	// rather than shared with controllers whose reconciles return promptly. Zero uses the
+	// manager default.
+	MaxConcurrentReconciles int
+
+	// IdleTimeout is the default for Update.spec.idleTimeout. Zero disables the timeout.
+	IdleTimeout time.Duration
 
 	// activeReconciles tracks Updates currently being reconciled by this
 	// process. Used by mapWorkspaceToUpdate to avoid re-enqueuing in-flight
@@ -111,6 +133,7 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	defer r.activeReconciles.Delete(key)
 
 	rs := newReconcileSession(r.Client, r.Recorder, obj)
+	rs.idleTimeout = r.idleTimeoutFor(obj)
 
 	if rs.complete.Status == metav1.ConditionTrue {
 		// implement ttl for completed updates
@@ -249,6 +272,16 @@ func (r *UpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 }
 
+// idleTimeoutFor returns the idle timeout to apply to an update, preferring the value on the
+// object over the operator-wide default. A zero value on the object disables the watchdog for
+// that update rather than falling back to the default.
+func (r *UpdateReconciler) idleTimeoutFor(obj *autov1alpha1.Update) time.Duration {
+	if obj.Spec.IdleTimeout != nil {
+		return obj.Spec.IdleTimeout.Duration
+	}
+	return r.IdleTimeout
+}
+
 func isOrphaned(obj *autov1alpha1.Update) bool {
 	// an Update is considered orphaned if it has no managing controller.
 	return !controllerutil.HasControllerReference(obj)
@@ -290,6 +323,22 @@ type reconcileSession struct {
 	failed      *metav1.Condition
 	client      client.Client
 	recorder    record.EventRecorder
+
+	// idleTimeout bounds how long an operation's stream may be silent before it is abandoned.
+	// Zero disables the watchdog.
+	idleTimeout time.Duration
+}
+
+// beginOperation returns the context governing a streaming Pulumi operation, along with the
+// reader plumbing needed to abandon it if it goes silent.
+//
+// The returned context is a child of the reconcile context rather than the reconcile context
+// itself, so that abandoning the operation leaves the caller able to write the status that
+// records the outcome. Cancelling the reconcile context instead -- as happens on manager
+// shutdown -- deliberately fails that write too, leaving the Update Progressing so the
+// restarted operator's guard can mark it Aborted.
+func (u *reconcileSession) beginOperation(ctx context.Context) (context.Context, context.CancelCauseFunc) {
+	return context.WithCancelCause(ctx)
 }
 
 // newReconcileSession creates a new reconcileSession.
@@ -413,14 +462,17 @@ func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update
 	}
 
 	l.Info("Executing preview operation", "request", autoReq)
-	res, err := client.Preview(ctx, autoReq, grpc.WaitForReady(true))
+	opCtx, cancelOp := u.beginOperation(ctx)
+	defer cancelOp(nil)
+	res, err := client.Preview(opCtx, autoReq, grpc.WaitForReady(true))
 	if err != nil {
 		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to preview stack %q", obj.Spec.StackName)
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
 	defer func() { _ = res.CloseSend() }()
 
-	reader := streamReader[agentpb.PreviewStream]{receiver: res, l: l, u: u, obj: obj}
+	reader := streamReader[agentpb.PreviewStream]{receiver: res, l: l, u: u, obj: obj,
+		opCtx: opCtx, cancelOp: cancelOp, idleTimeout: u.idleTimeout}
 	_, err = reader.Result()
 	if err != nil {
 		// Update the status/conditions.
@@ -461,14 +513,17 @@ func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update,
 	}
 
 	l.Info("Executing update operation", "request", autoReq)
-	res, err := client.Up(ctx, autoReq, grpc.WaitForReady(true))
+	opCtx, cancelOp := u.beginOperation(ctx)
+	defer cancelOp(nil)
+	res, err := client.Up(opCtx, autoReq, grpc.WaitForReady(true))
 	if err != nil {
 		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to update stack %q", obj.Spec.StackName)
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
 	defer func() { _ = res.CloseSend() }()
 
-	reader := streamReader[agentpb.UpStream]{receiver: res, l: l, u: u, obj: obj}
+	reader := streamReader[agentpb.UpStream]{receiver: res, l: l, u: u, obj: obj,
+		opCtx: opCtx, cancelOp: cancelOp, idleTimeout: u.idleTimeout}
 	result, err := reader.Result()
 	if err != nil {
 		// Update the status/conditions.
@@ -511,14 +566,17 @@ func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update
 	}
 
 	l.Info("Executing refresh operation", "request", autoReq)
-	res, err := client.Refresh(ctx, autoReq, grpc.WaitForReady(true))
+	opCtx, cancelOp := u.beginOperation(ctx)
+	defer cancelOp(nil)
+	res, err := client.Refresh(opCtx, autoReq, grpc.WaitForReady(true))
 	if err != nil {
 		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to refresh stack %q", obj.Spec.StackName)
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
 	defer func() { _ = res.CloseSend() }()
 
-	reader := streamReader[agentpb.RefreshStream]{receiver: res, l: l, u: u, obj: obj}
+	reader := streamReader[agentpb.RefreshStream]{receiver: res, l: l, u: u, obj: obj,
+		opCtx: opCtx, cancelOp: cancelOp, idleTimeout: u.idleTimeout}
 	_, err = reader.Result()
 	if err != nil {
 		// Update the status/conditions.
@@ -551,14 +609,17 @@ func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update
 	}
 
 	l.Info("Executing destroy operation", "request", autoReq)
-	res, err := client.Destroy(ctx, autoReq, grpc.WaitForReady(true))
+	opCtx, cancelOp := u.beginOperation(ctx)
+	defer cancelOp(nil)
+	res, err := client.Destroy(opCtx, autoReq, grpc.WaitForReady(true))
 	if err != nil {
 		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to destroy stack %q", obj.Spec.StackName)
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
 	defer func() { _ = res.CloseSend() }()
 
-	reader := streamReader[agentpb.DestroyStream]{receiver: res, l: l, u: u, obj: obj}
+	reader := streamReader[agentpb.DestroyStream]{receiver: res, l: l, u: u, obj: obj,
+		opCtx: opCtx, cancelOp: cancelOp, idleTimeout: u.idleTimeout}
 	_, err = reader.Result()
 	if err != nil {
 		// Update the status/conditions.
@@ -618,8 +679,17 @@ func (r *UpdateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	// A reconcile here occupies its worker for the whole Pulumi operation, so give this
+	// controller a budget of its own rather than having long-running updates crowd out the
+	// prompt reconciles of the stack and workspace controllers.
+	opts := controller.Options{}
+	if r.MaxConcurrentReconciles > 0 {
+		opts.MaxConcurrentReconciles = r.MaxConcurrentReconciles
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("update-controller").
+		WithOptions(opts).
 		For(&autov1alpha1.Update{}, builder.WithPredicates(predicate.Or(
 			predicate.GenerationChangedPredicate{},
 			OwnerReferencesChangedPredicate{},
@@ -730,6 +800,15 @@ type streamReader[T stream] struct {
 	obj      *autov1alpha1.Update
 	u        *reconcileSession
 	l        logr.Logger
+
+	// opCtx is the context governing the streaming RPC, and cancelOp cancels it. They are
+	// scoped to the operation rather than to the reconcile, so that abandoning a wedged stream
+	// does not also cancel the status write that records the outcome.
+	opCtx    context.Context
+	cancelOp context.CancelCauseFunc
+	// idleTimeout bounds how long the stream may be silent before it is abandoned. Zero
+	// disables the watchdog.
+	idleTimeout time.Duration
 }
 
 // Recv reads one message from the stream which may or may not contain a
@@ -748,12 +827,35 @@ func (s streamReader[T]) Result() (result, error) {
 	var res result
 
 	startTime := time.Now()
+
+	// Abandon the stream if it goes silent for too long. Without this the reconcile can block
+	// in Recv() indefinitely -- for instance when the agent is alive but wedged inside a
+	// provider call -- holding one of MaxConcurrentReconciles workers for the rest of the
+	// process's life. The timer is reset on every message, so a slow but talkative update is
+	// never interrupted.
+	var idle *time.Timer
+	if s.idleTimeout > 0 && s.cancelOp != nil {
+		idle = time.AfterFunc(s.idleTimeout, func() {
+			s.cancelOp(errIdleTimeout)
+		})
+		defer idle.Stop()
+	}
+
 	for {
 		stream, err := s.Recv()
+		if idle != nil {
+			idle.Reset(s.idleTimeout)
+		}
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
+			if s.opCtx != nil && errors.Is(context.Cause(s.opCtx), errIdleTimeout) {
+				s.l.Error(err, "no output from the update within the idle timeout; abandoning it",
+					"idleTimeout", s.idleTimeout)
+				s.setStatusBlockFromIdleTimeout()
+				return nil, fmt.Errorf("no output from the update for %s: %w", s.idleTimeout, errIdleTimeout)
+			}
 			s.l.Error(err, "Unexpected error from response stream")
 			s.setStatusBlockFromGRPCErr(err)
 			return nil, err
@@ -803,6 +905,22 @@ func (s streamReader[T]) Result() (result, error) {
 	}
 
 	return res, fmt.Errorf("didn't receive a result")
+}
+
+// setStatusBlockFromIdleTimeout marks the Update terminally failed because it stopped
+// producing output. This must be terminal: leaving it Progressing would have the owning Stack
+// wait on an update that nothing will ever complete.
+func (s streamReader[T]) setStatusBlockFromIdleTimeout() {
+	s.obj.Status.Message = fmt.Sprintf(
+		"The update produced no output for %s and was abandoned. "+
+			"The Pulumi operation may still be running in the workspace pod.", s.idleTimeout)
+	s.u.progressing.Status = metav1.ConditionFalse
+	s.u.progressing.Reason = UpdateConditionReasonComplete
+	s.u.complete.Status = metav1.ConditionTrue
+	s.u.complete.Reason = UpdateConditionReasonUpdated
+	s.u.failed.Status = metav1.ConditionTrue
+	s.u.failed.Reason = UpdateConditionReasonIdleTimeout
+	s.u.failed.Message = ""
 }
 
 // setStatusBlockFromGRPCErr sets the Update object status blocks based on the result of a gRPC error.
