@@ -22,6 +22,7 @@ import (
 	"net"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -55,6 +56,9 @@ import (
 
 const (
 	TestFinalizer = "test.pulumi.com/finalizer"
+	// testRevision is the controller-revision-hash shared by a test's StatefulSet and its Pod,
+	// so the controller accepts the Pod as current and proceeds to initialize the workspace.
+	testRevision = "test-rev"
 )
 
 var (
@@ -625,6 +629,11 @@ type mockAutomationServer struct {
 	pulumiVersion  string
 	selectStackErr error
 	installErr     error
+	// installSkipped makes Install report that it did nothing, as the agent does for a
+	// project that runs a prebuilt binary.
+	installSkipped bool
+	// installCalls counts Install invocations, so a test can assert the RPC was never made.
+	installCalls atomic.Int32
 }
 
 func (s *mockAutomationServer) PulumiVersion(_ context.Context, _ *agentpb.PulumiVersionRequest) (*agentpb.PulumiVersionResult, error) {
@@ -632,8 +641,12 @@ func (s *mockAutomationServer) PulumiVersion(_ context.Context, _ *agentpb.Pulum
 }
 
 func (s *mockAutomationServer) Install(_ context.Context, _ *agentpb.InstallRequest) (*agentpb.InstallResult, error) {
+	s.installCalls.Add(1)
 	if s.installErr != nil {
 		return nil, s.installErr
+	}
+	if s.installSkipped {
+		return &agentpb.InstallResult{Skipped: true, Reason: "the project runs a prebuilt binary"}, nil
 	}
 	return &agentpb.InstallResult{}, nil
 }
@@ -755,9 +768,9 @@ func TestWorkspaceInitializationStalled(t *testing.T) {
 			sts.Status.Replicas = 1
 			sts.Status.ReadyReplicas = 1
 			sts.Status.AvailableReplicas = 1
-			sts.Status.CurrentRevision = "test-rev"
+			sts.Status.CurrentRevision = testRevision
 			sts.Status.CurrentReplicas = 1
-			sts.Status.UpdateRevision = "test-rev"
+			sts.Status.UpdateRevision = testRevision
 			sts.Status.UpdatedReplicas = 1
 			require.NoError(t, k8sclient.Status().Update(ctx, sts))
 
@@ -767,7 +780,7 @@ func TestWorkspaceInitializationStalled(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      podName,
 					Namespace: "default",
-					Labels:    map[string]string{"controller-revision-hash": "test-rev"},
+					Labels:    map[string]string{"controller-revision-hash": testRevision},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -800,6 +813,170 @@ func TestWorkspaceInitializationStalled(t *testing.T) {
 			podCheck := &corev1.Pod{}
 			require.NoError(t, k8sclient.Get(ctx, types.NamespacedName{Name: podName, Namespace: "default"}, podCheck))
 			assert.Nil(t, podCheck.DeletionTimestamp, "pod should not be marked for deletion")
+		})
+	}
+}
+
+// TestWorkspaceSkipInstall covers the install opt-out. `pulumi install` is wasted work for a
+// workspace whose image already has what the program needs, and its failure otherwise stalls the
+// workspace and stops updates entirely.
+// See https://github.com/pulumi/pulumi-kubernetes-operator/issues/1297.
+func TestWorkspaceSkipInstall(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	k8sclient, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name             string
+		skipInstall      *bool
+		projectInfo      *autov1alpha1.ProjectInfoSource
+		installSkipped   bool
+		wantInstallCalls int32
+		wantEvent        bool
+	}{
+		{
+			name:             "installs by default",
+			wantInstallCalls: 1,
+		},
+		{
+			name:             "skipInstall avoids the RPC entirely",
+			skipInstall:      ptr.To(true),
+			wantInstallCalls: 0,
+			wantEvent:        true,
+		},
+		{
+			name:             "skipInstall=false still installs",
+			skipInstall:      ptr.To(false),
+			wantInstallCalls: 1,
+		},
+		{
+			// A project-info workspace has only a synthesized Pulumi.yaml and no program, so
+			// installing cannot succeed for any runtime but yaml -- and a failure stalls the
+			// workspace, blocking the source-free destroy this path exists to perform.
+			// See https://github.com/pulumi/pulumi-kubernetes-operator/issues/1299.
+			name:             "a project-info workspace is never installed",
+			projectInfo:      &autov1alpha1.ProjectInfoSource{Name: "proj", Runtime: "go"},
+			wantInstallCalls: 0,
+			wantEvent:        true,
+		},
+		{
+			name:             "a skip reported by the agent is surfaced",
+			installSkipped:   true,
+			wantInstallCalls: 1,
+			wantEvent:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+
+			lis, err := net.Listen("tcp", "localhost:0")
+			require.NoError(t, err)
+			mockSrv := &mockAutomationServer{
+				pulumiVersion:  "3.100.0",
+				installSkipped: tt.installSkipped,
+			}
+			grpcSrv := grpc.NewServer()
+			agentpb.RegisterAutomationServiceServer(grpcSrv, mockSrv)
+			go func() { _ = grpcSrv.Serve(lis) }()
+			t.Cleanup(func() {
+				grpcSrv.Stop()
+				_ = lis.Close()
+			})
+			t.Setenv("WORKSPACE_LOCALHOST", lis.Addr().String())
+
+			workspaceName := fmt.Sprintf("ws-%s", utilrand.String(8))
+			workspace := &autov1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{Name: workspaceName, Namespace: "default"},
+				Spec: autov1alpha1.WorkspaceSpec{
+					Image:       "pulumi/pulumi:latest-nonroot",
+					SkipInstall: tt.skipInstall,
+					ProjectInfo: tt.projectInfo,
+				},
+			}
+			require.NoError(t, k8sclient.Create(ctx, workspace))
+			t.Cleanup(func() { _ = k8sclient.Delete(ctx, workspace) })
+
+			objName := types.NamespacedName{Name: workspaceName, Namespace: "default"}
+			recorder := record.NewFakeRecorder(10)
+			r := &WorkspaceReconciler{
+				Client:            k8sclient,
+				Scheme:            k8sclient.Scheme(),
+				Recorder:          recorder,
+				ConnectionManager: &ConnectionManager{factory: &mockTokenSourceFactory{}},
+			}
+
+			// First reconciliation: creates the StatefulSet and Service.
+			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+			require.NoError(t, err)
+
+			// Mark the StatefulSet ready and create a matching Pod so the next reconcile reaches
+			// the install step.
+			stsName := types.NamespacedName{Name: workspaceName + "-workspace", Namespace: "default"}
+			sts := &appsv1.StatefulSet{}
+			require.NoError(t, k8sclient.Get(ctx, stsName, sts))
+			sts.Status.ObservedGeneration = sts.Generation
+			sts.Status.Replicas = 1
+			sts.Status.ReadyReplicas = 1
+			sts.Status.AvailableReplicas = 1
+			sts.Status.CurrentRevision = testRevision
+			sts.Status.CurrentReplicas = 1
+			sts.Status.UpdateRevision = testRevision
+			sts.Status.UpdatedReplicas = 1
+			require.NoError(t, k8sclient.Status().Update(ctx, sts))
+
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-workspace-0", workspaceName),
+					Namespace: "default",
+					Labels:    map[string]string{"controller-revision-hash": testRevision},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "pulumi", Image: "pulumi/pulumi:latest-nonroot"}},
+				},
+			}
+			require.NoError(t, k8sclient.Create(ctx, pod))
+
+			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantInstallCalls, mockSrv.installCalls.Load(),
+				"unexpected number of Install RPCs")
+
+			require.NoError(t, k8sclient.Get(ctx, objName, workspace))
+			readyCond := meta.FindStatusCondition(workspace.Status.Conditions, autov1alpha1.WorkspaceReady)
+			require.NotNil(t, readyCond)
+			assert.Equal(t, metav1.ConditionTrue, readyCond.Status, "workspace should become ready")
+			assert.Nil(t, meta.FindStatusCondition(workspace.Status.Conditions, autov1alpha1.WorkspaceStalled))
+
+			// A skip must be visible; otherwise "Running pulumi install" followed by Ready is
+			// silently misleading.
+			var sawSkipEvent bool
+			for {
+				select {
+				case e := <-recorder.Events:
+					if strings.Contains(e, string(autov1alpha1.InstallationSkipped)) {
+						sawSkipEvent = true
+					}
+					continue
+				default:
+				}
+				break
+			}
+			assert.Equal(t, tt.wantEvent, sawSkipEvent, "unexpected InstallationSkipped event")
 		})
 	}
 }

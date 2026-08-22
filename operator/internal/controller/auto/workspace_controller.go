@@ -314,28 +314,40 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 		}
 
-		l.Info("Running pulumi install")
-		ready.Status = metav1.ConditionFalse
-		ready.Reason = "Installing"
-		ready.Message = "Installing packages and plugins required by the program"
-		if err := updateStatus(); err != nil {
-			return ctrl.Result{}, err
-		}
-		_, err = wc.Install(ctx, &agentpb.InstallRequest{})
-		if err != nil {
-			l.Error(err, "unable to install; marking workspace as stalled")
-			emitEvent(r.Recorder, w, autov1alpha1.InstallationFailureEvent(), err.Error())
+		if reason, skip := skipInstallReason(w); skip {
+			l.Info("Skipping pulumi install", "reason", reason)
+			emitEvent(r.Recorder, w, autov1alpha1.InstallationSkippedEvent(), "Skipped installation: %s", reason)
+		} else {
+			l.Info("Running pulumi install")
 			ready.Status = metav1.ConditionFalse
-			ready.Reason = "InstallationFailed"
-			ready.Message = err.Error()
-			meta.SetStatusCondition(&w.Status.Conditions, metav1.Condition{
-				Type:               autov1alpha1.WorkspaceStalled,
-				Status:             metav1.ConditionTrue,
-				Reason:             "InstallationFailed",
-				Message:            err.Error(),
-				ObservedGeneration: w.Generation,
-			})
-			return ctrl.Result{}, updateStatus()
+			ready.Reason = "Installing"
+			ready.Message = "Installing packages and plugins required by the program"
+			if err := updateStatus(); err != nil {
+				return ctrl.Result{}, err
+			}
+			res, err := wc.Install(ctx, &agentpb.InstallRequest{})
+			if err != nil {
+				l.Error(err, "unable to install; marking workspace as stalled")
+				emitEvent(r.Recorder, w, autov1alpha1.InstallationFailureEvent(), err.Error())
+				ready.Status = metav1.ConditionFalse
+				ready.Reason = "InstallationFailed"
+				ready.Message = err.Error()
+				meta.SetStatusCondition(&w.Status.Conditions, metav1.Condition{
+					Type:               autov1alpha1.WorkspaceStalled,
+					Status:             metav1.ConditionTrue,
+					Reason:             "InstallationFailed",
+					Message:            err.Error(),
+					ObservedGeneration: w.Generation,
+				})
+				return ctrl.Result{}, updateStatus()
+			}
+			// The agent skips the install for projects that have nothing to resolve. Surface that
+			// here, so "Running pulumi install" followed by Ready isn't silently misleading.
+			if res.GetSkipped() {
+				l.Info("Installation skipped by the agent", "reason", res.GetReason())
+				emitEvent(r.Recorder, w, autov1alpha1.InstallationSkippedEvent(),
+					"Skipped installation: %s", res.GetReason())
+			}
 		}
 
 		l.Info("Creating Pulumi stack(s)")
@@ -527,6 +539,10 @@ func newStatefulSet(ctx context.Context, w *autov1alpha1.Workspace, source *sour
 	image, imagePullPolicy := agentImage()
 	labels := labelsForStatefulSet(w)
 
+	// --skip-install is unconditional and is not a user-facing setting: it only suppresses the
+	// install the agent would otherwise run at startup, so that installing happens through the
+	// Install RPC instead, where this controller can report progress and failures on the
+	// Workspace. To actually skip installing, use spec.skipInstall, which gates that RPC.
 	command := []string{
 		"/share/tini", "/share/agent", "--", "serve",
 		"--workspace", "/share/workspace",
@@ -974,6 +990,28 @@ type projectInfoSource struct {
 // the internal sourceSpec used to generate the StatefulSet. Exactly one
 // source variant is expected to be set on the Workspace, but the translation
 // is order-independent.
+// skipInstallReason reports whether `pulumi install` should be skipped for a workspace, and why.
+// The reason is surfaced in the log and in an event, since a silent skip is as confusing as an
+// unnecessary install.
+//
+// Note this covers only what the operator can decide from the Workspace itself. A project that
+// runs a prebuilt binary is also skipped, but that is visible only in Pulumi.yaml, so the agent
+// decides it and reports back via InstallResult.Skipped.
+func skipInstallReason(w *autov1alpha1.Workspace) (string, bool) {
+	if ptr.Deref(w.Spec.SkipInstall, false) {
+		return "spec.skipInstall is set", true
+	}
+	// A project-info workspace is bootstrapped from a synthesized Pulumi.yaml carrying only a
+	// name and runtime, with no program at all -- it exists so a Stack can be destroyed from
+	// backend state when its source is gone. Installing there cannot succeed for any runtime but
+	// yaml, and a failure stalls the workspace, which blocks the destroy and strands the Stack's
+	// resources. See https://github.com/pulumi/pulumi-kubernetes-operator/issues/1299.
+	if w.Spec.ProjectInfo != nil {
+		return "the workspace was bootstrapped from project info and has no program to install", true
+	}
+	return "", false
+}
+
 func newSourceSpec(w *autov1alpha1.Workspace) *sourceSpec {
 	s := &sourceSpec{
 		Generation: w.Generation,

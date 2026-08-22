@@ -1,0 +1,9 @@
+name: prebuilt
+runtime:
+  name: go
+  options:
+    binary: ./app
+description: |
+  A project that runs an already-compiled program. It deliberately has no go.mod, so
+  `pulumi install` would fail here exactly as it does for the "uninstallable" fixture --
+  the install must be skipped rather than attempted.

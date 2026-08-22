@@ -561,6 +561,11 @@ func (in *WorkspaceSpec) DeepCopyInto(out *WorkspaceSpec) {
 		*out = new(EmbeddedServiceTemplateSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.SkipInstall != nil {
+		in, out := &in.SkipInstall, &out.SkipInstall
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Stacks != nil {
 		in, out := &in.Stacks, &out.Stacks
 		*out = make([]WorkspaceStack, len(*in))

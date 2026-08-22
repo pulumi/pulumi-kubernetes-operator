@@ -132,7 +132,13 @@ message AddEnvironmentsResult {}
 
 message InstallRequest {}
 
-message InstallResult {}
+message InstallResult {
+  // skipped is true when the install was a no-op because the project had
+  // nothing to resolve, e.g. it runs an already-compiled program.
+  bool skipped = 1;
+  // reason explains why the install was skipped. Empty unless skipped is true.
+  string reason = 2;
+}
 
 message RefreshRequest {
   // parallel is the number of resource operations to run in parallel at once

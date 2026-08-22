@@ -3572,6 +3572,13 @@ with apply.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>skipInstall</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecworkspacetemplatespecstacksindex">stacks</a></b></td>
         <td>[]object</td>
         <td>
@@ -25389,6 +25396,13 @@ with apply.<br/>
         <td>
           EmbeddedServiceTemplateSpecApplyConfiguration represents a declarative configuration of the EmbeddedServiceTemplateSpec type for use
 with apply.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>skipInstall</b></td>
+        <td>boolean</td>
+        <td>
+          <br/>
         </td>
         <td>false</td>
       </tr><tr>

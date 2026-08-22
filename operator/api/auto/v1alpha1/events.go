@@ -47,9 +47,10 @@ const (
 	UpdateFailed               eventReason = "UpdateFailed"
 
 	// Normals
-	Initialized     eventReason = "Initialized"
-	UpdateExpired   eventReason = "UpdateExpired"
-	UpdateSucceeded eventReason = "UpdateSucceeded"
+	Initialized         eventReason = "Initialized"
+	InstallationSkipped eventReason = "InstallationSkipped"
+	UpdateExpired       eventReason = "UpdateExpired"
+	UpdateSucceeded     eventReason = "UpdateSucceeded"
 )
 
 func MigratedEvent() event {
@@ -62,6 +63,12 @@ func ConnectionFailureEvent() event {
 
 func InstallationFailureEvent() event {
 	return event{eventType: EventTypeWarning, reason: InstallationFailure}
+}
+
+// InstallationSkippedEvent reports that `pulumi install` was not run, either because the
+// workspace opted out or because the project has nothing to resolve.
+func InstallationSkippedEvent() event {
+	return event{eventType: EventTypeNormal, reason: InstallationSkipped}
 }
 
 func StackInitializationFailureEvent() event {
