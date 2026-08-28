@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"time"
 
@@ -36,7 +37,46 @@ import (
 const (
 	pruneTokensOlderThan = 2 * time.Hour
 	maxRPCMessageSize    = 1024 * 1024 * 400
+
+	// TCP keepalive settings for connections to workspace pods. A Pulumi operation is a
+	// long-lived server-streaming RPC that can legitimately produce no traffic for a long
+	// time (a slow provider call, say), so a peer that silently vanishes -- a lost node, a
+	// partition -- is indistinguishable from a quiet one except by probing.
+	//
+	// net.Dialer already enables keepalive with a 15s idle, but leaves the probe interval and
+	// count to the system: on Linux that is 75s x 9, so noticing takes about 11 minutes. These
+	// values bring that down to about a minute. Note that this only bounds a *broken*
+	// connection; a workspace whose connection is healthy while its Pulumi operation is wedged
+	// is invisible at this layer, and is what the update controller's idle timeout is for.
+	//
+	// These are deliberately TCP-level rather than gRPC-level keepalives. gRPC pings are
+	// policed by the server's keepalive.EnforcementPolicy, whose default MinTime is 5
+	// minutes; pinging more often than a workspace's agent allows earns a GOAWAY with
+	// ENHANCE_YOUR_CALM and kills the stream. Since the agent image is pinned per Stack, the
+	// operator routinely talks to older agents whose policy it cannot know. TCP probes are
+	// invisible to HTTP/2, so they are safe against every agent version.
+	//
+	// A broken connection is detected after roughly workspaceKeepaliveIdle +
+	// workspaceKeepaliveInterval*workspaceKeepaliveCount.
+	workspaceKeepaliveIdle     = 30 * time.Second
+	workspaceKeepaliveInterval = 10 * time.Second
+	workspaceKeepaliveCount    = 3
 )
+
+// dialWorkspace establishes a TCP connection to a workspace pod with keepalive probes
+// enabled, so that losing the pod or the network surfaces as a stream error rather than an
+// indefinite block. See the workspaceKeepalive* constants.
+func dialWorkspace(ctx context.Context, addr string) (net.Conn, error) {
+	d := &net.Dialer{
+		KeepAliveConfig: net.KeepAliveConfig{
+			Enable:   true,
+			Idle:     workspaceKeepaliveIdle,
+			Interval: workspaceKeepaliveInterval,
+			Count:    workspaceKeepaliveCount,
+		},
+	}
+	return d.DialContext(ctx, "tcp", addr)
+}
 
 // ConnectionManager is responsible for managing connections to workspaces.
 type ConnectionManager struct {
@@ -77,6 +117,7 @@ func (cm *ConnectionManager) Connect(ctx context.Context, w *autov1alpha1.Worksp
 		addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithPerRPCCredentials(creds),
+		grpc.WithContextDialer(dialWorkspace),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxRPCMessageSize)))
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to workspace: %w", err)

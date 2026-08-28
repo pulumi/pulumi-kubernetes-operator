@@ -16,9 +16,113 @@ package main
 
 import (
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
+
+// TestEnvDuration and TestEnvInt cover the environment overrides that used to discard their
+// parse errors. A malformed MAX_CONCURRENT_RECONCILES silently became 0, which
+// controller-runtime treats as 1 -- a silent 25x throughput drop with nothing in the logs.
+// See https://github.com/pulumi/pulumi-kubernetes-operator/issues/1293.
+func TestEnvDuration(t *testing.T) {
+	const name = "TEST_DURATION"
+	tests := []struct {
+		name    string
+		set     bool
+		value   string
+		want    time.Duration
+		wantErr string
+	}{
+		{name: "unset leaves the default", want: time.Second},
+		{name: "valid value overrides", set: true, value: "5m", want: 5 * time.Minute},
+		{name: "zero is honored", set: true, value: "0s", want: 0},
+		{name: "malformed is an error", set: true, value: "5", want: time.Second, wantErr: `invalid duration in TEST_DURATION="5"`},
+		{name: "empty is an error", set: true, value: "", want: time.Second, wantErr: `invalid duration in TEST_DURATION=""`},
+		{name: "trailing space is an error", set: true, value: "5m ", want: time.Second, wantErr: "invalid duration"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.set {
+				t.Setenv(name, tt.value)
+			}
+			got := time.Second
+			err := envDuration(name, &got)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.want, got, "the target should be left alone on error")
+		})
+	}
+}
+
+func TestEnvInt(t *testing.T) {
+	const name = "TEST_INT"
+	tests := []struct {
+		name    string
+		set     bool
+		value   string
+		want    int
+		wantErr string
+	}{
+		{name: "unset leaves the default", want: 25},
+		{name: "valid value overrides", set: true, value: "50", want: 50},
+		{name: "zero is parsed, and rejected later by validateConcurrency", set: true, value: "0", want: 0},
+		{name: "malformed is an error", set: true, value: "abc", want: 25, wantErr: `invalid integer in TEST_INT="abc"`},
+		{name: "empty is an error", set: true, value: "", want: 25, wantErr: "invalid integer"},
+		{name: "trailing space is an error", set: true, value: "10 ", want: 25, wantErr: "invalid integer"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.set {
+				t.Setenv(name, tt.value)
+			}
+			got := 25
+			err := envInt(name, &got)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.want, got, "the target should be left alone on error")
+		})
+	}
+}
+
+func TestValidateConcurrency(t *testing.T) {
+	tests := []struct {
+		name        string
+		maxRecon    int
+		updateRecon int
+		idle        time.Duration
+		wantErr     string
+	}{
+		{name: "defaults are valid", maxRecon: 25, updateRecon: 0, idle: 30 * time.Minute},
+		{name: "an explicit update budget is valid", maxRecon: 25, updateRecon: 10, idle: time.Minute},
+		{name: "a disabled idle timeout is valid", maxRecon: 1, updateRecon: 0, idle: 0},
+		{name: "zero reconciles is rejected", maxRecon: 0, wantErr: "max-concurrent-reconciles must be greater than zero"},
+		{name: "negative reconciles is rejected", maxRecon: -1, wantErr: "max-concurrent-reconciles must be greater than zero"},
+		{name: "a negative update budget is rejected", maxRecon: 25, updateRecon: -1, wantErr: "update-max-concurrent-reconciles must not be negative"},
+		{name: "a negative idle timeout is rejected", maxRecon: 25, idle: -time.Second, wantErr: "update-idle-timeout must not be negative"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateConcurrency(tt.maxRecon, tt.updateRecon, tt.idle)
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
 
 func TestDetermineAdvAddr(t *testing.T) {
 	const fakehostname = "fakehostname"

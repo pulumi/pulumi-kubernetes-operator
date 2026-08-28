@@ -28,6 +28,7 @@ type UpdateSpecApplyConfiguration struct {
 	StackName         *string                  `json:"stackName,omitempty"`
 	Type              *autov1alpha1.UpdateType `json:"type,omitempty"`
 	TtlAfterCompleted *v1.Duration             `json:"ttlAfterCompleted,omitempty"`
+	IdleTimeout       *v1.Duration             `json:"idleTimeout,omitempty"`
 	Parallel          *int32                   `json:"parallel,omitempty"`
 	Message           *string                  `json:"message,omitempty"`
 	ExpectNoChanges   *bool                    `json:"expectNoChanges,omitempty"`
@@ -75,6 +76,14 @@ func (b *UpdateSpecApplyConfiguration) WithType(value autov1alpha1.UpdateType) *
 // If called multiple times, the TtlAfterCompleted field is set to the value of the last call.
 func (b *UpdateSpecApplyConfiguration) WithTtlAfterCompleted(value v1.Duration) *UpdateSpecApplyConfiguration {
 	b.TtlAfterCompleted = &value
+	return b
+}
+
+// WithIdleTimeout sets the IdleTimeout field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the IdleTimeout field is set to the value of the last call.
+func (b *UpdateSpecApplyConfiguration) WithIdleTimeout(value v1.Duration) *UpdateSpecApplyConfiguration {
+	b.IdleTimeout = &value
 	return b
 }
 

@@ -3,6 +3,9 @@ CHANGELOG
 
 ## Unreleased
 
+- Stop a wedged `Update` from holding one of the operator's reconcile workers indefinitely: add an idle timeout (`--update-idle-timeout`, `Update.spec.idleTimeout`) that abandons an update producing no output, tighten TCP keepalive on connections to workspace pods, give the update controller its own concurrency budget (`--update-max-concurrent-reconciles`), and honour the previously-ignored `GRACEFUL_SHUTDOWN_TIMEOUT_DURATION` [#1293](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1293)
+- Add a `--max-concurrent-reconciles` flag and stop silently ignoring malformed values of `MAX_CONCURRENT_RECONCILES` and the other environment overrides, which could drop the operator to a single worker with nothing in the logs [#1293](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1293)
+
 ## 2.9.0 (2026-07-29)
 
 - Add `serviceTemplate` to the Workspace spec, allowing custom annotations and labels on the headless Service that fronts a workspace's pods; settable from a Stack via `spec.workspaceTemplate.spec.serviceTemplate.metadata` [#1280](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1280)

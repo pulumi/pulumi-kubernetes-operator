@@ -99,6 +99,18 @@ occurrence of errors.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>idleTimeout</b></td>
+        <td>string</td>
+        <td>
+          IdleTimeout is how long the update may produce no output at all before the operator
+gives up on it and marks it failed. It bounds the time a wedged update can hold one of
+the operator's reconcile workers, which is otherwise occupied for the whole operation.
+Because it measures silence rather than total duration, a slow but progressing update
+is never interrupted. Zero disables the timeout. Defaults to the operator's
+--update-idle-timeout.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>message</b></td>
         <td>string</td>
         <td>
