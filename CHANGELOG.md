@@ -3,6 +3,9 @@ CHANGELOG
 
 ## Unreleased
 
+- Fix a Stack wedging permanently when `status.currentUpdate` was never cleared. If the `Update` is gone the stack controller now confirms the absence against the API server, adopts a still-running update if one is found, and otherwise clears the reference and starts a new one. If the `Update` is present and terminal it is absorbed even when its `observedGeneration` lags, which previously happened whenever a completed `Update` was deleted and made the Stack wait on a result that was already final [#1292](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1292)
+- Release the stack controller's finalizer from `Update` objects left in `Terminating`, including ones finalized by an older operator version whose finalizer the server-side apply could not remove — previously these could never finish deleting without hand-patching a controller-owned field [#1293](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1293)
+
 ## 2.9.0 (2026-07-29)
 
 - Add `serviceTemplate` to the Workspace spec, allowing custom annotations and labels on the headless Service that fronts a workspace's pods; settable from a Stack via `spec.workspaceTemplate.spec.serviceTemplate.metadata` [#1280](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1280)
