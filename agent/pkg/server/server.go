@@ -48,6 +48,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource/config"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 )
 
 var _userAgent = fmt.Sprintf("pulumi-kubernetes-operator/%s", version.Version)
@@ -554,6 +555,17 @@ func (s *Server) AddEnvironments(ctx context.Context, in *pb.AddEnvironmentsRequ
 }
 
 func (s *Server) Install(ctx context.Context, in *pb.InstallRequest) (*pb.InstallResult, error) {
+	proj, err := s.ws.ProjectSettings(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Aborted, "unable to load project: %s", err)
+	}
+
+	if HasPrebuiltBinary(proj) {
+		s.log.Infow("skipping installation; the project runs a prebuilt binary",
+			"project", proj.Name, "runtime", proj.Runtime.Name())
+		return &pb.InstallResult{}, nil
+	}
+
 	stdout := &zapio.Writer{Log: s.plog, Level: zap.InfoLevel}
 	defer stdout.Close()
 	stderr := &zapio.Writer{Log: s.plog, Level: zap.WarnLevel}
@@ -572,6 +584,17 @@ func (s *Server) Install(ctx context.Context, in *pb.InstallRequest) (*pb.Instal
 
 	resp := &pb.InstallResult{}
 	return resp, nil
+}
+
+// HasPrebuiltBinary reports whether the project runs an already-compiled program, declared as
+// `runtime.options.binary` in Pulumi.yaml. Such a program has nothing to install, and installing
+// anyway requires a language toolchain the workspace does not otherwise need.
+func HasPrebuiltBinary(proj *workspace.Project) bool {
+	if proj == nil {
+		return false
+	}
+	binary, ok := proj.Runtime.Options()["binary"].(string)
+	return ok && binary != ""
 }
 
 // Preview implements proto.AutomationServiceServer.

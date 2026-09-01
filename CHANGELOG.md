@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+- Skip `pulumi install` for a project that runs a prebuilt binary (`runtime.options.binary`) [#1297](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1297)
+
 ## 2.9.0 (2026-07-29)
 
 - Add `serviceTemplate` to the Workspace spec, allowing custom annotations and labels on the headless Service that fronts a workspace's pods; settable from a Stack via `spec.workspaceTemplate.spec.serviceTemplate.metadata` [#1280](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1280)

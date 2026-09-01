@@ -1,0 +1,6 @@
+name: prebuilt
+runtime:
+  name: go
+  options:
+    binary: ./app
+description: A project that runs a prebuilt binary and lacks a go.mod
