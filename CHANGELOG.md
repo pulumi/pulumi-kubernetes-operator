@@ -4,6 +4,7 @@ CHANGELOG
 ## Unreleased
 
 - Skip `pulumi install` for a project that runs a prebuilt binary (`runtime.options.binary`) [#1297](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1297)
+- Don't run `pulumi install` on a workspace bootstrapped from project info [#1299](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1299)
 
 ## 2.9.0 (2026-07-29)
 
