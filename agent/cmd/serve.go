@@ -151,7 +151,7 @@ var serveCmd = &cobra.Command{
 		log.Infow("opened a local workspace", "workspace", workDir,
 			"project", proj.Name, "runtime", proj.Runtime.Name())
 
-		if !_skipInstall {
+		if !_skipInstall && !server.HasPrebuiltBinary(proj) {
 			plog := zap.L().Named("pulumi")
 			stdout := &zapio.Writer{Log: plog, Level: zap.InfoLevel}
 			defer stdout.Close()

@@ -902,6 +902,11 @@ func TestInstall(t *testing.T) {
 			req:        &pb.InstallRequest{},
 			wantErr:    HasStatusCode(codes.Aborted, gomega.ContainSubstring("go.mod file not found")),
 		},
+		{
+			name:       "prebuilt",
+			projectDir: "./testdata/prebuilt",
+			req:        &pb.InstallRequest{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -919,6 +924,37 @@ func TestInstall(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHasPrebuiltBinary(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		options map[string]any
+		want    bool
+	}{
+		{name: "no options", options: nil},
+		{name: "unrelated options", options: map[string]any{"buildTarget": "./bin"}},
+		{name: "binary set", options: map[string]any{"binary": "./app"}, want: true},
+		{name: "binary empty", options: map[string]any{"binary": ""}},
+		{name: "binary not a string", options: map[string]any{"binary": true}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			proj := &workspace.Project{
+				Name:    "test",
+				Runtime: workspace.NewProjectRuntimeInfo("go", tt.options),
+			}
+			assert.Equal(t, tt.want, HasPrebuiltBinary(proj))
+		})
+	}
+
+	t.Run("nil project", func(t *testing.T) {
+		t.Parallel()
+		assert.False(t, HasPrebuiltBinary(nil))
+	})
 }
 
 func TestUp(t *testing.T) {
