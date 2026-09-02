@@ -1082,6 +1082,13 @@ spec:
                   basic auth credentials.
                   Deprecated. Use GitAuth instead.
                 type: string
+              maxUpdateFailures:
+                description: |-
+                  MaxUpdateFailures controls how many consecutive update failures are retried
+                  before the Stack is marked Stalled. When unset, it defaults to 3.
+                format: int64
+                minimum: 1
+                type: integer
               prerequisites:
                 description: |-
                   (optional) Prerequisites is a list of references to other stacks, each with a constraint on
@@ -11713,6 +11720,13 @@ spec:
                   basic auth credentials.
                   Deprecated. Use GitAuth instead.
                 type: string
+              maxUpdateFailures:
+                description: |-
+                  MaxUpdateFailures controls how many consecutive update failures are retried
+                  before the Stack is marked Stalled. When unset, it defaults to 3.
+                format: int64
+                minimum: 1
+                type: integer
               prerequisites:
                 description: |-
                   (optional) Prerequisites is a list of references to other stacks, each with a constraint on

@@ -17,6 +17,7 @@ CHANGELOG
 - Skip `pulumi install` for a project that runs a prebuilt binary (`runtime.options.binary`) [#1297](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1297)
 - Don't run `pulumi install` on a workspace bootstrapped from project info [#1299](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1299)
 - Fix `destroyOnFinalize: true` failing with duplicate `fetch` init containers when the Stack's `workspaceTemplate` sets a source; the destroy workspace now keeps only its project info [#1300](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1300)
+- Add `maxUpdateFailures` to Stack spec to configure the number of failed updates retried before a Stack is marked `Stalled` [#1322](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1322)
 
 ## 2.9.0 (2026-07-29)
 
