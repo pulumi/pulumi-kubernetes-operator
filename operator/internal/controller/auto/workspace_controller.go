@@ -314,28 +314,32 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 		}
 
-		l.Info("Running pulumi install")
-		ready.Status = metav1.ConditionFalse
-		ready.Reason = "Installing"
-		ready.Message = "Installing packages and plugins required by the program"
-		if err := updateStatus(); err != nil {
-			return ctrl.Result{}, err
-		}
-		_, err = wc.Install(ctx, &agentpb.InstallRequest{})
-		if err != nil {
-			l.Error(err, "unable to install; marking workspace as stalled")
-			emitEvent(r.Recorder, w, autov1alpha1.InstallationFailureEvent(), err.Error())
+		if w.Spec.ProjectInfo != nil {
+			l.Info("Skipping pulumi install; the workspace has no program")
+		} else {
+			l.Info("Running pulumi install")
 			ready.Status = metav1.ConditionFalse
-			ready.Reason = "InstallationFailed"
-			ready.Message = err.Error()
-			meta.SetStatusCondition(&w.Status.Conditions, metav1.Condition{
-				Type:               autov1alpha1.WorkspaceStalled,
-				Status:             metav1.ConditionTrue,
-				Reason:             "InstallationFailed",
-				Message:            err.Error(),
-				ObservedGeneration: w.Generation,
-			})
-			return ctrl.Result{}, updateStatus()
+			ready.Reason = "Installing"
+			ready.Message = "Installing packages and plugins required by the program"
+			if err := updateStatus(); err != nil {
+				return ctrl.Result{}, err
+			}
+			_, err = wc.Install(ctx, &agentpb.InstallRequest{})
+			if err != nil {
+				l.Error(err, "unable to install; marking workspace as stalled")
+				emitEvent(r.Recorder, w, autov1alpha1.InstallationFailureEvent(), err.Error())
+				ready.Status = metav1.ConditionFalse
+				ready.Reason = "InstallationFailed"
+				ready.Message = err.Error()
+				meta.SetStatusCondition(&w.Status.Conditions, metav1.Condition{
+					Type:               autov1alpha1.WorkspaceStalled,
+					Status:             metav1.ConditionTrue,
+					Reason:             "InstallationFailed",
+					Message:            err.Error(),
+					ObservedGeneration: w.Generation,
+				})
+				return ctrl.Result{}, updateStatus()
+			}
 		}
 
 		l.Info("Creating Pulumi stack(s)")
