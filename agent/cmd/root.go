@@ -49,6 +49,11 @@ to use to perform stack operations.`,
 		if !verbose {
 			zc.Level.SetLevel(zap.InfoLevel)
 		}
+		// Opt-in structured (JSON) logging. Triggered when the controller
+		// (or the workspace-pod spec) sets AGENT_JSON_LOG=true via extraEnv
+		// or Workspace.Spec.Env. Defaults to the human-readable console
+		// encoder used historically to avoid breaking existing log scrapers.
+		zc = applyJSONLogMode(zc)
 		zapLog, err := zc.Build()
 		if err != nil {
 			return err
