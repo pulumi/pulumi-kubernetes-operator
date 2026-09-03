@@ -2381,9 +2381,11 @@ func TestWithoutSources(t *testing.T) {
 	t.Run("strips sources without mutating the original", func(t *testing.T) {
 		original := shared.WorkspaceApplyConfiguration{
 			Spec: &autov1alpha1apply.WorkspaceSpecApplyConfiguration{
-				Image: ptr.To("custom:v1"),
-				Local: &autov1alpha1apply.LocalSourceApplyConfiguration{Dir: ptr.To("/app")},
-				Git:   &autov1alpha1apply.GitSourceApplyConfiguration{URL: ptr.To("https://example.com")},
+				Image:       ptr.To("custom:v1"),
+				Local:       &autov1alpha1apply.LocalSourceApplyConfiguration{Dir: ptr.To("/app")},
+				Git:         &autov1alpha1apply.GitSourceApplyConfiguration{URL: ptr.To("https://example.com")},
+				Flux:        &autov1alpha1apply.FluxSourceApplyConfiguration{Url: ptr.To("https://example.com/artifact.tar.gz")},
+				ProjectInfo: &autov1alpha1apply.ProjectInfoSourceApplyConfiguration{Name: ptr.To("myproject")},
 			},
 		}
 
@@ -2398,6 +2400,8 @@ func TestWithoutSources(t *testing.T) {
 		require.NotNil(t, original.Spec.Local, "the caller's template must not be mutated")
 		assert.Equal(t, "/app", *original.Spec.Local.Dir)
 		require.NotNil(t, original.Spec.Git)
+		require.NotNil(t, original.Spec.Flux)
+		require.NotNil(t, original.Spec.ProjectInfo)
 	})
 }
 
