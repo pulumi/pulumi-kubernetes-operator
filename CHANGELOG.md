@@ -5,6 +5,7 @@ CHANGELOG
 
 - Skip `pulumi install` for a project that runs a prebuilt binary (`runtime.options.binary`) [#1297](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1297)
 - Don't run `pulumi install` on a workspace bootstrapped from project info [#1299](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1299)
+- - Add `maxUpdateFailures` to Stack spec to configure the number of failed updates retried before a Stack is marked `Stalled` [#1322](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1322)
 
 ## 2.9.0 (2026-07-29)
 

@@ -891,7 +891,7 @@ var _ = Describe("Stack Controller", func() {
 					LastResyncTime:       metav1.Now(),
 					LastAttemptedCommit:  fluxRepo.Status.Artifact.Revision,
 					LastSuccessfulCommit: "",
-					Failures:             maxUpdateFailures - 1, // one below the limit: still retrying
+					Failures:             defaultMaxUpdateFailures - 1, // one below the limit: still retrying
 				}
 			})
 

@@ -250,6 +250,17 @@ Deprecated. Use GitAuth instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>maxUpdateFailures</b></td>
+        <td>integer</td>
+        <td>
+          MaxUpdateFailures controls how many consecutive update failures are retried
+before the Stack is marked Stalled. When unset, it defaults to 3.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 1<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecprerequisitesindex">prerequisites</a></b></td>
         <td>[]object</td>
         <td>
@@ -22067,6 +22078,17 @@ Only one authentication mode will be considered if more than one option is speci
 with ssh private key/password preferred first, then personal access token, and finally
 basic auth credentials.
 Deprecated. Use GitAuth instead.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>maxUpdateFailures</b></td>
+        <td>integer</td>
+        <td>
+          MaxUpdateFailures controls how many consecutive update failures are retried
+before the Stack is marked Stalled. When unset, it defaults to 3.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+            <i>Minimum</i>: 1<br/>
         </td>
         <td>false</td>
       </tr><tr>

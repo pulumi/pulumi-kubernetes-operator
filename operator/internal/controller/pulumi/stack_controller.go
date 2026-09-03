@@ -805,7 +805,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	if synced {
 		// We don't mark the stack as ready if its update failed so downstream
 		// Stack dependencies aren't triggered.
-		markStackResult(&instance.Status)
+		markStackResult(&instance.Status, maxUpdateFailures(instance))
 
 		if isStackMarkedToBeDeleted {
 			// Only finalize if the destroy succeeded; a failed destroy must retain the
@@ -834,7 +834,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		// limit is reached.
 		if instance.Status.LastUpdate.State == shared.FailedStackStateMessage {
 			updateFailed = true
-			if instance.Status.LastUpdate.Failures < maxUpdateFailures {
+			if instance.Status.LastUpdate.Failures < maxUpdateFailures(instance) {
 				requeueAfter = max(1*time.Second, time.Until(instance.Status.LastUpdate.LastResyncTime.Add(cooldown(instance))))
 			}
 		}
@@ -1076,17 +1076,22 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	return reconcile.Result{}, nil
 }
 
-// maxUpdateFailures bounds how many times a failing update is retried before the
-// operator gives up. Below the limit a failure is treated as transient: the Stack stays
-// Reconciling and retries with backoff.
-//
-// TODO: promote to a spec field.
-const maxUpdateFailures = 3
+const defaultMaxUpdateFailures int64 = 3
+
+// maxUpdateFailures resolves how many times a failing update is retried before
+// the operator gives up. Below the limit a failure is treated as transient: the
+// Stack stays Reconciling and retries with backoff.
+func maxUpdateFailures(stack *pulumiv1.Stack) int64 {
+	if stack.Spec.MaxUpdateFailures != nil {
+		return *stack.Spec.MaxUpdateFailures
+	}
+	return defaultMaxUpdateFailures
+}
 
 // markStackResult sets the ready-protocol condition from the outcome of the last update.
 // A failed preview is reported distinctly from a failed up/refresh/destroy so consumers
 // (e.g. ArgoCD health checks) can tell a bad proposed change apart from a failed live update.
-func markStackResult(status *pulumiv1.StackStatus) {
+func markStackResult(status *pulumiv1.StackStatus, maxFailures int64) {
 	last := status.LastUpdate
 	if last.State == shared.SucceededStackStateMessage {
 		status.MarkReadyCondition()
@@ -1094,7 +1099,7 @@ func markStackResult(status *pulumiv1.StackStatus) {
 	}
 	// The update failed. Once the retry limit is reached we stop retrying, so this
 	// Stalled takes precedence over the per-type reasons below regardless of update type.
-	if last.Failures >= maxUpdateFailures {
+	if last.Failures >= maxFailures {
 		status.MarkStalledCondition(pulumiv1.StalledUpdateFailedReason,
 			fmt.Sprintf("%s failed %d times; not retrying until the spec or source changes", last.Type, last.Failures))
 		return
@@ -1281,7 +1286,7 @@ func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.St
 			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), msg)
 			return false, msg
 		}
-		if stack.Status.LastUpdate.Failures >= maxUpdateFailures {
+		if stack.Status.LastUpdate.Failures >= maxUpdateFailures(stack) {
 			// Retry limit reached with unchanged inputs; stop retrying.
 			log.V(1).Info("Synced: update retry limit reached; not retrying until inputs change",
 				"failures", stack.Status.LastUpdate.Failures)
