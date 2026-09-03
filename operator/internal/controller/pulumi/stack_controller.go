@@ -671,10 +671,12 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	// Step 1. Resolve the source and perform some preliminary workspace setup (but without actually
 	// creating the workspace yet, since it may or may not be needed).
 
+	var usingProjectInfo bool
 	// Check which kind of source we have.
 	switch {
 	case shouldUseProjectInfoWorkspaceForDestroy(instance):
 		setProjectInfoSource(&sess.ws.Spec, instance.Status.ProjectInfo)
+		usingProjectInfo = true
 		log.Info("Using project-info workspace for destroy; skipping source resolution",
 			"project", instance.Status.ProjectInfo.Name, "runtime", instance.Status.ProjectInfo.Runtime)
 		currentCommit = ""
@@ -786,7 +788,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	}
 
 	// If there are extra environment variables, read them in now and use them for subsequent commands.
-	err = sess.setupWorkspace(ctx)
+	err = sess.setupWorkspace(ctx, usingProjectInfo)
 	if err != nil {
 		var s StallError
 		if errors.As(err, &s) {
@@ -1321,6 +1323,21 @@ func shouldUseProjectInfoWorkspaceForDestroy(stack *pulumiv1.Stack) bool {
 		stack.Status.ProjectInfo != nil
 }
 
+// withoutSources returns a copy of the workspace template with its source fields removed,
+// leaving the caller's template untouched.
+func withoutSources(template shared.WorkspaceApplyConfiguration) shared.WorkspaceApplyConfiguration {
+	if template.Spec == nil {
+		return template
+	}
+	spec := *template.Spec
+	spec.Git = nil
+	spec.Flux = nil
+	spec.Local = nil
+	spec.ProjectInfo = nil
+	template.Spec = &spec
+	return template
+}
+
 func setProjectInfoSource(ws *autov1alpha1.WorkspaceSpec, info *shared.ProjectInfo) {
 	ws.ProjectInfo = &autov1alpha1.ProjectInfoSource{
 		Name:    info.Name,
@@ -1655,7 +1672,7 @@ func (sess *stackReconcilerSession) DeleteWorkspace(ctx context.Context) error {
 
 // setupWorkspace sets all the extra configuration specified by the Stack object, after you have
 // constructed a workspace from a source.
-func (sess *stackReconcilerSession) setupWorkspace(ctx context.Context) error {
+func (sess *stackReconcilerSession) setupWorkspace(ctx context.Context, usingProjectInfo bool) error {
 	w := sess.ws
 	if sess.stack.ServiceAccountName != "" {
 		w.Spec.ServiceAccountName = sess.stack.ServiceAccountName
@@ -1710,7 +1727,12 @@ func (sess *stackReconcilerSession) setupWorkspace(ctx context.Context) error {
 	// Apply the user's workspace spec as a merge patch on top of what we've
 	// already generated.
 	if sess.stack.WorkspaceTemplate != nil {
-		patched, err := patchObject(*sess.ws, *sess.stack.WorkspaceTemplate)
+		template := *sess.stack.WorkspaceTemplate
+		if usingProjectInfo {
+			// Do not re-set source from template.
+			template = withoutSources(template)
+		}
+		patched, err := patchObject(*sess.ws, template)
 		if err != nil {
 			return fmt.Errorf("patching workspace spec: %w", err)
 		}

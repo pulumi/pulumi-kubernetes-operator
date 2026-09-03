@@ -2372,6 +2372,35 @@ func TestShouldUseProjectInfoWorkspaceForDestroy(t *testing.T) {
 	}
 }
 
+func TestWithoutSources(t *testing.T) {
+	t.Run("nil spec", func(t *testing.T) {
+		got := withoutSources(shared.WorkspaceApplyConfiguration{})
+		assert.Nil(t, got.Spec)
+	})
+
+	t.Run("strips sources without mutating the original", func(t *testing.T) {
+		original := shared.WorkspaceApplyConfiguration{
+			Spec: &autov1alpha1apply.WorkspaceSpecApplyConfiguration{
+				Image: ptr.To("custom:v1"),
+				Local: &autov1alpha1apply.LocalSourceApplyConfiguration{Dir: ptr.To("/app")},
+				Git:   &autov1alpha1apply.GitSourceApplyConfiguration{URL: ptr.To("https://example.com")},
+			},
+		}
+
+		got := withoutSources(original)
+
+		assert.Nil(t, got.Spec.Local)
+		assert.Nil(t, got.Spec.Git)
+		assert.Nil(t, got.Spec.Flux)
+		assert.Nil(t, got.Spec.ProjectInfo)
+		assert.Equal(t, "custom:v1", *got.Spec.Image, "non-source fields must survive")
+
+		require.NotNil(t, original.Spec.Local, "the caller's template must not be mutated")
+		assert.Equal(t, "/app", *original.Spec.Local.Dir)
+		require.NotNil(t, original.Spec.Git)
+	})
+}
+
 func TestSetProjectInfoSource(t *testing.T) {
 	info := &shared.ProjectInfo{Name: "myproject", Runtime: "yaml"}
 
@@ -2912,6 +2941,86 @@ func TestProjectInfoDestroyBypassesUnavailableSource(t *testing.T) {
 		Namespace: stackName.Namespace,
 	}, &update))
 	assert.Equal(t, autov1alpha1.DestroyType, update.Spec.Type, "Update CR must be of type destroy")
+}
+
+func TestProjectInfoDestroyClearsLocalFromWorkspaceTemplate(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, pulumiv1.AddToScheme(testScheme))
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+		},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	k8sclient, err := client.New(cfg, client.Options{Scheme: testScheme})
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	stackName := types.NamespacedName{Name: "project-info-local-template", Namespace: "default"}
+
+	stack := &pulumiv1.Stack{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: pulumiv1.GroupVersion.String(),
+			Kind:       "Stack",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       stackName.Name,
+			Namespace:  stackName.Namespace,
+			Finalizers: []string{testFinalizer, PulumiFinalizer},
+		},
+		Spec: shared.StackSpec{
+			Stack:             "dev",
+			DestroyOnFinalize: true,
+			RunProgram:        false,
+			WorkspaceTemplate: &shared.WorkspaceApplyConfiguration{
+				Spec: &autov1alpha1apply.WorkspaceSpecApplyConfiguration{
+					Local: &autov1alpha1apply.LocalSourceApplyConfiguration{Dir: ptr.To("/workspace/prog")},
+				},
+			},
+		},
+	}
+	require.NoError(t, k8sclient.Create(ctx, stack))
+	t.Cleanup(func() { _ = k8sclient.Delete(ctx, stack) })
+
+	stack.Status.ProjectInfo = &shared.ProjectInfo{Name: "myproject", Runtime: "go"}
+	stack.Status.LastUpdate = &shared.StackUpdateState{
+		Generation:           stack.Generation,
+		Name:                 "update-prior",
+		Type:                 autov1alpha1.UpType,
+		State:                shared.SucceededStackStateMessage,
+		LastAttemptedCommit:  "abc",
+		LastSuccessfulCommit: "abc",
+		LastResyncTime:       metav1.Now(),
+	}
+	require.NoError(t, k8sclient.Status().Update(ctx, stack))
+	require.NoError(t, k8sclient.Delete(ctx, stack))
+
+	r := &StackReconciler{
+		Client:   k8sclient,
+		Scheme:   testScheme,
+		Recorder: record.NewFakeRecorder(10),
+	}
+	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
+	require.NoError(t, err)
+
+	var ws autov1alpha1.Workspace
+	require.NoError(t, k8sclient.Get(ctx, types.NamespacedName{
+		Name:      nameForWorkspace(&stack.ObjectMeta),
+		Namespace: stackName.Namespace,
+	}, &ws))
+
+	require.NotNil(t, ws.Spec.ProjectInfo)
+	assert.Nil(t, ws.Spec.Local, "workspaceTemplate.local must not survive the projectInfo destroy path")
+	assert.Nil(t, ws.Spec.Git)
+	assert.Nil(t, ws.Spec.Flux)
 }
 
 func TestFailedDestroyRetainsFinalizer(t *testing.T) {
