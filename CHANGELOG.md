@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+## 2.9.1 (2026-09-03)
+
 - Skip `pulumi install` for a project that runs a prebuilt binary (`runtime.options.binary`) [#1297](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1297)
 - Don't run `pulumi install` on a workspace bootstrapped from project info [#1299](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1299)
 - Fix `destroyOnFinalize: true` failing with duplicate `fetch` init containers when the Stack's `workspaceTemplate` sets a source; the destroy workspace now keeps only its project info [#1300](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1300)
