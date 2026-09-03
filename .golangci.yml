@@ -14,6 +14,10 @@ linters:
     - nakedret
     - unconvert
   settings:
+    goconst:
+      ignore-tests: true
+      # Metric label and structured-logging keys, not values worth hoisting.
+      ignore-string-values: ^(name|namespace)$
     goheader:
       values:
         regexp:
@@ -41,12 +45,17 @@ linters:
       - legacy
       - std-error-handling
     rules:
-      - linters: [goconst]
-        text: "string `test/pulumi:v3.42.0` has 3 occurrences, make it a constant"
+      - path: _test\.go
+        linters: [gosec]
       # Ignore gosec warning about shelling out to make/kind/kubectl.
       - path: "e2e/*"
         linters: [gosec]
         text: "G204:"
+      # TODO: Requeue is deprecated in favour of RequeueAfter, but the two have
+      # different backoff semantics, so switching needs its own change.
+      - path: internal/controller/auto/workspace_controller\.go
+        linters: [staticcheck]
+        text: "SA1019: \\(sigs.k8s.io/controller-runtime.Result\\).Requeue is deprecated"
 
 formatters:
   enable:

@@ -1,6 +1,10 @@
 # Build a base image with modules cached.
-FROM --platform=${BUILDPLATFORM} golang:1.25 AS base
+FROM --platform=${BUILDPLATFORM} golang:1.26 AS base
 ARG TARGETARCH
+
+# The golang image sets GOTOOLCHAIN=local, so a go.mod requiring a newer patch
+# release than the base image fails the build instead of fetching the toolchain.
+ENV GOTOOLCHAIN=auto
 
 # Install tini to reap zombie processes.
 ENV TINI_VERSION=v0.19.0
