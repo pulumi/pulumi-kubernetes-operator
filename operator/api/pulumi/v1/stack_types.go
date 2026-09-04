@@ -118,13 +118,13 @@ func (s *StackStatus) MarkReconcilingCondition(reason, msg string) {
 	apimeta.RemoveStatusCondition(conditions, StalledCondition)
 	apimeta.SetStatusCondition(conditions, metav1.Condition{
 		Type:    ReadyCondition,
-		Status:  "False",
+		Status:  metav1.ConditionFalse,
 		Reason:  NotReadyInProgressReason,
 		Message: "reconciliation is in progress",
 	})
 	apimeta.SetStatusCondition(conditions, metav1.Condition{
 		Type:    ReconcilingCondition,
-		Status:  "True",
+		Status:  metav1.ConditionTrue,
 		Reason:  reason,
 		Message: msg,
 	})
@@ -138,13 +138,13 @@ func (s *StackStatus) MarkStalledCondition(reason, msg string) {
 	apimeta.RemoveStatusCondition(conditions, ReconcilingCondition)
 	apimeta.SetStatusCondition(conditions, metav1.Condition{
 		Type:    ReadyCondition,
-		Status:  "False",
+		Status:  metav1.ConditionFalse,
 		Reason:  NotReadyStalledReason,
 		Message: "reconciliation is stalled",
 	})
 	apimeta.SetStatusCondition(conditions, metav1.Condition{
 		Type:    StalledCondition,
-		Status:  "True",
+		Status:  metav1.ConditionTrue,
 		Reason:  reason,
 		Message: msg,
 	})
@@ -158,7 +158,7 @@ func (s *StackStatus) MarkReadyCondition() {
 	apimeta.RemoveStatusCondition(conditions, StalledCondition)
 	apimeta.SetStatusCondition(conditions, metav1.Condition{
 		Type:    ReadyCondition,
-		Status:  "True",
+		Status:  metav1.ConditionTrue,
 		Reason:  ReadyCompletedReason,
 		Message: "the stack has been processed and is up to date",
 	})

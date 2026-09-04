@@ -95,10 +95,12 @@ const (
 // prerequisiteIndexFieldName is the name used for indexing the prerequisites field.
 const prerequisiteIndexFieldName = "spec.prerequisites.name"
 
+const stackControllerName = "stack-controller"
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	var err error
-	blder := ctrl.NewControllerManagedBy(mgr).Named("stack-controller")
+	blder := ctrl.NewControllerManagedBy(mgr).Named(stackControllerName)
 	opts := controller.Options{}
 
 	// Filter for update events where an object's metadata.generation is changed (no spec change!),
@@ -158,7 +160,7 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	// Watch stacks so that dependent stacks can be requeued when they change
 	blder = blder.Watches(&pulumiv1.Stack{}, ctrlhandler.EnqueueRequestsFromMapFunc(enqueueDependents),
-		builder.WithPredicates(&stackReadyPredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
+		builder.WithPredicates(&stackReadyPredicate{}, &auto.DebugPredicate{Controller: stackControllerName}))
 
 	// Watch Programs, and look up which (if any) Stack refers to them when they change
 
@@ -204,15 +206,15 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			func(obj client.Object) string {
 				return obj.GetName()
 			})),
-		builder.WithPredicates(&SourceRevisionChangePredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
+		builder.WithPredicates(&SourceRevisionChangePredicate{}, &auto.DebugPredicate{Controller: stackControllerName}))
 
 	// Watch the stack's workspace and update objects
 	blder = blder.Watches(&autov1alpha1.Workspace{},
 		ctrlhandler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &pulumiv1.Stack{}),
-		builder.WithPredicates(&workspaceReadyPredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
+		builder.WithPredicates(&workspaceReadyPredicate{}, &auto.DebugPredicate{Controller: stackControllerName}))
 	blder = blder.Watches(&autov1alpha1.Update{},
 		ctrlhandler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &pulumiv1.Stack{}),
-		builder.WithPredicates(&updateCompletePredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
+		builder.WithPredicates(&updateCompletePredicate{}, &auto.DebugPredicate{Controller: stackControllerName}))
 
 	c, err := blder.WithOptions(opts).Build(r)
 	if err != nil {
@@ -274,7 +276,7 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					enqueueStacksForSourceFunc(fluxSourceIndexFieldName, func(obj client.Object) string {
 						gvk := obj.GetObjectKind().GroupVersionKind()
 						return fluxSourceKey(gvk, obj.GetName())
-					})), &SourceRevisionChangePredicate{}, &auto.DebugPredicate{Controller: "stack-controller"}))
+					})), &SourceRevisionChangePredicate{}, &auto.DebugPredicate{Controller: stackControllerName}))
 			if err != nil {
 				watchedMu.Lock()
 				delete(watched, gvk)

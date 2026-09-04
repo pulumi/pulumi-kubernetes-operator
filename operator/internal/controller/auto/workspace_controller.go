@@ -60,6 +60,10 @@ const (
 	PodAnnotationInitialized    = "auto.pulumi.com/initialized"
 	PodAnnotationRevisionHash   = "auto.pulumi.com/revision-hash"
 
+	ConditionReasonIncompatibleConfiguration = "IncompatibleConfiguration"
+
+	FetchContainerName = "fetch"
+
 	// Termination grace period for the workspace pod and any update running in it.
 	// Upon an update to the workspec spec or content, the statefulset will be updated,
 	// leading to graceful pod replacement. The pod receives a SIGTERM signal and has
@@ -284,12 +288,12 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				meta.SetStatusCondition(&w.Status.Conditions, metav1.Condition{
 					Type:               autov1alpha1.WorkspaceStalled,
 					Status:             metav1.ConditionTrue,
-					Reason:             "IncompatibleConfiguration",
+					Reason:             ConditionReasonIncompatibleConfiguration,
 					Message:            fmt.Sprintf("Failed to parse Pulumi version %q: %v", w.Status.PulumiVersion, err),
 					ObservedGeneration: w.Generation,
 				})
 				ready.Status = metav1.ConditionFalse
-				ready.Reason = "IncompatibleConfiguration"
+				ready.Reason = ConditionReasonIncompatibleConfiguration
 				ready.Message = fmt.Sprintf("Failed to parse Pulumi version %q", w.Status.PulumiVersion)
 				return ctrl.Result{}, updateStatus()
 			}
@@ -301,12 +305,12 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				meta.SetStatusCondition(&w.Status.Conditions, metav1.Condition{
 					Type:               autov1alpha1.WorkspaceStalled,
 					Status:             metav1.ConditionTrue,
-					Reason:             "IncompatibleConfiguration",
+					Reason:             ConditionReasonIncompatibleConfiguration,
 					Message:            fmt.Sprintf("Pulumi CLI version %s does not support JSON configuration, require >= v%s", w.Status.PulumiVersion, minVersion.String()),
 					ObservedGeneration: w.Generation,
 				})
 				ready.Status = metav1.ConditionFalse
-				ready.Reason = "IncompatibleConfiguration"
+				ready.Reason = ConditionReasonIncompatibleConfiguration
 				ready.Message = fmt.Sprintf("Pulumi CLI version %s does not support JSON configuration, require >= v%s", w.Status.PulumiVersion, minVersion.String())
 				emitEvent(r.Recorder, w, autov1alpha1.StackInitializationFailureEvent(),
 					"Pulumi CLI version %s is too old for JSON configuration support, require >= v%s", w.Status.PulumiVersion, minVersion.String())
@@ -733,7 +737,7 @@ ln -s "/share/source/$GIT_DIR" /share/workspace
 		}
 
 		container := corev1.Container{
-			Name:            "fetch",
+			Name:            FetchContainerName,
 			Image:           image,
 			ImagePullPolicy: imagePullPolicy,
 			VolumeMounts: []corev1.VolumeMount{
@@ -754,7 +758,7 @@ ln -s "/share/source/$GIT_DIR" /share/workspace
 ln -s "/share/source/$FLUX_DIR" /share/workspace
 		`
 		container := corev1.Container{
-			Name:            "fetch",
+			Name:            FetchContainerName,
 			Image:           image,
 			ImagePullPolicy: imagePullPolicy,
 			VolumeMounts: []corev1.VolumeMount{
@@ -791,7 +795,7 @@ ln -s "/share/source/$FLUX_DIR" /share/workspace
 	if source.Local != nil {
 		script := `ln -s "$LOCAL_DIR" /share/workspace`
 		container := corev1.Container{
-			Name:            "fetch",
+			Name:            FetchContainerName,
 			Image:           image,
 			ImagePullPolicy: imagePullPolicy,
 			VolumeMounts: []corev1.VolumeMount{
@@ -814,7 +818,7 @@ ln -s "/share/source/$FLUX_DIR" /share/workspace
 	if source.ProjectInfo != nil {
 		script := `/share/agent init -t /share/workspace --project-name "$PROJECT_NAME" --project-runtime "$PROJECT_RUNTIME"`
 		container := corev1.Container{
-			Name:            "fetch",
+			Name:            FetchContainerName,
 			Image:           image,
 			ImagePullPolicy: imagePullPolicy,
 			VolumeMounts: []corev1.VolumeMount{
