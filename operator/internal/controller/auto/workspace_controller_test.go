@@ -107,9 +107,10 @@ var _ = Describe("Workspace Controller", func() {
 			_ = k8sClient.Delete(ctx, obj)
 		})
 		r = &WorkspaceReconciler{
-			Client:   k8sClient,
-			Scheme:   k8sClient.Scheme(),
-			Recorder: record.NewFakeRecorder(10),
+			Client:    k8sClient,
+			APIReader: k8sClient,
+			Scheme:    k8sClient.Scheme(),
+			Recorder:  record.NewFakeRecorder(10),
 		}
 	})
 
@@ -745,9 +746,10 @@ func TestWorkspaceInitializationStalled(t *testing.T) {
 
 			objName := types.NamespacedName{Name: workspaceName, Namespace: "default"}
 			r := &WorkspaceReconciler{
-				Client:   k8sclient,
-				Scheme:   k8sclient.Scheme(),
-				Recorder: record.NewFakeRecorder(10),
+				Client:    k8sclient,
+				APIReader: k8sclient,
+				Scheme:    k8sclient.Scheme(),
+				Recorder:  record.NewFakeRecorder(10),
 				ConnectionManager: &ConnectionManager{
 					factory: &mockTokenSourceFactory{},
 				},
@@ -830,7 +832,7 @@ func TestWorkspaceInitializationCompletion(t *testing.T) {
 	k8sclient, err := client.NewWithWatch(cfg, client.Options{Scheme: scheme.Scheme})
 	require.NoError(t, err)
 
-	for _, scenario := range []string{"metadata update", "replacement", "deleted", "write failure"} {
+	for _, scenario := range []string{"metadata update", "replacement", "deleted", "terminating", "write failure"} {
 		t.Run(scenario, func(t *testing.T) {
 			ctx := t.Context()
 			workspace := &autov1alpha1.Workspace{
@@ -841,6 +843,7 @@ func TestWorkspaceInitializationCompletion(t *testing.T) {
 			objName := client.ObjectKeyFromObject(workspace)
 			r := &WorkspaceReconciler{
 				Client:            k8sclient,
+				APIReader:         k8sclient,
 				Scheme:            k8sclient.Scheme(),
 				Recorder:          record.NewFakeRecorder(20),
 				ConnectionManager: &ConnectionManager{factory: &mockTokenSourceFactory{}},
@@ -868,6 +871,9 @@ func TestWorkspaceInitializationCompletion(t *testing.T) {
 					Labels: map[string]string{"controller-revision-hash": testRevision},
 				},
 				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pulumi", Image: workspace.Spec.Image}}},
+			}
+			if scenario == "terminating" {
+				pod.Finalizers = []string{TestFinalizer}
 			}
 			require.NoError(t, k8sclient.Create(ctx, pod))
 			podKey := client.ObjectKeyFromObject(pod)
@@ -908,11 +914,33 @@ func TestWorkspaceInitializationCompletion(t *testing.T) {
 			t.Cleanup(func() { grpcSrv.Stop(); _ = lis.Close() })
 			t.Setenv("WORKSPACE_LOCALHOST", lis.Addr().String())
 
-			if scenario == "write failure" {
+			if scenario == "metadata update" || scenario == "write failure" || scenario == "terminating" {
+				conflictInjected := false
 				r.Client = interceptor.NewClient(k8sclient, interceptor.Funcs{
 					Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
 						if _, ok := obj.(*corev1.Pod); ok {
-							return apierrors.NewServiceUnavailable("temporary Pod write failure")
+							if scenario == "write failure" {
+								return apierrors.NewServiceUnavailable("temporary Pod write failure")
+							}
+							if scenario == "terminating" && !conflictInjected {
+								// Begin deletion after the completion read, before its write.
+								if err := c.Delete(ctx, pod, client.GracePeriodSeconds(0)); err != nil {
+									return err
+								}
+								conflictInjected = true
+							}
+							if !conflictInjected {
+								// Change metadata after the completion read, forcing a real API conflict.
+								fresh := &corev1.Pod{}
+								if err := c.Get(ctx, podKey, fresh); err != nil {
+									return err
+								}
+								fresh.Labels["other.example.com/concurrent"] = "true"
+								if err := c.Update(ctx, fresh); err != nil {
+									return err
+								}
+								conflictInjected = true
+							}
 						}
 						return c.Patch(ctx, obj, patch, opts...)
 					},
@@ -940,6 +968,12 @@ func TestWorkspaceInitializationCompletion(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+			if scenario == "terminating" {
+				assert.Equal(t, originalUID, current.UID)
+				assert.NotNil(t, current.DeletionTimestamp)
+				assert.Empty(t, current.Annotations[PodAnnotationInitialized])
+				return
+			}
 			assert.Nil(t, current.DeletionTimestamp)
 			if scenario == "replacement" {
 				assert.NotEqual(t, originalUID, current.UID)
@@ -950,6 +984,8 @@ func TestWorkspaceInitializationCompletion(t *testing.T) {
 			if scenario == "metadata update" {
 				assert.Equal(t, "true", current.Annotations[PodAnnotationInitialized])
 				assert.Equal(t, "true", current.Annotations["other.example.com/observed"])
+				assert.Equal(t, "true", current.Labels["other.example.com/concurrent"])
+				assert.Equal(t, int32(1), mockSrv.installCalls.Load(), "a completion conflict must not repeat initialization")
 			} else {
 				assert.Empty(t, current.Annotations[PodAnnotationInitialized])
 				// The next reconciliation recovers once the API is writable again.
@@ -1029,6 +1065,7 @@ func TestWorkspaceSkipInstall(t *testing.T) {
 			objName := types.NamespacedName{Name: workspaceName, Namespace: "default"}
 			r := &WorkspaceReconciler{
 				Client:            k8sclient,
+				APIReader:         k8sclient,
 				Scheme:            k8sclient.Scheme(),
 				Recorder:          record.NewFakeRecorder(10),
 				ConnectionManager: &ConnectionManager{factory: &mockTokenSourceFactory{}},
@@ -1117,9 +1154,10 @@ func TestWorkspaceStatusConcurrentModification(t *testing.T) {
 
 	objName := types.NamespacedName{Name: workspace.Name, Namespace: workspace.Namespace}
 	reconciler := &WorkspaceReconciler{
-		Client:   k8sclient,
-		Scheme:   k8sclient.Scheme(),
-		Recorder: record.NewFakeRecorder(10),
+		Client:    k8sclient,
+		APIReader: k8sclient,
+		Scheme:    k8sclient.Scheme(),
+		Recorder:  record.NewFakeRecorder(10),
 		ConnectionManager: &ConnectionManager{
 			factory: &mockTokenSourceFactory{},
 		},

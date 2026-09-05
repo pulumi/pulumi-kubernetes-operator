@@ -3,7 +3,7 @@ CHANGELOG
 
 ## Unreleased
 
-- Preserve Workspace Pods when recording initialization completion conflicts with unrelated metadata updates, and reject completion writes to same-name replacement Pods [#1330](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1330)
+- Preserve Workspace Pods on initialization-completion write failures, reject completion on replaced or terminating Pods, and avoid repeating environment imports during initialization retries [#1330](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1330)
 
 ## 2.9.1 (2026-09-03)
 

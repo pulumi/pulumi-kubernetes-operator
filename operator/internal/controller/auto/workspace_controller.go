@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto/md5" //nolint:gosec
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -44,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	metav1apply "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/retry"
 	hashutil "k8s.io/kubernetes/pkg/util/hash"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -75,6 +75,7 @@ const (
 // WorkspaceReconciler reconciles a Workspace object
 type WorkspaceReconciler struct {
 	client.Client
+	APIReader         client.Reader
 	Scheme            *runtime.Scheme
 	Recorder          record.EventRecorder
 	ConnectionManager *ConnectionManager
@@ -414,18 +415,26 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 		}
 
-		// Initialization can outlive unrelated Pod updates. Patch only its completion
-		// marker, retaining the UID so a same-name replacement cannot be marked initialized.
-		patch, err := json.Marshal(map[string]any{
-			"metadata": map[string]any{
-				"uid":         pod.UID,
-				"annotations": map[string]string{PodAnnotationInitialized: "true"},
-			},
+		// Initialization can outlive Pod updates or deletion. Retry only the completion
+		// write, using resourceVersion to keep the UID and deletion checks atomic.
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			current := &corev1.Pod{}
+			if err := r.APIReader.Get(ctx, client.ObjectKeyFromObject(pod), current); err != nil {
+				return err
+			}
+			if current.UID != pod.UID {
+				return fmt.Errorf("workspace pod was replaced during initialization")
+			}
+			if current.DeletionTimestamp != nil {
+				return fmt.Errorf("workspace pod is terminating")
+			}
+			patch := client.MergeFromWithOptions(current.DeepCopy(), client.MergeFromWithOptimisticLock{})
+			if current.Annotations == nil {
+				current.Annotations = make(map[string]string)
+			}
+			current.Annotations[PodAnnotationInitialized] = "true"
+			return r.Patch(ctx, current, patch, client.FieldOwner(FieldManager))
 		})
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		err = r.Patch(ctx, pod, client.RawPatch(types.MergePatchType, patch), client.FieldOwner(FieldManager))
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to mark the workspace pod initialized: %w", err)
 		}

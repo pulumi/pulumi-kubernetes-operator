@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
+	"gopkg.in/yaml.v3"
 	"k8s.io/utils/ptr"
 
 	pb "github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/proto"
@@ -841,11 +842,13 @@ func TestSetEnvironments(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		stacks  []string
-		req     *pb.AddEnvironmentsRequest
-		wantErr error
-		want    []string
+		name        string
+		stacks      []string
+		req         *pb.AddEnvironmentsRequest
+		wantErr     error
+		environment string
+		wantNoop    bool
+		wantInvalid bool
 	}{
 		{
 			name:    "no active stack",
@@ -859,7 +862,57 @@ func TestSetEnvironments(t *testing.T) {
 			req: &pb.AddEnvironmentsRequest{
 				Environment: []string{"test"},
 			},
-			want: []string{"test"},
+		},
+		{
+			name:        "retry preserves prior imports",
+			stacks:      []string{TestStackName},
+			req:         &pb.AddEnvironmentsRequest{Environment: []string{"a", "b"}},
+			environment: `["prior", "a", "b"]`,
+			wantNoop:    true,
+		},
+		{
+			name:        "retry preserves inline values and equivalent merge metadata",
+			stacks:      []string{TestStackName},
+			req:         &pb.AddEnvironmentsRequest{Environment: []string{"a", "b"}},
+			environment: `{"imports":["prior", {"a":{}}, {"b":{"merge":true}}], "values":{"retained":{"nested":"value"}}}`,
+			wantNoop:    true,
+		},
+		{
+			name:        "different order still appends",
+			stacks:      []string{TestStackName},
+			req:         &pb.AddEnvironmentsRequest{Environment: []string{"a", "b"}},
+			environment: `["b", "a"]`,
+		},
+		{
+			name:        "earlier occurrence still appends",
+			stacks:      []string{TestStackName},
+			req:         &pb.AddEnvironmentsRequest{Environment: []string{"a", "b"}},
+			environment: `["a", "b", "later"]`,
+		},
+		{
+			name:        "partial suffix still appends",
+			stacks:      []string{TestStackName},
+			req:         &pb.AddEnvironmentsRequest{Environment: []string{"a", "b"}},
+			environment: `["b"]`,
+		},
+		{
+			name:        "nonmerging import still appends",
+			stacks:      []string{TestStackName},
+			req:         &pb.AddEnvironmentsRequest{Environment: []string{"a", "b"}},
+			environment: `{"imports":[{"a":{"merge":false}}, "b"]}`,
+		},
+		{
+			name:        "invalid merge metadata fails before append",
+			stacks:      []string{TestStackName},
+			req:         &pb.AddEnvironmentsRequest{Environment: []string{"a"}},
+			environment: `{"imports":[{"a":{"merge":"invalid"}}]}`,
+			wantInvalid: true,
+		},
+		{
+			name:        "inline values are not an import named yaml",
+			stacks:      []string{TestStackName},
+			req:         &pb.AddEnvironmentsRequest{Environment: []string{"yaml"}},
+			environment: `{"imports":["prior"], "values":{"retained":"value"}}`,
 		},
 	}
 	for _, tt := range tests {
@@ -867,17 +920,35 @@ func TestSetEnvironments(t *testing.T) {
 			t.Parallel()
 			ctx := newContext(t)
 			tc := newTC(ctx, t, tcOptions{ProjectDir: "./testdata/simple", Stacks: tt.stacks})
+			if tt.environment != "" {
+				settings, err := tc.ws.StackSettings(ctx, tc.stack.Name())
+				require.NoError(t, err)
+				require.NoError(t, yaml.Unmarshal([]byte(tt.environment), &settings.Environment))
+				require.NoError(t, tc.ws.SaveStackSettings(ctx, tc.stack.Name(), settings))
+			}
 			_, err := tc.server.AddEnvironments(ctx, tt.req)
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
 				return
 			}
 
-			// note: the file backend does not support environments
-			assert.ErrorContains(t, err, "does not support environments")
-			// actual, err := tc.ws.ListEnvironments(ctx, tc.stack.Name())
-			// assert.NoError(t, err)
-			// assert.Equal(t, tt.want, actual)
+			if tt.wantInvalid {
+				assert.ErrorContains(t, err, "invalid stack environment")
+			} else if tt.wantNoop {
+				require.NoError(t, err)
+				// A second retry must also leave the persisted definition intact.
+				_, err = tc.server.AddEnvironments(ctx, tt.req)
+				require.NoError(t, err)
+				settings, err := tc.ws.StackSettings(ctx, tc.stack.Name())
+				require.NoError(t, err)
+				var expected workspace.Environment
+				require.NoError(t, yaml.Unmarshal([]byte(tt.environment), &expected))
+				assert.YAMLEq(t, string(expected.Definition()), string(settings.Environment.Definition()))
+			} else {
+				// The file backend rejects ESC additions. This proves unmatched
+				// requests still reach the existing CLI validation instead of succeeding.
+				assert.ErrorContains(t, err, "does not support environments")
+			}
 		})
 	}
 }

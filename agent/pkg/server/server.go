@@ -46,6 +46,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optrefresh"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/esc/eval"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource/config"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
@@ -544,6 +545,39 @@ func (s *Server) AddEnvironments(ctx context.Context, in *pb.AddEnvironmentsRequ
 	stack, err := s.ensureStack(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(in.Environment) != 0 {
+		settings, err := stack.Workspace().StackSettings(ctx, stack.Name())
+		if err != nil {
+			return nil, err
+		}
+		// Completion writes can fail after initialization. Recognize an already
+		// appended suffix without rewriting prior imports or inline values.
+		// Environment.Imports() includes a synthetic "yaml" entry for inline values.
+		if definition := settings.Environment.Definition(); len(definition) != 0 {
+			def, diags, err := eval.LoadYAMLBytes("yaml", definition)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse stack environment: %w", err)
+			}
+			if diags.HasErrors() {
+				return nil, fmt.Errorf("invalid stack environment: %w", diags)
+			}
+			imports := def.Imports.GetElements()
+			if len(imports) >= len(in.Environment) {
+				matches := true
+				for i, imp := range imports[len(imports)-len(in.Environment):] {
+					if imp.Environment.GetValue() != in.Environment[i] ||
+						(imp.Meta != nil && imp.Meta.Merge != nil && !imp.Meta.Merge.Value) {
+						matches = false
+						break
+					}
+				}
+				if matches {
+					return &pb.AddEnvironmentsResult{}, nil
+				}
+			}
+		}
 	}
 
 	err = stack.AddEnvironments(ctx, in.Environment...)

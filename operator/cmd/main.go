@@ -269,6 +269,7 @@ func main() {
 
 	if err = (&autocontroller.WorkspaceReconciler{
 		Client:            mgr.GetClient(),
+		APIReader:         mgr.GetAPIReader(),
 		Scheme:            mgr.GetScheme(),
 		Recorder:          mgr.GetEventRecorderFor("workspace-controller"),
 		ConnectionManager: cm,
