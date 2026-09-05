@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
@@ -43,6 +44,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -628,14 +630,20 @@ type mockAutomationServer struct {
 	selectStackErr error
 	installErr     error
 	installCalls   atomic.Int32
+	onInstall      func(context.Context) error
 }
 
 func (s *mockAutomationServer) PulumiVersion(_ context.Context, _ *agentpb.PulumiVersionRequest) (*agentpb.PulumiVersionResult, error) {
 	return &agentpb.PulumiVersionResult{Version: s.pulumiVersion}, nil
 }
 
-func (s *mockAutomationServer) Install(_ context.Context, _ *agentpb.InstallRequest) (*agentpb.InstallResult, error) {
+func (s *mockAutomationServer) Install(ctx context.Context, _ *agentpb.InstallRequest) (*agentpb.InstallResult, error) {
 	s.installCalls.Add(1)
+	if s.onInstall != nil {
+		if err := s.onInstall(ctx); err != nil {
+			return nil, err
+		}
+	}
 	if s.installErr != nil {
 		return nil, s.installErr
 	}
@@ -804,6 +812,156 @@ func TestWorkspaceInitializationStalled(t *testing.T) {
 			podCheck := &corev1.Pod{}
 			require.NoError(t, k8sclient.Get(ctx, types.NamespacedName{Name: podName, Namespace: "default"}, podCheck))
 			assert.Nil(t, podCheck.DeletionTimestamp, "pod should not be marked for deletion")
+		})
+	}
+}
+
+// Exercise the completion write against the real API: initialization RPCs can
+// overlap metadata updates, Pod replacement, or temporary API write failures.
+func TestWorkspaceInitializationCompletion(t *testing.T) {
+	require.NoError(t, autov1alpha1.AddToScheme(scheme.Scheme))
+	env := &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: true,
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, env.Stop()) })
+	k8sclient, err := client.NewWithWatch(cfg, client.Options{Scheme: scheme.Scheme})
+	require.NoError(t, err)
+
+	for _, scenario := range []string{"metadata update", "replacement", "deleted", "write failure"} {
+		t.Run(scenario, func(t *testing.T) {
+			ctx := t.Context()
+			workspace := &autov1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{Name: "completion-" + utilrand.String(8), Namespace: "default"},
+				Spec:       autov1alpha1.WorkspaceSpec{Image: "pulumi/pulumi:latest-nonroot"},
+			}
+			require.NoError(t, k8sclient.Create(ctx, workspace))
+			objName := client.ObjectKeyFromObject(workspace)
+			r := &WorkspaceReconciler{
+				Client:            k8sclient,
+				Scheme:            k8sclient.Scheme(),
+				Recorder:          record.NewFakeRecorder(20),
+				ConnectionManager: &ConnectionManager{factory: &mockTokenSourceFactory{}},
+			}
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+			require.NoError(t, err)
+
+			// envtest has no StatefulSet controller; supply its ready status and Pod.
+			sts := &appsv1.StatefulSet{}
+			require.NoError(t, k8sclient.Get(ctx, types.NamespacedName{
+				Name: workspace.Name + "-workspace", Namespace: workspace.Namespace,
+			}, sts))
+			sts.Status.ObservedGeneration = sts.Generation
+			sts.Status.Replicas = 1
+			sts.Status.ReadyReplicas = 1
+			sts.Status.AvailableReplicas = 1
+			sts.Status.CurrentReplicas = 1
+			sts.Status.UpdatedReplicas = 1
+			sts.Status.CurrentRevision = testRevision
+			sts.Status.UpdateRevision = testRevision
+			require.NoError(t, k8sclient.Status().Update(ctx, sts))
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: workspace.Name + "-workspace-0", Namespace: workspace.Namespace,
+					Labels: map[string]string{"controller-revision-hash": testRevision},
+				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pulumi", Image: workspace.Spec.Image}}},
+			}
+			require.NoError(t, k8sclient.Create(ctx, pod))
+			podKey := client.ObjectKeyFromObject(pod)
+			originalUID := pod.UID
+			mockSrv := &mockAutomationServer{
+				pulumiVersion: "3.100.0",
+				onInstall: func(ctx context.Context) error {
+					switch scenario {
+					case "metadata update":
+						fresh := &corev1.Pod{}
+						if err := k8sclient.Get(ctx, podKey, fresh); err != nil {
+							return err
+						}
+						fresh.Annotations = map[string]string{"other.example.com/observed": "true"}
+						return k8sclient.Update(ctx, fresh)
+					case "replacement", "deleted":
+						if err := k8sclient.Delete(ctx, pod, client.GracePeriodSeconds(0)); err != nil {
+							return err
+						}
+						if scenario == "replacement" {
+							replacement := &corev1.Pod{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: pod.Name, Namespace: pod.Namespace, Labels: pod.Labels,
+								},
+								Spec: pod.Spec,
+							}
+							return k8sclient.Create(ctx, replacement)
+						}
+					}
+					return nil
+				},
+			}
+			lis, err := net.Listen("tcp", "localhost:0")
+			require.NoError(t, err)
+			grpcSrv := grpc.NewServer()
+			agentpb.RegisterAutomationServiceServer(grpcSrv, mockSrv)
+			go func() { _ = grpcSrv.Serve(lis) }()
+			t.Cleanup(func() { grpcSrv.Stop(); _ = lis.Close() })
+			t.Setenv("WORKSPACE_LOCALHOST", lis.Addr().String())
+
+			if scenario == "write failure" {
+				r.Client = interceptor.NewClient(k8sclient, interceptor.Funcs{
+					Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+						if _, ok := obj.(*corev1.Pod); ok {
+							return apierrors.NewServiceUnavailable("temporary Pod write failure")
+						}
+						return c.Patch(ctx, obj, patch, opts...)
+					},
+				})
+			}
+
+			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+			if scenario == "metadata update" {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+			}
+			require.NoError(t, k8sclient.Get(ctx, objName, workspace))
+			ready := meta.FindStatusCondition(workspace.Status.Conditions, autov1alpha1.WorkspaceReady)
+			require.NotNil(t, ready)
+			if scenario == "metadata update" {
+				assert.Equal(t, metav1.ConditionTrue, ready.Status)
+			} else {
+				assert.Equal(t, metav1.ConditionFalse, ready.Status)
+			}
+			current := &corev1.Pod{}
+			err = k8sclient.Get(ctx, podKey, current)
+			if scenario == "deleted" {
+				assert.True(t, apierrors.IsNotFound(err), "completion must not recreate a deleted Pod")
+				return
+			}
+			require.NoError(t, err)
+			assert.Nil(t, current.DeletionTimestamp)
+			if scenario == "replacement" {
+				assert.NotEqual(t, originalUID, current.UID)
+				assert.Empty(t, current.Annotations[PodAnnotationInitialized])
+				return
+			}
+			assert.Equal(t, originalUID, current.UID)
+			if scenario == "metadata update" {
+				assert.Equal(t, "true", current.Annotations[PodAnnotationInitialized])
+				assert.Equal(t, "true", current.Annotations["other.example.com/observed"])
+			} else {
+				assert.Empty(t, current.Annotations[PodAnnotationInitialized])
+				// The next reconciliation recovers once the API is writable again.
+				r.Client = k8sclient
+				_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+				require.NoError(t, err)
+				require.NoError(t, k8sclient.Get(ctx, podKey, current))
+				assert.Equal(t, originalUID, current.UID)
+				assert.Equal(t, "true", current.Annotations[PodAnnotationInitialized])
+				require.NoError(t, k8sclient.Get(ctx, objName, workspace))
+				assert.True(t, meta.IsStatusConditionTrue(workspace.Status.Conditions, autov1alpha1.WorkspaceReady))
+			}
 		})
 	}
 }

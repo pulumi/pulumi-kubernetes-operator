@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/md5" //nolint:gosec
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -413,19 +414,20 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 		}
 
-		// set the "initialized" annotation
-		if pod.Annotations == nil {
-			pod.Annotations = make(map[string]string)
-		}
-		pod.Annotations[PodAnnotationInitialized] = "true"
-		err = r.Update(ctx, pod, client.FieldOwner(FieldManager))
+		// Initialization can outlive unrelated Pod updates. Patch only its completion
+		// marker, retaining the UID so a same-name replacement cannot be marked initialized.
+		patch, err := json.Marshal(map[string]any{
+			"metadata": map[string]any{
+				"uid":         pod.UID,
+				"annotations": map[string]string{PodAnnotationInitialized: "true"},
+			},
+		})
 		if err != nil {
-			l.Error(err, "unable to update the workspace pod; deleting the pod to retry later")
-			err = r.Delete(ctx, pod)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			return ctrl.Result{}, fmt.Errorf("failed to update the pod: %w", err)
+			return ctrl.Result{}, err
+		}
+		err = r.Patch(ctx, pod, client.RawPatch(types.MergePatchType, patch), client.FieldOwner(FieldManager))
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to mark the workspace pod initialized: %w", err)
 		}
 		l.Info("workspace pod initialized")
 		emitEvent(r.Recorder, w, autov1alpha1.InitializedEvent(), "Initialized workspace pod %q", pod.Name)
