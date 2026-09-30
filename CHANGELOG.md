@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+## 2.9.2 (2026-09-30)
+
 - Fix the operator repeatedly restarting a workspace pod during initialization. [#1349](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1349)
 
 ## 2.9.1 (2026-09-03)
