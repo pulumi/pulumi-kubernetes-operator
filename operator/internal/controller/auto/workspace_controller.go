@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	corev1apply "k8s.io/client-go/applyconfigurations/core/v1"
 	metav1apply "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/client-go/tools/record"
 	hashutil "k8s.io/kubernetes/pkg/util/hash"
@@ -413,19 +414,13 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 		}
 
-		// set the "initialized" annotation
-		if pod.Annotations == nil {
-			pod.Annotations = make(map[string]string)
-		}
-		pod.Annotations[PodAnnotationInitialized] = "true"
-		err = r.Update(ctx, pod, client.FieldOwner(FieldManager))
+		podApply := corev1apply.Pod(pod.Name, pod.Namespace).
+			WithAnnotations(map[string]string{PodAnnotationInitialized: "true"})
+		err = r.Patch(ctx, pod, &applyConfiguration{config: podApply},
+			client.FieldOwner(WorkspacePodFieldManager))
 		if err != nil {
-			l.Error(err, "unable to update the workspace pod; deleting the pod to retry later")
-			err = r.Delete(ctx, pod)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			return ctrl.Result{}, fmt.Errorf("failed to update the pod: %w", err)
+			l.Error(err, "unable to mark the workspace pod as initialized; retaining the pod to retry later")
+			return ctrl.Result{}, fmt.Errorf("failed to mark the pod as initialized: %w", err)
 		}
 		l.Info("workspace pod initialized")
 		emitEvent(r.Recorder, w, autov1alpha1.InitializedEvent(), "Initialized workspace pod %q", pod.Name)
@@ -486,6 +481,7 @@ func (statefulSetReadyPredicate) Generic(_ event.GenericEvent) bool {
 const (
 	FieldManager                 = "pulumi-kubernetes-operator"
 	WorkspaceStatusFieldManager  = "pulumi-kubernetes-operator/workspace-status"
+	WorkspacePodFieldManager     = "pulumi-kubernetes-operator/workspace-pod"
 	WorkspacePulumiContainerName = "pulumi"
 	WorkspaceShareVolumeName     = "share"
 	WorkspaceShareMountPath      = "/share"

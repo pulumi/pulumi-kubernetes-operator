@@ -628,6 +628,7 @@ type mockAutomationServer struct {
 	selectStackErr error
 	installErr     error
 	installCalls   atomic.Int32
+	installHook    func()
 }
 
 func (s *mockAutomationServer) PulumiVersion(_ context.Context, _ *agentpb.PulumiVersionRequest) (*agentpb.PulumiVersionResult, error) {
@@ -636,6 +637,9 @@ func (s *mockAutomationServer) PulumiVersion(_ context.Context, _ *agentpb.Pulum
 
 func (s *mockAutomationServer) Install(_ context.Context, _ *agentpb.InstallRequest) (*agentpb.InstallResult, error) {
 	s.installCalls.Add(1)
+	if s.installHook != nil {
+		s.installHook()
+	}
 	if s.installErr != nil {
 		return nil, s.installErr
 	}
@@ -1303,4 +1307,120 @@ func TestMergePodTemplateSpec(t *testing.T) {
 			g.Expect(merged).To(Equal(tc.expected))
 		})
 	}
+}
+
+func TestWorkspaceInitializedAnnotationSurvivesConcurrentPodStatusWrite(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	k8sclient, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	require.NoError(t, err)
+
+	ctx := t.Context()
+
+	workspaceName := fmt.Sprintf("ws-%s", utilrand.String(8))
+	podName := workspaceName + "-workspace-0"
+	podKey := types.NamespacedName{Name: podName, Namespace: "default"}
+
+	lis, err := net.Listen("tcp", "localhost:0")
+	require.NoError(t, err)
+	mockSrv := &mockAutomationServer{pulumiVersion: "3.202.0"}
+	grpcSrv := grpc.NewServer()
+	agentpb.RegisterAutomationServiceServer(grpcSrv, mockSrv)
+	go func() { _ = grpcSrv.Serve(lis) }()
+	t.Cleanup(func() {
+		grpcSrv.Stop()
+		_ = lis.Close()
+	})
+	t.Setenv("WORKSPACE_LOCALHOST", lis.Addr().String())
+
+	// The kubelet writes pod status while the operator runs initialization. This
+	// advances the pod's resourceVersion past the copy the reconciler holds.
+	mockSrv.installHook = func() {
+		fresh := &corev1.Pod{}
+		require.NoError(t, k8sclient.Get(ctx, podKey, fresh))
+		fresh.Status.Phase = corev1.PodRunning
+		fresh.Status.Message = "concurrent kubelet status write"
+		require.NoError(t, k8sclient.Status().Update(ctx, fresh))
+	}
+
+	workspace := &autov1alpha1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workspaceName,
+			Namespace: "default",
+		},
+		Spec: autov1alpha1.WorkspaceSpec{
+			Image:  "pulumi/pulumi:latest-nonroot",
+			Stacks: []autov1alpha1.WorkspaceStack{{Name: "dev", Create: ptr.To(true)}},
+		},
+	}
+	require.NoError(t, k8sclient.Create(ctx, workspace))
+	t.Cleanup(func() { _ = k8sclient.Delete(ctx, workspace) })
+
+	objName := types.NamespacedName{Name: workspaceName, Namespace: "default"}
+	r := &WorkspaceReconciler{
+		Client:   k8sclient,
+		Scheme:   k8sclient.Scheme(),
+		Recorder: record.NewFakeRecorder(10),
+		ConnectionManager: &ConnectionManager{
+			factory: &mockTokenSourceFactory{},
+		},
+	}
+
+	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+	require.NoError(t, err)
+
+	stsName := types.NamespacedName{Name: workspaceName + "-workspace", Namespace: "default"}
+	sts := &appsv1.StatefulSet{}
+	require.NoError(t, k8sclient.Get(ctx, stsName, sts))
+	sts.Status.ObservedGeneration = sts.Generation
+	sts.Status.Replicas = 1
+	sts.Status.ReadyReplicas = 1
+	sts.Status.AvailableReplicas = 1
+	sts.Status.CurrentRevision = testRevision
+	sts.Status.CurrentReplicas = 1
+	sts.Status.UpdateRevision = testRevision
+	sts.Status.UpdatedReplicas = 1
+	require.NoError(t, k8sclient.Status().Update(ctx, sts))
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: "default",
+			Labels:    map[string]string{"controller-revision-hash": testRevision},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "pulumi", Image: "pulumi/pulumi:latest-nonroot"},
+			},
+		},
+	}
+	require.NoError(t, k8sclient.Create(ctx, pod))
+	staleVersion := pod.ResourceVersion
+
+	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+	require.NoError(t, err)
+
+	got := &corev1.Pod{}
+	require.NoError(t, k8sclient.Get(ctx, podKey, got), "the pod must not be deleted")
+	assert.Nil(t, got.DeletionTimestamp, "the pod must not be marked for deletion")
+	assert.NotEqual(t, staleVersion, got.ResourceVersion,
+		"the pod's resourceVersion must have advanced past the reconciler's copy")
+	assert.Equal(t, "true", got.Annotations[PodAnnotationInitialized])
+
+	require.NoError(t, k8sclient.Get(ctx, objName, workspace))
+	ready := meta.FindStatusCondition(workspace.Status.Conditions, autov1alpha1.WorkspaceReady)
+	require.NotNil(t, ready)
+	assert.Equal(t, metav1.ConditionTrue, ready.Status)
+	assert.Equal(t, "Succeeded", ready.Reason)
 }
