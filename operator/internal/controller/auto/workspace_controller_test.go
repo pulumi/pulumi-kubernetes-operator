@@ -16,6 +16,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,14 +36,17 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -1423,4 +1427,113 @@ func TestWorkspaceInitializedAnnotationSurvivesConcurrentPodStatusWrite(t *testi
 	require.NotNil(t, ready)
 	assert.Equal(t, metav1.ConditionTrue, ready.Status)
 	assert.Equal(t, "Succeeded", ready.Reason)
+}
+
+func TestWorkspacePodRetainedWhenInitializedAnnotationCannotBeApplied(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	k8sclient, err := client.NewWithWatch(cfg, client.Options{Scheme: scheme.Scheme})
+	require.NoError(t, err)
+
+	ctx := t.Context()
+
+	workspaceName := fmt.Sprintf("ws-%s", utilrand.String(8))
+	podName := workspaceName + "-workspace-0"
+	podKey := types.NamespacedName{Name: podName, Namespace: "default"}
+
+	lis, err := net.Listen("tcp", "localhost:0")
+	require.NoError(t, err)
+	mockSrv := &mockAutomationServer{pulumiVersion: "3.202.0"}
+	grpcSrv := grpc.NewServer()
+	agentpb.RegisterAutomationServiceServer(grpcSrv, mockSrv)
+	go func() { _ = grpcSrv.Serve(lis) }()
+	t.Cleanup(func() {
+		grpcSrv.Stop()
+		_ = lis.Close()
+	})
+	t.Setenv("WORKSPACE_LOCALHOST", lis.Addr().String())
+
+	applyErr := apierrors.NewConflict(
+		schema.GroupResource{Resource: "pods"}, podName, errors.New("simulated field ownership conflict"))
+	failingClient := interceptor.NewClient(k8sclient, interceptor.Funcs{
+		Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+			if _, isPod := obj.(*corev1.Pod); isPod {
+				return applyErr
+			}
+			return c.Patch(ctx, obj, patch, opts...)
+		},
+	})
+
+	workspace := &autov1alpha1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workspaceName,
+			Namespace: "default",
+		},
+		Spec: autov1alpha1.WorkspaceSpec{
+			Image:  "pulumi/pulumi:latest-nonroot",
+			Stacks: []autov1alpha1.WorkspaceStack{{Name: "dev", Create: ptr.To(true)}},
+		},
+	}
+	require.NoError(t, k8sclient.Create(ctx, workspace))
+	t.Cleanup(func() { _ = k8sclient.Delete(ctx, workspace) })
+
+	objName := types.NamespacedName{Name: workspaceName, Namespace: "default"}
+	r := &WorkspaceReconciler{
+		Client:   failingClient,
+		Scheme:   k8sclient.Scheme(),
+		Recorder: record.NewFakeRecorder(10),
+		ConnectionManager: &ConnectionManager{
+			factory: &mockTokenSourceFactory{},
+		},
+	}
+
+	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+	require.NoError(t, err)
+
+	stsName := types.NamespacedName{Name: workspaceName + "-workspace", Namespace: "default"}
+	sts := &appsv1.StatefulSet{}
+	require.NoError(t, k8sclient.Get(ctx, stsName, sts))
+	sts.Status.ObservedGeneration = sts.Generation
+	sts.Status.Replicas = 1
+	sts.Status.ReadyReplicas = 1
+	sts.Status.AvailableReplicas = 1
+	sts.Status.CurrentRevision = testRevision
+	sts.Status.CurrentReplicas = 1
+	sts.Status.UpdateRevision = testRevision
+	sts.Status.UpdatedReplicas = 1
+	require.NoError(t, k8sclient.Status().Update(ctx, sts))
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: "default",
+			Labels:    map[string]string{"controller-revision-hash": testRevision},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "pulumi", Image: "pulumi/pulumi:latest-nonroot"},
+			},
+		},
+	}
+	require.NoError(t, k8sclient.Create(ctx, pod))
+
+	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+	require.Error(t, err, "a failed apply must surface as a reconcile error so the request is requeued")
+	assert.Contains(t, err.Error(), "failed to mark the pod as initialized")
+
+	got := &corev1.Pod{}
+	require.NoError(t, k8sclient.Get(ctx, podKey, got), "the pod must be retained, not deleted")
+	assert.Nil(t, got.DeletionTimestamp, "the pod must not be marked for deletion")
+	assert.NotContains(t, got.Annotations, PodAnnotationInitialized)
 }

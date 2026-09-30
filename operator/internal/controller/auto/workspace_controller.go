@@ -417,7 +417,7 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		podApply := corev1apply.Pod(pod.Name, pod.Namespace).
 			WithAnnotations(map[string]string{PodAnnotationInitialized: "true"})
 		err = r.Patch(ctx, pod, &applyConfiguration{config: podApply},
-			client.FieldOwner(WorkspacePodFieldManager))
+			client.FieldOwner(WorkspacePodFieldManager), client.ForceOwnership)
 		if err != nil {
 			l.Error(err, "unable to mark the workspace pod as initialized; retaining the pod to retry later")
 			return ctrl.Result{}, fmt.Errorf("failed to mark the pod as initialized: %w", err)
