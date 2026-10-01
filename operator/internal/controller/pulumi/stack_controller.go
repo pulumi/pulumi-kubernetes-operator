@@ -683,6 +683,37 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			"project", instance.Status.ProjectInfo.Name, "runtime", instance.Status.ProjectInfo.Runtime)
 		currentCommit = ""
 
+	case stack.DeliverySource != nil:
+		launch, err := sess.resolveDeliveryLaunch(ctx)
+		if err != nil {
+			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
+			return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
+		}
+		if launch == nil {
+			// The pipeline has no work for this stack, so the stack is up to date -- say so
+			// rather than leaving the condition the reconcile began with, which would claim
+			// this stack is processing forever.
+			instance.Status.MarkReadyCondition()
+			return reconcile.Result{RequeueAfter: deliveryPollInterval(stack.DeliverySource)}, saveStatus()
+		}
+		sess.launch = launch
+		// The launch, not the commit, is the revision: two launches of one commit are distinct
+		// pieces of work, and isSynced compares this against the last update's commit.
+		currentCommit = launch.Launch
+		// The code still comes from git. Keep whatever auth the spec configured.
+		gitSource := shared.GitSource{}
+		if stack.GitSource != nil {
+			gitSource = *stack.GitSource
+		}
+		gitSource.ProjectRepo = "https://github.com/" + launch.Repository
+		gitSource.RepoDir = launch.Directory
+		sess.stack.GitSource = &gitSource
+
+		if err = sess.setupWorkspaceFromGitSource(ctx, launch.Commit); err != nil {
+			log.Error(err, "Failed to setup Pulumi workspace from the delivery launch")
+			return reconcile.Result{}, err
+		}
+
 	case stack.GitSource != nil:
 		auth, err := sess.resolveGitAuth(ctx)
 		if err != nil {
@@ -1195,6 +1226,9 @@ type stackReconcilerSession struct {
 	wss        *autov1alpha1.WorkspaceStack
 	wspc       *corev1.Container
 	update     *autov1alpha1.Update
+	// launch is set when the source is a Delivery pipeline. The update carries it as its message
+	// so Delivery can attribute the result to this launch.
+	launch *deliveryLaunch
 }
 
 // stringToJSON converts a string value to apiextensionsv1.JSON
@@ -1835,6 +1869,13 @@ func (sess *stackReconcilerSession) newUp(_ context.Context, o *pulumiv1.Stack, 
 	update, err := applyUpdateTemplate(o, update)
 	if err != nil {
 		return nil, err
+	}
+
+	// After the template, not before: the template is a merge patch over everything above, so a
+	// message left in it would shadow the launch, and Delivery would attribute this update to
+	// whichever launch that message names.
+	if sess.launch != nil {
+		update.Spec.Message = ptr.To(deliveryLaunchMessage(sess.launch.Launch))
 	}
 
 	if err := sess.setOwnerReferences(o, update); err != nil {

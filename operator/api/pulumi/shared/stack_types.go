@@ -101,6 +101,13 @@ type StackSpec struct {
 	// ProgramRef refers to a Program object, to be used as the source for the stack.
 	ProgramRef *ProgramReference `json:"programRef,omitempty"`
 
+	// DeliverySource asks a Pulumi Delivery pipeline what to deploy, instead of naming a revision
+	// here. Delivery answers with a launch, which this operator treats as the revision: a new
+	// launch is new work, and two launches of the same commit stay distinct. The code still comes
+	// from git, using the repository and commit the launch names.
+	// +optional
+	DeliverySource *DeliverySource `json:"deliverySource,omitempty"`
+
 	// Lifecycle:
 
 	// (optional) Targets is a list of URNs of resources to update exclusively. If supplied, only
@@ -200,6 +207,29 @@ type StackSpec struct {
 	// This allows seeing what changes would be made without applying them.
 	// +optional
 	Preview bool `json:"preview,omitempty"`
+}
+
+// DeliverySource specifies how to ask a Pulumi Delivery pipeline what this stack should deploy.
+type DeliverySource struct {
+	// Backend is the Pulumi API this stack's delivery pipeline lives in, such as
+	// https://api.pulumi.com. Defaults to the Stack's own Backend.
+	// +optional
+	Backend string `json:"backend,omitempty"`
+
+	// Stack is the fully qualified member stack to ask about, as <organization>/<project>/<stack>.
+	// Defaults to the Stack's own Stack field.
+	// +optional
+	Stack string `json:"stack,omitempty"`
+
+	// AccessTokenRef names a Secret key holding the Pulumi access token to ask with. The token
+	// needs no permission beyond what updating this stack already requires. Defaults to the
+	// PULUMI_ACCESS_TOKEN this Stack already resolves for its updates.
+	// +optional
+	AccessTokenRef *ResourceRef `json:"accessTokenRef,omitempty"`
+
+	// PollIntervalSeconds is how often to ask for pending work. Defaults to 15.
+	// +optional
+	PollIntervalSeconds *int64 `json:"pollIntervalSeconds,omitempty"`
 }
 
 // GitSource specifies how to fetch from a git repository directly.

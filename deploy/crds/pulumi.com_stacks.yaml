@@ -138,6 +138,91 @@ spec:
                   at that revision again.
                   When enabled, the resync frequency is controlled by ResyncFrequencySeconds (default 60s).
                 type: boolean
+              deliverySource:
+                description: |-
+                  DeliverySource asks a Pulumi Delivery pipeline what to deploy, instead of naming a revision
+                  here. Delivery answers with a launch, which this operator treats as the revision: a new
+                  launch is new work, and two launches of the same commit stay distinct. The code still comes
+                  from git, using the repository and commit the launch names.
+                properties:
+                  accessTokenRef:
+                    description: |-
+                      AccessTokenRef names a Secret key holding the Pulumi access token to ask with. The token
+                      needs no permission beyond what updating this stack already requires. Defaults to the
+                      PULUMI_ACCESS_TOKEN this Stack already resolves for its updates.
+                    properties:
+                      env:
+                        description: Env selects an environment variable set on the
+                          operator process
+                        properties:
+                          name:
+                            description: Name of the environment variable
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      filesystem:
+                        description: FileSystem selects a file on the operator's file
+                          system
+                        properties:
+                          path:
+                            description: Path on the filesystem to use to load information
+                              from.
+                            type: string
+                        required:
+                        - path
+                        type: object
+                      literal:
+                        description: LiteralRef refers to a literal value
+                        properties:
+                          value:
+                            description: Value to load
+                            type: string
+                        required:
+                        - value
+                        type: object
+                      secret:
+                        description: SecretRef refers to a Kubernetes Secret
+                        properties:
+                          key:
+                            description: Key within the Secret to use.
+                            type: string
+                          name:
+                            description: Name of the Secret
+                            type: string
+                          namespace:
+                            description: |-
+                              Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                              unless namespace isolation is disabled in the controller.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      type:
+                        description: |-
+                          SelectorType is required and signifies the type of selector. Must be one of:
+                          Env, FS, Secret, Literal
+                        type: string
+                    required:
+                    - type
+                    type: object
+                  backend:
+                    description: |-
+                      Backend is the Pulumi API this stack's delivery pipeline lives in, such as
+                      https://api.pulumi.com. Defaults to the Stack's own Backend.
+                    type: string
+                  pollIntervalSeconds:
+                    description: PollIntervalSeconds is how often to ask for pending
+                      work. Defaults to 15.
+                    format: int64
+                    type: integer
+                  stack:
+                    description: |-
+                      Stack is the fully qualified member stack to ask about, as <organization>/<project>/<stack>.
+                      Defaults to the Stack's own Stack field.
+                    type: string
+                type: object
               destroyOnFinalize:
                 description: |-
                   (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the Stack custom resource.
@@ -10769,6 +10854,91 @@ spec:
                   at that revision again.
                   When enabled, the resync frequency is controlled by ResyncFrequencySeconds (default 60s).
                 type: boolean
+              deliverySource:
+                description: |-
+                  DeliverySource asks a Pulumi Delivery pipeline what to deploy, instead of naming a revision
+                  here. Delivery answers with a launch, which this operator treats as the revision: a new
+                  launch is new work, and two launches of the same commit stay distinct. The code still comes
+                  from git, using the repository and commit the launch names.
+                properties:
+                  accessTokenRef:
+                    description: |-
+                      AccessTokenRef names a Secret key holding the Pulumi access token to ask with. The token
+                      needs no permission beyond what updating this stack already requires. Defaults to the
+                      PULUMI_ACCESS_TOKEN this Stack already resolves for its updates.
+                    properties:
+                      env:
+                        description: Env selects an environment variable set on the
+                          operator process
+                        properties:
+                          name:
+                            description: Name of the environment variable
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      filesystem:
+                        description: FileSystem selects a file on the operator's file
+                          system
+                        properties:
+                          path:
+                            description: Path on the filesystem to use to load information
+                              from.
+                            type: string
+                        required:
+                        - path
+                        type: object
+                      literal:
+                        description: LiteralRef refers to a literal value
+                        properties:
+                          value:
+                            description: Value to load
+                            type: string
+                        required:
+                        - value
+                        type: object
+                      secret:
+                        description: SecretRef refers to a Kubernetes Secret
+                        properties:
+                          key:
+                            description: Key within the Secret to use.
+                            type: string
+                          name:
+                            description: Name of the Secret
+                            type: string
+                          namespace:
+                            description: |-
+                              Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
+                              unless namespace isolation is disabled in the controller.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      type:
+                        description: |-
+                          SelectorType is required and signifies the type of selector. Must be one of:
+                          Env, FS, Secret, Literal
+                        type: string
+                    required:
+                    - type
+                    type: object
+                  backend:
+                    description: |-
+                      Backend is the Pulumi API this stack's delivery pipeline lives in, such as
+                      https://api.pulumi.com. Defaults to the Stack's own Backend.
+                    type: string
+                  pollIntervalSeconds:
+                    description: PollIntervalSeconds is how often to ask for pending
+                      work. Defaults to 15.
+                    format: int64
+                    type: integer
+                  stack:
+                    description: |-
+                      Stack is the fully qualified member stack to ask about, as <organization>/<project>/<stack>.
+                      Defaults to the Stack's own Stack field.
+                    type: string
+                type: object
               destroyOnFinalize:
                 description: |-
                   (optional) DestroyOnFinalize can be set to true to destroy the stack completely upon deletion of the Stack custom resource.
