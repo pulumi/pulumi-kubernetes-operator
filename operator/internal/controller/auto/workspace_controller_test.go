@@ -49,6 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -1536,4 +1537,47 @@ func TestWorkspacePodRetainedWhenInitializedAnnotationCannotBeApplied(t *testing
 	require.NoError(t, k8sclient.Get(ctx, podKey, got), "the pod must be retained, not deleted")
 	assert.Nil(t, got.DeletionTimestamp, "the pod must not be marked for deletion")
 	assert.NotContains(t, got.Annotations, PodAnnotationInitialized)
+}
+
+func TestStatefulSetReadyPredicate_FiresOnEitherReadinessTransition(t *testing.T) {
+	ready := func() *appsv1.StatefulSet {
+		return &appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{Generation: 1},
+			Status: appsv1.StatefulSetStatus{
+				ObservedGeneration: 1,
+				CurrentRevision:    testRevision,
+				UpdateRevision:     testRevision,
+				AvailableReplicas:  1,
+			},
+		}
+	}
+	notReady := func() *appsv1.StatefulSet {
+		ss := ready()
+		ss.Status.AvailableReplicas = 0
+		return ss
+	}
+
+	var p statefulSetReadyPredicate
+
+	tests := []struct {
+		name string
+		old  *appsv1.StatefulSet
+		new  *appsv1.StatefulSet
+		want bool
+	}{
+		{"gains readiness", notReady(), ready(), true},
+		{"loses readiness", ready(), notReady(), true},
+		{"stays ready", ready(), ready(), false},
+		{"stays not ready", notReady(), notReady(), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := p.Update(event.UpdateEvent{ObjectOld: tt.old, ObjectNew: tt.new})
+			assert.Equal(t, tt.want, got)
+		})
+	}
+
+	assert.False(t, p.Update(event.UpdateEvent{ObjectOld: nil, ObjectNew: ready()}))
+	assert.False(t, p.Update(event.UpdateEvent{ObjectOld: ready(), ObjectNew: nil}))
 }

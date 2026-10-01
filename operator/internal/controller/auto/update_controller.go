@@ -30,6 +30,7 @@ import (
 	updateapply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -341,6 +342,25 @@ func conditionToApply(c *metav1.Condition) *metav1apply.ConditionApplyConfigurat
 		WithMessage(c.Message)
 }
 
+func workspaceUnreachable(err error) bool {
+	return status.Code(err) == codes.Unavailable
+}
+
+func (rs *reconcileSession) retryUnreachable(ctx context.Context, obj *autov1alpha1.Update, err error) (ctrl.Result, error) {
+	log.FromContext(ctx).Error(err, "workspace unreachable; retrying later")
+	emitEvent(rs.recorder, obj, autov1alpha1.ConnectionFailureEvent(), "%s", err.Error())
+	rs.progressing.Status = metav1.ConditionFalse
+	rs.progressing.Reason = "TransientFailure"
+	rs.failed.Status = metav1.ConditionFalse
+	rs.failed.Reason = UpdateConditionReasonProgressing
+	rs.complete.Status = metav1.ConditionFalse
+	rs.complete.Reason = UpdateConditionReasonProgressing
+	if statusErr := rs.updateStatus(ctx, obj); statusErr != nil {
+		return ctrl.Result{}, statusErr
+	}
+	return ctrl.Result{}, err
+}
+
 func (rs *reconcileSession) updateStatus(ctx context.Context, obj *autov1alpha1.Update) error {
 	// Compute final conditions using meta.SetStatusCondition for correct LastTransitionTime.
 	obj.Status.ObservedGeneration = obj.Generation
@@ -413,8 +433,11 @@ func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update
 	}
 
 	l.Info("Executing preview operation", "request", autoReq)
-	res, err := client.Preview(ctx, autoReq, grpc.WaitForReady(true))
+	res, err := client.Preview(ctx, autoReq)
 	if err != nil {
+		if workspaceUnreachable(err) {
+			return u.retryUnreachable(ctx, obj, err)
+		}
 		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to preview stack %q", obj.Spec.StackName)
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
@@ -461,8 +484,11 @@ func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update,
 	}
 
 	l.Info("Executing update operation", "request", autoReq)
-	res, err := client.Up(ctx, autoReq, grpc.WaitForReady(true))
+	res, err := client.Up(ctx, autoReq)
 	if err != nil {
+		if workspaceUnreachable(err) {
+			return u.retryUnreachable(ctx, obj, err)
+		}
 		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to update stack %q", obj.Spec.StackName)
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
@@ -511,8 +537,11 @@ func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update
 	}
 
 	l.Info("Executing refresh operation", "request", autoReq)
-	res, err := client.Refresh(ctx, autoReq, grpc.WaitForReady(true))
+	res, err := client.Refresh(ctx, autoReq)
 	if err != nil {
+		if workspaceUnreachable(err) {
+			return u.retryUnreachable(ctx, obj, err)
+		}
 		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to refresh stack %q", obj.Spec.StackName)
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
@@ -551,8 +580,11 @@ func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update
 	}
 
 	l.Info("Executing destroy operation", "request", autoReq)
-	res, err := client.Destroy(ctx, autoReq, grpc.WaitForReady(true))
+	res, err := client.Destroy(ctx, autoReq)
 	if err != nil {
+		if workspaceUnreachable(err) {
+			return u.retryUnreachable(ctx, obj, err)
+		}
 		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to destroy stack %q", obj.Spec.StackName)
 		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
 	}
