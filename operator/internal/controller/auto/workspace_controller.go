@@ -471,7 +471,9 @@ func (statefulSetReadyPredicate) Update(e event.UpdateEvent) bool {
 	if e.ObjectOld == nil || e.ObjectNew == nil {
 		return false
 	}
-	return !isStatefulSetReady(e.ObjectOld.(*appsv1.StatefulSet)) && isStatefulSetReady(e.ObjectNew.(*appsv1.StatefulSet))
+	wasReady := isStatefulSetReady(e.ObjectOld.(*appsv1.StatefulSet))
+	isReady := isStatefulSetReady(e.ObjectNew.(*appsv1.StatefulSet))
+	return wasReady != isReady
 }
 
 func (statefulSetReadyPredicate) Generic(_ event.GenericEvent) bool {
