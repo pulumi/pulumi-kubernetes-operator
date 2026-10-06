@@ -16,6 +16,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -45,8 +46,10 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -443,10 +446,12 @@ func TestUpdate(t *testing.T) {
 			)
 			if tt.wantRetriedNotFailed {
 				assert.Error(t, err)
+				assert.Equal(t, codes.Unavailable, status.Code(err))
 				g.Expect(recorder.Events).To(Receive(matchEvent(string(autov1alpha1.ConnectionFailure))))
 				assert.Equal(t, metav1.ConditionFalse, rs.progressing.Status)
 				assert.Equal(t, "TransientFailure", rs.progressing.Reason)
 				assert.Equal(t, metav1.ConditionFalse, rs.failed.Status)
+				assert.Equal(t, metav1.ConditionFalse, rs.complete.Status)
 				return
 			}
 			if tt.wantErr != "" {
@@ -470,6 +475,149 @@ func TestUpdate(t *testing.T) {
 			assert.EqualExportedValues(t, tt.want, res.Status)
 		})
 	}
+}
+
+// failingAgentClient embeds a nil AutomationServiceClient, so any RPC other
+// than the four overridden here panics rather than silently succeeding.
+type failingAgentClient struct {
+	agentpb.AutomationServiceClient
+	err error
+}
+
+func (c failingAgentClient) Preview(context.Context, *agentpb.PreviewRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[agentpb.PreviewStream], error) {
+	return nil, c.err
+}
+
+func (c failingAgentClient) Up(context.Context, *agentpb.UpRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[agentpb.UpStream], error) {
+	return nil, c.err
+}
+
+func (c failingAgentClient) Refresh(context.Context, *agentpb.RefreshRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[agentpb.RefreshStream], error) {
+	return nil, c.err
+}
+
+func (c failingAgentClient) Destroy(context.Context, *agentpb.DestroyRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[agentpb.DestroyStream], error) {
+	return nil, c.err
+}
+
+func TestOperationHandlesRequestError(t *testing.T) {
+	operations := []struct {
+		name string
+		call func(*reconcileSession, context.Context, *autov1alpha1.Update, failingAgentClient) (ctrl.Result, error)
+	}{
+		{
+			name: "preview",
+			call: func(rs *reconcileSession, ctx context.Context, obj *autov1alpha1.Update, c failingAgentClient) (ctrl.Result, error) {
+				return rs.Preview(ctx, obj, c)
+			},
+		},
+		{
+			name: "up",
+			call: func(rs *reconcileSession, ctx context.Context, obj *autov1alpha1.Update, c failingAgentClient) (ctrl.Result, error) {
+				return rs.Update(ctx, obj, c, nil)
+			},
+		},
+		{
+			name: "refresh",
+			call: func(rs *reconcileSession, ctx context.Context, obj *autov1alpha1.Update, c failingAgentClient) (ctrl.Result, error) {
+				return rs.Refresh(ctx, obj, c)
+			},
+		},
+		{
+			name: "destroy",
+			call: func(rs *reconcileSession, ctx context.Context, obj *autov1alpha1.Update, c failingAgentClient) (ctrl.Result, error) {
+				return rs.Destroy(ctx, obj, c)
+			},
+		},
+	}
+
+	failures := []struct {
+		name      string
+		err       error
+		wantEvent string
+		wantErr   string
+		wantRetry bool
+	}{
+		{
+			name:      "unreachable workspace is retried",
+			err:       status.Error(codes.Unavailable, "transient workspace error"),
+			wantEvent: string(autov1alpha1.ConnectionFailure),
+			wantErr:   "transient workspace error",
+			wantRetry: true,
+		},
+		{
+			name:      "any other error fails the update",
+			err:       status.Error(codes.Internal, "permanent workspace error"),
+			wantEvent: string(autov1alpha1.UpdateFailed),
+			wantErr:   "failed request to workspace: rpc error: code = Internal desc = permanent workspace error",
+		},
+	}
+
+	require.NoError(t, autov1alpha1.AddToScheme(scheme.Scheme))
+
+	for _, op := range operations {
+		for _, failure := range failures {
+			t.Run(op.name+"/"+failure.name, func(t *testing.T) {
+				obj := &autov1alpha1.Update{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+					Spec:       autov1alpha1.UpdateSpec{StackName: "dev"},
+				}
+				c := fake.NewClientBuilder().
+					WithScheme(scheme.Scheme).
+					WithObjects(obj).
+					WithStatusSubresource(obj).
+					Build()
+				recorder := record.NewFakeRecorder(10)
+				rs := newReconcileSession(c, recorder, obj)
+
+				_, err := op.call(rs, t.Context(), obj, failingAgentClient{err: failure.err})
+
+				assert.ErrorContains(t, err, failure.wantErr)
+				require.Len(t, recorder.Events, 1)
+				assert.Contains(t, <-recorder.Events, failure.wantEvent)
+
+				if !failure.wantRetry {
+					assert.Equal(t, metav1.ConditionUnknown, rs.progressing.Status)
+					return
+				}
+				assert.Equal(t, codes.Unavailable, status.Code(err))
+				assert.Equal(t, metav1.ConditionFalse, rs.progressing.Status)
+				assert.Equal(t, "TransientFailure", rs.progressing.Reason)
+				assert.Equal(t, metav1.ConditionFalse, rs.failed.Status)
+				assert.Equal(t, metav1.ConditionFalse, rs.complete.Status)
+			})
+		}
+	}
+}
+
+func TestRetryUnreachableReturnsTheStatusWriteError(t *testing.T) {
+	require.NoError(t, autov1alpha1.AddToScheme(scheme.Scheme))
+
+	obj := &autov1alpha1.Update{
+		ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+	}
+	c := interceptor.NewClient(
+		fake.NewClientBuilder().
+			WithScheme(scheme.Scheme).
+			WithObjects(obj).
+			WithStatusSubresource(obj).
+			Build(),
+		interceptor.Funcs{
+			SubResourcePatch: func(context.Context, client.Client, string, client.Object, client.Patch, ...client.SubResourcePatchOption) error {
+				return errors.New("status write failed")
+			},
+		},
+	)
+	recorder := record.NewFakeRecorder(10)
+	rs := newReconcileSession(c, recorder, obj)
+
+	_, err := rs.retryUnreachable(t.Context(), obj, status.Error(codes.Unavailable, "transient workspace error"))
+
+	assert.ErrorContains(t, err, "status write failed")
+	assert.NotContains(t, err.Error(), "transient workspace error")
+	assert.Equal(t, codes.Unknown, status.Code(err))
+	require.Len(t, recorder.Events, 1)
+	assert.Contains(t, <-recorder.Events, string(autov1alpha1.ConnectionFailure))
 }
 
 type protoMatcher struct {

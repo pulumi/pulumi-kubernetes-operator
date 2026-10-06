@@ -361,6 +361,14 @@ func (rs *reconcileSession) retryUnreachable(ctx context.Context, obj *autov1alp
 	return ctrl.Result{}, err
 }
 
+func (rs *reconcileSession) requestFailed(ctx context.Context, obj *autov1alpha1.Update, operation string, err error) (ctrl.Result, error) {
+	if workspaceUnreachable(err) {
+		return rs.retryUnreachable(ctx, obj, err)
+	}
+	emitEvent(rs.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to %s stack %q", operation, obj.Spec.StackName)
+	return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
+}
+
 func (rs *reconcileSession) updateStatus(ctx context.Context, obj *autov1alpha1.Update) error {
 	// Compute final conditions using meta.SetStatusCondition for correct LastTransitionTime.
 	obj.Status.ObservedGeneration = obj.Generation
@@ -435,11 +443,7 @@ func (u *reconcileSession) Preview(ctx context.Context, obj *autov1alpha1.Update
 	l.Info("Executing preview operation", "request", autoReq)
 	res, err := client.Preview(ctx, autoReq)
 	if err != nil {
-		if workspaceUnreachable(err) {
-			return u.retryUnreachable(ctx, obj, err)
-		}
-		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to preview stack %q", obj.Spec.StackName)
-		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
+		return u.requestFailed(ctx, obj, "preview", err)
 	}
 	defer func() { _ = res.CloseSend() }()
 
@@ -486,11 +490,7 @@ func (u *reconcileSession) Update(ctx context.Context, obj *autov1alpha1.Update,
 	l.Info("Executing update operation", "request", autoReq)
 	res, err := client.Up(ctx, autoReq)
 	if err != nil {
-		if workspaceUnreachable(err) {
-			return u.retryUnreachable(ctx, obj, err)
-		}
-		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to update stack %q", obj.Spec.StackName)
-		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
+		return u.requestFailed(ctx, obj, "update", err)
 	}
 	defer func() { _ = res.CloseSend() }()
 
@@ -539,11 +539,7 @@ func (u *reconcileSession) Refresh(ctx context.Context, obj *autov1alpha1.Update
 	l.Info("Executing refresh operation", "request", autoReq)
 	res, err := client.Refresh(ctx, autoReq)
 	if err != nil {
-		if workspaceUnreachable(err) {
-			return u.retryUnreachable(ctx, obj, err)
-		}
-		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to refresh stack %q", obj.Spec.StackName)
-		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
+		return u.requestFailed(ctx, obj, "refresh", err)
 	}
 	defer func() { _ = res.CloseSend() }()
 
@@ -582,11 +578,7 @@ func (u *reconcileSession) Destroy(ctx context.Context, obj *autov1alpha1.Update
 	l.Info("Executing destroy operation", "request", autoReq)
 	res, err := client.Destroy(ctx, autoReq)
 	if err != nil {
-		if workspaceUnreachable(err) {
-			return u.retryUnreachable(ctx, obj, err)
-		}
-		emitEvent(u.recorder, obj, autov1alpha1.UpdateFailedEvent(), "Failed to destroy stack %q", obj.Spec.StackName)
-		return ctrl.Result{}, fmt.Errorf("failed request to workspace: %w", err)
+		return u.requestFailed(ctx, obj, "destroy", err)
 	}
 	defer func() { _ = res.CloseSend() }()
 
