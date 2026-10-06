@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+- Fix an Update reconcile blocking forever when its workspace pod becomes unreachable mid-operation [#1293](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1293)
+
 ## 2.9.2 (2026-09-30)
 
 - Fix the operator repeatedly restarting a workspace pod during initialization. [#1349](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1349)
