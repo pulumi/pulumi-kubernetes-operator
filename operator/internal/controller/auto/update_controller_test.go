@@ -16,9 +16,12 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"path/filepath"
 	"runtime"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -30,6 +33,8 @@ import (
 	"go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
@@ -41,8 +46,10 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -201,8 +208,9 @@ func TestUpdate(t *testing.T) {
 		client  func(*gomock.Controller) upper
 		kclient func(*gomock.Controller) creator
 
-		want    autov1alpha1.UpdateStatus
-		wantErr string
+		want                 autov1alpha1.UpdateStatus
+		wantErr              string
+		wantRetriedNotFailed bool
 	}{
 		{
 			name: "update success result with outputs",
@@ -222,7 +230,7 @@ func TestUpdate(t *testing.T) {
 
 				gomock.InOrder(
 					upper.EXPECT().
-						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}, grpc.WaitForReady(true)).
+						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}).
 						Return(recver, nil),
 					recver.EXPECT().
 						Recv().
@@ -285,7 +293,7 @@ func TestUpdate(t *testing.T) {
 
 				gomock.InOrder(
 					upper.EXPECT().
-						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}, grpc.WaitForReady(true)).
+						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}).
 						Return(recver, nil),
 					recver.EXPECT().
 						Recv().
@@ -321,7 +329,7 @@ func TestUpdate(t *testing.T) {
 
 				gomock.InOrder(
 					upper.EXPECT().
-						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}, grpc.WaitForReady(true)).
+						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}).
 						Return(recver, nil),
 					recver.EXPECT().
 						Recv().
@@ -334,20 +342,20 @@ func TestUpdate(t *testing.T) {
 			wantErr: "failed to run update: exit status 255",
 		},
 		{
-			name: "workspace grpc failure",
+			name: "unreachable workspace is retried, not failed",
 			obj:  autov1alpha1.Update{ObjectMeta: metav1.ObjectMeta{Name: "foo", UID: "uid"}},
 			client: func(ctrl *gomock.Controller) upper {
 				upper := NewMockupper(ctrl)
 
 				gomock.InOrder(
 					upper.EXPECT().
-						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}, grpc.WaitForReady(true)).
+						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}).
 						Return(nil, status.Error(codes.Unavailable, "transient workspace error")),
 				)
 				return upper
 			},
-			kclient: func(*gomock.Controller) creator { return nil },
-			wantErr: "transient workspace error",
+			kclient:              func(*gomock.Controller) creator { return nil },
+			wantRetriedNotFailed: true,
 		},
 		{
 			name: "response stream grpc failure",
@@ -358,7 +366,7 @@ func TestUpdate(t *testing.T) {
 
 				gomock.InOrder(
 					upper.EXPECT().
-						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}, grpc.WaitForReady(true)).
+						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}).
 						Return(recver, nil),
 					recver.EXPECT().
 						Recv().
@@ -386,7 +394,7 @@ func TestUpdate(t *testing.T) {
 
 				gomock.InOrder(
 					upper.EXPECT().
-						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}, grpc.WaitForReady(true)).
+						Up(gomock.Any(), protoMatcher{&agentpb.UpRequest{}}).
 						Return(recver, nil),
 					recver.EXPECT().
 						Recv().
@@ -436,6 +444,16 @@ func TestUpdate(t *testing.T) {
 				tt.client(ctrl),
 				tt.kclient(ctrl),
 			)
+			if tt.wantRetriedNotFailed {
+				assert.Error(t, err)
+				assert.Equal(t, codes.Unavailable, status.Code(err))
+				g.Expect(recorder.Events).To(Receive(matchEvent(string(autov1alpha1.ConnectionFailure))))
+				assert.Equal(t, metav1.ConditionFalse, rs.progressing.Status)
+				assert.Equal(t, "TransientFailure", rs.progressing.Reason)
+				assert.Equal(t, metav1.ConditionFalse, rs.failed.Status)
+				assert.Equal(t, metav1.ConditionFalse, rs.complete.Status)
+				return
+			}
 			if tt.wantErr != "" {
 				assert.ErrorContains(t, err, tt.wantErr)
 				//TODO(rquitales): Also check the return statues!
@@ -457,6 +475,149 @@ func TestUpdate(t *testing.T) {
 			assert.EqualExportedValues(t, tt.want, res.Status)
 		})
 	}
+}
+
+// failingAgentClient embeds a nil AutomationServiceClient, so any RPC other
+// than the four overridden here panics rather than silently succeeding.
+type failingAgentClient struct {
+	agentpb.AutomationServiceClient
+	err error
+}
+
+func (c failingAgentClient) Preview(context.Context, *agentpb.PreviewRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[agentpb.PreviewStream], error) {
+	return nil, c.err
+}
+
+func (c failingAgentClient) Up(context.Context, *agentpb.UpRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[agentpb.UpStream], error) {
+	return nil, c.err
+}
+
+func (c failingAgentClient) Refresh(context.Context, *agentpb.RefreshRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[agentpb.RefreshStream], error) {
+	return nil, c.err
+}
+
+func (c failingAgentClient) Destroy(context.Context, *agentpb.DestroyRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[agentpb.DestroyStream], error) {
+	return nil, c.err
+}
+
+func TestOperationHandlesRequestError(t *testing.T) {
+	operations := []struct {
+		name string
+		call func(*reconcileSession, context.Context, *autov1alpha1.Update, failingAgentClient) (ctrl.Result, error)
+	}{
+		{
+			name: "preview",
+			call: func(rs *reconcileSession, ctx context.Context, obj *autov1alpha1.Update, c failingAgentClient) (ctrl.Result, error) {
+				return rs.Preview(ctx, obj, c)
+			},
+		},
+		{
+			name: "up",
+			call: func(rs *reconcileSession, ctx context.Context, obj *autov1alpha1.Update, c failingAgentClient) (ctrl.Result, error) {
+				return rs.Update(ctx, obj, c, nil)
+			},
+		},
+		{
+			name: "refresh",
+			call: func(rs *reconcileSession, ctx context.Context, obj *autov1alpha1.Update, c failingAgentClient) (ctrl.Result, error) {
+				return rs.Refresh(ctx, obj, c)
+			},
+		},
+		{
+			name: "destroy",
+			call: func(rs *reconcileSession, ctx context.Context, obj *autov1alpha1.Update, c failingAgentClient) (ctrl.Result, error) {
+				return rs.Destroy(ctx, obj, c)
+			},
+		},
+	}
+
+	failures := []struct {
+		name      string
+		err       error
+		wantEvent string
+		wantErr   string
+		wantRetry bool
+	}{
+		{
+			name:      "unreachable workspace is retried",
+			err:       status.Error(codes.Unavailable, "transient workspace error"),
+			wantEvent: string(autov1alpha1.ConnectionFailure),
+			wantErr:   "transient workspace error",
+			wantRetry: true,
+		},
+		{
+			name:      "any other error fails the update",
+			err:       status.Error(codes.Internal, "permanent workspace error"),
+			wantEvent: string(autov1alpha1.UpdateFailed),
+			wantErr:   "failed request to workspace: rpc error: code = Internal desc = permanent workspace error",
+		},
+	}
+
+	require.NoError(t, autov1alpha1.AddToScheme(scheme.Scheme))
+
+	for _, op := range operations {
+		for _, failure := range failures {
+			t.Run(op.name+"/"+failure.name, func(t *testing.T) {
+				obj := &autov1alpha1.Update{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+					Spec:       autov1alpha1.UpdateSpec{StackName: "dev"},
+				}
+				c := fake.NewClientBuilder().
+					WithScheme(scheme.Scheme).
+					WithObjects(obj).
+					WithStatusSubresource(obj).
+					Build()
+				recorder := record.NewFakeRecorder(10)
+				rs := newReconcileSession(c, recorder, obj)
+
+				_, err := op.call(rs, t.Context(), obj, failingAgentClient{err: failure.err})
+
+				assert.ErrorContains(t, err, failure.wantErr)
+				require.Len(t, recorder.Events, 1)
+				assert.Contains(t, <-recorder.Events, failure.wantEvent)
+
+				if !failure.wantRetry {
+					assert.Equal(t, metav1.ConditionUnknown, rs.progressing.Status)
+					return
+				}
+				assert.Equal(t, codes.Unavailable, status.Code(err))
+				assert.Equal(t, metav1.ConditionFalse, rs.progressing.Status)
+				assert.Equal(t, "TransientFailure", rs.progressing.Reason)
+				assert.Equal(t, metav1.ConditionFalse, rs.failed.Status)
+				assert.Equal(t, metav1.ConditionFalse, rs.complete.Status)
+			})
+		}
+	}
+}
+
+func TestRetryUnreachableReturnsTheStatusWriteError(t *testing.T) {
+	require.NoError(t, autov1alpha1.AddToScheme(scheme.Scheme))
+
+	obj := &autov1alpha1.Update{
+		ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+	}
+	c := interceptor.NewClient(
+		fake.NewClientBuilder().
+			WithScheme(scheme.Scheme).
+			WithObjects(obj).
+			WithStatusSubresource(obj).
+			Build(),
+		interceptor.Funcs{
+			SubResourcePatch: func(context.Context, client.Client, string, client.Object, client.Patch, ...client.SubResourcePatchOption) error {
+				return errors.New("status write failed")
+			},
+		},
+	)
+	recorder := record.NewFakeRecorder(10)
+	rs := newReconcileSession(c, recorder, obj)
+
+	_, err := rs.retryUnreachable(t.Context(), obj, status.Error(codes.Unavailable, "transient workspace error"))
+
+	assert.ErrorContains(t, err, "status write failed")
+	assert.NotContains(t, err.Error(), "transient workspace error")
+	assert.Equal(t, codes.Unknown, status.Code(err))
+	require.Len(t, recorder.Events, 1)
+	assert.Contains(t, <-recorder.Events, string(autov1alpha1.ConnectionFailure))
 }
 
 type protoMatcher struct {
@@ -707,4 +868,176 @@ func TestMapWorkspaceToUpdate_SkipsActiveReconciles(t *testing.T) {
 	if len(requests) == 1 {
 		assert.Equal(t, "update-pending", requests[0].Name)
 	}
+}
+
+type drainingAgentServer struct {
+	agentpb.UnimplementedAutomationServiceServer
+	onSelectStack func() error
+	upCalls       atomic.Int32
+}
+
+func (s *drainingAgentServer) SelectStack(_ context.Context, _ *agentpb.SelectStackRequest) (*agentpb.SelectStackResult, error) {
+	if s.onSelectStack != nil {
+		if err := s.onSelectStack(); err != nil {
+			return nil, err
+		}
+	}
+	return &agentpb.SelectStackResult{}, nil
+}
+
+func (s *drainingAgentServer) Up(_ *agentpb.UpRequest, _ agentpb.AutomationService_UpServer) error {
+	s.upCalls.Add(1)
+	return nil
+}
+
+func TestUpdateReconcileReturnsWhenWorkspaceBecomesUnreachable(t *testing.T) {
+	env := &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, env.Stop()) })
+
+	require.NoError(t, autov1alpha1.AddToScheme(scheme.Scheme))
+	c, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	require.NoError(t, err)
+
+	ctx := t.Context()
+
+	lis, err := net.Listen("tcp", "localhost:0")
+	require.NoError(t, err)
+	grpcSrv := grpc.NewServer()
+	agent := &drainingAgentServer{}
+	agentpb.RegisterAutomationServiceServer(grpcSrv, agent)
+	go func() { _ = grpcSrv.Serve(lis) }()
+	t.Cleanup(func() {
+		grpcSrv.Stop()
+		_ = lis.Close()
+	})
+
+	// Create a probe connected to the same server to observe the drain.
+	// When the probe receives GOAWAY it reports that the connection is not ready.
+	probe, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = probe.Close() })
+	probe.Connect()
+	probeCtx, probeCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer probeCancel()
+	for {
+		state := probe.GetState()
+		if state == connectivity.Ready {
+			break
+		}
+		require.True(t, probe.WaitForStateChange(probeCtx, state),
+			"probe connection never became ready")
+	}
+
+	// The agent drains its connection while serving SelectStack, which is what a
+	// workspace pod does on SIGTERM, eviction or a rollout. SelectStack still
+	// completes, so the reconcile proceeds to Up needing a transport that can
+	// never be established.
+	agent.onSelectStack = func() error {
+		go grpcSrv.GracefulStop()
+		drainCtx, drainCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer drainCancel()
+		for probe.GetState() == connectivity.Ready {
+			if !probe.WaitForStateChange(drainCtx, connectivity.Ready) {
+				return fmt.Errorf("server did not start draining")
+			}
+		}
+		return nil
+	}
+
+	t.Setenv("WORKSPACE_LOCALHOST", lis.Addr().String())
+
+	suffix := utilrand.String(8)
+	ws := &autov1alpha1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{Name: "ws-" + suffix, Namespace: "default"},
+	}
+	require.NoError(t, c.Create(ctx, ws))
+	ws.Status.ObservedGeneration = ws.Generation
+	meta.SetStatusCondition(&ws.Status.Conditions, metav1.Condition{
+		Type:               autov1alpha1.WorkspaceReady,
+		Status:             metav1.ConditionTrue,
+		Reason:             "Succeeded",
+		ObservedGeneration: ws.Generation,
+	})
+	require.NoError(t, c.Status().Update(ctx, ws))
+
+	obj := &autov1alpha1.Update{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "update-" + suffix,
+			Namespace: "default",
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: autov1alpha1.GroupVersion.String(),
+				Kind:       "Workspace",
+				Name:       ws.Name,
+				UID:        ws.UID,
+				Controller: ptr.To(true),
+			}},
+		},
+		Spec: autov1alpha1.UpdateSpec{
+			WorkspaceName: ws.Name,
+			StackName:     "dev",
+			Type:          autov1alpha1.UpType,
+		},
+	}
+	require.NoError(t, c.Create(ctx, obj))
+
+	r := &UpdateReconciler{
+		Client:            c,
+		Scheme:            c.Scheme(),
+		Recorder:          record.NewFakeRecorder(10),
+		ConnectionManager: &ConnectionManager{factory: &mockTokenSourceFactory{}},
+	}
+
+	type outcome struct {
+		err error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		_, reconcileErr := r.Reconcile(ctx, reconcile.Request{
+			NamespacedName: client.ObjectKeyFromObject(obj),
+		})
+		done <- outcome{reconcileErr}
+	}()
+
+	var got outcome
+	select {
+	case got = <-done:
+	case <-time.After(30 * time.Second):
+		t.Fatal("Reconcile did not return; the RPC is blocking and holding its worker slot")
+	}
+
+	assert.Zero(t, agent.upCalls.Load(),
+		"the Up RPC must not have reached the agent, otherwise the test exercised the wrong path")
+
+	require.Error(t, got.err,
+		"the error drives a backed-off requeue through the workqueue rate limiter")
+	assert.Equal(t, codes.Unavailable, status.Code(got.err))
+
+	var result autov1alpha1.Update
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(obj), &result))
+
+	progressing := meta.FindStatusCondition(result.Status.Conditions, UpdateConditionTypeProgressing)
+	require.NotNil(t, progressing)
+	assert.Equal(t, metav1.ConditionFalse, progressing.Status)
+	assert.Equal(t, "TransientFailure", progressing.Reason)
+
+	// A second pass must not trip the guard that fails an Update found still
+	// Progressing, which would count against maxUpdateFailures and stall the Stack.
+	_, _ = r.Reconcile(ctx, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(obj)})
+
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(obj), &result))
+
+	failed := meta.FindStatusCondition(result.Status.Conditions, UpdateConditionTypeFailed)
+	require.NotNil(t, failed)
+	assert.Equal(t, metav1.ConditionFalse, failed.Status)
+
+	complete := meta.FindStatusCondition(result.Status.Conditions, UpdateConditionTypeComplete)
+	require.NotNil(t, complete)
+	assert.Equal(t, metav1.ConditionFalse, complete.Status)
 }
