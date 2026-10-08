@@ -38,10 +38,7 @@ const (
 )
 
 // errorDiagnostics collects the error-severity diagnostics from an engine
-// event stream. Pulumi reports what went wrong through these, so they give a
-// bounded failure message where the raw CLI output would not: the output
-// carries the whole progress log, which can reach megabytes and cannot be
-// stored on a Kubernetes object.
+// event stream.
 type errorDiagnostics struct {
 	mu      sync.Mutex
 	lines   []string
@@ -54,10 +51,8 @@ func newErrorDiagnostics() *errorDiagnostics {
 	return &errorDiagnostics{drained: make(chan struct{})}
 }
 
-// observe records evt when it is an error diagnostic, and ignores it
-// otherwise.
-func (d *errorDiagnostics) observe(evt apitype.EngineEvent) {
-	diag := evt.DiagnosticEvent
+func (d *errorDiagnostics) observe(event apitype.EngineEvent) {
+	diag := event.DiagnosticEvent
 	if diag == nil || diag.Severity != "error" {
 		return
 	}

@@ -4,6 +4,7 @@ CHANGELOG
 ## Unreleased
 
 - Fix an Update reconcile blocking forever when its workspace pod becomes unreachable mid-operation [#1293](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1293)
+- Fix a Stack becoming unable to reconcile when a failed operation produced large CLI output [#1366](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1366)
 
 ## 2.9.2 (2026-09-30)
 
