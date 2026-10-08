@@ -649,8 +649,11 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optpreview.EventStreams(events))
+	diags := newErrorDiagnostics()
 	go func() {
+		defer diags.close()
 		for evt := range events {
+			diags.observe(evt.EngineEvent)
 			data, err := marshalEngineEvent(evt.EngineEvent)
 			if err != nil {
 				s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
@@ -667,7 +670,7 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 	res, err := stack.Preview(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("preview completed with an error", zap.Error(err))
-		st := status.New(codes.Unknown, "preview failed; see the workspace pod logs")
+		st := status.New(codes.Unknown, diags.failureMessage("preview"))
 		return withPulumiErrorInfo(st, err).Err()
 	}
 	stdout.Close() //nolint:gosec // Close always returns nil err
@@ -740,8 +743,11 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optrefresh.EventStreams(events))
+	diags := newErrorDiagnostics()
 	go func() {
+		defer diags.close()
 		for evt := range events {
+			diags.observe(evt.EngineEvent)
 			data, err := marshalEngineEvent(evt.EngineEvent)
 			if err != nil {
 				s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
@@ -758,7 +764,7 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 	res, err := stack.Refresh(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("refresh completed with an error", zap.Error(err))
-		st := status.New(codes.Unknown, "refresh failed; see the workspace pod logs")
+		st := status.New(codes.Unknown, diags.failureMessage("refresh"))
 		return withPulumiErrorInfo(st, err).Err()
 	}
 	s.log.Infow("refresh completed", "result", res.Summary.Result, "message", res.Summary.Message)
@@ -841,8 +847,11 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optup.EventStreams(events))
+	diags := newErrorDiagnostics()
 	go func() {
+		defer diags.close()
 		for evt := range events {
+			diags.observe(evt.EngineEvent)
 			data, err := marshalEngineEvent(evt.EngineEvent)
 			if err != nil {
 				s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
@@ -860,7 +869,7 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 	res, err := stack.Up(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("up completed with an error", zap.Error(err))
-		st := status.New(codes.Unknown, "up failed; see the workspace pod logs")
+		st := status.New(codes.Unknown, diags.failureMessage("up"))
 		return withPulumiErrorInfo(st, err).Err()
 	}
 	stdout.Close() //nolint:gosec // Close always returns nil err
@@ -955,8 +964,11 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optdestroy.EventStreams(events))
+	diags := newErrorDiagnostics()
 	go func() {
+		defer diags.close()
 		for evt := range events {
+			diags.observe(evt.EngineEvent)
 			data, err := marshalEngineEvent(evt.EngineEvent)
 			if err != nil {
 				s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
@@ -974,7 +986,7 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 	res, err := stack.Destroy(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("destroy completed with an error", zap.Error(err))
-		st := status.New(codes.Unknown, "destroy failed; see the workspace pod logs")
+		st := status.New(codes.Unknown, diags.failureMessage("destroy"))
 		return withPulumiErrorInfo(st, err).Err()
 	}
 	s.log.Infow("destroy completed", "result", res.Summary.Result, "message", res.Summary.Message)

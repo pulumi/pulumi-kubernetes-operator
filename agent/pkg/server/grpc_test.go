@@ -69,17 +69,18 @@ func TestGracefulShutdown(t *testing.T) {
 	// cancelEvent along with a non-nil error.
 	sawCancelEvent := false
 	sawSummary := false
+	sawFailure := false
 	for {
 		msg, err := stream.Recv()
 		if err == io.EOF {
 			break
 		}
 		// A non-nil error is expected if the server acked our cancellation.
-		// The error does not carry the CLI output. That stays in the pod log,
-		// and reaches the caller as engine events.
+		// The error reports the engine's own error diagnostics rather than the
+		// CLI output, which stays in the pod log.
 		if err != nil && sawCancelEvent {
-			assert.ErrorContains(t, err, "up failed; see the workspace pod logs")
-			sawSummary = true
+			assert.ErrorContains(t, err, "up failed: error: update canceled")
+			sawFailure = true
 			break
 		}
 		require.NoError(t, err)
@@ -92,6 +93,12 @@ func TestGracefulShutdown(t *testing.T) {
 			continue
 		}
 
+		// A summary of what was applied before the cancellation proves the
+		// engine shut down cleanly rather than being killed outright.
+		if _, ok := msg.GetEvent().AsMap()["summaryEvent"]; ok {
+			sawSummary = true
+		}
+
 		// We should eventually see an ack for the cancellation.
 		if _, ok := msg.GetEvent().AsMap()["cancelEvent"]; ok {
 			sawCancelEvent = true
@@ -100,4 +107,5 @@ func TestGracefulShutdown(t *testing.T) {
 
 	assert.True(t, sawCancelEvent)
 	assert.True(t, sawSummary)
+	assert.True(t, sawFailure)
 }
