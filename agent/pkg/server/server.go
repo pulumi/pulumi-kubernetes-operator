@@ -667,7 +667,7 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 	res, err := stack.Preview(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("preview completed with an error", zap.Error(err))
-		st := status.Newf(codes.Unknown, "preview failed: %v", err)
+		st := status.New(codes.Unknown, "preview failed; see the workspace pod logs")
 		return withPulumiErrorInfo(st, err).Err()
 	}
 	stdout.Close() //nolint:gosec // Close always returns nil err
@@ -758,7 +758,7 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 	res, err := stack.Refresh(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("refresh completed with an error", zap.Error(err))
-		st := status.Newf(codes.Unknown, "refresh failed: %v", err)
+		st := status.New(codes.Unknown, "refresh failed; see the workspace pod logs")
 		return withPulumiErrorInfo(st, err).Err()
 	}
 	s.log.Infow("refresh completed", "result", res.Summary.Result, "message", res.Summary.Message)
@@ -860,7 +860,7 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 	res, err := stack.Up(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("up completed with an error", zap.Error(err))
-		st := status.Newf(codes.Unknown, "up failed: %v", err)
+		st := status.New(codes.Unknown, "up failed; see the workspace pod logs")
 		return withPulumiErrorInfo(st, err).Err()
 	}
 	stdout.Close() //nolint:gosec // Close always returns nil err
@@ -974,7 +974,7 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 	res, err := stack.Destroy(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("destroy completed with an error", zap.Error(err))
-		st := status.Newf(codes.Unknown, "destroy failed: %v", err)
+		st := status.New(codes.Unknown, "destroy failed; see the workspace pod logs")
 		return withPulumiErrorInfo(st, err).Err()
 	}
 	s.log.Infow("destroy completed", "result", res.Summary.Result, "message", res.Summary.Message)
