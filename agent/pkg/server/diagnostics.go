@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 )
@@ -29,26 +28,17 @@ const (
 	// mid-sentence.
 	maxDiagnostics     = 10
 	maxDiagnosticBytes = 32 << 10
-
-	// drainTimeout bounds the wait for the event stream to finish. The stream
-	// is closed before the Pulumi operation returns, so the wait is normally
-	// over at once. It only expires if the operation failed before the engine
-	// produced any events at all.
-	drainTimeout = 5 * time.Second
 )
 
 // errorDiagnostics collects the error-severity diagnostics from an engine
-// event stream.
+// event stream. The engine always emits a summaryEvent and a cancelEvent after
+// its diagnostics, and event sends are unbuffered and sequential, so every
+// diagnostic is recorded before the Pulumi operation returns.
 type errorDiagnostics struct {
 	mu      sync.Mutex
 	lines   []string
 	size    int
 	omitted int
-	drained chan struct{}
-}
-
-func newErrorDiagnostics() *errorDiagnostics {
-	return &errorDiagnostics{drained: make(chan struct{})}
 }
 
 func (d *errorDiagnostics) observe(event apitype.EngineEvent) {
@@ -72,19 +62,9 @@ func (d *errorDiagnostics) observe(event apitype.EngineEvent) {
 	d.size += len(line) + 1
 }
 
-// close marks the event stream as fully processed.
-func (d *errorDiagnostics) close() {
-	close(d.drained)
-}
-
 // failureMessage renders the diagnostics as a gRPC status message. The whole
 // output stays in the workspace pod log either way.
 func (d *errorDiagnostics) failureMessage(operation string) string {
-	select {
-	case <-d.drained:
-	case <-time.After(drainTimeout):
-	}
-
 	d.mu.Lock()
 	defer d.mu.Unlock()
 

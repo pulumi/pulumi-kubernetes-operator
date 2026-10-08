@@ -34,37 +34,33 @@ func diagnostic(severity, prefix, message string) apitype.EngineEvent {
 }
 
 func TestErrorDiagnostics_JoinsPrefixAndMessage(t *testing.T) {
-	d := newErrorDiagnostics()
+	d := &errorDiagnostics{}
 	d.observe(diagnostic("error", "error: ", "update canceled\n"))
-	d.close()
 
 	assert.Equal(t, "up failed: error: update canceled", d.failureMessage("up"))
 }
 
 func TestErrorDiagnostics_IgnoresNonErrorSeverities(t *testing.T) {
-	d := newErrorDiagnostics()
+	d := &errorDiagnostics{}
 	d.observe(diagnostic("info", "", "creating resource\n"))
 	d.observe(diagnostic("info#err", "", "noise\n"))
 	d.observe(diagnostic("warning", "warning: ", "deprecated\n"))
 	d.observe(apitype.EngineEvent{})
-	d.close()
 
 	assert.Equal(t, "refresh failed; see the workspace pod logs", d.failureMessage("refresh"))
 }
 
 func TestErrorDiagnostics_FallsBackWhenTheEngineReportedNothing(t *testing.T) {
-	d := newErrorDiagnostics()
-	d.close()
+	d := &errorDiagnostics{}
 
 	assert.Equal(t, "destroy failed; see the workspace pod logs", d.failureMessage("destroy"))
 }
 
 func TestErrorDiagnostics_ReportsEveryDiagnosticUpToTheLimit(t *testing.T) {
-	d := newErrorDiagnostics()
+	d := &errorDiagnostics{}
 	for i := 0; i < maxDiagnostics; i++ {
 		d.observe(diagnostic("error", "error: ", fmt.Sprintf("failure %d\n", i)))
 	}
-	d.close()
 
 	msg := d.failureMessage("up")
 	assert.Equal(t, maxDiagnostics, strings.Count(msg, "error: "))
@@ -72,11 +68,10 @@ func TestErrorDiagnostics_ReportsEveryDiagnosticUpToTheLimit(t *testing.T) {
 }
 
 func TestErrorDiagnostics_CountsDiagnosticsPastTheLimit(t *testing.T) {
-	d := newErrorDiagnostics()
+	d := &errorDiagnostics{}
 	for i := 0; i < maxDiagnostics+7; i++ {
 		d.observe(diagnostic("error", "error: ", fmt.Sprintf("failure %d\n", i)))
 	}
-	d.close()
 
 	msg := d.failureMessage("up")
 	assert.Equal(t, maxDiagnostics, strings.Count(msg, "error: "))
@@ -84,11 +79,10 @@ func TestErrorDiagnostics_CountsDiagnosticsPastTheLimit(t *testing.T) {
 }
 
 func TestErrorDiagnostics_KeepsTheFirstDiagnosticsNotTheLast(t *testing.T) {
-	d := newErrorDiagnostics()
+	d := &errorDiagnostics{}
 	for i := 0; i < maxDiagnostics+1; i++ {
 		d.observe(diagnostic("error", "error: ", fmt.Sprintf("failure %d\n", i)))
 	}
-	d.close()
 
 	msg := d.failureMessage("up")
 	assert.Contains(t, msg, "failure 0", "the first failure is usually the cause")
@@ -96,11 +90,10 @@ func TestErrorDiagnostics_KeepsTheFirstDiagnosticsNotTheLast(t *testing.T) {
 }
 
 func TestErrorDiagnostics_StaysUnderTheByteBudget(t *testing.T) {
-	d := newErrorDiagnostics()
+	d := &errorDiagnostics{}
 	for i := 0; i < maxDiagnostics; i++ {
 		d.observe(diagnostic("error", "error: ", strings.Repeat("x", maxDiagnosticBytes)+"\n"))
 	}
-	d.close()
 
 	msg := d.failureMessage("up")
 	assert.Less(t, len(msg), maxDiagnosticBytes+256)
@@ -108,10 +101,9 @@ func TestErrorDiagnostics_StaysUnderTheByteBudget(t *testing.T) {
 }
 
 func TestErrorDiagnostics_NeverCutsADiagnosticInHalf(t *testing.T) {
-	d := newErrorDiagnostics()
+	d := &errorDiagnostics{}
 	d.observe(diagnostic("error", "error: ", "first\n"))
 	d.observe(diagnostic("error", "error: ", strings.Repeat("y", maxDiagnosticBytes)+"\n"))
-	d.close()
 
 	msg := d.failureMessage("up")
 	assert.Contains(t, msg, "error: first")

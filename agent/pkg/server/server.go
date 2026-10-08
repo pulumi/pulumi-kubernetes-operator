@@ -649,9 +649,8 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optpreview.EventStreams(events))
-	diags := newErrorDiagnostics()
+	diags := &errorDiagnostics{}
 	go func() {
-		defer diags.close()
 		for evt := range events {
 			diags.observe(evt.EngineEvent)
 			data, err := marshalEngineEvent(evt.EngineEvent)
@@ -743,9 +742,8 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optrefresh.EventStreams(events))
-	diags := newErrorDiagnostics()
+	diags := &errorDiagnostics{}
 	go func() {
-		defer diags.close()
 		for evt := range events {
 			diags.observe(evt.EngineEvent)
 			data, err := marshalEngineEvent(evt.EngineEvent)
@@ -847,9 +845,8 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optup.EventStreams(events))
-	diags := newErrorDiagnostics()
+	diags := &errorDiagnostics{}
 	go func() {
-		defer diags.close()
 		for evt := range events {
 			diags.observe(evt.EngineEvent)
 			data, err := marshalEngineEvent(evt.EngineEvent)
@@ -964,9 +961,8 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optdestroy.EventStreams(events))
-	diags := newErrorDiagnostics()
+	diags := &errorDiagnostics{}
 	go func() {
-		defer diags.close()
 		for evt := range events {
 			diags.observe(evt.EngineEvent)
 			data, err := marshalEngineEvent(evt.EngineEvent)
