@@ -30,20 +30,41 @@ const (
 	maxDiagnosticBytes = 32 << 10
 )
 
-// errorDiagnostics collects the error-severity diagnostics from an engine
-// event stream. The engine always emits a summaryEvent and a cancelEvent after
-// its diagnostics, and event sends are unbuffered and sequential, so every
-// diagnostic is recorded before the Pulumi operation returns.
-type errorDiagnostics struct {
-	mu      sync.Mutex
+// boundedLines accumulates diagnostics up to the bounds and counts the rest.
+type boundedLines struct {
 	lines   []string
 	size    int
 	omitted int
 }
 
+func (b *boundedLines) add(line string) {
+	if len(b.lines) >= maxDiagnostics || b.size+len(line) > maxDiagnosticBytes {
+		b.omitted++
+		return
+	}
+	b.lines = append(b.lines, line)
+	b.size += len(line) + 1
+}
+
+func (b *boundedLines) empty() bool {
+	return len(b.lines) == 0
+}
+
+// errorDiagnostics collects the failure diagnostics from an engine event stream.
+type errorDiagnostics struct {
+	mu sync.Mutex
+	// errs holds "error" severity diagnostics, which the engine raises when a
+	// resource operation returns an error.
+	errs boundedLines
+	// stderr holds "info#err" severity diagnostics, which relay whatever a
+	// language runtime or a provider plugin wrote to stderr. A program that
+	// fails to evaluate, or a plugin that crashes, reports only through these.
+	stderr boundedLines
+}
+
 func (d *errorDiagnostics) observe(event apitype.EngineEvent) {
 	diag := event.DiagnosticEvent
-	if diag == nil || diag.Severity != "error" {
+	if diag == nil {
 		return
 	}
 	line := strings.TrimSpace(diag.Prefix + diag.Message)
@@ -54,26 +75,29 @@ func (d *errorDiagnostics) observe(event apitype.EngineEvent) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if len(d.lines) >= maxDiagnostics || d.size+len(line) > maxDiagnosticBytes {
-		d.omitted++
-		return
+	switch diag.Severity {
+	case "error":
+		d.errs.add(line)
+	case "info#err":
+		d.stderr.add(line)
 	}
-	d.lines = append(d.lines, line)
-	d.size += len(line) + 1
 }
 
-// failureMessage renders the diagnostics as a gRPC status message. The whole
-// output stays in the workspace pod log either way.
 func (d *errorDiagnostics) failureMessage(operation string) string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if len(d.lines) == 0 {
+	reported := &d.errs
+	if reported.empty() {
+		reported = &d.stderr
+	}
+	if reported.empty() {
 		return fmt.Sprintf("%s failed; see the workspace pod logs", operation)
 	}
-	msg := fmt.Sprintf("%s failed: %s", operation, strings.Join(d.lines, "\n"))
-	if d.omitted > 0 {
-		msg += fmt.Sprintf("\n(%d further diagnostics; see the workspace pod logs)", d.omitted)
+
+	msg := fmt.Sprintf("%s failed: %s", operation, strings.Join(reported.lines, "\n"))
+	if reported.omitted > 0 {
+		msg += fmt.Sprintf("\n(%d further diagnostics; see the workspace pod logs)", reported.omitted)
 	}
 	return msg
 }

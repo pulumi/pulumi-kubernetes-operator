@@ -1097,6 +1097,14 @@ func TestPreview(t *testing.T) {
 			serverOpts: &Options{PulumiLogLevel: 11},
 			req:        &pb.PreviewRequest{},
 		},
+		{
+			name:       "engine failure",
+			projectDir: "./testdata/failing",
+			stacks:     []string{TestStackName},
+			req:        &pb.PreviewRequest{},
+			wantErr: gomega.ContainSubstring(
+				`preview failed: Error: resource, variable, or config value "nosuchvariable" not found`),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1189,6 +1197,14 @@ func TestRefresh(t *testing.T) {
 			projectDir: "./testdata/simple",
 			stacks:     []string{TestStackName},
 			req:        &pb.RefreshRequest{RunProgram: ptr.To(true)},
+		},
+		{
+			name:       "engine failure",
+			projectDir: "./testdata/failing",
+			stacks:     []string{TestStackName},
+			req:        &pb.RefreshRequest{RunProgram: ptr.To(true)},
+			wantErr: gomega.ContainSubstring(
+				`refresh failed: Error: resource, variable, or config value "nosuchvariable" not found`),
 		},
 	}
 	for _, tt := range tests {
@@ -1284,6 +1300,14 @@ func TestDestroy(t *testing.T) {
 			projectDir: "./testdata/simple",
 			stacks:     []string{TestStackName},
 			req:        &pb.DestroyRequest{RunProgram: ptr.To(true)},
+		},
+		{
+			name:       "engine failure",
+			projectDir: "./testdata/failing",
+			stacks:     []string{TestStackName},
+			req:        &pb.DestroyRequest{RunProgram: ptr.To(true)},
+			wantErr: gomega.ContainSubstring(
+				`destroy failed: Error: resource, variable, or config value "nosuchvariable" not found`),
 		},
 	}
 	for _, tt := range tests {

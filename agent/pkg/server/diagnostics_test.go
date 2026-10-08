@@ -40,10 +40,10 @@ func TestErrorDiagnostics_JoinsPrefixAndMessage(t *testing.T) {
 	assert.Equal(t, "up failed: error: update canceled", d.failureMessage("up"))
 }
 
-func TestErrorDiagnostics_IgnoresNonErrorSeverities(t *testing.T) {
+func TestErrorDiagnostics_IgnoresSeveritiesThatAreNotFailures(t *testing.T) {
 	d := &errorDiagnostics{}
 	d.observe(diagnostic("info", "", "creating resource\n"))
-	d.observe(diagnostic("info#err", "", "noise\n"))
+	d.observe(diagnostic("debug", "debug: ", "registering resource\n"))
 	d.observe(diagnostic("warning", "warning: ", "deprecated\n"))
 	d.observe(apitype.EngineEvent{})
 
@@ -54,6 +54,26 @@ func TestErrorDiagnostics_FallsBackWhenTheEngineReportedNothing(t *testing.T) {
 	d := &errorDiagnostics{}
 
 	assert.Equal(t, "destroy failed; see the workspace pod logs", d.failureMessage("destroy"))
+}
+
+func TestErrorDiagnostics_ReportsRelayedStderrWhenThereIsNoErrorDiagnostic(t *testing.T) {
+	d := &errorDiagnostics{}
+	d.observe(diagnostic("info#err", "", "Error: resource, variable, or config value \"x\" not found\n\n"))
+	d.observe(diagnostic("info#err", "", "  on Pulumi.yaml line 8:\n\n"))
+
+	assert.Equal(t, "preview failed: Error: resource, variable, or config value \"x\" not found\n"+
+		"on Pulumi.yaml line 8:", d.failureMessage("preview"))
+}
+
+func TestErrorDiagnostics_PrefersErrorDiagnosticsOverRelayedStderr(t *testing.T) {
+	d := &errorDiagnostics{}
+	d.observe(diagnostic("info#err", "", "plugin chatter\n"))
+	d.observe(diagnostic("error", "error: ", "the real failure\n"))
+	d.observe(diagnostic("info#err", "", "more plugin chatter\n"))
+
+	msg := d.failureMessage("up")
+	assert.Equal(t, "up failed: error: the real failure", msg)
+	assert.NotContains(t, msg, "chatter", "stderr must not crowd out an error diagnostic")
 }
 
 func TestErrorDiagnostics_ReportsEveryDiagnosticUpToTheLimit(t *testing.T) {
@@ -76,6 +96,17 @@ func TestErrorDiagnostics_CountsDiagnosticsPastTheLimit(t *testing.T) {
 	msg := d.failureMessage("up")
 	assert.Equal(t, maxDiagnostics, strings.Count(msg, "error: "))
 	assert.Contains(t, msg, "(7 further diagnostics; see the workspace pod logs)")
+}
+
+func TestErrorDiagnostics_BoundsRelayedStderrToo(t *testing.T) {
+	d := &errorDiagnostics{}
+	for i := 0; i < maxDiagnostics+3; i++ {
+		d.observe(diagnostic("info#err", "", fmt.Sprintf("stderr line %d\n", i)))
+	}
+
+	msg := d.failureMessage("up")
+	assert.Equal(t, maxDiagnostics, strings.Count(msg, "stderr line "))
+	assert.Contains(t, msg, "(3 further diagnostics; see the workspace pod logs)")
 }
 
 func TestErrorDiagnostics_KeepsTheFirstDiagnosticsNotTheLast(t *testing.T) {
