@@ -21,7 +21,9 @@ import (
 	"os/user"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/onsi/gomega"
@@ -1063,6 +1065,57 @@ func (m *upStream) Send(resp *pb.UpStream) error {
 		m.result = r.Result
 	}
 	return nil
+}
+
+// slowUpStream delays every send, so that the event reader is still working
+// when the Pulumi command returns. It records any send that is still running
+// once the handler has returned, which gRPC forbids.
+type slowUpStream struct {
+	grpc.ServerStream
+	ctx      context.Context
+	mu       sync.Mutex
+	sends    int
+	returned atomic.Bool
+	lateSend atomic.Bool
+}
+
+var _ pb.AutomationService_UpServer = (*slowUpStream)(nil)
+
+func (m *slowUpStream) Context() context.Context {
+	return m.ctx
+}
+
+func (m *slowUpStream) Send(*pb.UpStream) error {
+	time.Sleep(20 * time.Millisecond)
+	if m.returned.Load() {
+		m.lateSend.Store(true)
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.sends++
+	return nil
+}
+
+func TestUp_EventReaderStopsBeforeTheHandlerReturns(t *testing.T) {
+	ctx := newContext(t)
+	tc := newTC(ctx, t, tcOptions{ProjectDir: "./testdata/failing", Stacks: []string{TestStackName}})
+
+	srv := &slowUpStream{ctx: ctx}
+	err := tc.server.Up(&pb.UpRequest{}, srv)
+	srv.returned.Store(true)
+	assert.Error(t, err)
+
+	// Give a reader that was not waited for time to send again.
+	time.Sleep(200 * time.Millisecond)
+
+	srv.mu.Lock()
+	sends := srv.sends
+	srv.mu.Unlock()
+
+	assert.Positive(t, sends, "the reader should have forwarded some events")
+	assert.False(t, srv.lateSend.Load(),
+		"the handler returned while the event reader was still sending on the stream")
 }
 
 func TestPreview(t *testing.T) {
