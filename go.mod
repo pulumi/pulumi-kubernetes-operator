@@ -67,7 +67,7 @@ require (
 	github.com/iwdgo/sigintwindows v0.2.2 // indirect
 	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
-	github.com/pulumi/pulumi-cloud-sdk/go v1.20261007.1312 // indirect
+	github.com/pulumi/pulumi-cloud-sdk/go v1.20261009.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
