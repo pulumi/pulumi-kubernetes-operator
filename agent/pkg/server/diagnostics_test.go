@@ -128,7 +128,18 @@ func TestErrorDiagnostics_StaysUnderTheByteBudget(t *testing.T) {
 
 	msg := d.failureMessage("up")
 	assert.Less(t, len(msg), maxDiagnosticBytes+256)
-	assert.Equal(t, "up failed; see the workspace pod logs", msg)
+	assert.Equal(t, fmt.Sprintf(
+		"up failed; %d diagnostics were too large to report, see the workspace pod logs", maxDiagnostics), msg)
+}
+
+func TestErrorDiagnostics_DoesNotLetStderrMaskAnOversizedErrorDiagnostic(t *testing.T) {
+	d := &errorDiagnostics{}
+	d.observe(diagnostic("error", "error: ", strings.Repeat("x", maxDiagnosticBytes)+"\n"))
+	d.observe(diagnostic("info#err", "", "plugin chatter\n"))
+
+	msg := d.failureMessage("up")
+	assert.Equal(t, "up failed; 1 diagnostics were too large to report, see the workspace pod logs", msg)
+	assert.NotContains(t, msg, "chatter")
 }
 
 func TestErrorDiagnostics_NeverCutsADiagnosticInHalf(t *testing.T) {

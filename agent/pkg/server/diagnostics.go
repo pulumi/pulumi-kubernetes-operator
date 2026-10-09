@@ -46,8 +46,10 @@ func (b *boundedLines) add(line string) {
 	b.size += len(line) + 1
 }
 
+// empty reports whether nothing was observed at all. A diagnostic dropped for
+// being oversized still counts, so that it cannot be masked by a later source.
 func (b *boundedLines) empty() bool {
-	return len(b.lines) == 0
+	return len(b.lines) == 0 && b.omitted == 0
 }
 
 // errorDiagnostics collects the failure diagnostics from an engine event stream.
@@ -91,13 +93,17 @@ func (d *errorDiagnostics) failureMessage(operation string) string {
 	if reported.empty() {
 		reported = &d.stderr
 	}
-	if reported.empty() {
-		return fmt.Sprintf("%s failed; see the workspace pod logs", operation)
-	}
 
-	msg := fmt.Sprintf("%s failed: %s", operation, strings.Join(reported.lines, "\n"))
-	if reported.omitted > 0 {
-		msg += fmt.Sprintf("\n(%d further diagnostics; see the workspace pod logs)", reported.omitted)
+	switch {
+	case reported.empty():
+		return fmt.Sprintf("%s failed; see the workspace pod logs", operation)
+	case len(reported.lines) == 0:
+		return fmt.Sprintf("%s failed; %d diagnostics were too large to report, see the workspace pod logs",
+			operation, reported.omitted)
+	case reported.omitted > 0:
+		return fmt.Sprintf("%s failed: %s\n(%d further diagnostics; see the workspace pod logs)",
+			operation, strings.Join(reported.lines, "\n"), reported.omitted)
+	default:
+		return fmt.Sprintf("%s failed: %s", operation, strings.Join(reported.lines, "\n"))
 	}
-	return msg
 }
