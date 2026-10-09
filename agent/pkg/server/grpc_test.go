@@ -66,21 +66,21 @@ func TestGracefulShutdown(t *testing.T) {
 	// Stream events from our update. We will cause the server to shut down
 	// once a resourcePreEvent is observed, and it should continue to send
 	// events as it shuts down. If it exits cleanly, we expect it to return a
-	// cancelEvent along with an non-nil error summarizing what was updated.
+	// cancelEvent along with a non-nil error.
 	sawCancelEvent := false
 	sawSummary := false
+	sawFailure := false
 	for {
 		msg, err := stream.Recv()
 		if err == io.EOF {
 			break
 		}
 		// A non-nil error is expected if the server acked our cancellation.
-		// This includes a final summary of any changes applied before the
-		// update was canceled.
+		// The error reports the engine's own error diagnostics rather than the
+		// CLI output, which stays in the pod log.
 		if err != nil && sawCancelEvent {
-			assert.ErrorContains(t, err, "urn:pulumi:test::hang::pulumi:pulumi:Stack::hang-test")
-			assert.ErrorContains(t, err, "error: update canceled")
-			sawSummary = true
+			assert.ErrorContains(t, err, "up failed: error: update canceled")
+			sawFailure = true
 			break
 		}
 		require.NoError(t, err)
@@ -93,6 +93,12 @@ func TestGracefulShutdown(t *testing.T) {
 			continue
 		}
 
+		// A summary of what was applied before the cancellation proves the
+		// engine shut down cleanly rather than being killed outright.
+		if _, ok := msg.GetEvent().AsMap()["summaryEvent"]; ok {
+			sawSummary = true
+		}
+
 		// We should eventually see an ack for the cancellation.
 		if _, ok := msg.GetEvent().AsMap()["cancelEvent"]; ok {
 			sawCancelEvent = true
@@ -101,4 +107,5 @@ func TestGracefulShutdown(t *testing.T) {
 
 	assert.True(t, sawCancelEvent)
 	assert.True(t, sawSummary)
+	assert.True(t, sawFailure)
 }

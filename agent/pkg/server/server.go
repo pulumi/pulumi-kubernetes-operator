@@ -649,17 +649,29 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optpreview.EventStreams(events))
+	diags := &errorDiagnostics{}
+	stop, drained := make(chan struct{}), make(chan struct{})
 	go func() {
-		for evt := range events {
-			data, err := marshalEngineEvent(evt.EngineEvent)
-			if err != nil {
-				s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
-			}
-			msg := &pb.PreviewStream{Response: &pb.PreviewStream_Event{Event: data}}
-			if err := srv.Send(msg); err != nil {
-				s.log.Errorw("failed to send an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
+		defer close(drained)
+		for {
+			select {
+			case <-stop:
+				return
+			case evt, ok := <-events:
+				if !ok {
+					return
+				}
+				diags.observe(evt.EngineEvent)
+				data, err := marshalEngineEvent(evt.EngineEvent)
+				if err != nil {
+					s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
+					continue
+				}
+				msg := &pb.PreviewStream{Response: &pb.PreviewStream_Event{Event: data}}
+				if err := srv.Send(msg); err != nil {
+					s.log.Errorw("failed to send an engine event", "sequence", evt.Sequence, zap.Error(err))
+					continue
+				}
 			}
 		}
 	}()
@@ -667,7 +679,9 @@ func (s *Server) Preview(in *pb.PreviewRequest, srv pb.AutomationService_Preview
 	res, err := stack.Preview(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("preview completed with an error", zap.Error(err))
-		st := status.Newf(codes.Unknown, "preview failed: %v", err)
+		close(stop)
+		<-drained
+		st := status.New(codes.Unknown, diags.failureMessage("preview"))
 		return withPulumiErrorInfo(st, err).Err()
 	}
 	stdout.Close() //nolint:gosec // Close always returns nil err
@@ -740,17 +754,29 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optrefresh.EventStreams(events))
+	diags := &errorDiagnostics{}
+	stop, drained := make(chan struct{}), make(chan struct{})
 	go func() {
-		for evt := range events {
-			data, err := marshalEngineEvent(evt.EngineEvent)
-			if err != nil {
-				s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
-			}
-			msg := &pb.RefreshStream{Response: &pb.RefreshStream_Event{Event: data}}
-			if err := srv.Send(msg); err != nil {
-				s.log.Errorw("failed to send an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
+		defer close(drained)
+		for {
+			select {
+			case <-stop:
+				return
+			case evt, ok := <-events:
+				if !ok {
+					return
+				}
+				diags.observe(evt.EngineEvent)
+				data, err := marshalEngineEvent(evt.EngineEvent)
+				if err != nil {
+					s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
+					continue
+				}
+				msg := &pb.RefreshStream{Response: &pb.RefreshStream_Event{Event: data}}
+				if err := srv.Send(msg); err != nil {
+					s.log.Errorw("failed to send an engine event", "sequence", evt.Sequence, zap.Error(err))
+					continue
+				}
 			}
 		}
 	}()
@@ -758,7 +784,9 @@ func (s *Server) Refresh(in *pb.RefreshRequest, srv pb.AutomationService_Refresh
 	res, err := stack.Refresh(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("refresh completed with an error", zap.Error(err))
-		st := status.Newf(codes.Unknown, "refresh failed: %v", err)
+		close(stop)
+		<-drained
+		st := status.New(codes.Unknown, diags.failureMessage("refresh"))
 		return withPulumiErrorInfo(st, err).Err()
 	}
 	s.log.Infow("refresh completed", "result", res.Summary.Result, "message", res.Summary.Message)
@@ -841,17 +869,29 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optup.EventStreams(events))
+	diags := &errorDiagnostics{}
+	stop, drained := make(chan struct{}), make(chan struct{})
 	go func() {
-		for evt := range events {
-			data, err := marshalEngineEvent(evt.EngineEvent)
-			if err != nil {
-				s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
-			}
-			msg := &pb.UpStream{Response: &pb.UpStream_Event{Event: data}}
-			if err := srv.Send(msg); err != nil {
-				s.log.Errorw("failed to send an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
+		defer close(drained)
+		for {
+			select {
+			case <-stop:
+				return
+			case evt, ok := <-events:
+				if !ok {
+					return
+				}
+				diags.observe(evt.EngineEvent)
+				data, err := marshalEngineEvent(evt.EngineEvent)
+				if err != nil {
+					s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
+					continue
+				}
+				msg := &pb.UpStream{Response: &pb.UpStream_Event{Event: data}}
+				if err := srv.Send(msg); err != nil {
+					s.log.Errorw("failed to send an engine event", "sequence", evt.Sequence, zap.Error(err))
+					continue
+				}
 			}
 		}
 	}()
@@ -860,7 +900,9 @@ func (s *Server) Up(in *pb.UpRequest, srv pb.AutomationService_UpServer) error {
 	res, err := stack.Up(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("up completed with an error", zap.Error(err))
-		st := status.Newf(codes.Unknown, "up failed: %v", err)
+		close(stop)
+		<-drained
+		st := status.New(codes.Unknown, diags.failureMessage("up"))
 		return withPulumiErrorInfo(st, err).Err()
 	}
 	stdout.Close() //nolint:gosec // Close always returns nil err
@@ -955,17 +997,29 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 	// stream the engine events to the client
 	events := make(chan events.EngineEvent)
 	opts = append(opts, optdestroy.EventStreams(events))
+	diags := &errorDiagnostics{}
+	stop, drained := make(chan struct{}), make(chan struct{})
 	go func() {
-		for evt := range events {
-			data, err := marshalEngineEvent(evt.EngineEvent)
-			if err != nil {
-				s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
-			}
-			msg := &pb.DestroyStream{Response: &pb.DestroyStream_Event{Event: data}}
-			if err := srv.Send(msg); err != nil {
-				s.log.Errorw("failed to send an engine event", "sequence", evt.Sequence, zap.Error(err))
-				continue
+		defer close(drained)
+		for {
+			select {
+			case <-stop:
+				return
+			case evt, ok := <-events:
+				if !ok {
+					return
+				}
+				diags.observe(evt.EngineEvent)
+				data, err := marshalEngineEvent(evt.EngineEvent)
+				if err != nil {
+					s.log.Errorw("failed to marshal an engine event", "sequence", evt.Sequence, zap.Error(err))
+					continue
+				}
+				msg := &pb.DestroyStream{Response: &pb.DestroyStream_Event{Event: data}}
+				if err := srv.Send(msg); err != nil {
+					s.log.Errorw("failed to send an engine event", "sequence", evt.Sequence, zap.Error(err))
+					continue
+				}
 			}
 		}
 	}()
@@ -974,7 +1028,9 @@ func (s *Server) Destroy(in *pb.DestroyRequest, srv pb.AutomationService_Destroy
 	res, err := stack.Destroy(ctx, opts...)
 	if err != nil {
 		s.log.Errorw("destroy completed with an error", zap.Error(err))
-		st := status.Newf(codes.Unknown, "destroy failed: %v", err)
+		close(stop)
+		<-drained
+		st := status.New(codes.Unknown, diags.failureMessage("destroy"))
 		return withPulumiErrorInfo(st, err).Err()
 	}
 	s.log.Infow("destroy completed", "result", res.Summary.Result, "message", res.Summary.Message)

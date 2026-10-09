@@ -1,0 +1,9 @@
+name: failing
+runtime: yaml
+description: A program that fails to evaluate, to exercise the engine-failure path.
+
+resources:
+  sleep:
+    type: time:Sleep
+    properties:
+      createDuration: ${nosuchvariable}
