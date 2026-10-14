@@ -23,6 +23,7 @@ import (
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 var _ = Describe("Stack Metrics", func() {
@@ -220,6 +221,35 @@ var _ = Describe("Stack Metrics", func() {
 			expectedReconciling := 0.0
 			actualReconciling := testutil.ToFloat64(numStacksReconciling.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}))
 			Expect(actualReconciling).To(Equal(expectedReconciling))
+		})
+	})
+
+	Context("when gathering metrics from the registry", func() {
+		BeforeEach(func() {
+			numStacksFailing.Reset()
+			numStacksReconciling.Reset()
+
+			newStack = &pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test",
+					Name:      "test",
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State: shared.FailedStackStateMessage,
+					},
+				},
+			}
+			newStack.Status.MarkReconcilingCondition("reason", "message")
+			updateStackCallback(nil, newStack)
+		})
+
+		It("should serve the stacks_active, stacks_failing and stacks_reconciling metrics", func() {
+			for _, name := range []string{"stacks_active", "stacks_failing", "stacks_reconciling"} {
+				count, err := testutil.GatherAndCount(metrics.Registry, name)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(count).To(BeNumerically(">=", 1), name)
+			}
 		})
 	})
 })
