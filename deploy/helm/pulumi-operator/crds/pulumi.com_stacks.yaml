@@ -25,6 +25,10 @@ spec:
       name: Last Update
       type: string
     - jsonPath: .status.lastUpdate.lastResyncTime
+      name: Last Resync
+      priority: 10
+      type: date
+    - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
     - jsonPath: .status.lastUpdate.lastAttemptedCommit

@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+- Fix the `AGE` column of `kubectl get stacks` being blank until the first update finishes; it now shows the Stack's age from `.metadata.creationTimestamp`, and the last resync time moves to a `LAST RESYNC` column shown with `-o wide` [#1372](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1372)
+
 ## 2.9.3 (2026-10-09)
 
 - Fix an Update reconcile blocking forever when its workspace pod becomes unreachable mid-operation [#1293](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1293)
