@@ -3,6 +3,9 @@ CHANGELOG
 
 ## Unreleased
 
+- The Stack's AGE display column is now keyed on metadata creation timestamp. 
+  LastResynced, which was previously populating AGE, is now its own column. [#1376](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1376)
+
 ## 2.9.3 (2026-10-09)
 
 - Fix an Update reconcile blocking forever when its workspace pod becomes unreachable mid-operation [#1293](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1293)
