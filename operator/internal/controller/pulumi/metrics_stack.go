@@ -47,7 +47,7 @@ var (
 
 func init() {
 	// Register custom metrics with the global prometheus registry
-	metrics.Registry.MustRegister(numStacks, numStacksFailing)
+	metrics.Registry.MustRegister(numStacks, numStacksFailing, numStacksReconciling)
 }
 
 // newStackCallback is a callback that is called when a new Stack object is created.

@@ -15,6 +15,8 @@
 package pulumi
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -22,7 +24,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 var _ = Describe("Stack Metrics", func() {
@@ -222,4 +226,36 @@ var _ = Describe("Stack Metrics", func() {
 			Expect(actualReconciling).To(Equal(expectedReconciling))
 		})
 	})
+
 })
+
+func TestStackMetricsAreServedFromTheRegistry(t *testing.T) {
+	t.Cleanup(func() {
+		numStacksFailing.Reset()
+		numStacksReconciling.Reset()
+	})
+	numStacksFailing.Reset()
+	numStacksReconciling.Reset()
+
+	// A GaugeVec is absent from the gathered output until it has a child, so
+	// drive the real callback to populate both vectors.
+	stack := &pulumiv1.Stack{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test",
+			Name:      "test",
+		},
+		Status: pulumiv1.StackStatus{
+			LastUpdate: &shared.StackUpdateState{
+				State: shared.FailedStackStateMessage,
+			},
+		},
+	}
+	stack.Status.MarkReconcilingCondition("reason", "message")
+	updateStackCallback(nil, stack)
+
+	for _, name := range []string{"stacks_active", "stacks_failing", "stacks_reconciling"} {
+		count, err := testutil.GatherAndCount(metrics.Registry, name)
+		require.NoError(t, err)
+		require.GreaterOrEqualf(t, count, 1, "%s is documented in docs/metrics.md but is not served", name)
+	}
+}
