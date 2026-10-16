@@ -146,3 +146,46 @@ func TestDeleteStackCallbackResetsPerStackMetrics(t *testing.T) {
 	require.Equal(t, 0.0, testutil.ToFloat64(numStacksFailing.WithLabelValues(stack.Namespace, stack.Name)))
 	require.Equal(t, 0.0, testutil.ToFloat64(numStacksReconciling.WithLabelValues(stack.Namespace, stack.Name)))
 }
+
+func TestStacksFailingCountsStalledStacks(t *testing.T) {
+	failing := func(stack *pulumiv1.Stack) float64 {
+		return testutil.ToFloat64(numStacksFailing.WithLabelValues(stack.Namespace, stack.Name))
+	}
+
+	t.Run("stalled before it ever ran an update", func(t *testing.T) {
+		cleanUpStackMetrics(t)
+
+		stack := stackIn("test", "test")
+		stack.Status.MarkStalledCondition("SourceUnavailable", "cannot fetch source")
+
+		updateStackCallback(nil, stack)
+
+		require.Equal(t, 1.0, failing(stack))
+	})
+
+	t.Run("stalled after an update succeeded", func(t *testing.T) {
+		cleanUpStackMetrics(t)
+
+		stack := stackIn("test", "test")
+		stack.Status.LastUpdate = &shared.StackUpdateState{State: shared.SucceededStackStateMessage}
+		stack.Status.MarkStalledCondition("SourceUnavailable", "cannot fetch source")
+
+		updateStackCallback(nil, stack)
+
+		require.Equal(t, 1.0, failing(stack))
+	})
+
+	t.Run("no longer stalled and reconciling again", func(t *testing.T) {
+		cleanUpStackMetrics(t)
+
+		stack := stackIn("test", "test")
+		stack.Status.MarkStalledCondition("SourceUnavailable", "cannot fetch source")
+		updateStackCallback(nil, stack)
+		require.Equal(t, 1.0, failing(stack), "precondition: the stalled stack is counted")
+
+		stack.Status.MarkReconcilingCondition("StackProcessing", "stack is being processed")
+		updateStackCallback(nil, stack)
+
+		require.Equal(t, 0.0, failing(stack), "a stack that recovered must stop counting as failing")
+	})
+}
