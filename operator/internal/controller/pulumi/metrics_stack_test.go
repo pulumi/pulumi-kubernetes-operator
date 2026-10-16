@@ -153,6 +153,35 @@ var _ = Describe("Stack Metrics", func() {
 			})
 		})
 
+		Describe("when testing the stacks_failing metric for a stalled stack", Ordered, func() {
+			BeforeAll(func() {
+				// Stall the new stack before it ever ran an update.
+				newStack.Status.MarkStalledCondition("reason", "message")
+				newStack.Status.LastUpdate = nil
+				oldStack.Status.MarkReadyCondition()
+			})
+
+			It("should update the numStacksFailing metric to 1 when the stack is stalled before any update", func() {
+				updateStackCallback(oldStack, newStack)
+
+				expectedFailing := 1.0
+				actualFailing := testutil.ToFloat64(numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}))
+				Expect(actualFailing).To(Equal(expectedFailing))
+			})
+
+			It("should keep the numStacksFailing metric at 1 while the stack is stalled after a succeeded update", func() {
+				newStack.Status.MarkStalledCondition("reason", "message")
+				newStack.Status.LastUpdate = &shared.StackUpdateState{
+					State: shared.SucceededStackStateMessage,
+				}
+				updateStackCallback(oldStack, newStack)
+
+				expectedFailing := 1.0
+				actualFailing := testutil.ToFloat64(numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}))
+				Expect(actualFailing).To(Equal(expectedFailing))
+			})
+		})
+
 		Describe("when testing the stacks_reconciling metric", Ordered, func() {
 			BeforeAll(func() {
 				// Set the new stack to a failed state
