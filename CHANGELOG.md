@@ -2,6 +2,7 @@ CHANGELOG
 =========
 
 ## Unreleased
+- Count a stalled Stack in the `stacks_failing` metric even when it has not run an update yet [#1382](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1382)
 - Documentation for k9s setup [1377](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1377)
 
 - The Stack's AGE display column is now keyed on metadata creation timestamp. 
