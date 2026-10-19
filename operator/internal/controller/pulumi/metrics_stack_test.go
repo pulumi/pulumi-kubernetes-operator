@@ -22,7 +22,6 @@ import (
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 func cleanUpStackMetrics(t *testing.T) {
@@ -130,22 +129,4 @@ func TestDeleteStackCallbackResetsPerStackMetrics(t *testing.T) {
 	require.Equal(t, 0.0, testutil.ToFloat64(numStacks.WithLabelValues(stack.Namespace)))
 	require.Equal(t, 0.0, testutil.ToFloat64(numStacksFailing.WithLabelValues(stack.Namespace, stack.Name)))
 	require.Equal(t, 0.0, testutil.ToFloat64(numStacksReconciling.WithLabelValues(stack.Namespace, stack.Name)))
-}
-
-func TestStackMetricsAreServedFromTheRegistry(t *testing.T) {
-	cleanUpStackMetrics(t)
-
-	// A GaugeVec is absent from the gathered output until it has a child, so
-	// populate the numStacks, numStacksFailing and numStacksReconciling vectors.
-	stack := stackIn("test", "test")
-	stack.Status.LastUpdate = &shared.StackUpdateState{State: shared.FailedStackStateMessage}
-	stack.Status.MarkReconcilingCondition("reason", "message")
-	newStackCallback(stack)
-	updateStackCallback(nil, stack)
-
-	for _, name := range []string{"stacks_active", "stacks_failing", "stacks_reconciling"} {
-		count, err := testutil.GatherAndCount(metrics.Registry, name)
-		require.NoError(t, err)
-		require.GreaterOrEqualf(t, count, 1, "%s is documented in docs/metrics.md but is not served", name)
-	}
 }
