@@ -17,10 +17,6 @@ package pulumi
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
@@ -29,228 +25,122 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
-var _ = Describe("Stack Metrics", func() {
-	var (
-		oldStack *pulumiv1.Stack
-		newStack *pulumiv1.Stack
-	)
+func cleanUpStackMetrics(t *testing.T) {
+	t.Helper()
 
-	Context("when a new stack is created", Ordered, func() {
-		BeforeAll(func() {
-			// Reset the metrics
-			numStacks.Set(0)
-			numStacksFailing.Reset()
-			numStacksReconciling.Reset()
+	t.Cleanup(numStacks.Reset)
+	t.Cleanup(numStacksFailing.Reset)
+	t.Cleanup(numStacksReconciling.Reset)
+}
 
-			// Create a new stack object
-			newStack = &pulumiv1.Stack{}
-		})
+func stackIn(namespace, name string) *pulumiv1.Stack {
+	return &pulumiv1.Stack{
+		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+	}
+}
 
-		It("should increment the numStacks metric", func() {
-			newStackCallback(newStack)
+func TestStacksActiveTracksCreatesAndDeletes(t *testing.T) {
+	cleanUpStackMetrics(t)
 
-			// Check if the numStacks metric has been incremented
-			expected := 1.0
-			actual := testutil.ToFloat64(numStacks)
-			Expect(actual).To(Equal(expected))
-		})
+	stack := stackIn("test", "test")
+	active := func() float64 {
+		return testutil.ToFloat64(numStacks.WithLabelValues(stack.Namespace))
+	}
 
-		It("should increment the numStacks metric again if another stack is created", func() {
-			newStackCallback(newStack)
+	newStackCallback(stack)
+	require.Equal(t, 1.0, active())
 
-			// Check if the numStacks metric has been incremented
-			expected := 2.0
-			actual := testutil.ToFloat64(numStacks)
-			Expect(actual).To(Equal(expected))
-		})
+	newStackCallback(stack)
+	require.Equal(t, 2.0, active())
 
-		It("should decrement the numStacks metric if a stack is deleted", func() {
-			deleteStackCallback(newStack)
+	deleteStackCallback(stack)
+	require.Equal(t, 1.0, active())
 
-			// Check if the numStacks metric has been decremented
-			expected := 1.0
-			actual := testutil.ToFloat64(numStacks)
-			Expect(actual).To(Equal(expected))
-		})
+	deleteStackCallback(stack)
+	require.Equal(t, 0.0, active())
 
-		It("should decrement the numStacks metric again if another stack is deleted", func() {
-			deleteStackCallback(newStack)
+	deleteStackCallback(stack)
+	require.Equal(t, 0.0, active(), "the gauge must not go negative")
+}
 
-			// Check if the numStacks metric has been decremented
-			expected := 0.0
-			actual := testutil.ToFloat64(numStacks)
-			Expect(actual).To(Equal(expected))
-		})
+func TestStacksActiveIsCountedPerNamespace(t *testing.T) {
+	cleanUpStackMetrics(t)
 
-		It("should not decrement the numStacks metric if a stack is deleted and the metric is already at 0", func() {
-			deleteStackCallback(newStack)
+	newStackCallback(stackIn("alpha", "one"))
+	newStackCallback(stackIn("alpha", "two"))
+	newStackCallback(stackIn("beta", "one"))
 
-			// Check if the numStacks metric has been decremented
-			expected := 0.0
-			actual := testutil.ToFloat64(numStacks)
-			Expect(actual).To(Equal(expected))
-		})
-	})
+	require.Equal(t, 2.0, testutil.ToFloat64(numStacks.WithLabelValues("alpha")))
+	require.Equal(t, 1.0, testutil.ToFloat64(numStacks.WithLabelValues("beta")))
 
-	Context("when a stack is updated", func() {
-		BeforeEach(func() {
-			// Create old and new stack objects for updateStackCallback. The new stack should be in a reconciling state.
-			oldStack = &pulumiv1.Stack{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test",
-					Name:      "test",
-				},
-			}
-			newStack = &pulumiv1.Stack{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test",
-					Name:      "test",
-				},
-			}
-			numStacks.Set(0)
-			numStacksFailing.Reset()
-			numStacksReconciling.Reset()
-		})
+	deleteStackCallback(stackIn("alpha", "two"))
 
-		Describe("when testing the stacks_failing metric", Ordered, func() {
-			BeforeAll(func() {
-				// Set the new stack to a failed state
-				newStack.Status.MarkStalledCondition("reason", "message")
-				newStack.Status.LastUpdate = &shared.StackUpdateState{
-					State: shared.FailedStackStateMessage,
-				}
+	require.Equal(t, 1.0, testutil.ToFloat64(numStacks.WithLabelValues("alpha")))
+	require.Equal(t, 1.0, testutil.ToFloat64(numStacks.WithLabelValues("beta")))
+}
 
-				oldStack.Status.MarkReadyCondition()
-			})
+func TestStacksFailingFollowsLastUpdateState(t *testing.T) {
+	cleanUpStackMetrics(t)
 
-			It("should update the numStacksFailing metric to 1 when the stack update fails", func() {
-				// Call the updateStackCallback function
-				updateStackCallback(oldStack, newStack)
+	stack := stackIn("test", "test")
+	failing := func() float64 {
+		return testutil.ToFloat64(numStacksFailing.WithLabelValues(stack.Namespace, stack.Name))
+	}
 
-				// Check if the numStacksFailing metric has been updated
-				expectedFailing := 1.0
-				actualFailing := testutil.ToFloat64(numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}))
-				Expect(actualFailing).To(Equal(expectedFailing))
-			})
+	stack.Status.MarkStalledCondition("reason", "message")
+	stack.Status.LastUpdate = &shared.StackUpdateState{State: shared.FailedStackStateMessage}
+	updateStackCallback(nil, stack)
+	require.Equal(t, 1.0, failing())
 
-			It("should reset the numStacksFailing metric when the stack update succeeds", func() {
-				// Update the stack objects to be in a succeeded state.
-				newStack.Status.MarkReadyCondition()
-				newStack.Status.LastUpdate = &shared.StackUpdateState{
-					State: shared.SucceededStackStateMessage,
-				}
-				oldStack.Status.MarkStalledCondition("reason", "message")
-				oldStack.Status.LastUpdate = &shared.StackUpdateState{
-					State: shared.FailedStackStateMessage,
-				}
-				// Call the updateStackCallback function
-				updateStackCallback(oldStack, newStack)
+	stack.Status.MarkReadyCondition()
+	stack.Status.LastUpdate = &shared.StackUpdateState{State: shared.SucceededStackStateMessage}
+	updateStackCallback(nil, stack)
+	require.Equal(t, 0.0, failing())
+}
 
-				// Check if the numStacksFailing metric has been updated
-				expectedFailing := 0.0
-				actualFailing := testutil.ToFloat64(numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}))
-				Expect(actualFailing).To(Equal(expectedFailing))
-			})
-		})
+func TestStacksReconcilingFollowsReconcilingCondition(t *testing.T) {
+	cleanUpStackMetrics(t)
 
-		Describe("when testing the stacks_reconciling metric", Ordered, func() {
-			BeforeAll(func() {
-				// Set the new stack to a failed state
-				newStack.Status.MarkReconcilingCondition("reason", "message")
-				oldStack.Status.MarkReadyCondition()
-			})
+	stack := stackIn("test", "test")
+	reconciling := func() float64 {
+		return testutil.ToFloat64(numStacksReconciling.WithLabelValues(stack.Namespace, stack.Name))
+	}
 
-			It("should update the numStackReconciling metric to 1 when the stack is reconciling", func() {
-				// Call the updateStackCallback function
-				updateStackCallback(oldStack, newStack)
+	stack.Status.MarkReconcilingCondition("reason", "message")
+	updateStackCallback(nil, stack)
+	require.Equal(t, 1.0, reconciling())
 
-				// Check if the numStacksReconciling metric has been updated
-				expectedReconciling := 1.0
-				actualReconciling := testutil.ToFloat64(numStacksReconciling.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}))
-				Expect(actualReconciling).To(Equal(expectedReconciling))
-			})
+	stack.Status.MarkReadyCondition()
+	updateStackCallback(nil, stack)
+	require.Equal(t, 0.0, reconciling())
+}
 
-			It("should reset the numStackReconciling metric when the stack is finished reconciling", func() {
-				// Update the stack objects to be in a succeeded state.
-				newStack.Status.MarkReadyCondition()
-				oldStack.Status.MarkReconcilingCondition("reason", "message")
-				// Call the updateStackCallback function
-				updateStackCallback(oldStack, newStack)
+func TestDeleteStackCallbackResetsPerStackMetrics(t *testing.T) {
+	cleanUpStackMetrics(t)
 
-				// Check if the numStacksReconciling metric has been updated
-				expectedReconciling := 0.0
-				actualReconciling := testutil.ToFloat64(numStacksReconciling.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}))
-				Expect(actualReconciling).To(Equal(expectedReconciling))
-			})
-		})
-	})
+	stack := stackIn("test", "test")
+	stack.Status.LastUpdate = &shared.StackUpdateState{State: shared.SucceededStackStateMessage}
 
-	Context("when a stack is deleted", func() {
-		BeforeEach(func() {
-			// Set the metrics
-			numStacks.Set(1)
-			numStacksFailing.With(prometheus.Labels{"namespace": "test", "name": "test"}).Set(1)
-			numStacksReconciling.With(prometheus.Labels{"namespace": "test", "name": "test"}).Set(1)
+	numStacks.WithLabelValues(stack.Namespace).Set(1)
+	numStacksFailing.WithLabelValues(stack.Namespace, stack.Name).Set(1)
+	numStacksReconciling.WithLabelValues(stack.Namespace, stack.Name).Set(1)
 
-			// Create an old stack object for deleteStackCallback
-			oldStack = &pulumiv1.Stack{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test",
-					Name:      "test",
-				},
-				Status: pulumiv1.StackStatus{
-					LastUpdate: &shared.StackUpdateState{
-						State: shared.SucceededStackStateMessage,
-					},
-				},
-			}
-		})
+	deleteStackCallback(stack)
 
-		It("should decrement the numStacks metric and reset the numStacksFailing and numStacksReconciling metrics", func() {
-			// Call the deleteStackCallback function
-			deleteStackCallback(oldStack)
-
-			// Check if the numStacks metric has been decremented
-			expected := 0.0
-			actual := testutil.ToFloat64(numStacks)
-			Expect(actual).To(Equal(expected))
-
-			// Check if the numStacksFailing metric has been decremented
-			expectedFailing := 0.0
-			actualFailing := testutil.ToFloat64(numStacksFailing.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}))
-			Expect(actualFailing).To(Equal(expectedFailing))
-
-			// Check if the numStacksReconciling metric has been decremented
-			expectedReconciling := 0.0
-			actualReconciling := testutil.ToFloat64(numStacksReconciling.With(prometheus.Labels{"namespace": oldStack.Namespace, "name": oldStack.Name}))
-			Expect(actualReconciling).To(Equal(expectedReconciling))
-		})
-	})
-
-})
+	require.Equal(t, 0.0, testutil.ToFloat64(numStacks.WithLabelValues(stack.Namespace)))
+	require.Equal(t, 0.0, testutil.ToFloat64(numStacksFailing.WithLabelValues(stack.Namespace, stack.Name)))
+	require.Equal(t, 0.0, testutil.ToFloat64(numStacksReconciling.WithLabelValues(stack.Namespace, stack.Name)))
+}
 
 func TestStackMetricsAreServedFromTheRegistry(t *testing.T) {
-	t.Cleanup(func() {
-		numStacksFailing.Reset()
-		numStacksReconciling.Reset()
-	})
-	numStacksFailing.Reset()
-	numStacksReconciling.Reset()
+	cleanUpStackMetrics(t)
 
 	// A GaugeVec is absent from the gathered output until it has a child, so
-	// drive the real callback to populate both vectors.
-	stack := &pulumiv1.Stack{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "test",
-			Name:      "test",
-		},
-		Status: pulumiv1.StackStatus{
-			LastUpdate: &shared.StackUpdateState{
-				State: shared.FailedStackStateMessage,
-			},
-		},
-	}
+	// populate the numStacks, numStacksFailing and numStacksReconciling vectors.
+	stack := stackIn("test", "test")
+	stack.Status.LastUpdate = &shared.StackUpdateState{State: shared.FailedStackStateMessage}
 	stack.Status.MarkReconcilingCondition("reason", "message")
+	newStackCallback(stack)
 	updateStackCallback(nil, stack)
 
 	for _, name := range []string{"stacks_active", "stacks_failing", "stacks_reconciling"} {

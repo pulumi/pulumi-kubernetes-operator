@@ -23,10 +23,13 @@ import (
 )
 
 var (
-	numStacks = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "stacks_active",
-		Help: "Number of stacks currently tracked by the Pulumi Kubernetes Operator",
-	})
+	numStacks = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "stacks_active",
+			Help: "Number of stacks currently tracked by the Pulumi Kubernetes Operator",
+		},
+		[]string{"namespace"},
+	)
 
 	numStacksFailing = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -52,7 +55,12 @@ func init() {
 
 // newStackCallback is a callback that is called when a new Stack object is created.
 func newStackCallback(obj any) {
-	numStacks.Inc()
+	newStack, ok := obj.(*pulumiv1.Stack)
+	if !ok {
+		return
+	}
+
+	numStacks.With(prometheus.Labels{"namespace": newStack.Namespace}).Inc()
 }
 
 // updateStackCallback is a callback that is called when a Stack object is updated.
@@ -92,15 +100,16 @@ func updateStackReconcilingMetrics(newStack *pulumiv1.Stack) {
 
 // deleteStackCallback is a callback that is called when a Stack object is deleted.
 func deleteStackCallback(oldObj any) {
-	numStacks.Dec()
-	val, err := getGaugeValue(numStacks)
-	if err == nil && val < 0 {
-		numStacks.Set(0)
-	}
-
 	oldStack, ok := oldObj.(*pulumiv1.Stack)
 	if !ok {
 		return
+	}
+
+	active := numStacks.With(prometheus.Labels{"namespace": oldStack.Namespace})
+	active.Dec()
+	val, err := getGaugeValue(active)
+	if err == nil && val < 0 {
+		active.Set(0)
 	}
 
 	// Reset any gauge metrics associated with the old stack.
