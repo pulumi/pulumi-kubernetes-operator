@@ -19,6 +19,7 @@ import (
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
@@ -100,6 +101,11 @@ func updateStackReconcilingMetrics(newStack *pulumiv1.Stack) {
 
 // deleteStackCallback is a callback that is called when a Stack object is deleted.
 func deleteStackCallback(oldObj any) {
+	// The informer delivers a tombstone instead of the object when a watch missed the delete.
+	if tombstone, ok := oldObj.(cache.DeletedFinalStateUnknown); ok {
+		oldObj = tombstone.Obj
+	}
+
 	oldStack, ok := oldObj.(*pulumiv1.Stack)
 	if !ok {
 		return

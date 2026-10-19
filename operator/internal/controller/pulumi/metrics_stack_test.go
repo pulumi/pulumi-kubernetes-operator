@@ -22,6 +22,7 @@ import (
 	pulumiv1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/v1"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 func cleanUpStackMetrics(t *testing.T) {
@@ -76,6 +77,21 @@ func TestStacksActiveIsCountedPerNamespace(t *testing.T) {
 
 	require.Equal(t, 1.0, testutil.ToFloat64(numStacks.WithLabelValues("alpha")))
 	require.Equal(t, 1.0, testutil.ToFloat64(numStacks.WithLabelValues("beta")))
+}
+
+func TestDeleteStackCallbackUnwrapsATombstone(t *testing.T) {
+	cleanUpStackMetrics(t)
+
+	stack := stackIn("alpha", "one")
+	newStackCallback(stack)
+	numStacksFailing.WithLabelValues(stack.Namespace, stack.Name).Set(1)
+	numStacksReconciling.WithLabelValues(stack.Namespace, stack.Name).Set(1)
+
+	deleteStackCallback(cache.DeletedFinalStateUnknown{Key: "alpha/one", Obj: stack})
+
+	require.Equal(t, 0.0, testutil.ToFloat64(numStacks.WithLabelValues(stack.Namespace)))
+	require.Equal(t, 0.0, testutil.ToFloat64(numStacksFailing.WithLabelValues(stack.Namespace, stack.Name)))
+	require.Equal(t, 0.0, testutil.ToFloat64(numStacksReconciling.WithLabelValues(stack.Namespace, stack.Name)))
 }
 
 func TestStacksFailingFollowsLastUpdateState(t *testing.T) {
