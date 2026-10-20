@@ -20,7 +20,7 @@ Once the above are created, Prometheus will update its target scraping rules to 
 
 The current implementation explicitly emits the following metrics:
 
-1. `stacks_active` - a `gauge` time series that reports the number of currently registered stacks managed by the system
+1. `stacks_active` - a set of `gauge` time series, labelled by namespace, that reports the number of currently registered stacks managed by the system
 2. `stacks_failing` - a set of `gauge` time series, labelled by namespace, that gives the number of stacks currently failing (`stack.status.lastUpdate.state` is `failed`)
 3. `stacks_reconciling` - a set of `gauge` time series, labelled by namespace, that gives the number of stacks currently reconciling (`stack.status.conditions` contains a Condition of type `Reconciling` that is `True`)
 4. `programs_active` - a `gauge` time series that reports the number of currently registered programs managed by the system
@@ -201,7 +201,7 @@ This section walks through setting up a simple dashboard to track some key Opera
           "exemplar": true,
           "expr": "stacks_active\n",
           "interval": "",
-          "legendFormat": "stacks_active",
+          "legendFormat": "stacks_active {{namespace}}",
           "refId": "A"
         },
         {
