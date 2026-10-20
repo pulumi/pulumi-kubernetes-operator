@@ -78,7 +78,14 @@ func updateStackCallback(_, newObj any) {
 }
 
 func updateStackFailureMetrics(newStack *pulumiv1.Stack) {
+	// A stalled Stack is failing even if it never ran an update.
+	if apimeta.IsStatusConditionTrue(newStack.Status.Conditions, pulumiv1.StalledCondition) {
+		numStacksFailing.With(prometheus.Labels{"namespace": newStack.Namespace, "name": newStack.Name}).Set(1)
+		return
+	}
+
 	if newStack.Status.LastUpdate == nil {
+		numStacksFailing.With(prometheus.Labels{"namespace": newStack.Namespace, "name": newStack.Name}).Set(0)
 		return
 	}
 
