@@ -79,405 +79,45 @@ Once installed, you can perform the following steps to determine if Prometheus i
 2. Visit `http://localhost:9090/targets` and validate that `pulumi-kubernetes-operator-metrics` is known and being scraped.
 
 
-### Sample Grafana Dashboard
+### Grafana Dashboard
 
-![Sample Grafana Dashboard](./images/sample-dashboard.png)
+![The Pulumi Kubernetes Operator dashboard](./images/sample-dashboard.png)
 
-`kube-prometheus-stack` also installs Grafana which can be used to visualize the metrics collected.
-This section walks through setting up a simple dashboard to track some key Operator metrics.
+This repository ships a dashboard at
+[`dashboards/operator-metrics.json`](../dashboards/operator-metrics.json). It
+shows how many Stacks exist, which of them are failing or reconciling, and how
+busy the operator's controllers are.
 
-1. Port forward the Grafana service for local access:
+`kube-prometheus-stack` also installs Grafana. To import the dashboard:
 
-    `kubectl port-forward service/kube-prometheus-stack-grafana 9000:80`
+1. Port forward the Grafana service:
 
-2. Extract the default admin username and password from the secret created by the Helm chart. Note the secret values will be base64 encoded:
+    `kubectl port-forward -n monitoring service/kube-prometheus-stack-grafana 3000:80`
 
-    `kubectl get secret kube-prometheus-stack-grafana -o yaml | grep admin`
+2. Read the admin password from the Secret the Helm chart created:
 
-3. Copy the sample dashboard JSON specification below
+    `kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath='{.data.admin-password}' | base64 -d`
 
-<details>
-<summary>Click to expand sample dashboard </summary>
+3. In Grafana, select **Dashboards**, then **New**, then **Import**.
 
-```json
-{
-  "annotations": {
-    "list": [
-      {
-        "builtIn": 1,
-        "datasource": "-- Grafana --",
-        "enable": true,
-        "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
-        "target": {
-          "limit": 100,
-          "matchAny": false,
-          "tags": [],
-          "type": "dashboard"
-        },
-        "type": "dashboard"
-      }
-    ]
-  },
-  "editable": true,
-  "gnetId": null,
-  "graphTooltip": 0,
-  "id": 26,
-  "links": [],
-  "panels": [
-    {
-      "datasource": null,
-      "description": "",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "exemplar": true,
-          "expr": "stacks_active\n",
-          "interval": "",
-          "legendFormat": "stacks_active {{namespace}}",
-          "refId": "A"
-        },
-        {
-          "exemplar": true,
-          "expr": "",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "stacks_failing",
-          "refId": "B"
-        }
-      ],
-      "title": "Active Stacks",
-      "type": "timeseries"
-    },
-    {
-      "cards": {
-        "cardPadding": null,
-        "cardRound": null
-      },
-      "color": {
-        "cardColor": "#b4ff00",
-        "colorScale": "sqrt",
-        "colorScheme": "interpolateOranges",
-        "exponent": 0.5,
-        "mode": "spectrum"
-      },
-      "dataFormat": "timeseries",
-      "datasource": null,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "heatmap": {},
-      "hideZeroBuckets": false,
-      "highlightCards": true,
-      "id": 8,
-      "legend": {
-        "show": false
-      },
-      "pluginVersion": "8.1.5",
-      "reverseYBuckets": false,
-      "targets": [
-        {
-          "exemplar": true,
-          "expr": "sum(increase(controller_runtime_reconcile_time_seconds_bucket{controller=\"stack-controller\"}[10m])) by (le)",
-          "format": "time_series",
-          "instant": false,
-          "interval": "",
-          "legendFormat": "{{le}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Panel Title",
-      "tooltip": {
-        "show": true,
-        "showHistogram": false
-      },
-      "type": "heatmap",
-      "xAxis": {
-        "show": true
-      },
-      "xBucketNumber": null,
-      "xBucketSize": null,
-      "yAxis": {
-        "decimals": null,
-        "format": "s",
-        "logBase": 1,
-        "max": null,
-        "min": null,
-        "show": true,
-        "splitFactor": null
-      },
-      "yBucketBound": "auto",
-      "yBucketNumber": null,
-      "yBucketSize": null
-    },
-    {
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
-      "id": 4,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "exemplar": true,
-          "expr": "controller_runtime_active_workers{controller=\"stack-controller\"}",
-          "interval": "",
-          "legendFormat": "curr_concurrent_reconciles",
-          "refId": "A"
-        },
-        {
-          "exemplar": true,
-          "expr": "controller_runtime_max_concurrent_reconciles{controller=\"stack-controller\"}",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "max_concurrent_reconciles",
-          "refId": "B"
-        }
-      ],
-      "title": "Concurrent Reconciles",
-      "type": "timeseries"
-    },
-    {
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 9
-      },
-      "id": 6,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "exemplar": true,
-          "expr": "controller_runtime_reconcile_total{controller=\"stack-controller\", result=\"error\"}",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "{{result}}",
-          "refId": "B"
-        },
-        {
-          "exemplar": true,
-          "expr": "controller_runtime_reconcile_total{controller=\"stack-controller\", result=\"requeue\"}",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "{{result}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Reconcile Results",
-      "type": "timeseries"
-    }
-  ],
-  "refresh": "",
-  "schemaVersion": 30,
-  "style": "dark",
-  "tags": [],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-6h",
-    "to": "now"
-  },
-  "timepicker": {},
-  "timezone": "",
-  "title": "Pulumi Operator Stacks Dashboard",
-  "uid": "QP_wDqDnz",
-  "version": 1
-}
+4. Upload `dashboards/operator-metrics.json`, or paste its contents.
+
+5. Select your Prometheus data source, then select **Import**.
+
+The dashboard asks for a data source on import, so it works against any
+Prometheus. Two more variables at the top of the dashboard filter what you see:
+**Job** selects the scrape job, and **Namespace** limits the panels to one
+namespace.
+
+#### Filter by the Stack's namespace
+
+Prometheus adds its own `namespace` label to every metric it scrapes, which
+names the namespace of the operator Pod. The operator also emits a `namespace`
+label, which names the namespace of the Stack. Prometheus keeps its own label
+and renames the operator's one to `exported_namespace`.
+
+To filter by the Stack's namespace, use `exported_namespace`:
+
+```promql
+stacks_failing{exported_namespace="my-namespace"} > 0
 ```
-</details>
-
-Now, you can create a new dashboard based on the above.
