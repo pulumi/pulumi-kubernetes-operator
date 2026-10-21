@@ -104,17 +104,7 @@ busy the operator's controllers are.
 
 5. Select your Prometheus data source, then select **Import**.
 
-The dashboard asks for a data source on import, so it works against any
-Prometheus. Two more variables at the top of the dashboard filter what you see:
-**Job** selects the scrape job, and **Namespace** limits the panels to one
-namespace.
-
 #### Filter by the Stack's namespace
-
-Prometheus adds its own `namespace` label to every metric it scrapes, which
-names the namespace of the operator Pod. The operator also emits a `namespace`
-label, which names the namespace of the Stack. Prometheus keeps its own label
-and renames the operator's one to `exported_namespace`.
 
 To filter by the Stack's namespace, use `exported_namespace`:
 
