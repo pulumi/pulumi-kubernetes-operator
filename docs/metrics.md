@@ -21,8 +21,8 @@ Once the above are created, Prometheus will update its target scraping rules to 
 The current implementation explicitly emits the following metrics:
 
 1. `stacks_active` - a set of `gauge` time series, labelled by namespace, that reports the number of currently registered stacks managed by the system
-2. `stacks_failing` - a set of `gauge` time series, labelled by namespace, that gives the number of stacks currently failing (`stack.status.lastUpdate.state` is `failed`)
-3. `stacks_reconciling` - a set of `gauge` time series, labelled by namespace, that gives the number of stacks currently reconciling (`stack.status.conditions` contains a Condition of type `Reconciling` that is `True`)
+2. `stacks_failing` - a set of `gauge` time series, labelled by namespace and name, that gives the number of stacks currently failing (`stack.status.lastUpdate.state` is `failed`, or the stack is stalled)
+3. `stacks_reconciling` - a set of `gauge` time series, labelled by namespace and name, that gives the number of stacks currently reconciling (`stack.status.conditions` contains a Condition of type `Reconciling` that is `True`)
 4. `programs_active` - a `gauge` time series that reports the number of currently registered programs managed by the system
 
 In addition, we find tracking the following metrics emitted by the controller-runtime would be useful to track:
@@ -92,17 +92,17 @@ busy the operator's controllers are.
 
 1. Port forward the Grafana service:
 
-    `kubectl port-forward -n monitoring service/kube-prometheus-stack-grafana 3000:80`
+    `kubectl port-forward service/kube-prometheus-stack-grafana 3000:80`
 
 2. Read the admin password from the Secret the Helm chart created:
 
-    `kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath='{.data.admin-password}' | base64 -d`
+    `kubectl get secret kube-prometheus-stack-grafana -o jsonpath='{.data.admin-password}' | base64 -d`
 
 3. In Grafana, select **Dashboards**, then **New**, then **Import**.
 
 4. Upload `dashboards/operator-metrics.json`, or paste its contents.
 
-5. Select your Prometheus data source, then select **Import**.
+5. Select **Import**, then select your Prometheus from the **Data source** dropdown at the top of the dashboard.
 
 #### Filter by the Stack's namespace
 

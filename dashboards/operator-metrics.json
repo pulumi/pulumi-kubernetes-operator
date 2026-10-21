@@ -124,7 +124,7 @@
     {
       "type": "stat",
       "title": "Failing",
-      "description": "Stacks whose last update failed.",
+      "description": "Stacks whose last update failed, or that are stalled.",
       "datasource": {
         "uid": "$datasource"
       },
@@ -234,7 +234,7 @@
     {
       "type": "table",
       "title": "Failing stacks",
-      "description": "Each stack whose last update failed. Empty is good.",
+      "description": "Each stack whose last update failed, or that is stalled. Empty is good.",
       "datasource": {
         "uid": "$datasource"
       },
@@ -265,7 +265,11 @@
               "job": true,
               "instance": true,
               "Value": true,
-              "namespace": true
+              "namespace": true,
+              "endpoint": true,
+              "pod": true,
+              "service": true,
+              "container": true
             },
             "indexByName": {
               "exported_namespace": 0,
@@ -325,7 +329,11 @@
               "job": true,
               "instance": true,
               "Value": true,
-              "namespace": true
+              "namespace": true,
+              "endpoint": true,
+              "pod": true,
+              "service": true,
+              "container": true
             },
             "indexByName": {
               "exported_namespace": 0,
