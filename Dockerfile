@@ -1,5 +1,5 @@
 # Build a base image with modules cached.
-FROM --platform=${BUILDPLATFORM} golang:1.26 AS base
+FROM --platform=${BUILDPLATFORM} golang:1.26.10@sha256:3745f1aa11822297b79113f5e84ce2bffeb039734571c39855809cfe9e5d7be6 AS base
 ARG TARGETARCH
 
 # The golang image sets GOTOOLCHAIN=local, so a go.mod requiring a newer patch
