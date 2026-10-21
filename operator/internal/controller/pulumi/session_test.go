@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr/testr"
@@ -33,6 +34,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -457,6 +459,72 @@ func TestSetupWorkspace(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, test.expected, session.ws)
 		})
+	}
+}
+
+func TestSetupWorkspaceRefVolumeNames(t *testing.T) {
+	scheme.Scheme.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "pulumi.com", Version: "v1", Kind: "Stack"},
+		&v1.Stack{},
+	)
+	client := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		Build()
+
+	longName := strings.Repeat("a", 70)
+	secretRef := func(name string) shared.ResourceRef {
+		return shared.ResourceRef{
+			SelectorType: shared.ResourceSelectorSecret,
+			ResourceSelector: shared.ResourceSelector{
+				SecretRef: &shared.SecretSelector{Name: name, Key: "key"},
+			},
+		}
+	}
+	stack := shared.StackSpec{
+		SecretRefs: map[string]shared.ResourceRef{
+			"dotted": secretRef("app.credentials"),
+			"dashed": secretRef("app-credentials"),
+			"long":   secretRef(longName),
+		},
+		ConfigRef: map[string]shared.ConfigMapRef{
+			"dotted": {Name: "app.settings", Key: "key"},
+			"long":   {Name: longName, Key: "key"},
+		},
+	}
+
+	log := testr.New(t).WithValues("Request.Test", t.Name())
+	session := newStackReconcilerSession(log, stack, client, scheme.Scheme, namespace)
+	require.NoError(t, session.NewWorkspace(&v1.Stack{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-stack",
+			Namespace: namespace,
+		},
+		Spec: session.stack,
+	}))
+	require.NoError(t, session.setupWorkspace(t.Context(), false))
+
+	// Object names may contain dots and be up to 253 characters long, but a pod
+	// volume name must be a DNS-1123 label.
+	volumes := map[string]corev1.Volume{}
+	for _, v := range session.ws.Spec.PodTemplate.Spec.Volumes {
+		assert.Empty(t, validation.IsDNS1123Label(v.Name), "volume name %q", v.Name)
+		volumes[v.Name] = v
+	}
+	require.Len(t, volumes, 5, "each referenced object gets its own volume")
+
+	mounts := session.ws.Spec.PodTemplate.Spec.Containers[0].VolumeMounts
+	require.Len(t, mounts, 5)
+	for _, m := range mounts {
+		v, ok := volumes[m.Name]
+		require.True(t, ok, "mount %q has no volume", m.Name)
+		switch {
+		case v.Secret != nil:
+			assert.Equal(t, "/var/run/secrets/stacks.pulumi.com/secrets/"+v.Secret.SecretName, m.MountPath)
+		case v.ConfigMap != nil:
+			assert.Equal(t, "/var/run/configmaps/stacks.pulumi.com/configmaps/"+v.ConfigMap.Name, m.MountPath)
+		default:
+			t.Fatalf("unexpected volume %q", v.Name)
+		}
 	}
 }
 

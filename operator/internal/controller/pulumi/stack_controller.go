@@ -16,6 +16,8 @@ package pulumi
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -45,6 +47,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
 	metav1apply "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -1481,6 +1484,24 @@ func (sess *stackReconcilerSession) resolveResourceRefAsEnvVar(_ context.Context
 	}
 }
 
+// makeRefVolumeName returns the name of the volume that mounts the referenced
+// Secret or ConfigMap. An object name may contain dots and be up to 253
+// characters long, but a volume name must be a DNS-1123 label, so an invalid
+// name is shortened and made unique with a hash of the object name.
+func makeRefVolumeName(prefix, name string) string {
+	volumeName := prefix + name
+	if len(validation.IsDNS1123Label(volumeName)) == 0 {
+		return volumeName
+	}
+	sum := sha256.Sum256([]byte(name))
+	suffix := "-" + hex.EncodeToString(sum[:])[:10]
+	volumeName = strings.ReplaceAll(volumeName, ".", "-")
+	if maxLen := validation.DNS1123LabelMaxLength - len(suffix); len(volumeName) > maxLen {
+		volumeName = volumeName[:maxLen]
+	}
+	return volumeName + suffix
+}
+
 func makeSecretRefMountPath(secretRef *shared.SecretSelector) string {
 	return "/var/run/secrets/stacks.pulumi.com/secrets/" + secretRef.Name
 }
@@ -1500,7 +1521,7 @@ func (sess *stackReconcilerSession) resolveResourceRefAsConfigItem(_ context.Con
 			}
 
 			// mount the secret into the pulumi container
-			volumeName := "secret-" + ref.SecretRef.Name
+			volumeName := makeRefVolumeName("secret-", ref.SecretRef.Name)
 			mountPath := makeSecretRefMountPath(ref.SecretRef)
 			if !slices.ContainsFunc(sess.wspc.VolumeMounts, func(mnt corev1.VolumeMount) bool {
 				return mnt.Name == volumeName
@@ -1544,7 +1565,7 @@ func (sess *stackReconcilerSession) resolveConfigMapRefAsConfigItem(_ context.Co
 	}
 
 	// mount the configmap into the pulumi container
-	volumeName := "configmap-" + ref.Name
+	volumeName := makeRefVolumeName("configmap-", ref.Name)
 	mountPath := makeConfigMapRefMountPath(ref)
 	if !slices.ContainsFunc(sess.wspc.VolumeMounts, func(mnt corev1.VolumeMount) bool {
 		return mnt.Name == volumeName
