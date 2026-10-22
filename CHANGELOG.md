@@ -2,7 +2,10 @@ CHANGELOG
 =========
 
 ## Unreleased
-- Publish a Grafana dashboard for the operator's metrics
+
+## 2.10.0 (2026-10-22)
+
+- Publish a Grafana dashboard for the operator's metrics [#1404](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1404)
 - Build the operator and agent with Go 1.26.10 to distrust the compromised eMudhra intermediate CAs [#1400](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1400)
 - Fix workspace pods failing to start when a `secretRefs` or `configRef` entry references a Secret or ConfigMap whose name contains dots or is longer than the volume name limit [#1398](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1398)
 - Count a stalled Stack in the `stacks_failing` metric even when it has not run an update yet [#1382](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1382)
