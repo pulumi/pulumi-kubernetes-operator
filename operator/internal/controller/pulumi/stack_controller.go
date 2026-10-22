@@ -1484,19 +1484,22 @@ func (sess *stackReconcilerSession) resolveResourceRefAsEnvVar(_ context.Context
 	}
 }
 
-// makeRefVolumeName returns the name of the volume that mounts the referenced
-// Secret or ConfigMap. An object name may contain dots and be up to 253
-// characters long, but a volume name must be a DNS-1123 label, so an invalid
-// name is shortened and made unique with a hash of the object name.
+// makeRefVolumeName returns the pod volume name that mounts a referenced Secret or
+// ConfigMap. Object names are DNS-1123 subdomains, but volume names must be DNS-1123
+// labels: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/
 func makeRefVolumeName(prefix, name string) string {
 	volumeName := prefix + name
 	if len(validation.IsDNS1123Label(volumeName)) == 0 {
 		return volumeName
 	}
+	volumeName = strings.ReplaceAll(volumeName, ".", "-")
+
+	// Add a hash suffix to avoid collisions from sanitization.
 	sum := sha256.Sum256([]byte(name))
 	suffix := "-" + hex.EncodeToString(sum[:])[:10]
-	volumeName = strings.ReplaceAll(volumeName, ".", "-")
-	if maxLen := validation.DNS1123LabelMaxLength - len(suffix); len(volumeName) > maxLen {
+
+	maxLen := validation.DNS1123LabelMaxLength - len(suffix)
+	if len(volumeName) > maxLen {
 		volumeName = volumeName[:maxLen]
 	}
 	return volumeName + suffix

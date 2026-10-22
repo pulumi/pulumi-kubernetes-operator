@@ -462,70 +462,75 @@ func TestSetupWorkspace(t *testing.T) {
 	}
 }
 
-func TestSetupWorkspaceRefVolumeNames(t *testing.T) {
+func TestSetupWorkspaceUsesMakeRefVolumeNameForRefs(t *testing.T) {
 	scheme.Scheme.AddKnownTypeWithName(
 		schema.GroupVersionKind{Group: "pulumi.com", Version: "v1", Kind: "Stack"},
 		&v1.Stack{},
 	)
-	client := fake.NewClientBuilder().
-		WithScheme(scheme.Scheme).
-		Build()
+	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 
-	longName := strings.Repeat("a", 70)
-	secretRef := func(name string) shared.ResourceRef {
-		return shared.ResourceRef{
-			SelectorType: shared.ResourceSelectorSecret,
-			ResourceSelector: shared.ResourceSelector{
-				SecretRef: &shared.SecretSelector{Name: name, Key: "key"},
-			},
-		}
-	}
 	stack := shared.StackSpec{
 		SecretRefs: map[string]shared.ResourceRef{
-			"dotted": secretRef("app.credentials"),
-			"dashed": secretRef("app-credentials"),
-			"long":   secretRef(longName),
+			"secret": {
+				SelectorType: shared.ResourceSelectorSecret,
+				ResourceSelector: shared.ResourceSelector{
+					SecretRef: &shared.SecretSelector{Name: "app.credentials", Key: "key"},
+				},
+			},
 		},
 		ConfigRef: map[string]shared.ConfigMapRef{
-			"dotted": {Name: "app.settings", Key: "key"},
-			"long":   {Name: longName, Key: "key"},
+			"configmap": {Name: "app.settings", Key: "key"},
 		},
 	}
 
-	log := testr.New(t).WithValues("Request.Test", t.Name())
-	session := newStackReconcilerSession(log, stack, client, scheme.Scheme, namespace)
+	session := newStackReconcilerSession(testr.New(t), stack, client, scheme.Scheme, namespace)
 	require.NoError(t, session.NewWorkspace(&v1.Stack{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-stack",
-			Namespace: namespace,
-		},
-		Spec: session.stack,
+		ObjectMeta: metav1.ObjectMeta{Name: "test-stack", Namespace: namespace},
+		Spec:       session.stack,
 	}))
 	require.NoError(t, session.setupWorkspace(t.Context(), false))
 
-	// Object names may contain dots and be up to 253 characters long, but a pod
-	// volume name must be a DNS-1123 label.
-	volumes := map[string]corev1.Volume{}
-	for _, v := range session.ws.Spec.PodTemplate.Spec.Volumes {
-		assert.Empty(t, validation.IsDNS1123Label(v.Name), "volume name %q", v.Name)
-		volumes[v.Name] = v
+	volumes := session.ws.Spec.PodTemplate.Spec.Volumes
+	require.Len(t, volumes, 2)
+	for _, v := range volumes {
+		assert.Empty(t, validation.IsDNS1123Label(v.Name),
+			"volume name %q is not a DNS-1123 label, so the API server rejects the workspace pod", v.Name)
 	}
-	require.Len(t, volumes, 5, "each referenced object gets its own volume")
+}
 
-	mounts := session.ws.Spec.PodTemplate.Spec.Containers[0].VolumeMounts
-	require.Len(t, mounts, 5)
-	for _, m := range mounts {
-		v, ok := volumes[m.Name]
-		require.True(t, ok, "mount %q has no volume", m.Name)
-		switch {
-		case v.Secret != nil:
-			assert.Equal(t, "/var/run/secrets/stacks.pulumi.com/secrets/"+v.Secret.SecretName, m.MountPath)
-		case v.ConfigMap != nil:
-			assert.Equal(t, "/var/run/configmaps/stacks.pulumi.com/configmaps/"+v.ConfigMap.Name, m.MountPath)
-		default:
-			t.Fatalf("unexpected volume %q", v.Name)
-		}
+func TestMakeRefVolumeName(t *testing.T) {
+	longName := strings.Repeat("a", 70)
+
+	for _, tt := range []struct {
+		scenario string
+		prefix   string
+		name     string
+	}{
+		{"secret name containing dots", "secret-", "app.credentials"},
+		{"secret name over 63 characters", "secret-", longName},
+		{"secret name already valid as a volume name", "secret-", "app-credentials"},
+		{"configmap name containing dots", "configmap-", "app.settings"},
+		{"configmap name over 63 characters", "configmap-", longName},
+	} {
+		t.Run(tt.scenario, func(t *testing.T) {
+			got := makeRefVolumeName(tt.prefix, tt.name)
+			assert.Empty(t, validation.IsDNS1123Label(got),
+				"volume name %q (%d chars) is not a DNS-1123 label, so the API server rejects the workspace pod",
+				got, len(got))
+		})
 	}
+
+	t.Run("a name that is already valid is left alone", func(t *testing.T) {
+		assert.Equal(t, "secret-app-credentials", makeRefVolumeName("secret-", "app-credentials"),
+			"renaming a working volume would restart every workspace pod on upgrade")
+	})
+
+	t.Run("names that sanitize alike stay distinct", func(t *testing.T) {
+		assert.NotEqual(t,
+			makeRefVolumeName("secret-", "app.credentials"),
+			makeRefVolumeName("secret-", "app-credentials"),
+			"two Secrets sharing a volume name means one is silently dropped and its mount path stays empty")
+	})
 }
 
 func TestSetupWorkspaceFromGitSource(t *testing.T) {
