@@ -31408,7 +31408,7 @@ spec:
           value: 10s
         - name: KUBE_API_TIMEOUT
           value: 30s
-        image: pulumi/pulumi-kubernetes-operator:v2.9.3
+        image: pulumi/pulumi-kubernetes-operator:v2.10.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
