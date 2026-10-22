@@ -1,77 +1,104 @@
 {
-  "title": "Pulumi Kubernetes Operator",
-  "description": "Fleet state and controller health for the Pulumi Kubernetes Operator, from its Prometheus metrics endpoint.",
-  "tags": [
-    "pulumi",
-    "kubernetes-operator"
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
   ],
-  "schemaVersion": 39,
-  "version": 1,
-  "refresh": "30s",
-  "time": {
-    "from": "now-6h",
-    "to": "now"
-  },
-  "templating": {
+  "__elements": {},
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "13.2.4"
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "13.2.3"
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    }
+  ],
+  "annotations": {
     "list": [
       {
-        "name": "datasource",
-        "label": "Data source",
-        "type": "datasource",
-        "query": "prometheus",
-        "current": {
-          "text": "default",
-          "value": "default"
-        },
-        "hide": 0
-      },
-      {
-        "name": "job",
-        "label": "Job",
-        "type": "query",
+        "builtIn": 1,
         "datasource": {
-          "uid": "$datasource"
+          "type": "grafana",
+          "uid": "-- Grafana --"
         },
-        "query": "label_values(stacks_active, job)",
-        "refresh": 1,
-        "includeAll": false,
-        "hide": 0
-      },
-      {
-        "name": "namespace",
-        "label": "Namespace",
-        "type": "query",
-        "datasource": {
-          "uid": "$datasource"
-        },
-        "query": "label_values(stacks_failing{job=\"$job\"}, exported_namespace)",
-        "refresh": 2,
-        "includeAll": true,
-        "multi": true,
-        "allValue": ".*",
-        "hide": 0
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
       }
     ]
   },
+  "description": "Fleet state and controller health for the Pulumi Kubernetes Operator, from its Prometheus metrics endpoint.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
   "panels": [
     {
-      "type": "row",
-      "title": "Fleet",
+      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 0
       },
-      "collapsed": false,
-      "panels": []
+      "id": 1,
+      "panels": [],
+      "title": "Fleet",
+      "type": "row"
     },
     {
-      "type": "stat",
-      "title": "Stacks",
-      "description": "Stacks currently tracked by the operator.",
       "datasource": {
         "uid": "$datasource"
+      },
+      "description": "Stacks currently tracked by the operator.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "text",
+            "mode": "fixed"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text"
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 5,
@@ -79,36 +106,10 @@
         "x": 0,
         "y": 1
       },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "uid": "$datasource"
-          },
-          "expr": "sum(stacks_active{job=\"$job\", exported_namespace=~\"$namespace\"})",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
+      "id": 2,
       "options": {
+        "colorMode": "none",
+        "graphMode": "area",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -116,17 +117,43 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "none",
-        "graphMode": "area",
         "textMode": "auto"
-      }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "$datasource"
+          },
+          "expr": "sum(stacks_active{job=\"$job\", exported_namespace=~\"$namespace\"})",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Stacks",
+      "type": "stat"
     },
     {
-      "type": "stat",
-      "title": "Failing",
-      "description": "Stacks whose last update failed, or that are stalled.",
       "datasource": {
         "uid": "$datasource"
+      },
+      "description": "Stacks whose last update failed, or that are stalled.",
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text"
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 5,
@@ -134,36 +161,10 @@
         "x": 8,
         "y": 1
       },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "uid": "$datasource"
-          },
-          "expr": "sum(stacks_failing{job=\"$job\", exported_namespace=~\"$namespace\"})",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
+      "id": 3,
       "options": {
+        "colorMode": "value",
+        "graphMode": "area",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -171,17 +172,43 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "value",
-        "graphMode": "area",
         "textMode": "auto"
-      }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "$datasource"
+          },
+          "expr": "sum(stacks_failing{job=\"$job\", exported_namespace=~\"$namespace\"})",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Failing",
+      "type": "stat"
     },
     {
-      "type": "stat",
-      "title": "Reconciling",
-      "description": "Stacks the operator is working on right now.",
       "datasource": {
         "uid": "$datasource"
+      },
+      "description": "Stacks the operator is working on right now.",
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text"
+              },
+              {
+                "color": "blue",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 5,
@@ -189,36 +216,10 @@
         "x": 16,
         "y": 1
       },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "uid": "$datasource"
-          },
-          "expr": "sum(stacks_reconciling{job=\"$job\", exported_namespace=~\"$namespace\"})",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              },
-              {
-                "color": "blue",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
+      "id": 4,
       "options": {
+        "colorMode": "value",
+        "graphMode": "area",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -226,17 +227,34 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "value",
-        "graphMode": "area",
         "textMode": "auto"
-      }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "$datasource"
+          },
+          "expr": "sum(stacks_reconciling{job=\"$job\", exported_namespace=~\"$namespace\"})",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Reconciling",
+      "type": "stat"
     },
     {
-      "type": "table",
-      "title": "Failing stacks",
-      "description": "Each stack whose last update failed, or that is stalled. Empty is good.",
       "datasource": {
         "uid": "$datasource"
+      },
+      "description": "Each stack whose last update failed, or that is stalled. Empty is good.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "filterable": true
+          }
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -244,32 +262,38 @@
         "x": 0,
         "y": 6
       },
+      "id": 5,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
       "targets": [
         {
-          "refId": "A",
           "datasource": {
             "uid": "$datasource"
           },
           "expr": "stacks_failing{job=\"$job\", exported_namespace=~\"$namespace\"} > 0",
+          "format": "table",
           "instant": true,
-          "format": "table"
+          "refId": "A"
         }
       ],
+      "title": "Failing stacks",
       "transformations": [
         {
           "id": "organize",
           "options": {
             "excludeByName": {
               "Time": true,
-              "__name__": true,
-              "job": true,
-              "instance": true,
               "Value": true,
-              "namespace": true,
+              "__name__": true,
+              "container": true,
               "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
               "pod": true,
-              "service": true,
-              "container": true
+              "service": true
             },
             "indexByName": {
               "exported_namespace": 0,
@@ -281,6 +305,13 @@
           }
         }
       ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "uid": "$datasource"
+      },
+      "description": "Each stack the operator is working on right now.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -289,18 +320,6 @@
           }
         },
         "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "type": "table",
-      "title": "Reconciling stacks",
-      "description": "Each stack the operator is working on right now.",
-      "datasource": {
-        "uid": "$datasource"
       },
       "gridPos": {
         "h": 8,
@@ -308,32 +327,38 @@
         "x": 12,
         "y": 6
       },
+      "id": 6,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
       "targets": [
         {
-          "refId": "A",
           "datasource": {
             "uid": "$datasource"
           },
           "expr": "stacks_reconciling{job=\"$job\", exported_namespace=~\"$namespace\"} > 0",
+          "format": "table",
           "instant": true,
-          "format": "table"
+          "refId": "A"
         }
       ],
+      "title": "Reconciling stacks",
       "transformations": [
         {
           "id": "organize",
           "options": {
             "excludeByName": {
               "Time": true,
-              "__name__": true,
-              "job": true,
-              "instance": true,
               "Value": true,
-              "namespace": true,
+              "__name__": true,
+              "container": true,
               "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
               "pod": true,
-              "service": true,
-              "container": true
+              "service": true
             },
             "indexByName": {
               "exported_namespace": 0,
@@ -345,63 +370,34 @@
           }
         }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "left",
-            "filterable": true
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
+      "type": "table"
     },
     {
-      "type": "row",
-      "title": "Controller health",
+      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 14
       },
-      "collapsed": false,
-      "panels": []
+      "id": 7,
+      "panels": [],
+      "title": "Controller health",
+      "type": "row"
     },
     {
-      "type": "timeseries",
-      "title": "Reconcile rate by result",
-      "description": "Reconciles per second, split by outcome. A rising error rate is the first sign of trouble.",
       "datasource": {
         "uid": "$datasource"
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 15
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "uid": "$datasource"
-          },
-          "expr": "sum(rate(controller_runtime_reconcile_total{job=\"$job\"}[5m])) by (result)",
-          "legendFormat": "{{result}}"
-        }
-      ],
+      "description": "Reconciles per second, split by outcome. A rising error rate is the first sign of trouble.",
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps",
           "custom": {
-            "lineWidth": 2,
             "fillOpacity": 0,
+            "lineWidth": 2,
             "showPoints": "never"
-          }
+          },
+          "unit": "reqps"
         },
         "overrides": [
           {
@@ -413,28 +409,56 @@
               {
                 "id": "color",
                 "value": {
-                  "mode": "fixed",
-                  "fixedColor": "red"
+                  "fixedColor": "red",
+                  "mode": "fixed"
                 }
               }
             ]
           }
         ]
       },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "id": 8,
       "options": {
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
         }
-      }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "$datasource"
+          },
+          "expr": "sum(rate(controller_runtime_reconcile_total{job=\"$job\"}[5m])) by (result)",
+          "legendFormat": "{{result}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Reconcile rate by result",
+      "type": "timeseries"
     },
     {
-      "type": "timeseries",
-      "title": "Reconcile duration",
-      "description": "How long a reconcile takes, by percentile.",
       "datasource": {
         "uid": "$datasource"
+      },
+      "description": "How long a reconcile takes, by percentile.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2,
+            "showPoints": "never"
+          },
+          "unit": "s"
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -442,57 +466,58 @@
         "x": 12,
         "y": 15
       },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "uid": "$datasource"
-          },
-          "expr": "histogram_quantile(0.50, sum(rate(controller_runtime_reconcile_time_seconds_bucket{job=\"$job\"}[5m])) by (le))",
-          "legendFormat": "p50"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "uid": "$datasource"
-          },
-          "expr": "histogram_quantile(0.95, sum(rate(controller_runtime_reconcile_time_seconds_bucket{job=\"$job\"}[5m])) by (le))",
-          "legendFormat": "p95"
-        },
-        {
-          "refId": "C",
-          "datasource": {
-            "uid": "$datasource"
-          },
-          "expr": "histogram_quantile(0.99, sum(rate(controller_runtime_reconcile_time_seconds_bucket{job=\"$job\"}[5m])) by (le))",
-          "legendFormat": "p99"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "showPoints": "never"
-          }
-        },
-        "overrides": []
-      },
+      "id": 9,
       "options": {
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
         }
-      }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "$datasource"
+          },
+          "expr": "histogram_quantile(0.50, sum(rate(controller_runtime_reconcile_time_seconds_bucket{job=\"$job\"}[5m])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "uid": "$datasource"
+          },
+          "expr": "histogram_quantile(0.95, sum(rate(controller_runtime_reconcile_time_seconds_bucket{job=\"$job\"}[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "uid": "$datasource"
+          },
+          "expr": "histogram_quantile(0.99, sum(rate(controller_runtime_reconcile_time_seconds_bucket{job=\"$job\"}[5m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "title": "Reconcile duration",
+      "type": "timeseries"
     },
     {
-      "type": "timeseries",
-      "title": "Worker saturation",
-      "description": "Active workers against the configured maximum. Sustained saturation means reconciles are queueing.",
       "datasource": {
         "uid": "$datasource"
+      },
+      "description": "Active workers against the configured maximum. Sustained saturation means reconciles are queueing.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2,
+            "showPoints": "never"
+          },
+          "unit": "short"
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -500,82 +525,48 @@
         "x": 0,
         "y": 23
       },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "uid": "$datasource"
-          },
-          "expr": "sum(controller_runtime_active_workers{job=\"$job\"}) by (controller)",
-          "legendFormat": "{{controller}} active"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "uid": "$datasource"
-          },
-          "expr": "sum(controller_runtime_max_concurrent_reconciles{job=\"$job\"}) by (controller)",
-          "legendFormat": "{{controller}} max"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "showPoints": "never"
-          }
-        },
-        "overrides": []
-      },
+      "id": 10,
       "options": {
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
         }
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Work queue",
-      "description": "Items waiting, and how long they wait. A growing queue means the operator is behind.",
-      "datasource": {
-        "uid": "$datasource"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 23
       },
       "targets": [
         {
-          "refId": "A",
           "datasource": {
             "uid": "$datasource"
           },
-          "expr": "sum(workqueue_depth{job=\"$job\"}) by (name)",
-          "legendFormat": "{{name}} depth"
+          "expr": "sum(controller_runtime_active_workers{job=\"$job\"}) by (controller)",
+          "legendFormat": "{{controller}} active",
+          "refId": "A"
         },
         {
-          "refId": "B",
           "datasource": {
             "uid": "$datasource"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(workqueue_queue_duration_seconds_bucket{job=\"$job\"}[5m])) by (le, name))",
-          "legendFormat": "{{name}} p95 wait"
+          "expr": "sum(controller_runtime_max_concurrent_reconciles{job=\"$job\"}) by (controller)",
+          "legendFormat": "{{controller}} max",
+          "refId": "B"
         }
       ],
+      "title": "Worker saturation",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "uid": "$datasource"
+      },
+      "description": "Items waiting, and how long they wait. A growing queue means the operator is behind.",
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
           "custom": {
-            "lineWidth": 2,
             "fillOpacity": 0,
+            "lineWidth": 2,
             "showPoints": "never"
-          }
+          },
+          "unit": "short"
         },
         "overrides": [
           {
@@ -592,13 +583,110 @@
           }
         ]
       },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 23
+      },
+      "id": 11,
       "options": {
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
         }
-      }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "$datasource"
+          },
+          "expr": "sum(workqueue_depth{job=\"$job\"}) by (name)",
+          "legendFormat": "{{name}} depth",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "uid": "$datasource"
+          },
+          "expr": "histogram_quantile(0.95, sum(rate(workqueue_queue_duration_seconds_bucket{job=\"$job\"}[5m])) by (le, name))",
+          "legendFormat": "{{name}} p95 wait",
+          "refId": "B"
+        }
+      ],
+      "title": "Work queue",
+      "type": "timeseries"
     }
-  ]
+  ],
+  "refresh": "30s",
+  "schemaVersion": 42,
+  "tags": [
+    "pulumi",
+    "kubernetes-operator"
+  ],
+  "templating": {
+    "list": [
+      {
+        "allowCustomValue": true,
+        "current": {
+          "text": "",
+          "value": "${DS_PROMETHEUS}",
+          "selected": true
+        },
+        "includeAll": false,
+        "label": "Data source",
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      },
+      {
+        "allowCustomValue": true,
+        "current": {},
+        "datasource": {
+          "type": "",
+          "uid": "$datasource"
+        },
+        "includeAll": false,
+        "label": "Job",
+        "name": "job",
+        "options": [],
+        "query": "label_values(stacks_active, job)",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "allowCustomValue": true,
+        "current": {},
+        "datasource": {
+          "type": "",
+          "uid": "$datasource"
+        },
+        "includeAll": true,
+        "label": "Namespace",
+        "multi": true,
+        "name": "namespace",
+        "options": [],
+        "query": "label_values(stacks_failing{job=\"$job\"}, exported_namespace)",
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Pulumi Kubernetes Operator",
+  "uid": "",
+  "version": 1,
+  "weekStart": ""
 }

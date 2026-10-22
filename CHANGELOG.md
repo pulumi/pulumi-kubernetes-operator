@@ -2,6 +2,7 @@ CHANGELOG
 =========
 
 ## Unreleased
+- Publish a Grafana dashboard for the operator's metrics
 - Build the operator and agent with Go 1.26.10 to distrust the compromised eMudhra intermediate CAs [#1400](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1400)
 - Count a stalled Stack in the `stacks_failing` metric even when it has not run an update yet [#1382](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1382)
 - Documentation for k9s setup [1377](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1377)

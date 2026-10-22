@@ -83,10 +83,12 @@ Once installed, you can perform the following steps to determine if Prometheus i
 
 ![The Pulumi Kubernetes Operator dashboard](./images/sample-dashboard.png)
 
-This repository ships a dashboard at
-[`dashboards/operator-metrics.json`](../dashboards/operator-metrics.json). It
-shows how many Stacks exist, which of them are failing or reconciling, and how
-busy the operator's controllers are.
+The dashboard shows how many Stacks exist, which of them are failing or
+reconciling, and how busy the operator's controllers are. It is published to the
+Grafana community catalog as dashboard
+[25954](https://grafana.com/grafana/dashboards/25954), and the same dashboard is
+in this repository at
+[`dashboards/operator-metrics.json`](../dashboards/operator-metrics.json).
 
 `kube-prometheus-stack` also installs Grafana. To import the dashboard:
 
@@ -100,7 +102,8 @@ busy the operator's controllers are.
 
 3. In Grafana, select **Dashboards**, then **New**, then **Import**.
 
-4. Upload `dashboards/operator-metrics.json`, or paste its contents.
+4. Enter `25954` in the **Import via grafana.com** field, or upload
+   `dashboards/operator-metrics.json`.
 
 5. Select **Import**, then select your Prometheus from the **Data source** dropdown at the top of the dashboard.
 
