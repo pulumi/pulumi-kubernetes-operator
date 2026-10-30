@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+- Fix dead Operator SDK links in the build guide [#1426](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1426)
+
 ## 2.10.0 (2026-10-22)
 
 - Publish a Grafana dashboard for the operator's metrics [#1404](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1404)
