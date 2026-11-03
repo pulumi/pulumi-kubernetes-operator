@@ -21,6 +21,7 @@ To learn more about the Pulumi Kubernetes Operator visit the [Pulumi documentati
     - [Examples](#examples)
   - [Stack CR Documentation](#stack-cr-documentation)
   - [Prometheus Metrics Integration](#prometheus-metrics-integration)
+  - [Watching Stacks](#watching-stacks)
   - [Development](#development)
 
 ### What is Pulumi?
@@ -67,14 +68,14 @@ A simple "quickstart" installation manifest is provided for non-production envir
 Install with `kubectl`:
 
 ```
-kubectl apply -f https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/refs/tags/v2.9.3/deploy/quickstart/install.yaml
+kubectl apply -f https://raw.githubusercontent.com/pulumi/pulumi-kubernetes-operator/refs/tags/v2.10.0/deploy/quickstart/install.yaml
 ```
 
 ### From Source
 
 To build and install the operator from this repository:
 
-1. Build the operator image: `make build-image` (produces `pulumi/pulumi-kubernetes-operator:v2.9.3`).
+1. Build the operator image: `make build-image` (produces `pulumi/pulumi-kubernetes-operator:v2.10.0`).
 2. Push or load the image into your cluster's registry.
 3. Deploy to your current cluster context: `make deploy`.
 
@@ -115,6 +116,12 @@ Detailed documentation on Stack Custom Resource is available [here](./docs/stack
 ## Prometheus Metrics Integration
 
 Details on metrics emitted by the Pulumi Kubernetes Operator as instructions on getting them to flow to Prometheus are available [here](./docs/metrics.md).
+
+## Watching Stacks
+
+- [Watching Stacks with k9s](./docs/k9s.md) gives you a single view of every Stack in a terminal UI, plus keys to request a resync and to open an update in Pulumi Cloud.
+- [Argo CD health checks](./docs/argocd-health-checks.md) teach Argo CD to report Stack health, if Argo CD delivers your Stack resources.
+- [Troubleshooting](./docs/troubleshooting.md) covers stuck and failing Stacks.
 
 ## Development
 

@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr/testr"
@@ -33,6 +34,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -458,6 +460,77 @@ func TestSetupWorkspace(t *testing.T) {
 			assert.Equal(t, test.expected, session.ws)
 		})
 	}
+}
+
+func TestSetupWorkspaceUsesMakeRefVolumeNameForRefs(t *testing.T) {
+	scheme.Scheme.AddKnownTypeWithName(
+		schema.GroupVersionKind{Group: "pulumi.com", Version: "v1", Kind: "Stack"},
+		&v1.Stack{},
+	)
+	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+
+	stack := shared.StackSpec{
+		SecretRefs: map[string]shared.ResourceRef{
+			"secret": {
+				SelectorType: shared.ResourceSelectorSecret,
+				ResourceSelector: shared.ResourceSelector{
+					SecretRef: &shared.SecretSelector{Name: "app.credentials", Key: "key"},
+				},
+			},
+		},
+		ConfigRef: map[string]shared.ConfigMapRef{
+			"configmap": {Name: "app.settings", Key: "key"},
+		},
+	}
+
+	session := newStackReconcilerSession(testr.New(t), stack, client, scheme.Scheme, namespace)
+	require.NoError(t, session.NewWorkspace(&v1.Stack{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-stack", Namespace: namespace},
+		Spec:       session.stack,
+	}))
+	require.NoError(t, session.setupWorkspace(t.Context(), false))
+
+	volumes := session.ws.Spec.PodTemplate.Spec.Volumes
+	require.Len(t, volumes, 2)
+	for _, v := range volumes {
+		assert.Empty(t, validation.IsDNS1123Label(v.Name),
+			"volume name %q is not a DNS-1123 label, so the API server rejects the workspace pod", v.Name)
+	}
+}
+
+func TestMakeRefVolumeName(t *testing.T) {
+	longName := strings.Repeat("a", 70)
+
+	for _, tt := range []struct {
+		scenario string
+		prefix   string
+		name     string
+	}{
+		{"secret name containing dots", "secret-", "app.credentials"},
+		{"secret name over 63 characters", "secret-", longName},
+		{"secret name already valid as a volume name", "secret-", "app-credentials"},
+		{"configmap name containing dots", "configmap-", "app.settings"},
+		{"configmap name over 63 characters", "configmap-", longName},
+	} {
+		t.Run(tt.scenario, func(t *testing.T) {
+			got := makeRefVolumeName(tt.prefix, tt.name)
+			assert.Empty(t, validation.IsDNS1123Label(got),
+				"volume name %q (%d chars) is not a DNS-1123 label, so the API server rejects the workspace pod",
+				got, len(got))
+		})
+	}
+
+	t.Run("a name that is already valid is left alone", func(t *testing.T) {
+		assert.Equal(t, "secret-app-credentials", makeRefVolumeName("secret-", "app-credentials"),
+			"renaming a working volume would restart every workspace pod on upgrade")
+	})
+
+	t.Run("names that sanitize alike stay distinct", func(t *testing.T) {
+		assert.NotEqual(t,
+			makeRefVolumeName("secret-", "app.credentials"),
+			makeRefVolumeName("secret-", "app-credentials"),
+			"two Secrets sharing a volume name means one is silently dropped and its mount path stays empty")
+	})
 }
 
 func TestSetupWorkspaceFromGitSource(t *testing.T) {

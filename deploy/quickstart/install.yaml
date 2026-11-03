@@ -298,13 +298,17 @@ spec:
     - jsonPath: .status.lastUpdate.state
       name: Last Update
       type: string
-    - jsonPath: .status.lastUpdate.lastResyncTime
+    - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
     - jsonPath: .status.lastUpdate.lastAttemptedCommit
       name: Last Commit
       priority: 10
       type: string
+    - jsonPath: .status.lastUpdate.lastResyncTime
+      name: Last Resync
+      priority: 10
+      type: date
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
@@ -31314,7 +31318,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: controller-manager
-  namespace: system
+  namespace: pulumi-kubernetes-operator
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -31418,7 +31422,7 @@ spec:
           value: 10s
         - name: KUBE_API_TIMEOUT
           value: 30s
-        image: pulumi/pulumi-kubernetes-operator:v2.9.3
+        image: pulumi/pulumi-kubernetes-operator:v2.10.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:

@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Fetch secrets from ESC
         id: esc-secrets
-        uses: pulumi/esc-action@32dda43ffe7a2ab21e6bce11c781b44a3e5623cf # v3
+        uses: pulumi/esc-action@b061167a29bad21ea5ff1fca900addb89227c49b # v3
       - name: Checkout Repo
         uses: actions/checkout@v4
       - name: Unshallow clone for tags
@@ -33,7 +33,7 @@ jobs:
         with:
           repo: pulumi/pulumictl
       - name: Install Pulumi CLI
-        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
         with:
           pulumi-version-file: .pulumi.version
       - name: Preparing Git Branch

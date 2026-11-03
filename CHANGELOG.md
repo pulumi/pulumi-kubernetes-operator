@@ -3,6 +3,19 @@ CHANGELOG
 
 ## Unreleased
 
+## 2.10.0 (2026-10-22)
+
+- Publish a Grafana dashboard for the operator's metrics [#1404](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1404)
+- Build the operator and agent with Go 1.26.10 to distrust the compromised eMudhra intermediate CAs [#1400](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1400)
+- Fix workspace pods failing to start when a `secretRefs` or `configRef` entry references a Secret or ConfigMap whose name contains dots or is longer than the volume name limit [#1398](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1398)
+- Count a stalled Stack in the `stacks_failing` metric even when it has not run an update yet [#1382](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1382)
+- Documentation for k9s setup [1377](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1377)
+
+- The Stack's AGE display column is now keyed on metadata creation timestamp. 
+  LastResynced, which was previously populating AGE, is now its own column. [#1376](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1376)
+- Fix the `stacks_reconciling` metric not being served on the metrics endpoint [#1371](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1371)
+- The `stacks_active` metric is now labelled by namespace [#1383](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1383)
+
 ## 2.9.3 (2026-10-09)
 
 - Fix an Update reconcile blocking forever when its workspace pod becomes unreachable mid-operation [#1293](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1293)

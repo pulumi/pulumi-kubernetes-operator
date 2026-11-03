@@ -171,8 +171,9 @@ func (s *StackStatus) MarkReadyCondition() {
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Stack",priority=10,type="string",JSONPath=".spec.stack"
 // +kubebuilder:printcolumn:name="Last Update",type="string",JSONPath=".status.lastUpdate.state"
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".status.lastUpdate.lastResyncTime"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Last Commit",priority=10,type="string",JSONPath=".status.lastUpdate.lastAttemptedCommit"
+// +kubebuilder:printcolumn:name="Last Resync",priority=10,type="date",JSONPath=".status.lastUpdate.lastResyncTime"
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Reconciling",type=string,JSONPath=`.status.conditions[?(@.type=="Reconciling")].reason`
 // +kubebuilder:printcolumn:name="Stalled",type=string,JSONPath=`.status.conditions[?(@.type=="Stalled")].reason`
