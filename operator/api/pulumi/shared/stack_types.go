@@ -189,6 +189,12 @@ type StackSpec struct {
 	// +optional
 	UpdateTemplate *UpdateApplyConfiguration `json:"updateTemplate,omitempty"`
 
+	// MaxUpdateFailures controls how many consecutive update failures are retried
+	// before the Stack is marked Stalled. When unset, it defaults to 3.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	MaxUpdateFailures *int64 `json:"maxUpdateFailures,omitempty"`
+
 	// RetryMaxBackoffDurationSeconds controls the maximum number of seconds to
 	// wait before retrying a failed update. Failures are retried with an
 	// exponentially increasing backoff until it reaches this maxium. Defaults
