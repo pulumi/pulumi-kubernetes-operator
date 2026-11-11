@@ -171,5 +171,5 @@ kind delete cluster
 
 ## Official Operator SDK Docs
 
-- [Quickstart](https://sdk.operatorframework.io/docs/golang/quickstart/)
-- [Project Scaffolding](https://sdk.operatorframework.io/docs/golang/references/project-layout/)
+- [Quickstart](https://sdk.operatorframework.io/docs/building-operators/golang/quickstart/)
+- [Project Scaffolding](https://sdk.operatorframework.io/docs/overview/project-layout/)
