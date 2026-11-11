@@ -41,6 +41,9 @@ generate-crds:
 generate-crdocs: crdoc ## Generate API Reference documentation into 'docs/crds/'.
 	$(CRDOC) --resources deploy/crds/pulumi.com_stacks.yaml --output docs/stacks.md
 	$(CRDOC) --resources deploy/crds/pulumi.com_programs.yaml --output docs/programs.md
+	# programs.md also has a hand-written Package Management section. crdoc
+	# overwrites the file, so restore that section after each generation.
+	cat docs/programs-package-management.md >> docs/programs.md
 	$(CRDOC) --resources deploy/crds/auto.pulumi.com_workspaces.yaml --output docs/workspaces.md
 	$(CRDOC) --resources deploy/crds/auto.pulumi.com_updates.yaml --output docs/updates.md
 
