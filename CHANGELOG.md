@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+- Keep the hand-written Package Management section in `docs/programs.md` when the API reference is regenerated, and drop the `file://` package from the `programRef` example [#1449](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1449)
+
 ## 2.10.0 (2026-10-22)
 
 - Publish a Grafana dashboard for the operator's metrics [#1404](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1404)

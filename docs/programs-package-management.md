@@ -30,6 +30,8 @@ packages:
   shared-utils: "file://../shared/utils"
 ```
 
+The Program controller publishes only the generated `Pulumi.yaml`, so a Stack that uses `programRef` has no other files in its workspace. A `file://` path only resolves when those files are already present in the workspace, for example with a Stack that uses a Git or Flux source.
+
 #### Parameterized Packages
 Reference packages with specific versions from package registries:
 
@@ -52,8 +54,6 @@ spec:
     packages:
       # VCS-based component with specific commit
       talos-go-component: "https://github.com/dirien/pulumi-talos-go-component@0.0.0-x5ed2a9a45c6d287bd2485f4db1e8c052b164a5ef"
-      # Local development component
-      custom-component: "file://./custom"
       # Versioned package
       example-package: "https://example.com/packages/my-component@v1.2.3"
       
@@ -86,7 +86,6 @@ name: multi-package-example
 runtime: yaml
 packages:
   talos-go-component: "https://github.com/dirien/pulumi-talos-go-component@0.0.0-x5ed2a9a45c6d287bd2485f4db1e8c052b164a5ef"
-  custom-component: "file://./custom"
   example-package: "https://example.com/packages/my-component@v1.2.3"
 configuration:
   environment:
