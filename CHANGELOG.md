@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+## 2.10.1
+
 - Fix a Stack that gets stuck in `Terminating` when a completed Update still holds the operator's finalizer [#1446](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1446)
 
 ## 2.10.0 (2026-10-22)
