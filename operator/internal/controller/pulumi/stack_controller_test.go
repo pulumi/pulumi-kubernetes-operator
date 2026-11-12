@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 	"time"
 
@@ -38,6 +39,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -2625,6 +2627,158 @@ func TestRemoveUpdateFinalizer(t *testing.T) {
 		err := r.removeUpdateFinalizer(ctx, update)
 		assert.NoError(t, err)
 	})
+}
+
+func TestReleaseFinalizersFromStackOwnedUpdates(t *testing.T) {
+	ctx := context.Background()
+	testScheme := scheme.Scheme
+	require.NoError(t, pulumiv1.AddToScheme(testScheme))
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(testScheme).
+		WithReturnManagedFields().
+		Build()
+	r := &StackReconciler{Client: fakeClient}
+	stack := &pulumiv1.Stack{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "deleting-stack",
+			Namespace: "default",
+			UID:       types.UID("stack-uid"),
+		},
+	}
+
+	createUpdate := func(name string, ownerUID types.UID, complete bool) {
+		conditions := []metav1.Condition{}
+		if complete {
+			conditions = append(conditions, metav1.Condition{
+				Type:   autov1alpha1.UpdateConditionTypeComplete,
+				Status: metav1.ConditionTrue,
+				Reason: "Complete",
+			})
+		}
+		update := &autov1alpha1.Update{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: stack.Namespace,
+				Labels:    labelsForWorkspace(&stack.ObjectMeta),
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: pulumiv1.GroupVersion.String(),
+					Kind:       "Stack",
+					Name:       stack.Name,
+					UID:        ownerUID,
+				}},
+			},
+			Spec: autov1alpha1.UpdateSpec{
+				StackName:     "organization/project/stack",
+				WorkspaceName: "workspace",
+			},
+			Status: autov1alpha1.UpdateStatus{
+				// Deletion may advance metadata.generation after the operation has
+				// already reached a terminal condition.
+				ObservedGeneration: 7,
+				Conditions:         conditions,
+			},
+		}
+		require.NoError(t, fakeClient.Create(ctx, update))
+		require.NoError(t, r.addUpdateFinalizer(ctx, update))
+		require.NoError(t, fakeClient.Delete(ctx, update))
+	}
+
+	createUpdate("terminal-owned", stack.UID, true)
+	createUpdate("active-owned", stack.UID, false)
+	createUpdate("terminal-unrelated", types.UID("other-stack-uid"), true)
+
+	require.NoError(t, r.releaseFinalizersFromStackOwnedUpdates(ctx, stack))
+
+	for name, finalizerPresent := range map[string]bool{
+		"terminal-owned":     false,
+		"active-owned":       true,
+		"terminal-unrelated": true,
+	} {
+		update := &autov1alpha1.Update{}
+		require.NoError(t, fakeClient.Get(ctx, types.NamespacedName{Name: name, Namespace: stack.Namespace}, update))
+		assert.Equal(t, finalizerPresent, slices.Contains(update.Finalizers, PulumiFinalizer), name)
+	}
+}
+
+func TestStackDeletionReleasesFinalizersFromStackOwnedUpdates(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, pulumiv1.AddToScheme(testScheme))
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+		},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	k8sclient, err := client.New(cfg, client.Options{Scheme: testScheme})
+	require.NoError(t, err)
+
+	ctx := t.Context()
+	stackName := types.NamespacedName{Name: "deleting-stack-with-update", Namespace: "default"}
+	stack := &pulumiv1.Stack{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: pulumiv1.GroupVersion.String(),
+			Kind:       "Stack",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       stackName.Name,
+			Namespace:  stackName.Namespace,
+			Finalizers: []string{testFinalizer},
+		},
+		Spec: shared.StackSpec{Stack: "organization/project/stack"},
+	}
+	require.NoError(t, k8sclient.Create(ctx, stack))
+
+	updateName := types.NamespacedName{Name: "terminal-stack-update", Namespace: stack.Namespace}
+	update := &autov1alpha1.Update{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            updateName.Name,
+			Namespace:       updateName.Namespace,
+			Labels:          labelsForWorkspace(&stack.ObjectMeta),
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(stack, pulumiv1.GroupVersion.WithKind("Stack"))},
+		},
+		Spec: autov1alpha1.UpdateSpec{
+			StackName:     stack.Spec.Stack,
+			WorkspaceName: nameForWorkspace(&stack.ObjectMeta),
+		},
+	}
+	require.NoError(t, k8sclient.Create(ctx, update))
+
+	r := &StackReconciler{
+		Client:   k8sclient,
+		Scheme:   testScheme,
+		Recorder: record.NewFakeRecorder(10),
+	}
+	require.NoError(t, r.addUpdateFinalizer(ctx, update))
+	require.NoError(t, k8sclient.Get(ctx, updateName, update))
+	update.Status.Conditions = []metav1.Condition{{
+		Type:               autov1alpha1.UpdateConditionTypeComplete,
+		Status:             metav1.ConditionTrue,
+		Reason:             "Complete",
+		LastTransitionTime: metav1.Now(),
+	}}
+	require.NoError(t, k8sclient.Status().Update(ctx, update))
+	require.NoError(t, k8sclient.Delete(ctx, update))
+	require.NoError(t, k8sclient.Delete(ctx, stack))
+
+	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
+	require.NoError(t, err)
+
+	err = k8sclient.Get(ctx, updateName, &autov1alpha1.Update{})
+	assert.True(t, apierrors.IsNotFound(err), "terminal Stack-owned Update should finish deleting")
+
+	var retained pulumiv1.Stack
+	require.NoError(t, k8sclient.Get(ctx, stackName, &retained))
+	assert.Equal(t, []string{testFinalizer}, retained.Finalizers)
 }
 
 func TestIsFinalizerOwnedByLegacyManager(t *testing.T) {
