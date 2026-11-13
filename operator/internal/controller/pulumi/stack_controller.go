@@ -692,8 +692,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		if !isUpdateComplete(sess.update) {
 			// Wait for the update to complete. The Update watch normally drives this, but
 			// requeue on a slow timer as well so that an Update which never reaches a terminal
-			// state cannot strand the Stack. Keep this coarse: each pass re-resolves the
-			// source, which for a git source means a network round trip.
+			// state cannot strand the Stack.
 			instance.Status.MarkReconcilingCondition(pulumiv1.ReconcilingProcessingReason, pulumiv1.ReconcilingProcessingUpdateMessage)
 			return reconcile.Result{RequeueAfter: updateInFlightRequeue}, saveStatus()
 		}
@@ -2058,7 +2057,9 @@ func (r *StackReconciler) healLostUpdate(
 	if adopted != nil {
 		log.Info("current update object not found, but an in-flight update exists; adopting it",
 			"Name", lostName, "AdoptedName", adopted.Name)
-		instance.Status.CurrentUpdate.Name = adopted.Name
+		// Replace rather than rename: the lost reference's commit and generation describe a
+		// different update, and .status.lastUpdate is built from this struct.
+		instance.Status.CurrentUpdate = &shared.CurrentStackUpdate{Name: adopted.Name}
 		return reconcile.Result{RequeueAfter: updateCacheLagRequeue}, saveStatus()
 	}
 
