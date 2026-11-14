@@ -568,13 +568,17 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	// Check if the Stack instance is marked to be deleted, which is indicated by the deletion
 	// timestamp being set.
 	isStackMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
-	// If the Stack's finalizer is gone, foreground deletion may still be blocked by
-	// deleting child Updates. Release the Pulumi finalizer only from terminal Updates
-	// owned by this Stack; active or unrelated Updates remain untouched.
+
+	// Runs before the early return below: a Stack that has released PulumiFinalizer can still
+	// be held in Terminating by an Update that still carries PulumiFinalizer.
+	if err := r.reapTerminatingUpdates(ctx, instance, request.Namespace); err != nil {
+		// Not fatal to this reconcile: the sweep is idempotent and runs again next time.
+		log.Error(err, "unable to release finalizers from deleted updates (best-effort)")
+	}
+
+	// If there's no finalizer, it's either been cleaned up, never been seen, or never gotten far
+	// enough to need cleaning up.
 	if isStackMarkedToBeDeleted && !slices.Contains(instance.GetFinalizers(), PulumiFinalizer) {
-		if err := r.releaseFinalizersFromStackOwnedUpdates(ctx, instance); err != nil {
-			return reconcile.Result{}, fmt.Errorf("releasing finalizers from Stack-owned Updates: %w", err)
-		}
 		return reconcile.Result{}, nil
 	}
 	if !isStackMarkedToBeDeleted && controllerutil.AddFinalizer(instance, PulumiFinalizer) {
@@ -646,16 +650,6 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			toBeFinalized = nil
 		}
 		return nil
-	}
-
-	// Release any Update that is being deleted but still holds our finalizer. Normally the
-	// finalizer is dropped as soon as the Stack absorbs the result, but if that write failed --
-	// or was skipped by an older version of the operator -- the object cannot finish deleting,
-	// and freeing it otherwise requires an operator to force-patch a controller-owned field.
-	// See https://github.com/pulumi/pulumi-kubernetes-operator/issues/1293.
-	if err := r.reapTerminatingUpdates(ctx, instance, request.Namespace); err != nil {
-		// Not fatal to this reconcile: the sweep is idempotent and runs again next time.
-		log.Error(err, "unable to release finalizers from deleted updates (best-effort)")
 	}
 
 	// Check for an outstanding update, and absorb the result into status if the update is complete.
@@ -2238,32 +2232,6 @@ func conditionToApply(c *metav1.Condition) *metav1apply.ConditionApplyConfigurat
 		ac = ac.WithObservedGeneration(c.ObservedGeneration)
 	}
 	return ac
-}
-
-func (r *StackReconciler) releaseFinalizersFromStackOwnedUpdates(ctx context.Context, stack *pulumiv1.Stack) error {
-	var updates autov1alpha1.UpdateList
-	if err := r.List(ctx, &updates,
-		client.InNamespace(stack.Namespace),
-		client.MatchingLabels(labelsForWorkspace(&stack.ObjectMeta))); err != nil {
-		return fmt.Errorf("listing owned Updates: %w", err)
-	}
-
-	for i := range updates.Items {
-		update := &updates.Items[i]
-		isOwnedByStack := slices.ContainsFunc(update.OwnerReferences, func(owner metav1.OwnerReference) bool {
-			return owner.UID == stack.UID
-		})
-		isDeletingAndComplete := !update.DeletionTimestamp.IsZero() &&
-			meta.IsStatusConditionTrue(update.Status.Conditions, autov1alpha1.UpdateConditionTypeComplete)
-		hasPulumiFinalizer := slices.Contains(update.Finalizers, PulumiFinalizer)
-		if !isOwnedByStack || !isDeletingAndComplete || !hasPulumiFinalizer {
-			continue
-		}
-		if err := r.removeUpdateFinalizer(ctx, update); err != nil {
-			return fmt.Errorf("removing finalizer from Update %s: %w", update.Name, err)
-		}
-	}
-	return nil
 }
 
 func (r *StackReconciler) addUpdateFinalizer(ctx context.Context, update *autov1alpha1.Update) error {
