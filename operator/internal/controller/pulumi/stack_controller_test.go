@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"testing"
 	"time"
 
@@ -187,6 +186,20 @@ func makeUpdate(name types.NamespacedName, stack *pulumiv1.Stack, spec autov1alp
 	}
 }
 
+// updateHidingClient is a cached-client stand-in that reports one named Update as absent,
+// reproducing a cold or lagging informer while the object really does exist in the API.
+type updateHidingClient struct {
+	client.Client
+	hidden string
+}
+
+func (c updateHidingClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if _, ok := obj.(*autov1alpha1.Update); ok && key.Name == c.hidden {
+		return apierrors.NewNotFound(autov1alpha1.GroupVersion.WithResource("updates").GroupResource(), key.Name)
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
+}
+
 var _ = Describe("Stack Controller", func() {
 	var r *StackReconciler
 	var objName types.NamespacedName
@@ -199,9 +212,10 @@ var _ = Describe("Stack Controller", func() {
 
 	BeforeEach(func(ctx context.Context) {
 		r = &StackReconciler{
-			Client:   k8sClient,
-			Scheme:   k8sClient.Scheme(),
-			Recorder: record.NewFakeRecorder(10),
+			Client:    k8sClient,
+			APIReader: k8sClient,
+			Scheme:    k8sClient.Scheme(),
+			Recorder:  record.NewFakeRecorder(10),
 			maybeWatchFluxSourceKind: func(fsr shared.FluxSourceReference) error {
 				return nil
 			},
@@ -542,321 +556,6 @@ var _ = Describe("Stack Controller", func() {
 					Expect(result).To(Equal(reconcile.Result{}))
 					Expect(obj.Finalizers).ToNot(ContainElement(PulumiFinalizer), "remove the finalizer")
 					ByMarkingAsReady()
-				})
-			})
-		})
-	})
-
-	Describe("Current Update Processing", func() {
-		useFluxSource()
-
-		BeforeEach(func(ctx context.Context) {
-			obj.Status.CurrentUpdate = &shared.CurrentStackUpdate{
-				Generation: 1,
-				Name:       currentUpdate.Name,
-				Commit:     "abcdef",
-			}
-		})
-
-		When("the update is not found", func() {
-			JustBeforeEach(func(ctx context.Context) {
-				currentUpdate.Finalizers = []string{}
-				Expect(k8sClient.Update(ctx, currentUpdate)).To(Succeed())
-				Expect(k8sClient.Delete(ctx, currentUpdate)).To(Succeed())
-			})
-			It("reconciles", func(ctx context.Context) {
-				result, err := reconcileF(ctx)
-				Expect(err).NotTo(HaveOccurred())
-
-				ByMarkingAsReconciling(pulumiv1.ReconcilingProcessingReason, Equal(pulumiv1.ReconcilingProcessingUpdateMessage))
-
-				By("retaining the current update")
-				Expect(obj.Status.CurrentUpdate).NotTo(BeNil())
-
-				By("not requeuing and by watching for Update status changes")
-				Expect(result).To(Equal(reconcile.Result{}))
-			})
-		})
-
-		When("the update is incomplete (still running)", func() {
-			BeforeEach(func(ctx context.Context) {
-				currentUpdate.Status.ObservedGeneration = 1
-				currentUpdate.Status.Conditions = []metav1.Condition{
-					{
-						Type:               autov1alpha1.UpdateConditionTypeComplete,
-						Status:             metav1.ConditionFalse,
-						Reason:             "Progressing",
-						LastTransitionTime: metav1.Now(),
-					},
-				}
-			})
-			It("reconciles", func(ctx context.Context) {
-				result, err := reconcileF(ctx)
-				Expect(err).NotTo(HaveOccurred())
-
-				ByMarkingAsReconciling(pulumiv1.ReconcilingProcessingReason, Equal(pulumiv1.ReconcilingProcessingUpdateMessage))
-
-				By("retaining the current update")
-				Expect(obj.Status.CurrentUpdate).NotTo(BeNil())
-
-				By("not requeuing and by watching for Update status changes")
-				Expect(result).To(Equal(reconcile.Result{}))
-			})
-		})
-
-		When("the update failed", func() {
-			BeforeEach(func(ctx context.Context) {
-				currentUpdate.Status.ObservedGeneration = 1
-				currentUpdate.Status.Conditions = []metav1.Condition{
-					{
-						Type:               autov1alpha1.UpdateConditionTypeComplete,
-						Status:             metav1.ConditionTrue,
-						Reason:             "Updated",
-						LastTransitionTime: metav1.Now(),
-					},
-					{
-						Type:               autov1alpha1.UpdateConditionTypeFailed,
-						Status:             metav1.ConditionTrue,
-						Reason:             "unknown",
-						LastTransitionTime: metav1.Now(),
-					},
-				}
-			})
-			It("reconciles", func(ctx context.Context) {
-				update := currentUpdate.DeepCopy()
-				_, err := reconcileF(ctx)
-				Expect(err).NotTo(HaveOccurred())
-
-				By("clearing the current update")
-				Expect(obj.Status.CurrentUpdate).To(BeNil())
-
-				By("setting the last update")
-				Expect(obj.Status.LastUpdate).NotTo(BeNil())
-				Expect(obj.Status.LastUpdate.Generation).To(Equal(update.Generation))
-				Expect(obj.Status.LastUpdate.Name).To(Equal(update.Name))
-				Expect(obj.Status.LastUpdate.Type).To(Equal(update.Spec.Type))
-				Expect(obj.Status.LastUpdate.State).To(Equal(shared.FailedStackStateMessage))
-				Expect(obj.Status.LastUpdate.LastAttemptedCommit).To(Equal("abcdef"))
-				Expect(obj.Status.LastUpdate.LastSuccessfulCommit).To(BeEmpty())
-
-				By("removing the stack finalizer to allow the update to be deleted later")
-				Expect(lastUpdate.Finalizers).ToNot(ContainElement(PulumiFinalizer))
-
-				By("emitting an event")
-				Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.StackUpdateFailure)))
-			})
-
-			When("a stack is locked", func() {
-				BeforeEach(func(ctx context.Context) {
-					currentUpdate.Status.Message = "the stack is locked; another update is in progress"
-					currentUpdate.Status.Conditions = []metav1.Condition{
-						{
-							Type:               autov1alpha1.UpdateConditionTypeComplete,
-							Status:             metav1.ConditionTrue,
-							Reason:             "Updated",
-							LastTransitionTime: metav1.Now(),
-						},
-						{
-							Type:               autov1alpha1.UpdateConditionTypeFailed,
-							Status:             metav1.ConditionTrue,
-							Reason:             "UpdateConflict",
-							Message:            "the stack is locked; another update is in progress",
-							LastTransitionTime: metav1.Now(),
-						},
-					}
-				})
-
-				It("reconciles", func(ctx context.Context) {
-					_, err := reconcileF(ctx)
-					Expect(err).NotTo(HaveOccurred())
-
-					Expect(obj.Status.LastUpdate.Message).To(Equal("the stack is locked; another update is in progress"))
-				})
-			})
-
-			When("an unknown error occurred running pulumi", func() {
-				BeforeEach(func(ctx context.Context) {
-					currentUpdate.Status.Message = "an unknown error occurred running up"
-					currentUpdate.Status.Conditions = []metav1.Condition{
-						{
-							Type:               autov1alpha1.UpdateConditionTypeComplete,
-							Status:             metav1.ConditionTrue,
-							Reason:             "Updated",
-							LastTransitionTime: metav1.Now(),
-						},
-						{
-							Type:               autov1alpha1.UpdateConditionTypeFailed,
-							Status:             metav1.ConditionTrue,
-							Reason:             "Unknown",
-							Message:            "an unknown error occurred running up",
-							LastTransitionTime: metav1.Now(),
-						},
-					}
-				})
-
-				It("reconciles", func(ctx context.Context) {
-					_, err := reconcileF(ctx)
-					Expect(err).NotTo(HaveOccurred())
-
-					Expect(obj.Status.LastUpdate.Message).To(Equal("an unknown error occurred running up"))
-				})
-			})
-
-			When("retrying", func() {
-				JustBeforeEach(func(ctx context.Context) {
-					obj.Status.LastUpdate = &shared.StackUpdateState{
-						Generation:           1,
-						State:                shared.FailedStackStateMessage,
-						Name:                 "update-retried",
-						Type:                 autov1alpha1.UpType,
-						LastAttemptedCommit:  obj.Status.CurrentUpdate.Commit,
-						LastSuccessfulCommit: "",
-						Failures:             2,
-					}
-					Expect(k8sClient.Status().Patch(ctx, obj, stackStatusSSAPatch(obj),
-						client.FieldOwner(StackStatusFieldManager), client.ForceOwnership)).To(Succeed())
-				})
-				It("increments failures", func(ctx context.Context) {
-					_, err := reconcileF(ctx)
-					Expect(err).NotTo(HaveOccurred())
-
-					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
-					Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(3)))
-				})
-
-				When("with a new generation", func() {
-					JustBeforeEach(func(ctx context.Context) {
-						obj.Status.LastUpdate = &shared.StackUpdateState{
-							Generation:           2,
-							State:                shared.FailedStackStateMessage,
-							Name:                 "update-retried-with-new-sha",
-							Type:                 autov1alpha1.UpType,
-							LastAttemptedCommit:  obj.Status.CurrentUpdate.Commit,
-							LastSuccessfulCommit: "",
-							Failures:             2,
-						}
-						Expect(k8sClient.Status().Patch(ctx, obj, stackStatusSSAPatch(obj),
-							client.FieldOwner(StackStatusFieldManager), client.ForceOwnership)).To(Succeed())
-					})
-					It("resets failures", func(ctx context.Context) {
-						_, err := reconcileF(ctx)
-						Expect(err).NotTo(HaveOccurred())
-
-						Expect(obj.Status.LastUpdate).To(Not(BeNil()))
-						Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(0)))
-					})
-				})
-			})
-		})
-
-		When("the update succeeded", func() {
-			BeforeEach(func(ctx context.Context) {
-				currentUpdate.Status.ObservedGeneration = 1
-				currentUpdate.Status.Conditions = []metav1.Condition{
-					{
-						Type:               autov1alpha1.UpdateConditionTypeComplete,
-						Status:             metav1.ConditionTrue,
-						Reason:             "Updated",
-						LastTransitionTime: metav1.Now(),
-					},
-					{
-						Type:               autov1alpha1.UpdateConditionTypeFailed,
-						Status:             metav1.ConditionFalse,
-						Reason:             "unknown",
-						LastTransitionTime: metav1.Now(),
-					},
-				}
-			})
-			It("reconciles", func(ctx context.Context) {
-				update := currentUpdate.DeepCopy()
-				_, err := reconcileF(ctx)
-				Expect(err).NotTo(HaveOccurred())
-
-				By("clearing the current update")
-				Expect(obj.Status.CurrentUpdate).To(BeNil())
-
-				By("setting the last update")
-				Expect(obj.Status.LastUpdate).NotTo(BeNil())
-				Expect(obj.Status.LastUpdate.Generation).To(Equal(update.Generation))
-				Expect(obj.Status.LastUpdate.Name).To(Equal(update.Name))
-				Expect(obj.Status.LastUpdate.Type).To(Equal(update.Spec.Type))
-				Expect(obj.Status.LastUpdate.State).To(Equal(shared.SucceededStackStateMessage))
-				Expect(obj.Status.LastUpdate.LastAttemptedCommit).To(Equal("abcdef"))
-				Expect(obj.Status.LastUpdate.LastSuccessfulCommit).To(Equal("abcdef"))
-
-				By("removing the stack finalizer to allow the update to be deleted later")
-				Expect(lastUpdate.Finalizers).ToNot(ContainElement(PulumiFinalizer))
-
-				By("emitting an event")
-				Expect(r.Recorder.(*record.FakeRecorder).Events).To(Receive(matchEvent(pulumiv1.StackUpdateSuccessful)))
-			})
-
-			When("after retrying", func() {
-				JustBeforeEach(func(ctx context.Context) {
-					obj.Status.LastUpdate = &shared.StackUpdateState{
-						Generation:          1,
-						State:               shared.FailedStackStateMessage,
-						Name:                "update-retried",
-						Type:                autov1alpha1.UpType,
-						LastAttemptedCommit: obj.Status.CurrentUpdate.Commit,
-						Failures:            2,
-					}
-					Expect(k8sClient.Status().Patch(ctx, obj, stackStatusSSAPatch(obj),
-						client.FieldOwner(StackStatusFieldManager), client.ForceOwnership)).To(Succeed())
-				})
-				It("resets failures", func(ctx context.Context) {
-					_, err := reconcileF(ctx)
-					Expect(err).NotTo(HaveOccurred())
-
-					Expect(obj.Status.LastUpdate).To(Not(BeNil()))
-					Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(0)))
-				})
-
-				When("with a new generation", func() {
-					JustBeforeEach(func(ctx context.Context) {
-						obj.Status.LastUpdate = &shared.StackUpdateState{
-							Generation:          2,
-							State:               shared.FailedStackStateMessage,
-							Name:                "update-retried-with-new-sha",
-							Type:                autov1alpha1.UpType,
-							LastAttemptedCommit: obj.Status.CurrentUpdate.Commit,
-							Failures:            2,
-						}
-						Expect(k8sClient.Status().Patch(ctx, obj, stackStatusSSAPatch(obj),
-							client.FieldOwner(StackStatusFieldManager), client.ForceOwnership)).To(Succeed())
-					})
-					It("resets failures", func(ctx context.Context) {
-						_, err := reconcileF(ctx)
-						Expect(err).NotTo(HaveOccurred())
-
-						Expect(obj.Status.LastUpdate).To(Not(BeNil()))
-						Expect(obj.Status.LastUpdate.Failures).To(Equal(int64(0)))
-					})
-				})
-			})
-
-			When("the update produced outputs", func() {
-				BeforeEach(func(ctx context.Context) {
-					secret := &corev1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "secret-output-test", Namespace: currentUpdate.Namespace,
-							Annotations: map[string]string{
-								"pulumi.com/secrets": `["should-be-scrubbed"]`,
-							},
-						},
-						StringData: map[string]string{
-							"plaintext":          `"not-sensitive"`,
-							"should-be-scrubbed": `"sensitive"`,
-						},
-					}
-					Expect(k8sClient.Create(ctx, secret)).To(Succeed())
-					currentUpdate.Status.Outputs = secret.Name
-				})
-				It("captures scrubbed outputs", func(ctx context.Context) {
-					_, err := reconcileF(ctx)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(string(obj.Status.Outputs["plaintext"].Raw)).To(Equal(`"not-sensitive"`))
-					Expect(string(obj.Status.Outputs["should-be-scrubbed"].Raw)).To(Equal(`"[secret]"`))
 				})
 			})
 		})
@@ -2629,80 +2328,7 @@ func TestRemoveUpdateFinalizer(t *testing.T) {
 	})
 }
 
-func TestReleaseFinalizersFromStackOwnedUpdates(t *testing.T) {
-	ctx := context.Background()
-	testScheme := scheme.Scheme
-	require.NoError(t, pulumiv1.AddToScheme(testScheme))
-	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
-
-	fakeClient := fake.NewClientBuilder().
-		WithScheme(testScheme).
-		WithReturnManagedFields().
-		Build()
-	r := &StackReconciler{Client: fakeClient}
-	stack := &pulumiv1.Stack{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "deleting-stack",
-			Namespace: "default",
-			UID:       types.UID("stack-uid"),
-		},
-	}
-
-	createUpdate := func(name string, ownerUID types.UID, complete bool) {
-		conditions := []metav1.Condition{}
-		if complete {
-			conditions = append(conditions, metav1.Condition{
-				Type:   autov1alpha1.UpdateConditionTypeComplete,
-				Status: metav1.ConditionTrue,
-				Reason: "Complete",
-			})
-		}
-		update := &autov1alpha1.Update{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: stack.Namespace,
-				Labels:    labelsForWorkspace(&stack.ObjectMeta),
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion: pulumiv1.GroupVersion.String(),
-					Kind:       "Stack",
-					Name:       stack.Name,
-					UID:        ownerUID,
-				}},
-			},
-			Spec: autov1alpha1.UpdateSpec{
-				StackName:     "organization/project/stack",
-				WorkspaceName: "workspace",
-			},
-			Status: autov1alpha1.UpdateStatus{
-				// Deletion may advance metadata.generation after the operation has
-				// already reached a terminal condition.
-				ObservedGeneration: 7,
-				Conditions:         conditions,
-			},
-		}
-		require.NoError(t, fakeClient.Create(ctx, update))
-		require.NoError(t, r.addUpdateFinalizer(ctx, update))
-		require.NoError(t, fakeClient.Delete(ctx, update))
-	}
-
-	createUpdate("terminal-owned", stack.UID, true)
-	createUpdate("active-owned", stack.UID, false)
-	createUpdate("terminal-unrelated", types.UID("other-stack-uid"), true)
-
-	require.NoError(t, r.releaseFinalizersFromStackOwnedUpdates(ctx, stack))
-
-	for name, finalizerPresent := range map[string]bool{
-		"terminal-owned":     false,
-		"active-owned":       true,
-		"terminal-unrelated": true,
-	} {
-		update := &autov1alpha1.Update{}
-		require.NoError(t, fakeClient.Get(ctx, types.NamespacedName{Name: name, Namespace: stack.Namespace}, update))
-		assert.Equal(t, finalizerPresent, slices.Contains(update.Finalizers, PulumiFinalizer), name)
-	}
-}
-
-func TestStackDeletionReleasesFinalizersFromStackOwnedUpdates(t *testing.T) {
+func TestStackDeletionReapsTerminatingUpdates(t *testing.T) {
 	testScheme := scheme.Scheme
 	require.NoError(t, pulumiv1.AddToScheme(testScheme))
 	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
@@ -2958,9 +2584,10 @@ func TestWorkspaceStalledPropagation(t *testing.T) {
 
 			// 4. Reconcile.
 			r := &StackReconciler{
-				Client:   k8sclient,
-				Scheme:   testScheme,
-				Recorder: record.NewFakeRecorder(10),
+				Client:    k8sclient,
+				APIReader: k8sclient,
+				Scheme:    testScheme,
+				Recorder:  record.NewFakeRecorder(10),
 			}
 			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
 			require.NoError(t, err)
@@ -3043,9 +2670,10 @@ func TestProjectInfoDestroyBypassesUnavailableSource(t *testing.T) {
 	require.NoError(t, k8sclient.Delete(ctx, stack))
 
 	r := &StackReconciler{
-		Client:   k8sclient,
-		Scheme:   testScheme,
-		Recorder: record.NewFakeRecorder(10),
+		Client:    k8sclient,
+		APIReader: k8sclient,
+		Scheme:    testScheme,
+		Recorder:  record.NewFakeRecorder(10),
 	}
 
 	// First reconcile: takes the projectInfo bypass and applies a projectInfo workspace,
@@ -3238,7 +2866,7 @@ func TestFailedDestroyRetainsFinalizer(t *testing.T) {
 	}
 	require.NoError(t, k8sclient.Status().Update(ctx, stack))
 
-	r := &StackReconciler{Client: k8sclient, Scheme: testScheme, Recorder: record.NewFakeRecorder(10)}
+	r := &StackReconciler{Client: k8sclient, APIReader: k8sclient, Scheme: testScheme, Recorder: record.NewFakeRecorder(10)}
 	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
 	require.NoError(t, err)
 
@@ -3330,9 +2958,10 @@ func TestStackDestroyStalledWhenNamespaceTerminating(t *testing.T) {
 
 	recorder := record.NewFakeRecorder(10)
 	r := &StackReconciler{
-		Client:   k8sclient,
-		Scheme:   testScheme,
-		Recorder: recorder,
+		Client:    k8sclient,
+		APIReader: k8sclient,
+		Scheme:    testScheme,
+		Recorder:  recorder,
 	}
 	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
 	require.NoError(t, err)
@@ -3417,9 +3046,10 @@ func TestStackStatusConcurrentModification(t *testing.T) {
 	require.NoError(t, k8sClient.Create(ctx, stack))
 
 	reconciler := &StackReconciler{
-		Client:   k8sClient,
-		Scheme:   testScheme,
-		Recorder: record.NewFakeRecorder(10),
+		Client:    k8sClient,
+		APIReader: k8sClient,
+		Scheme:    testScheme,
+		Recorder:  record.NewFakeRecorder(10),
 	}
 
 	// Step 3: First reconciliation — writes status via SSA.
@@ -3458,4 +3088,605 @@ func TestStackStatusConcurrentModification(t *testing.T) {
 
 	readyCond := meta.FindStatusCondition(result.Status.Conditions, pulumiv1.ReadyCondition)
 	require.NotNil(t, readyCond, "expected Ready condition on stack")
+}
+
+// currentUpdateFixture builds a Stack whose status.currentUpdate names a live Update, together
+// with the Workspace and Flux source the reconciler reads, and reconciles it.
+type currentUpdateFixture struct {
+	t   *testing.T
+	k8s client.Client
+	r   *StackReconciler
+
+	objName       types.NamespacedName
+	obj           *pulumiv1.Stack
+	ws            *autov1alpha1.Workspace
+	fluxRepo      *fluxsourcev1.GitRepository
+	currentUpdate *autov1alpha1.Update
+	lastUpdate    *autov1alpha1.Update
+
+	ready       *metav1.Condition
+	stalled     *metav1.Condition
+	reconciling *metav1.Condition
+}
+
+func startStackEnv(t *testing.T) client.Client {
+	t.Helper()
+	require.NoError(t, pulumiv1.AddToScheme(scheme.Scheme))
+	require.NoError(t, autov1alpha1.AddToScheme(scheme.Scheme))
+	require.NoError(t, fluxsourcev1.AddToScheme(scheme.Scheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+			filepath.Join("..", "..", "..", "test", "crds", "flux2", "v2.3.0"),
+		},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	k8s, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	require.NoError(t, err)
+	return k8s
+}
+
+// newCurrentUpdateFixture applies opts before writing to the API server. Stack names are
+// randomized so fixtures can share one environment.
+func newCurrentUpdateFixture(
+	t *testing.T, ctx context.Context, k8s client.Client, opts ...func(*currentUpdateFixture),
+) *currentUpdateFixture {
+	t.Helper()
+
+	f := &currentUpdateFixture{t: t, k8s: k8s}
+	f.r = &StackReconciler{
+		Client:                   k8s,
+		APIReader:                k8s,
+		Scheme:                   k8s.Scheme(),
+		Recorder:                 record.NewFakeRecorder(10),
+		maybeWatchFluxSourceKind: func(shared.FluxSourceReference) error { return nil },
+	}
+
+	f.objName = types.NamespacedName{
+		Name:      fmt.Sprintf("stack-%s", utilrand.String(8)),
+		Namespace: "default",
+	}
+	f.obj = &pulumiv1.Stack{
+		TypeMeta: metav1.TypeMeta{APIVersion: pulumiv1.GroupVersion.String(), Kind: "Stack"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      f.objName.Name,
+			Namespace: f.objName.Namespace,
+			// Keep the object queryable after it is marked for deletion.
+			Finalizers: []string{testFinalizer},
+		},
+		Spec: shared.StackSpec{Stack: "dev"},
+	}
+	f.fluxRepo = makeFluxGitRepository(f.objName)
+	f.ws = makeWorkspace(f.obj.ObjectMeta)
+	f.currentUpdate = makeUpdate(f.objName, f.obj, autov1alpha1.UpdateSpec{
+		WorkspaceName: nameForWorkspace(&f.obj.ObjectMeta),
+		StackName:     f.obj.Spec.Stack,
+		Type:          autov1alpha1.UpType,
+	})
+	f.lastUpdate = &autov1alpha1.Update{}
+
+	f.ws.Spec.Flux = &autov1alpha1.FluxSource{
+		Digest: f.fluxRepo.Status.Artifact.Digest,
+		Url:    f.fluxRepo.Status.Artifact.URL,
+		Dir:    "random-yaml",
+	}
+	f.obj.Spec.FluxSource = &shared.FluxSource{
+		SourceRef: shared.FluxSourceReference{
+			APIVersion: "source.toolkit.fluxcd.io/v1",
+			Kind:       "GitRepository",
+			Name:       f.fluxRepo.Name,
+		},
+		Dir: "random-yaml",
+	}
+	f.obj.Status.CurrentUpdate = &shared.CurrentStackUpdate{
+		Generation: 1,
+		Name:       f.currentUpdate.Name,
+		Commit:     "abcdef",
+	}
+
+	for _, opt := range opts {
+		opt(f)
+	}
+	f.create(ctx)
+	return f
+}
+
+func (f *currentUpdateFixture) create(ctx context.Context) {
+	f.t.Helper()
+
+	stackStatus := f.obj.Status
+	require.NoError(f.t, f.k8s.Create(ctx, f.obj))
+	f.obj.Status = stackStatus
+	// Apply so the field manager owns the status; the controller clears fields by omission.
+	require.NoError(f.t, f.k8s.Status().Patch(ctx, f.obj, stackStatusSSAPatch(f.obj),
+		client.FieldOwner(StackStatusFieldManager), client.ForceOwnership))
+
+	repoStatus := f.fluxRepo.Status
+	require.NoError(f.t, f.k8s.Create(ctx, f.fluxRepo))
+	f.fluxRepo.Status = repoStatus
+	require.NoError(f.t, f.k8s.Status().Update(ctx, f.fluxRepo))
+
+	require.NoError(f.t, controllerutil.SetControllerReference(f.obj, f.ws, f.k8s.Scheme()))
+	wsStatus := f.ws.Status
+	require.NoError(f.t, f.k8s.Patch(ctx, f.ws, client.Apply, client.FieldOwner(FieldManager)))
+	f.ws.Status = wsStatus
+	require.NoError(f.t, f.k8s.Status().Update(ctx, f.ws, client.FieldOwner(FieldManager)))
+
+	require.NoError(f.t, controllerutil.SetControllerReference(f.obj, f.currentUpdate, f.k8s.Scheme()))
+	finalizers := f.currentUpdate.Finalizers
+	f.currentUpdate.Finalizers = nil
+	updateStatus := f.currentUpdate.Status
+	require.NoError(f.t, f.k8s.Patch(ctx, f.currentUpdate, client.Apply, client.FieldOwner(FieldManager)))
+	f.currentUpdate.Status = updateStatus
+	require.NoError(f.t, f.k8s.Status().Update(ctx, f.currentUpdate, client.FieldOwner(FieldManager)))
+	if len(finalizers) > 0 {
+		patch := autov1alpha1apply.Update(f.currentUpdate.Name, f.currentUpdate.Namespace).
+			WithFinalizers(finalizers...)
+		require.NoError(f.t, f.k8s.Patch(ctx, f.currentUpdate, applyPatch{patch},
+			client.FieldOwner(StackFinalizerFieldManager)))
+	}
+}
+
+func (f *currentUpdateFixture) reconcile(ctx context.Context) (reconcile.Result, error) {
+	f.t.Helper()
+	result, err := f.r.Reconcile(ctx, reconcile.Request{NamespacedName: f.objName})
+
+	f.obj = &pulumiv1.Stack{}
+	require.NoError(f.t, f.k8s.Get(ctx, f.objName, f.obj))
+	f.ready = meta.FindStatusCondition(f.obj.Status.Conditions, pulumiv1.ReadyCondition)
+	f.stalled = meta.FindStatusCondition(f.obj.Status.Conditions, pulumiv1.StalledCondition)
+	f.reconciling = meta.FindStatusCondition(f.obj.Status.Conditions, pulumiv1.ReconcilingCondition)
+
+	f.ws = &autov1alpha1.Workspace{}
+	_ = f.k8s.Get(ctx, types.NamespacedName{
+		Name: nameForWorkspace(&f.obj.ObjectMeta), Namespace: f.objName.Namespace}, f.ws)
+
+	f.currentUpdate = &autov1alpha1.Update{}
+	if f.obj.Status.CurrentUpdate != nil {
+		_ = f.k8s.Get(ctx, types.NamespacedName{
+			Name: f.obj.Status.CurrentUpdate.Name, Namespace: f.objName.Namespace}, f.currentUpdate)
+	}
+	f.lastUpdate = &autov1alpha1.Update{}
+	if f.obj.Status.LastUpdate != nil {
+		_ = f.k8s.Get(ctx, types.NamespacedName{
+			Name: f.obj.Status.LastUpdate.Name, Namespace: f.objName.Namespace}, f.lastUpdate)
+	}
+	return result, err
+}
+
+func (f *currentUpdateFixture) requireReconciling(reason, message string) {
+	f.t.Helper()
+	require.NotNil(f.t, f.ready, "expected Ready to not be nil")
+	assert.Equal(f.t, metav1.ConditionFalse, f.ready.Status, "expected Ready to be false")
+	assert.Equal(f.t, pulumiv1.NotReadyInProgressReason, f.ready.Reason)
+	require.NotNil(f.t, f.reconciling, "expected Reconciling to not be nil")
+	assert.Equal(f.t, metav1.ConditionTrue, f.reconciling.Status, "expected Reconciling to be true")
+	assert.Equal(f.t, reason, f.reconciling.Reason)
+	assert.Equal(f.t, message, f.reconciling.Message)
+	assert.Nil(f.t, f.stalled, "expected Stalled to be nil")
+}
+
+func (f *currentUpdateFixture) requireEvent(substr string) {
+	f.t.Helper()
+	recorder, ok := f.r.Recorder.(*record.FakeRecorder)
+	require.True(f.t, ok, "recorder is not a FakeRecorder")
+	select {
+	case event := <-recorder.Events:
+		assert.Contains(f.t, event, substr)
+	default:
+		f.t.Fatalf("expected an event containing %q, but none was recorded", substr)
+	}
+}
+
+func updateCondition(condType string, status metav1.ConditionStatus, reason, message string) metav1.Condition {
+	return metav1.Condition{
+		Type:               condType,
+		Status:             status,
+		Reason:             reason,
+		Message:            message,
+		LastTransitionTime: metav1.Now(),
+	}
+}
+
+func withUpdateStatus(conditions ...metav1.Condition) func(*currentUpdateFixture) {
+	return func(f *currentUpdateFixture) {
+		f.currentUpdate.Status.ObservedGeneration = 1
+		f.currentUpdate.Status.Conditions = conditions
+	}
+}
+
+func updateFailedConditions(reason, message string) []metav1.Condition {
+	return []metav1.Condition{
+		updateCondition(autov1alpha1.UpdateConditionTypeComplete, metav1.ConditionTrue, "Updated", ""),
+		updateCondition(autov1alpha1.UpdateConditionTypeFailed, metav1.ConditionTrue, reason, message),
+	}
+}
+
+func updateSucceededConditions() []metav1.Condition {
+	return []metav1.Condition{
+		updateCondition(autov1alpha1.UpdateConditionTypeComplete, metav1.ConditionTrue, "Updated", ""),
+		updateCondition(autov1alpha1.UpdateConditionTypeFailed, metav1.ConditionFalse, "unknown", ""),
+	}
+}
+
+func (f *currentUpdateFixture) patchLastUpdate(ctx context.Context, last *shared.StackUpdateState) {
+	f.t.Helper()
+	f.obj.Status.LastUpdate = last
+	require.NoError(f.t, f.k8s.Status().Patch(ctx, f.obj, stackStatusSSAPatch(f.obj),
+		client.FieldOwner(StackStatusFieldManager), client.ForceOwnership))
+}
+
+func TestCurrentUpdateProcessing(t *testing.T) {
+	k8s := startStackEnv(t)
+
+	t.Run("the update is gone", func(t *testing.T) {
+		deleteCurrentUpdate := func(ctx context.Context, f *currentUpdateFixture) string {
+			t.Helper()
+			lostName := f.currentUpdate.Name
+			f.currentUpdate.Finalizers = []string{}
+			require.NoError(t, f.k8s.Update(ctx, f.currentUpdate))
+			require.NoError(t, f.k8s.Delete(ctx, f.currentUpdate))
+			return lostName
+		}
+
+		t.Run("clears the reference so a new update can start", func(t *testing.T) {
+			ctx := t.Context()
+			f := newCurrentUpdateFixture(t, ctx, k8s)
+			lostName := deleteCurrentUpdate(ctx, f)
+
+			_, err := f.reconcile(ctx)
+
+			// The error puts the Stack on the workqueue's backoff.
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), lostName)
+			assert.Nil(t, f.obj.Status.CurrentUpdate, "expected the current update to be cleared")
+			assert.Nil(t, f.obj.Status.LastUpdate, "expected the retry budget to be preserved")
+			f.requireEvent(string(pulumiv1.StackUpdateLost))
+		})
+
+		t.Run("starts a fresh update on the following reconcile", func(t *testing.T) {
+			ctx := t.Context()
+			f := newCurrentUpdateFixture(t, ctx, k8s)
+			lostName := deleteCurrentUpdate(ctx, f)
+
+			_, err := f.reconcile(ctx)
+			require.Error(t, err)
+			require.Nil(t, f.obj.Status.CurrentUpdate)
+
+			// The retry needs a ready workspace to get as far as creating an Update.
+			f.ws.Status.ObservedGeneration = f.ws.Generation
+			f.ws.Status.Conditions = []metav1.Condition{
+				updateCondition("Ready", metav1.ConditionTrue, "Succeeded", ""),
+			}
+			require.NoError(t, f.k8s.Status().Update(ctx, f.ws, client.FieldOwner(FieldManager)))
+
+			_, err = f.reconcile(ctx)
+			require.NoError(t, err)
+
+			require.NotNil(t, f.obj.Status.CurrentUpdate)
+			assert.NotEqual(t, lostName, f.obj.Status.CurrentUpdate.Name,
+				"expected a different update than the one that was lost")
+		})
+	})
+
+	t.Run("the update is missing from the cache but present in the API", func(t *testing.T) {
+		ctx := t.Context()
+		f := newCurrentUpdateFixture(t, ctx, k8s)
+
+		// What a cold or lagging informer produces: cache misses, APIReader still sees it.
+		f.r.Client = updateHidingClient{Client: k8s, hidden: f.currentUpdate.Name}
+		wanted := f.currentUpdate.Name
+
+		result, err := f.reconcile(ctx)
+		require.NoError(t, err)
+
+		f.requireReconciling(pulumiv1.ReconcilingProcessingReason, pulumiv1.ReconcilingProcessingUpdateMessage)
+
+		require.NotNil(t, f.obj.Status.CurrentUpdate, "expected the reference to be retained")
+		assert.Equal(t, wanted, f.obj.Status.CurrentUpdate.Name)
+		assert.Equal(t, updateCacheLagRequeue, result.RequeueAfter,
+			"expected a requeue so a missed watch event cannot strand the Stack")
+	})
+
+	t.Run("the reference is lost but the update itself is still running", func(t *testing.T) {
+		ctx := t.Context()
+		f := newCurrentUpdateFixture(t, ctx, k8s)
+
+		// The Update is alive, but status.currentUpdate names something that never existed.
+		orphanName := f.currentUpdate.Name
+		f.obj.Status.CurrentUpdate.Name = "does-not-exist"
+		require.NoError(t, f.k8s.Status().Patch(ctx, f.obj, stackStatusSSAPatch(f.obj),
+			client.FieldOwner(StackStatusFieldManager), client.ForceOwnership))
+
+		result, err := f.reconcile(ctx)
+		require.NoError(t, err)
+
+		require.NotNil(t, f.obj.Status.CurrentUpdate)
+		assert.Equal(t, orphanName, f.obj.Status.CurrentUpdate.Name)
+		assert.Equal(t, updateCacheLagRequeue, result.RequeueAfter)
+
+		// Keeping these would credit the adopted update's result to commit abcdef.
+		assert.Empty(t, f.obj.Status.CurrentUpdate.Commit)
+		assert.Zero(t, f.obj.Status.CurrentUpdate.Generation)
+		assert.Empty(t, f.obj.Status.CurrentUpdate.ReconcileRequest)
+	})
+
+	t.Run("the update is incomplete (still running)", func(t *testing.T) {
+		ctx := t.Context()
+		f := newCurrentUpdateFixture(t, ctx, k8s, withUpdateStatus(
+			updateCondition(autov1alpha1.UpdateConditionTypeComplete, metav1.ConditionFalse, "Progressing", "")))
+
+		result, err := f.reconcile(ctx)
+		require.NoError(t, err)
+
+		f.requireReconciling(pulumiv1.ReconcilingProcessingReason, pulumiv1.ReconcilingProcessingUpdateMessage)
+		assert.NotNil(t, f.obj.Status.CurrentUpdate, "expected the current update to be retained")
+		assert.Equal(t, reconcile.Result{RequeueAfter: updateInFlightRequeue}, result,
+			"expected a slow poll so a stuck Update cannot strand the Stack")
+	})
+
+	// A blocked deletion bumps generation, and nothing writes an Update's status once it is
+	// Complete, so such an Update sits at N+1/N forever.
+	t.Run("the update is terminal but its generation was bumped by a blocked deletion", func(t *testing.T) {
+		ctx := t.Context()
+		f := newCurrentUpdateFixture(t, ctx, k8s, withUpdateStatus(updateFailedConditions("unknown", "")...))
+
+		require.NoError(t, f.k8s.Delete(ctx, f.currentUpdate))
+		live := &autov1alpha1.Update{}
+		require.NoError(t, f.k8s.Get(ctx, client.ObjectKeyFromObject(f.currentUpdate), live))
+		require.NotNil(t, live.DeletionTimestamp)
+		require.Greater(t, live.Generation, live.Status.ObservedGeneration)
+
+		_, err := f.reconcile(ctx)
+		require.NoError(t, err)
+
+		assert.Nil(t, f.obj.Status.CurrentUpdate, "expected the current update to be cleared")
+		require.NotNil(t, f.obj.Status.LastUpdate, "expected the terminal result to be recorded")
+		assert.Equal(t, shared.FailedStackStateMessage, f.obj.Status.LastUpdate.State)
+	})
+
+	// The finalizer is written by a plain Create, not by apply under StackFinalizerFieldManager,
+	// which models an Update finalized by an older operator.
+	t.Run("a previous update is stuck Terminating with PulumiFinalizer", func(t *testing.T) {
+		stickUpdate := func(ctx context.Context, f *currentUpdateFixture) *autov1alpha1.Update {
+			t.Helper()
+			stuck := makeUpdate(f.objName, f.obj, autov1alpha1.UpdateSpec{
+				WorkspaceName: nameForWorkspace(&f.obj.ObjectMeta),
+				StackName:     f.obj.Spec.Stack,
+				Type:          autov1alpha1.UpType,
+			})
+			require.NoError(t, controllerutil.SetControllerReference(f.obj, stuck, f.k8s.Scheme()))
+			require.NoError(t, f.k8s.Create(ctx, stuck))
+			stuck.Status.Conditions = []metav1.Condition{
+				updateCondition(autov1alpha1.UpdateConditionTypeComplete, metav1.ConditionTrue, "Updated", ""),
+			}
+			require.NoError(t, f.k8s.Status().Update(ctx, stuck))
+			require.NoError(t, f.k8s.Delete(ctx, stuck))
+
+			live := &autov1alpha1.Update{}
+			require.NoError(t, f.k8s.Get(ctx, client.ObjectKeyFromObject(stuck), live))
+			require.Contains(t, live.Finalizers, PulumiFinalizer)
+			return stuck
+		}
+
+		t.Run("releases the finalizer so the object can finish deleting", func(t *testing.T) {
+			ctx := t.Context()
+			f := newCurrentUpdateFixture(t, ctx, k8s)
+			stuck := stickUpdate(ctx, f)
+
+			_, _ = f.reconcile(ctx)
+
+			live := &autov1alpha1.Update{}
+			err := f.k8s.Get(ctx, client.ObjectKeyFromObject(stuck), live)
+			if err == nil {
+				assert.NotContains(t, live.Finalizers, PulumiFinalizer)
+				return
+			}
+			assert.True(t, apierrors.IsNotFound(err), "the update should be gone once released")
+		})
+
+		t.Run("does not release the update it is still waiting on", func(t *testing.T) {
+			ctx := t.Context()
+			f := newCurrentUpdateFixture(t, ctx, k8s)
+			_ = stickUpdate(ctx, f)
+			waitingOn := client.ObjectKeyFromObject(f.currentUpdate)
+
+			live := &autov1alpha1.Update{}
+			require.NoError(t, f.k8s.Get(ctx, waitingOn, live))
+			require.Contains(t, live.Finalizers, PulumiFinalizer)
+
+			_, _ = f.reconcile(ctx)
+
+			require.NoError(t, f.k8s.Get(ctx, waitingOn, live))
+			assert.Contains(t, live.Finalizers, PulumiFinalizer)
+		})
+	})
+
+	t.Run("the update failed", func(t *testing.T) {
+		t.Run("records the failure", func(t *testing.T) {
+			ctx := t.Context()
+			f := newCurrentUpdateFixture(t, ctx, k8s, withUpdateStatus(updateFailedConditions("unknown", "")...))
+			update := f.currentUpdate.DeepCopy()
+
+			_, err := f.reconcile(ctx)
+			require.NoError(t, err)
+
+			assert.Nil(t, f.obj.Status.CurrentUpdate, "expected the current update to be cleared")
+			require.NotNil(t, f.obj.Status.LastUpdate)
+			assert.Equal(t, update.Generation, f.obj.Status.LastUpdate.Generation)
+			assert.Equal(t, update.Name, f.obj.Status.LastUpdate.Name)
+			assert.Equal(t, update.Spec.Type, f.obj.Status.LastUpdate.Type)
+			assert.Equal(t, shared.FailedStackStateMessage, f.obj.Status.LastUpdate.State)
+			assert.Equal(t, "abcdef", f.obj.Status.LastUpdate.LastAttemptedCommit)
+			assert.Empty(t, f.obj.Status.LastUpdate.LastSuccessfulCommit)
+			assert.NotContains(t, f.lastUpdate.Finalizers, PulumiFinalizer,
+				"expected the stack finalizer to be released so the update can be deleted")
+			f.requireEvent(string(pulumiv1.StackUpdateFailure))
+		})
+
+		t.Run("reports a locked stack", func(t *testing.T) {
+			ctx := t.Context()
+			const message = "the stack is locked; another update is in progress"
+			f := newCurrentUpdateFixture(t, ctx, k8s, func(f *currentUpdateFixture) {
+				f.currentUpdate.Status.ObservedGeneration = 1
+				f.currentUpdate.Status.Message = message
+				f.currentUpdate.Status.Conditions = updateFailedConditions("UpdateConflict", message)
+			})
+
+			_, err := f.reconcile(ctx)
+			require.NoError(t, err)
+
+			require.NotNil(t, f.obj.Status.LastUpdate)
+			assert.Equal(t, message, f.obj.Status.LastUpdate.Message)
+		})
+
+		t.Run("reports an unknown pulumi error", func(t *testing.T) {
+			ctx := t.Context()
+			const message = "an unknown error occurred running up"
+			f := newCurrentUpdateFixture(t, ctx, k8s, func(f *currentUpdateFixture) {
+				f.currentUpdate.Status.ObservedGeneration = 1
+				f.currentUpdate.Status.Message = message
+				f.currentUpdate.Status.Conditions = updateFailedConditions("Unknown", message)
+			})
+
+			_, err := f.reconcile(ctx)
+			require.NoError(t, err)
+
+			require.NotNil(t, f.obj.Status.LastUpdate)
+			assert.Equal(t, message, f.obj.Status.LastUpdate.Message)
+		})
+
+		t.Run("increments failures when retrying", func(t *testing.T) {
+			ctx := t.Context()
+			f := newCurrentUpdateFixture(t, ctx, k8s, withUpdateStatus(updateFailedConditions("unknown", "")...))
+			f.patchLastUpdate(ctx, &shared.StackUpdateState{
+				Generation:          1,
+				State:               shared.FailedStackStateMessage,
+				Name:                "update-retried",
+				Type:                autov1alpha1.UpType,
+				LastAttemptedCommit: f.obj.Status.CurrentUpdate.Commit,
+				Failures:            2,
+			})
+
+			_, err := f.reconcile(ctx)
+			require.NoError(t, err)
+
+			require.NotNil(t, f.obj.Status.LastUpdate)
+			assert.Equal(t, int64(3), f.obj.Status.LastUpdate.Failures)
+		})
+
+		t.Run("resets failures when retrying at a new generation", func(t *testing.T) {
+			ctx := t.Context()
+			f := newCurrentUpdateFixture(t, ctx, k8s, withUpdateStatus(updateFailedConditions("unknown", "")...))
+			f.patchLastUpdate(ctx, &shared.StackUpdateState{
+				Generation:          2,
+				State:               shared.FailedStackStateMessage,
+				Name:                "update-retried-with-new-sha",
+				Type:                autov1alpha1.UpType,
+				LastAttemptedCommit: f.obj.Status.CurrentUpdate.Commit,
+				Failures:            2,
+			})
+
+			_, err := f.reconcile(ctx)
+			require.NoError(t, err)
+
+			require.NotNil(t, f.obj.Status.LastUpdate)
+			assert.Equal(t, int64(0), f.obj.Status.LastUpdate.Failures)
+		})
+	})
+
+	t.Run("the update succeeded", func(t *testing.T) {
+		t.Run("records the result", func(t *testing.T) {
+			ctx := t.Context()
+			f := newCurrentUpdateFixture(t, ctx, k8s, withUpdateStatus(updateSucceededConditions()...))
+			update := f.currentUpdate.DeepCopy()
+
+			_, err := f.reconcile(ctx)
+			require.NoError(t, err)
+
+			assert.Nil(t, f.obj.Status.CurrentUpdate, "expected the current update to be cleared")
+			require.NotNil(t, f.obj.Status.LastUpdate)
+			assert.Equal(t, update.Generation, f.obj.Status.LastUpdate.Generation)
+			assert.Equal(t, update.Name, f.obj.Status.LastUpdate.Name)
+			assert.Equal(t, update.Spec.Type, f.obj.Status.LastUpdate.Type)
+			assert.Equal(t, shared.SucceededStackStateMessage, f.obj.Status.LastUpdate.State)
+			assert.Equal(t, "abcdef", f.obj.Status.LastUpdate.LastAttemptedCommit)
+			assert.Equal(t, "abcdef", f.obj.Status.LastUpdate.LastSuccessfulCommit)
+			assert.NotContains(t, f.lastUpdate.Finalizers, PulumiFinalizer,
+				"expected the stack finalizer to be released so the update can be deleted")
+			f.requireEvent(string(pulumiv1.StackUpdateSuccessful))
+		})
+
+		t.Run("resets failures after retrying", func(t *testing.T) {
+			ctx := t.Context()
+			f := newCurrentUpdateFixture(t, ctx, k8s, withUpdateStatus(updateSucceededConditions()...))
+			f.patchLastUpdate(ctx, &shared.StackUpdateState{
+				Generation:          1,
+				State:               shared.FailedStackStateMessage,
+				Name:                "update-retried",
+				Type:                autov1alpha1.UpType,
+				LastAttemptedCommit: f.obj.Status.CurrentUpdate.Commit,
+				Failures:            2,
+			})
+
+			_, err := f.reconcile(ctx)
+			require.NoError(t, err)
+
+			require.NotNil(t, f.obj.Status.LastUpdate)
+			assert.Equal(t, int64(0), f.obj.Status.LastUpdate.Failures)
+		})
+
+		t.Run("resets failures after retrying at a new generation", func(t *testing.T) {
+			ctx := t.Context()
+			f := newCurrentUpdateFixture(t, ctx, k8s, withUpdateStatus(updateSucceededConditions()...))
+			f.patchLastUpdate(ctx, &shared.StackUpdateState{
+				Generation:          2,
+				State:               shared.FailedStackStateMessage,
+				Name:                "update-retried-with-new-sha",
+				Type:                autov1alpha1.UpType,
+				LastAttemptedCommit: f.obj.Status.CurrentUpdate.Commit,
+				Failures:            2,
+			})
+
+			_, err := f.reconcile(ctx)
+			require.NoError(t, err)
+
+			require.NotNil(t, f.obj.Status.LastUpdate)
+			assert.Equal(t, int64(0), f.obj.Status.LastUpdate.Failures)
+		})
+
+		t.Run("captures scrubbed outputs", func(t *testing.T) {
+			ctx := t.Context()
+			secretName := fmt.Sprintf("secret-output-%s", utilrand.String(8))
+			f := newCurrentUpdateFixture(t, ctx, k8s, withUpdateStatus(updateSucceededConditions()...),
+				func(f *currentUpdateFixture) {
+					secret := &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:        secretName,
+							Namespace:   f.currentUpdate.Namespace,
+							Annotations: map[string]string{"pulumi.com/secrets": `["should-be-scrubbed"]`},
+						},
+						StringData: map[string]string{
+							"plaintext":          `"not-sensitive"`,
+							"should-be-scrubbed": `"sensitive"`,
+						},
+					}
+					require.NoError(t, f.k8s.Create(ctx, secret))
+					f.currentUpdate.Status.Outputs = secret.Name
+				})
+
+			_, err := f.reconcile(ctx)
+			require.NoError(t, err)
+
+			assert.JSONEq(t, `"not-sensitive"`, string(f.obj.Status.Outputs["plaintext"].Raw))
+			assert.JSONEq(t, `"[secret]"`, string(f.obj.Status.Outputs["should-be-scrubbed"].Raw))
+		})
+	})
 }

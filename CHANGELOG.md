@@ -3,6 +3,8 @@ CHANGELOG
 
 ## Unreleased
 
+- Fix a Stack that silently stops reconciling when `status.currentUpdate` names an Update that no longer exists, or one that finished without the Stack recording its result. Updates left stuck in `Terminating` are released in the same pass, including those finalized by an operator older than v2.4.1 [#1292](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1292)
+
 ## 2.10.1
 
 - Fix a Stack that gets stuck in `Terminating` when a completed Update still holds the operator's finalizer [#1446](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1446)
