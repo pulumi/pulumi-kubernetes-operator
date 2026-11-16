@@ -17,6 +17,7 @@ package pulumi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -49,6 +50,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -3380,10 +3382,11 @@ func TestReapTerminatingUpdates(t *testing.T) {
 			}
 
 			r := &StackReconciler{Client: fakeClient}
-			require.NoError(t, r.reapTerminatingUpdates(ctx, instance, stack.Namespace))
+			_, err := r.reapTerminatingUpdates(ctx, instance, stack.Namespace)
+			require.NoError(t, err)
 
 			live := &autov1alpha1.Update{}
-			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(update), live)
+			err = fakeClient.Get(ctx, client.ObjectKeyFromObject(update), live)
 			if tt.wantReleased {
 				// Releasing the last finalizer on a deleting object lets it go for good.
 				if err == nil {
@@ -3395,6 +3398,112 @@ func TestReapTerminatingUpdates(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Contains(t, live.Finalizers, PulumiFinalizer)
+		})
+	}
+}
+
+func TestReapTerminatingUpdatesReportsAnUnreleasedUpdate(t *testing.T) {
+	ctx := t.Context()
+	testScheme := scheme.Scheme
+	require.NoError(t, pulumiv1.AddToScheme(testScheme))
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	stack := &pulumiv1.Stack{
+		ObjectMeta: metav1.ObjectMeta{Name: "conflicted-stack", Namespace: "default", UID: types.UID("stack-uid")},
+	}
+	update := &autov1alpha1.Update{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "update",
+			Namespace:  stack.Namespace,
+			Labels:     labelsForWorkspace(&stack.ObjectMeta),
+			Finalizers: []string{PulumiFinalizer},
+		},
+		Spec: autov1alpha1.UpdateSpec{StackName: "organization/project/stack", WorkspaceName: "workspace"},
+		Status: autov1alpha1.UpdateStatus{Conditions: []metav1.Condition{updateCondition(
+			autov1alpha1.UpdateConditionTypeComplete, metav1.ConditionTrue, "Complete", "")}},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).
+		WithObjects(update).WithStatusSubresource(update).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Update: func(context.Context, client.WithWatch, client.Object, ...client.UpdateOption) error {
+				return apierrors.NewConflict(
+					autov1alpha1.GroupVersion.WithResource("updates").GroupResource(), "update", errors.New("stale"))
+			},
+		}).Build()
+	require.NoError(t, fakeClient.Delete(ctx, update))
+
+	r := &StackReconciler{Client: fakeClient}
+	retryNeeded, err := r.reapTerminatingUpdates(ctx, stack, stack.Namespace)
+
+	// A conflict is not this reconcile's problem to report, but the finalizer is still there.
+	require.NoError(t, err)
+	assert.True(t, retryNeeded, "a conflicted release must ask for a retry")
+
+	live := &autov1alpha1.Update{}
+	require.NoError(t, fakeClient.Get(ctx, client.ObjectKeyFromObject(update), live))
+	require.Contains(t, live.Finalizers, PulumiFinalizer)
+}
+
+func TestStackDeletionRetriesWhenAnUpdateCannotBeReleased(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, pulumiv1.AddToScheme(testScheme))
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	updates := autov1alpha1.GroupVersion.WithResource("updates").GroupResource()
+	tests := []struct {
+		name       string
+		writeFails error
+	}{
+		{name: "conflict", writeFails: apierrors.NewConflict(updates, "stuck-update", errors.New("stale"))},
+		{name: "forbidden", writeFails: apierrors.NewForbidden(updates, "stuck-update", errors.New("denied"))},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+			stackName := types.NamespacedName{Name: "deleting-stack", Namespace: "default"}
+			stack := &pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      stackName.Name,
+					Namespace: stackName.Namespace,
+					UID:       types.UID("stack-uid"),
+					// Deleting, with PulumiFinalizer already released: the last reconcile
+					// this Stack gets unless the sweep asks for another.
+					DeletionTimestamp: ptr.To(metav1.Now()),
+					Finalizers:        []string{testFinalizer},
+				},
+				Spec: shared.StackSpec{Stack: "dev"},
+			}
+			update := &autov1alpha1.Update{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "stuck-update",
+					Namespace:         stackName.Namespace,
+					Labels:            labelsForWorkspace(&stack.ObjectMeta),
+					Finalizers:        []string{PulumiFinalizer},
+					DeletionTimestamp: ptr.To(metav1.Now()),
+				},
+				Spec: autov1alpha1.UpdateSpec{StackName: "organization/project/stack", WorkspaceName: "workspace"},
+				Status: autov1alpha1.UpdateStatus{Conditions: []metav1.Condition{updateCondition(
+					autov1alpha1.UpdateConditionTypeComplete, metav1.ConditionTrue, "Complete", "")}},
+			}
+
+			fakeClient := fake.NewClientBuilder().WithScheme(testScheme).
+				WithObjects(stack, update).WithStatusSubresource(stack, update).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Update: func(_ context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+						if _, ok := obj.(*autov1alpha1.Update); ok {
+							return tt.writeFails
+						}
+						return c.Update(ctx, obj, opts...)
+					},
+				}).Build()
+
+			r := &StackReconciler{Client: fakeClient, Scheme: testScheme, Recorder: record.NewFakeRecorder(10)}
+			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
+
+			require.NoError(t, err)
+			assert.Positive(t, result.RequeueAfter,
+				"a Stack held in Terminating by an unreleased Update must come back and retry")
 		})
 	}
 }
@@ -3415,13 +3524,12 @@ func TestCurrentUpdateProcessing(t *testing.T) {
 		t.Run("clears the reference so a new update can start", func(t *testing.T) {
 			ctx := t.Context()
 			f := newCurrentUpdateFixture(t, ctx, k8s)
-			lostName := deleteCurrentUpdate(ctx, f)
+			deleteCurrentUpdate(ctx, f)
 
-			_, err := f.reconcile(ctx)
+			result, err := f.reconcile(ctx)
 
-			// The error puts the Stack on the workqueue's backoff.
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), lostName)
+			require.NoError(t, err)
+			assert.Positive(t, result.RequeueAfter, "expected the Stack to come back and replan")
 			assert.Nil(t, f.obj.Status.CurrentUpdate, "expected the current update to be cleared")
 			assert.Nil(t, f.obj.Status.LastUpdate, "expected the retry budget to be preserved")
 			f.requireEvent(string(pulumiv1.StackUpdateLost))
@@ -3433,7 +3541,7 @@ func TestCurrentUpdateProcessing(t *testing.T) {
 			lostName := deleteCurrentUpdate(ctx, f)
 
 			_, err := f.reconcile(ctx)
-			require.Error(t, err)
+			require.NoError(t, err)
 			require.Nil(t, f.obj.Status.CurrentUpdate)
 
 			// The retry needs a ready workspace to get as far as creating an Update.
@@ -3471,12 +3579,12 @@ func TestCurrentUpdateProcessing(t *testing.T) {
 			"expected a requeue so a missed watch event cannot strand the Stack")
 	})
 
-	t.Run("the reference is lost but the update itself is still running", func(t *testing.T) {
+	t.Run("the reference is lost while another update is still running", func(t *testing.T) {
 		ctx := t.Context()
 		f := newCurrentUpdateFixture(t, ctx, k8s)
 
 		// The Update is alive, but status.currentUpdate names something that never existed.
-		orphanName := f.currentUpdate.Name
+		runningName := f.currentUpdate.Name
 		f.obj.Status.CurrentUpdate.Name = "does-not-exist"
 		require.NoError(t, f.k8s.Status().Patch(ctx, f.obj, stackStatusSSAPatch(f.obj),
 			client.FieldOwner(StackStatusFieldManager), client.ForceOwnership))
@@ -3484,14 +3592,14 @@ func TestCurrentUpdateProcessing(t *testing.T) {
 		result, err := f.reconcile(ctx)
 		require.NoError(t, err)
 
-		require.NotNil(t, f.obj.Status.CurrentUpdate)
-		assert.Equal(t, orphanName, f.obj.Status.CurrentUpdate.Name)
-		assert.Equal(t, updateCacheLagRequeue, result.RequeueAfter)
+		assert.Nil(t, f.obj.Status.CurrentUpdate, "expected the lost reference to be cleared")
+		assert.Positive(t, result.RequeueAfter, "expected the Stack to come back and replan")
 
-		// Keeping these would credit the adopted update's result to commit abcdef.
-		assert.Empty(t, f.obj.Status.CurrentUpdate.Commit)
-		assert.Zero(t, f.obj.Status.CurrentUpdate.Generation)
-		assert.Empty(t, f.obj.Status.CurrentUpdate.ReconcileRequest)
+		// The running Update is left alone rather than waited on or cancelled.
+		live := &autov1alpha1.Update{}
+		require.NoError(t, f.k8s.Get(ctx,
+			types.NamespacedName{Name: runningName, Namespace: f.objName.Namespace}, live))
+		assert.True(t, live.DeletionTimestamp.IsZero())
 	})
 
 	t.Run("the update is incomplete (still running)", func(t *testing.T) {

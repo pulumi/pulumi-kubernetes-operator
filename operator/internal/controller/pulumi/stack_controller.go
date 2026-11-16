@@ -571,14 +571,20 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 
 	// Runs before the early return below: a Stack that has released PulumiFinalizer can still
 	// be held in Terminating by an Update that still carries PulumiFinalizer.
-	if err := r.reapTerminatingUpdates(ctx, instance, request.Namespace); err != nil {
-		// Not fatal to this reconcile: the sweep is idempotent and runs again next time.
-		log.Error(err, "unable to release finalizers from deleted updates (best-effort)")
+	sweepIncomplete, sweepErr := r.reapTerminatingUpdates(ctx, instance, request.Namespace)
+	if sweepErr != nil {
+		log.Error(sweepErr, "unable to release finalizers from deleted updates")
 	}
 
 	// If there's no finalizer, it's either been cleaned up, never been seen, or never gotten far
 	// enough to need cleaning up.
 	if isStackMarkedToBeDeleted && !slices.Contains(instance.GetFinalizers(), PulumiFinalizer) {
+		// This is the last reconcile this Stack will get: nothing watches an Update that merely
+		// kept its finalizer, so an unfinished sweep has to ask for its own retry or the Stack
+		// stays in Terminating behind it.
+		if sweepIncomplete {
+			return reconcile.Result{RequeueAfter: updateCacheLagRequeue}, nil
+		}
 		return reconcile.Result{}, nil
 	}
 	if !isStackMarkedToBeDeleted && controllerutil.AddFinalizer(instance, PulumiFinalizer) {
@@ -678,7 +684,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 						"Name", instance.Status.CurrentUpdate.Name)
 					return reconcile.Result{RequeueAfter: updateCacheLagRequeue}, saveStatus()
 				}
-				return r.healLostUpdate(ctx, instance, request.Namespace, saveStatus)
+				return r.clearLostUpdate(ctx, instance, saveStatus)
 			}
 			return reconcile.Result{}, fmt.Errorf("get current update: %w", err)
 		}
@@ -2017,45 +2023,20 @@ func (r *StackReconciler) updateIsGone(ctx context.Context, name types.Namespace
 	return false, nil
 }
 
-// healLostUpdate recovers a Stack whose .status.currentUpdate names an Update that no longer
-// exists. Without this the Stack retries against an object that can never come back and stops
-// reconciling its resources entirely.
-//
-// If an in-flight Update for this Stack is still around -- which happens when the reference was
-// lost rather than the object -- it is adopted instead of being abandoned, so that we do not
-// start a second concurrent pulumi operation against the same workspace.
-//
-// Otherwise the reference is cleared and an error is returned. Returning an error is
-// deliberate: it puts the Stack on the workqueue's exponential backoff, so that an Update
-// which is being deleted systemically (for example because its Workspace is gone, and every
-// replacement is cascade-deleted in turn) cannot become an unbounded create/delete loop. The
-// retry then takes the ordinary path and creates a fresh Update.
+// clearLostUpdate releases a Stack whose .status.currentUpdate names an Update that no longer
+// exists.
 //
 // .status.lastUpdate is deliberately left alone. The real outcome of the lost update is
 // unknown -- most often it never ran at all -- so recording a synthetic failure would both
 // misreport history and spend the Stack's retry budget (maxUpdateFailures) on an operator-side
 // fault. Leaving it untouched lets isSynced correctly see the Stack as out of sync.
-func (r *StackReconciler) healLostUpdate(
+func (r *StackReconciler) clearLostUpdate(
 	ctx context.Context,
 	instance *pulumiv1.Stack,
-	namespace string,
 	saveStatus func() error,
 ) (reconcile.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	lostName := instance.Status.CurrentUpdate.Name
-
-	adopted, err := r.findInFlightUpdate(ctx, instance, namespace)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("looking for an in-flight update to adopt: %w", err)
-	}
-	if adopted != nil {
-		log.Info("current update object not found, but an in-flight update exists; adopting it",
-			"Name", lostName, "AdoptedName", adopted.Name)
-		// Replace rather than rename: the lost reference's commit and generation describe a
-		// different update, and .status.lastUpdate is built from this struct.
-		instance.Status.CurrentUpdate = &shared.CurrentStackUpdate{Name: adopted.Name}
-		return reconcile.Result{RequeueAfter: updateCacheLagRequeue}, saveStatus()
-	}
 
 	log.Info("current update object no longer exists; clearing it and starting a new update",
 		"Name", lostName)
@@ -2065,7 +2046,7 @@ func (r *StackReconciler) healLostUpdate(
 	if err := saveStatus(); err != nil {
 		return reconcile.Result{}, err
 	}
-	return reconcile.Result{}, fmt.Errorf("update %q no longer exists; cleared it to start a new update", lostName)
+	return reconcile.Result{RequeueAfter: updateCacheLagRequeue}, nil
 }
 
 // reapTerminatingUpdates removes this controller's finalizer from the Stack's Updates that are
@@ -2076,7 +2057,12 @@ func (r *StackReconciler) healLostUpdate(
 // there is no operation left to cancel, so an Update kept in Terminating is strictly worse than
 // one that is gone. Updates that are not yet terminal are left alone -- the update controller
 // marks those Canceled first, and this sweep collects them on a later pass.
-func (r *StackReconciler) reapTerminatingUpdates(ctx context.Context, instance *pulumiv1.Stack, namespace string) error {
+//
+// retryNeeded is true when an Update that met every condition above still has the finalizer,
+// because the write to remove it failed.
+func (r *StackReconciler) reapTerminatingUpdates(
+	ctx context.Context, instance *pulumiv1.Stack, namespace string,
+) (retryNeeded bool, err error) {
 	log := ctrllog.FromContext(ctx)
 
 	updates := &autov1alpha1.UpdateList{}
@@ -2084,7 +2070,7 @@ func (r *StackReconciler) reapTerminatingUpdates(ctx context.Context, instance *
 		client.InNamespace(namespace),
 		client.MatchingLabels(labelsForWorkspace(&instance.ObjectMeta)),
 	); err != nil {
-		return err
+		return true, err
 	}
 
 	var errs []error
@@ -2101,54 +2087,25 @@ func (r *StackReconciler) reapTerminatingUpdates(ctx context.Context, instance *
 			continue
 		}
 		log.Info("Releasing finalizer from a deleted update", "Name", u.Name)
-		// Read-modify-write rather than the SSA apply used on the happy path. The apply only
-		// drops the finalizer when StackFinalizerFieldManager owns it, so a finalizer written
-		// by an older operator version -- under the shared field manager -- would silently
-		// survive, which is one of the ways an Update ends up unable to delete at all. A
-		// conflict here just means the next reconcile tries again.
 		if !controllerutil.RemoveFinalizer(u, PulumiFinalizer) {
 			continue
 		}
 		if err := r.Update(ctx, u, client.FieldOwner(FieldManager)); err != nil {
-			if apierrors.IsNotFound(err) || apierrors.IsConflict(err) {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			if apierrors.IsConflict(err) {
+				// Someone else wrote first. The finalizer is still there, so ask to come back.
+				retryNeeded = true
 				continue
 			}
 			errs = append(errs, fmt.Errorf("releasing finalizer from update %q: %w", u.Name, err))
 		}
 	}
-	return errors.Join(errs...)
-}
-
-// findInFlightUpdate returns the Stack's own Update that is still running, if there is exactly
-// one. Anything complete, being deleted, or ambiguous yields nil so that the caller falls back
-// to starting a fresh update.
-func (r *StackReconciler) findInFlightUpdate(
-	ctx context.Context,
-	instance *pulumiv1.Stack,
-	namespace string,
-) (*autov1alpha1.Update, error) {
-	updates := &autov1alpha1.UpdateList{}
-	if err := r.APIReader.List(ctx, updates,
-		client.InNamespace(namespace),
-		client.MatchingLabels(labelsForWorkspace(&instance.ObjectMeta)),
-	); err != nil {
-		return nil, err
+	if len(errs) > 0 {
+		retryNeeded = true
 	}
-
-	var found *autov1alpha1.Update
-	for i := range updates.Items {
-		u := &updates.Items[i]
-		if !u.DeletionTimestamp.IsZero() || isUpdateComplete(u) {
-			continue
-		}
-		if found != nil {
-			// More than one candidate: we cannot tell which (if either) belongs to this
-			// Stack's lost reference, so don't guess.
-			return nil, nil
-		}
-		found = u
-	}
-	return found, nil
+	return retryNeeded, errors.Join(errs...)
 }
 
 func (sess *stackReconcilerSession) readCurrentUpdate(ctx context.Context, name types.NamespacedName) error {
