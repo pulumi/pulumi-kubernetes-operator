@@ -3323,6 +3323,82 @@ func (f *currentUpdateFixture) patchLastUpdate(ctx context.Context, last *shared
 		client.FieldOwner(StackStatusFieldManager), client.ForceOwnership))
 }
 
+func TestReapTerminatingUpdates(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, pulumiv1.AddToScheme(testScheme))
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	stack := &pulumiv1.Stack{
+		ObjectMeta: metav1.ObjectMeta{Name: "reaped-stack", Namespace: "default", UID: types.UID("stack-uid")},
+	}
+
+	tests := []struct {
+		name            string
+		complete        bool
+		deleting        bool
+		isCurrentUpdate bool
+		otherStack      bool
+		wantReleased    bool
+	}{
+		{name: "terminal and deleting", complete: true, deleting: true, wantReleased: true},
+		{name: "still running", complete: false, deleting: true},
+		{name: "not deleting", complete: true, deleting: false},
+		{name: "named by status.currentUpdate", complete: true, deleting: true, isCurrentUpdate: true},
+		{name: "owned by another Stack", complete: true, deleting: true, otherStack: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+			owner := stack
+			if tt.otherStack {
+				owner = &pulumiv1.Stack{ObjectMeta: metav1.ObjectMeta{
+					Name: "other-stack", Namespace: "default", UID: types.UID("other-uid")}}
+			}
+			update := &autov1alpha1.Update{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "update",
+					Namespace:  stack.Namespace,
+					Labels:     labelsForWorkspace(&owner.ObjectMeta),
+					Finalizers: []string{PulumiFinalizer},
+				},
+				Spec: autov1alpha1.UpdateSpec{StackName: "organization/project/stack", WorkspaceName: "workspace"},
+			}
+			if tt.complete {
+				update.Status.Conditions = []metav1.Condition{updateCondition(
+					autov1alpha1.UpdateConditionTypeComplete, metav1.ConditionTrue, "Complete", "")}
+			}
+
+			fakeClient := fake.NewClientBuilder().WithScheme(testScheme).
+				WithObjects(update).WithStatusSubresource(update).Build()
+			if tt.deleting {
+				require.NoError(t, fakeClient.Delete(ctx, update))
+			}
+
+			instance := stack.DeepCopy()
+			if tt.isCurrentUpdate {
+				instance.Status.CurrentUpdate = &shared.CurrentStackUpdate{Name: update.Name}
+			}
+
+			r := &StackReconciler{Client: fakeClient}
+			require.NoError(t, r.reapTerminatingUpdates(ctx, instance, stack.Namespace))
+
+			live := &autov1alpha1.Update{}
+			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(update), live)
+			if tt.wantReleased {
+				// Releasing the last finalizer on a deleting object lets it go for good.
+				if err == nil {
+					assert.NotContains(t, live.Finalizers, PulumiFinalizer)
+					return
+				}
+				assert.True(t, apierrors.IsNotFound(err), "expected the update to be released")
+				return
+			}
+			require.NoError(t, err)
+			assert.Contains(t, live.Finalizers, PulumiFinalizer)
+		})
+	}
+}
+
 func TestCurrentUpdateProcessing(t *testing.T) {
 	k8s := startStackEnv(t)
 
@@ -3492,21 +3568,6 @@ func TestCurrentUpdateProcessing(t *testing.T) {
 			assert.True(t, apierrors.IsNotFound(err), "the update should be gone once released")
 		})
 
-		t.Run("does not release the update it is still waiting on", func(t *testing.T) {
-			ctx := t.Context()
-			f := newCurrentUpdateFixture(t, ctx, k8s)
-			_ = stickUpdate(ctx, f)
-			waitingOn := client.ObjectKeyFromObject(f.currentUpdate)
-
-			live := &autov1alpha1.Update{}
-			require.NoError(t, f.k8s.Get(ctx, waitingOn, live))
-			require.Contains(t, live.Finalizers, PulumiFinalizer)
-
-			_, _ = f.reconcile(ctx)
-
-			require.NoError(t, f.k8s.Get(ctx, waitingOn, live))
-			assert.Contains(t, live.Finalizers, PulumiFinalizer)
-		})
 	})
 
 	t.Run("the update failed", func(t *testing.T) {
