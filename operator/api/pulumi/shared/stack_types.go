@@ -220,13 +220,14 @@ type GitSource struct {
 	GitAuthSecret string `json:"gitAuthSecret,omitempty"`
 
 	// (optional) GitAuth allows configuring git authentication options
-	// There are 3 different authentication options:
+	// There are 4 different authentication options:
 	//   * SSH private key (and its optional password)
 	//   * Personal access token
 	//   * Basic auth username and password
+	//   * GitHub App (app ID, installation ID, and private key)
 	// Only one authentication mode will be considered if more than one option is specified,
-	// with ssh private key/password preferred first, then personal access token, and finally
-	// basic auth credentials.
+	// with ssh private key/password preferred first, then personal access token, then
+	// GitHub App credentials, and finally basic auth credentials.
 	GitAuth *GitAuthConfig `json:"gitAuth,omitempty"`
 	// (optional) RepoDir is the directory to work from in the project's source repository
 	// where Pulumi.yaml is located. It is used in case Pulumi.yaml is not
@@ -273,6 +274,11 @@ type RequirementSpec struct {
 //
 // Only 1 authentication mode is valid.
 type GitAuthConfig struct {
+	// PersonalAccessToken is a reference to a token that grants read access to the
+	// repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
+	// repository permission, and a classic token needs the "repo" scope.
+	// Environment variables, files on the filesystem, Kubernetes Secrets and literal
+	// strings are currently supported.
 	PersonalAccessToken *ResourceRef   `json:"accessToken,omitempty"`
 	SSHAuth             *SSHAuth       `json:"sshAuth,omitempty"`
 	BasicAuth           *BasicAuth     `json:"basicAuth,omitempty"`
@@ -282,6 +288,8 @@ type GitAuthConfig struct {
 // GitHubAppAuth configures GitHub App-based authentication for git operations.
 // The operator exchanges the app credentials for a short-lived installation access token.
 // All three fields are required and must reference a Kubernetes Secret.
+// The app must be installed on the repository and needs the "Contents: Read-only"
+// repository permission.
 type GitHubAppAuth struct {
 	// AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.
 	AppID ResourceRef `json:"appID"`

@@ -173,7 +173,9 @@ type GitAuth struct {
 	// The password that pairs with a username or as part of an SSH Private Key.
 	Password *corev1.SecretKeySelector `json:"password,omitempty"`
 	// Token is a Git personal access token in replacement of
-	// your password.
+	// your password. The token only needs read access to the repository contents.
+	// On GitHub, a fine-grained token needs the "Contents: Read-only" repository
+	// permission, and a classic token needs the "repo" scope.
 	Token *corev1.SecretKeySelector `json:"token,omitempty"`
 	// GitHubApp configures GitHub App-based authentication.
 	GitHubApp *GitHubAppAuth `json:"githubApp,omitempty"`
@@ -181,6 +183,8 @@ type GitAuth struct {
 
 // GitHubAppAuth specifies GitHub App authentication credentials via Kubernetes Secret references.
 // The workspace init container will exchange these for a short-lived installation access token.
+// The app must be installed on the repository and needs the "Contents: Read-only"
+// repository permission.
 type GitHubAppAuth struct {
 	// AppID is a reference to the GitHub App ID (stored as a string) in a Kubernetes Secret.
 	AppID *corev1.SecretKeySelector `json:"appID"`
