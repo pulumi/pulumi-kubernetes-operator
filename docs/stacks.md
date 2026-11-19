@@ -224,13 +224,14 @@ This could occur, for example, is a resource's state is changing outside of Pulu
         <td>object</td>
         <td>
           (optional) GitAuth allows configuring git authentication options
-There are 3 different authentication options:
+There are 4 different authentication options:
   * SSH private key (and its optional password)
   * Personal access token
   * Basic auth username and password
+  * GitHub App (app ID, installation ID, and private key)
 Only one authentication mode will be considered if more than one option is specified,
-with ssh private key/password preferred first, then personal access token, and finally
-basic auth credentials.<br/>
+with ssh private key/password preferred first, then personal access token, then
+GitHub App credentials, and finally basic auth credentials.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -753,13 +754,14 @@ interest, within the fetched source.<br/>
 
 
 (optional) GitAuth allows configuring git authentication options
-There are 3 different authentication options:
+There are 4 different authentication options:
   * SSH private key (and its optional password)
   * Personal access token
   * Basic auth username and password
+  * GitHub App (app ID, installation ID, and private key)
 Only one authentication mode will be considered if more than one option is specified,
-with ssh private key/password preferred first, then personal access token, and finally
-basic auth credentials.
+with ssh private key/password preferred first, then personal access token, then
+GitHub App credentials, and finally basic auth credentials.
 
 <table>
     <thead>
@@ -774,7 +776,9 @@ basic auth credentials.
         <td><b><a href="#stackspecgitauthaccesstoken">accessToken</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
+          PersonalAccessToken is a reference to a token that grants read access to the
+repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
+repository permission, and a classic token needs the "repo" scope.
 Environment variables, files on the filesystem, Kubernetes Secrets and literal
 strings are currently supported.<br/>
         </td>
@@ -793,7 +797,9 @@ i.e. username and password. Both UserName and Password are required.<br/>
         <td>
           GitHubAppAuth configures GitHub App-based authentication for git operations.
 The operator exchanges the app credentials for a short-lived installation access token.
-All three fields are required and must reference a Kubernetes Secret.<br/>
+All three fields are required and must reference a Kubernetes Secret.
+The app must be installed on the repository and needs the "Contents: Read-only"
+repository permission.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -813,7 +819,9 @@ SSHPrivateKey is required but password is optional.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
+PersonalAccessToken is a reference to a token that grants read access to the
+repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
+repository permission, and a classic token needs the "repo" scope.
 Environment variables, files on the filesystem, Kubernetes Secrets and literal
 strings are currently supported.
 
@@ -1398,6 +1406,8 @@ unless namespace isolation is disabled in the controller.<br/>
 GitHubAppAuth configures GitHub App-based authentication for git operations.
 The operator exchanges the app credentials for a short-lived installation access token.
 All three fields are required and must reference a Kubernetes Secret.
+The app must be installed on the repository and needs the "Contents: Read-only"
+repository permission.
 
 <table>
     <thead>
@@ -22044,13 +22054,14 @@ This could occur, for example, is a resource's state is changing outside of Pulu
         <td>object</td>
         <td>
           (optional) GitAuth allows configuring git authentication options
-There are 3 different authentication options:
+There are 4 different authentication options:
   * SSH private key (and its optional password)
   * Personal access token
   * Basic auth username and password
+  * GitHub App (app ID, installation ID, and private key)
 Only one authentication mode will be considered if more than one option is specified,
-with ssh private key/password preferred first, then personal access token, and finally
-basic auth credentials.<br/>
+with ssh private key/password preferred first, then personal access token, then
+GitHub App credentials, and finally basic auth credentials.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22573,13 +22584,14 @@ interest, within the fetched source.<br/>
 
 
 (optional) GitAuth allows configuring git authentication options
-There are 3 different authentication options:
+There are 4 different authentication options:
   * SSH private key (and its optional password)
   * Personal access token
   * Basic auth username and password
+  * GitHub App (app ID, installation ID, and private key)
 Only one authentication mode will be considered if more than one option is specified,
-with ssh private key/password preferred first, then personal access token, and finally
-basic auth credentials.
+with ssh private key/password preferred first, then personal access token, then
+GitHub App credentials, and finally basic auth credentials.
 
 <table>
     <thead>
@@ -22594,7 +22606,9 @@ basic auth credentials.
         <td><b><a href="#stackspecgitauthaccesstoken-1">accessToken</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
+          PersonalAccessToken is a reference to a token that grants read access to the
+repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
+repository permission, and a classic token needs the "repo" scope.
 Environment variables, files on the filesystem, Kubernetes Secrets and literal
 strings are currently supported.<br/>
         </td>
@@ -22613,7 +22627,9 @@ i.e. username and password. Both UserName and Password are required.<br/>
         <td>
           GitHubAppAuth configures GitHub App-based authentication for git operations.
 The operator exchanges the app credentials for a short-lived installation access token.
-All three fields are required and must reference a Kubernetes Secret.<br/>
+All three fields are required and must reference a Kubernetes Secret.
+The app must be installed on the repository and needs the "Contents: Read-only"
+repository permission.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22633,7 +22649,9 @@ SSHPrivateKey is required but password is optional.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
+PersonalAccessToken is a reference to a token that grants read access to the
+repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
+repository permission, and a classic token needs the "repo" scope.
 Environment variables, files on the filesystem, Kubernetes Secrets and literal
 strings are currently supported.
 
@@ -23218,6 +23236,8 @@ unless namespace isolation is disabled in the controller.<br/>
 GitHubAppAuth configures GitHub App-based authentication for git operations.
 The operator exchanges the app credentials for a short-lived installation access token.
 All three fields are required and must reference a Kubernetes Secret.
+The app must be installed on the repository and needs the "Contents: Read-only"
+repository permission.
 
 <table>
     <thead>
