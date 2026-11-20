@@ -6,7 +6,6 @@ CHANGELOG
 - Remove `ValidateStack`, an unreachable validation helper that no caller invoked [#1473](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1473)
 - Validate enum spec fields for the operator CRDs [#1479](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1479)
 - A resource reference `type` accepts `Secret` and `Literal` only, and a `gitAuth` reference accepts `Secret` only [#1479](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1479)
-- On Kubernetes before 1.30, which has no CRD validation ratcheting, the API server rejects every update to a Stack already stored with an `Env` or `FS` ref, or with a `gitAuth` ref of type `Literal`, including removal of its finalizer [#1479](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1479)
 - Document the minimum GitHub permissions that a `gitAuth` personal access token or GitHub App needs, and list GitHub App in the `gitAuth` field description [#1471](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1471)
 - Correct the description of the deprecated `namespace` field on a Secret reference [#1473](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1473)
 - Fix a Stack that silently stops reconciling when `status.currentUpdate` names an Update that no longer exists, or one that finished without the Stack recording its result. Updates left stuck in `Terminating` are released in the same pass, including those finalized by an operator older than v2.4.1 [#1292](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1292)
