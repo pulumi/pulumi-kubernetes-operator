@@ -563,8 +563,7 @@ spec:
                       PersonalAccessToken is a reference to a token that grants read access to the
                       repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
                       repository permission, and a classic token needs the "repo" scope.
-                      Environment variables, files on the filesystem, Kubernetes Secrets and literal
-                      strings are currently supported.
+                      The reference must name a Kubernetes Secret.
                     properties:
                       env:
                         description: Env selects an environment variable set on the
@@ -625,6 +624,10 @@ spec:
                     required:
                     - type
                     type: object
+                    x-kubernetes-validations:
+                    - message: A gitAuth reference supports type Secret only. Store
+                        the credential in a Kubernetes Secret and reference it.
+                      rule: self.type == 'Secret'
                   basicAuth:
                     description: |-
                       BasicAuth configures git authentication through basic auth —
@@ -695,6 +698,11 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: A gitAuth reference supports type Secret only.
+                            Store the credential in a Kubernetes Secret and reference
+                            it.
+                          rule: self.type == 'Secret'
                       userName:
                         description: |-
                           ResourceRef identifies a resource from which information can be loaded.
@@ -760,6 +768,11 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: A gitAuth reference supports type Secret only.
+                            Store the credential in a Kubernetes Secret and reference
+                            it.
+                          rule: self.type == 'Secret'
                     required:
                     - password
                     - userName
@@ -835,6 +848,11 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: A gitAuth reference supports type Secret only.
+                            Store the credential in a Kubernetes Secret and reference
+                            it.
+                          rule: self.type == 'Secret'
                       installationID:
                         description: InstallationID is the numeric GitHub App installation
                           ID, stored as a string in a Kubernetes Secret.
@@ -898,6 +916,11 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: A gitAuth reference supports type Secret only.
+                            Store the credential in a Kubernetes Secret and reference
+                            it.
+                          rule: self.type == 'Secret'
                       privateKey:
                         description: PrivateKey is the PEM-encoded RSA private key
                           of the GitHub App, stored in a Kubernetes Secret.
@@ -961,6 +984,11 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: A gitAuth reference supports type Secret only.
+                            Store the credential in a Kubernetes Secret and reference
+                            it.
+                          rule: self.type == 'Secret'
                     required:
                     - appID
                     - installationID
@@ -1036,6 +1064,11 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: A gitAuth reference supports type Secret only.
+                            Store the credential in a Kubernetes Secret and reference
+                            it.
+                          rule: self.type == 'Secret'
                       sshPrivateKey:
                         description: |-
                           ResourceRef identifies a resource from which information can be loaded.
@@ -1101,6 +1134,11 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: A gitAuth reference supports type Secret only.
+                            Store the credential in a Kubernetes Secret and reference
+                            it.
+                          rule: self.type == 'Secret'
                     required:
                     - sshPrivateKey
                     type: object
@@ -11234,8 +11272,7 @@ spec:
                       PersonalAccessToken is a reference to a token that grants read access to the
                       repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
                       repository permission, and a classic token needs the "repo" scope.
-                      Environment variables, files on the filesystem, Kubernetes Secrets and literal
-                      strings are currently supported.
+                      The reference must name a Kubernetes Secret.
                     properties:
                       env:
                         description: Env selects an environment variable set on the
@@ -11296,6 +11333,10 @@ spec:
                     required:
                     - type
                     type: object
+                    x-kubernetes-validations:
+                    - message: A gitAuth reference supports type Secret only. Store
+                        the credential in a Kubernetes Secret and reference it.
+                      rule: self.type == 'Secret'
                   basicAuth:
                     description: |-
                       BasicAuth configures git authentication through basic auth —
@@ -11366,6 +11407,11 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: A gitAuth reference supports type Secret only.
+                            Store the credential in a Kubernetes Secret and reference
+                            it.
+                          rule: self.type == 'Secret'
                       userName:
                         description: |-
                           ResourceRef identifies a resource from which information can be loaded.
@@ -11431,6 +11477,11 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: A gitAuth reference supports type Secret only.
+                            Store the credential in a Kubernetes Secret and reference
+                            it.
+                          rule: self.type == 'Secret'
                     required:
                     - password
                     - userName
@@ -11506,6 +11557,11 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: A gitAuth reference supports type Secret only.
+                            Store the credential in a Kubernetes Secret and reference
+                            it.
+                          rule: self.type == 'Secret'
                       installationID:
                         description: InstallationID is the numeric GitHub App installation
                           ID, stored as a string in a Kubernetes Secret.
@@ -11569,6 +11625,11 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: A gitAuth reference supports type Secret only.
+                            Store the credential in a Kubernetes Secret and reference
+                            it.
+                          rule: self.type == 'Secret'
                       privateKey:
                         description: PrivateKey is the PEM-encoded RSA private key
                           of the GitHub App, stored in a Kubernetes Secret.
@@ -11632,6 +11693,11 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: A gitAuth reference supports type Secret only.
+                            Store the credential in a Kubernetes Secret and reference
+                            it.
+                          rule: self.type == 'Secret'
                     required:
                     - appID
                     - installationID
@@ -11707,6 +11773,11 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: A gitAuth reference supports type Secret only.
+                            Store the credential in a Kubernetes Secret and reference
+                            it.
+                          rule: self.type == 'Secret'
                       sshPrivateKey:
                         description: |-
                           ResourceRef identifies a resource from which information can be loaded.
@@ -11772,6 +11843,11 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: A gitAuth reference supports type Secret only.
+                            Store the credential in a Kubernetes Secret and reference
+                            it.
+                          rule: self.type == 'Secret'
                     required:
                     - sshPrivateKey
                     type: object

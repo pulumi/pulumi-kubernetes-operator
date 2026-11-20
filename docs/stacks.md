@@ -781,8 +781,7 @@ GitHub App credentials, and finally basic auth credentials.
           PersonalAccessToken is a reference to a token that grants read access to the
 repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
 repository permission, and a classic token needs the "repo" scope.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -824,8 +823,7 @@ SSHPrivateKey is required but password is optional.<br/>
 PersonalAccessToken is a reference to a token that grants read access to the
 repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
 repository permission, and a classic token needs the "repo" scope.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -22634,8 +22632,7 @@ GitHub App credentials, and finally basic auth credentials.
           PersonalAccessToken is a reference to a token that grants read access to the
 repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
 repository permission, and a classic token needs the "repo" scope.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22677,8 +22674,7 @@ SSHPrivateKey is required but password is optional.<br/>
 PersonalAccessToken is a reference to a token that grants read access to the
 repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
 repository permission, and a classic token needs the "repo" scope.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
