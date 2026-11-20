@@ -830,7 +830,9 @@ format git@github.com:org/repository.git.<br/>
         <td>object</td>
         <td>
           Token is a Git personal access token in replacement of
-your password.<br/>
+your password. The token only needs read access to the repository contents.
+On GitHub, a fine-grained token needs the "Contents: Read-only" repository
+permission, and a classic token needs the "repo" scope.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1128,7 +1130,9 @@ More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/nam
 
 
 Token is a Git personal access token in replacement of
-your password.
+your password. The token only needs read access to the repository contents.
+On GitHub, a fine-grained token needs the "Contents: Read-only" repository
+permission, and a classic token needs the "repo" scope.
 
 <table>
     <thead>

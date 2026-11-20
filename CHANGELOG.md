@@ -3,6 +3,7 @@ CHANGELOG
 
 ## Unreleased
 
+- Document the minimum GitHub permissions that a `gitAuth` personal access token or GitHub App needs, and list GitHub App in the `gitAuth` field description [#1471](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1471)
 - Fix a Stack that silently stops reconciling when `status.currentUpdate` names an Update that no longer exists, or one that finished without the Stack recording its result. Updates left stuck in `Terminating` are released in the same pass, including those finalized by an operator older than v2.4.1 [#1292](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1292)
 
 ## 2.10.1
