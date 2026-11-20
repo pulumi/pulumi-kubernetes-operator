@@ -40,6 +40,7 @@ type UpdateSpec struct {
 	// Specify the Pulumi stack to select for the update.
 	StackName string `json:"stackName,omitempty"`
 	// Type of the update to perform.
+	// +kubebuilder:validation:Enum=preview;up;destroy;refresh
 	Type UpdateType `json:"type,omitempty"`
 	// TTL for a completed update object.
 	// +optional

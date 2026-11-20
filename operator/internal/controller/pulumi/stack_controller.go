@@ -1688,7 +1688,7 @@ func (sess *stackReconcilerSession) resolveSecretResourceRef(ctx context.Context
 		}
 		return string(secretVal), nil
 	default:
-		return "", fmt.Errorf("%s selectors are no longer supported in v2, please use a secret reference instead", ref.SelectorType)
+		return "", fmt.Errorf("unsupported selector type %q; v2 supports Secret only", ref.SelectorType)
 	}
 }
 

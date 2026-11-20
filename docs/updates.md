@@ -176,9 +176,11 @@ specified in the Target list<br/>
         <td>false</td>
       </tr><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           Type of the update to perform.<br/>
+          <br/>
+            <i>Enum</i>: preview, up, destroy, refresh<br/>
         </td>
         <td>false</td>
       </tr><tr>

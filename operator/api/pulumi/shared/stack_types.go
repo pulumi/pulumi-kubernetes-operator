@@ -333,7 +333,8 @@ type FluxSourceReference struct {
 // strings are currently supported.
 type ResourceRef struct {
 	// SelectorType is required and signifies the type of selector. Must be one of:
-	// Env, FS, Secret, Literal
+	// Secret, Literal
+	// +kubebuilder:validation:Enum=Secret;Literal
 	SelectorType     ResourceSelectorType `json:"type"`
 	ResourceSelector `json:",inline"`
 }

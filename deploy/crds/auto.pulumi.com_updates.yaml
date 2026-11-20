@@ -122,6 +122,11 @@ spec:
                 type: string
               type:
                 description: Type of the update to perform.
+                enum:
+                - preview
+                - up
+                - destroy
+                - refresh
                 type: string
               workspaceName:
                 description: WorkspaceName is the workspace to update.

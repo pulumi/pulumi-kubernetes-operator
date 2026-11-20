@@ -26,7 +26,9 @@ const (
 )
 
 // SecurityProfile declares the security profile of the workspace, either baseline or restricted.
+// The empty string stays valid because the API server applies the default only to an absent field.
 // +enum
+// +kubebuilder:validation:Enum={"",baseline,restricted}
 type SecurityProfile string
 
 const (

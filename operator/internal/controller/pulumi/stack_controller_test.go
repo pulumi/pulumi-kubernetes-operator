@@ -1448,37 +1448,6 @@ var _ = Describe("Stack Controller", func() {
 				))
 			})
 
-			Describe("deprecated ref type: Env", func() {
-				BeforeEach(func(ctx context.Context) {
-					obj.Spec.EnvRefs = map[string]shared.ResourceRef{
-						"foo": {
-							SelectorType: shared.ResourceSelectorEnv,
-							ResourceSelector: shared.ResourceSelector{
-								Env: &shared.EnvSelector{
-									Name: "FOO",
-								},
-							},
-						},
-					}
-				})
-				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "Env" is deprecated`))
-			})
-
-			Describe("deprecated ref type: FS", func() {
-				BeforeEach(func(ctx context.Context) {
-					obj.Spec.EnvRefs = map[string]shared.ResourceRef{
-						"foo": {
-							SelectorType: shared.ResourceSelectorFS,
-							ResourceSelector: shared.ResourceSelector{
-								FileSystem: &shared.FSSelector{
-									Path: "foo",
-								},
-							},
-						},
-					}
-				})
-				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "FS" is deprecated`))
-			})
 		})
 	})
 
@@ -1615,37 +1584,6 @@ var _ = Describe("Stack Controller", func() {
 				}))
 			})
 
-			Describe("deprecated ref type: Env", func() {
-				BeforeEach(func(ctx context.Context) {
-					obj.Spec.SecretRefs = map[string]shared.ResourceRef{
-						"foo": {
-							SelectorType: shared.ResourceSelectorEnv,
-							ResourceSelector: shared.ResourceSelector{
-								Env: &shared.EnvSelector{
-									Name: "FOO",
-								},
-							},
-						},
-					}
-				})
-				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "Env" is deprecated`))
-			})
-
-			Describe("deprecated ref type: FS", func() {
-				BeforeEach(func(ctx context.Context) {
-					obj.Spec.SecretRefs = map[string]shared.ResourceRef{
-						"foo": {
-							SelectorType: shared.ResourceSelectorFS,
-							ResourceSelector: shared.ResourceSelector{
-								FileSystem: &shared.FSSelector{
-									Path: "foo",
-								},
-							},
-						},
-					}
-				})
-				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "FS" is deprecated`))
-			})
 		})
 	})
 

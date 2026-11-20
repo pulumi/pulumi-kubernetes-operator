@@ -481,6 +481,11 @@ spec:
                       description: |-
                         SelectorType is required and signifies the type of selector. Must be one of:
                         Env, FS, Secret, Literal
+                      enum:
+                      - Env
+                      - FS
+                      - Secret
+                      - Literal
                       type: string
                   required:
                   - type
@@ -615,6 +620,11 @@ spec:
                         description: |-
                           SelectorType is required and signifies the type of selector. Must be one of:
                           Env, FS, Secret, Literal
+                        enum:
+                        - Env
+                        - FS
+                        - Secret
+                        - Literal
                         type: string
                     required:
                     - type
@@ -682,6 +692,11 @@ spec:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
                               Env, FS, Secret, Literal
+                            enum:
+                            - Env
+                            - FS
+                            - Secret
+                            - Literal
                             type: string
                         required:
                         - type
@@ -744,6 +759,11 @@ spec:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
                               Env, FS, Secret, Literal
+                            enum:
+                            - Env
+                            - FS
+                            - Secret
+                            - Literal
                             type: string
                         required:
                         - type
@@ -816,6 +836,11 @@ spec:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
                               Env, FS, Secret, Literal
+                            enum:
+                            - Env
+                            - FS
+                            - Secret
+                            - Literal
                             type: string
                         required:
                         - type
@@ -876,6 +901,11 @@ spec:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
                               Env, FS, Secret, Literal
+                            enum:
+                            - Env
+                            - FS
+                            - Secret
+                            - Literal
                             type: string
                         required:
                         - type
@@ -936,6 +966,11 @@ spec:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
                               Env, FS, Secret, Literal
+                            enum:
+                            - Env
+                            - FS
+                            - Secret
+                            - Literal
                             type: string
                         required:
                         - type
@@ -1008,6 +1043,11 @@ spec:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
                               Env, FS, Secret, Literal
+                            enum:
+                            - Env
+                            - FS
+                            - Secret
+                            - Literal
                             type: string
                         required:
                         - type
@@ -1070,6 +1110,11 @@ spec:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
                               Env, FS, Secret, Literal
+                            enum:
+                            - Env
+                            - FS
+                            - Secret
+                            - Literal
                             type: string
                         required:
                         - type
@@ -1262,6 +1307,11 @@ spec:
                       description: |-
                         SelectorType is required and signifies the type of selector. Must be one of:
                         Env, FS, Secret, Literal
+                      enum:
+                      - Env
+                      - FS
+                      - Secret
+                      - Literal
                       type: string
                   required:
                   - type
@@ -11117,6 +11167,11 @@ spec:
                       description: |-
                         SelectorType is required and signifies the type of selector. Must be one of:
                         Env, FS, Secret, Literal
+                      enum:
+                      - Env
+                      - FS
+                      - Secret
+                      - Literal
                       type: string
                   required:
                   - type
@@ -11251,6 +11306,11 @@ spec:
                         description: |-
                           SelectorType is required and signifies the type of selector. Must be one of:
                           Env, FS, Secret, Literal
+                        enum:
+                        - Env
+                        - FS
+                        - Secret
+                        - Literal
                         type: string
                     required:
                     - type
@@ -11318,6 +11378,11 @@ spec:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
                               Env, FS, Secret, Literal
+                            enum:
+                            - Env
+                            - FS
+                            - Secret
+                            - Literal
                             type: string
                         required:
                         - type
@@ -11380,6 +11445,11 @@ spec:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
                               Env, FS, Secret, Literal
+                            enum:
+                            - Env
+                            - FS
+                            - Secret
+                            - Literal
                             type: string
                         required:
                         - type
@@ -11452,6 +11522,11 @@ spec:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
                               Env, FS, Secret, Literal
+                            enum:
+                            - Env
+                            - FS
+                            - Secret
+                            - Literal
                             type: string
                         required:
                         - type
@@ -11512,6 +11587,11 @@ spec:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
                               Env, FS, Secret, Literal
+                            enum:
+                            - Env
+                            - FS
+                            - Secret
+                            - Literal
                             type: string
                         required:
                         - type
@@ -11572,6 +11652,11 @@ spec:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
                               Env, FS, Secret, Literal
+                            enum:
+                            - Env
+                            - FS
+                            - Secret
+                            - Literal
                             type: string
                         required:
                         - type
@@ -11644,6 +11729,11 @@ spec:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
                               Env, FS, Secret, Literal
+                            enum:
+                            - Env
+                            - FS
+                            - Secret
+                            - Literal
                             type: string
                         required:
                         - type
@@ -11706,6 +11796,11 @@ spec:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
                               Env, FS, Secret, Literal
+                            enum:
+                            - Env
+                            - FS
+                            - Secret
+                            - Literal
                             type: string
                         required:
                         - type
@@ -11898,6 +11993,11 @@ spec:
                       description: |-
                         SelectorType is required and signifies the type of selector. Must be one of:
                         Env, FS, Secret, Literal
+                      enum:
+                      - Env
+                      - FS
+                      - Secret
+                      - Literal
                       type: string
                   required:
                   - type

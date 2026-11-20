@@ -511,10 +511,12 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -836,10 +838,12 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1056,10 +1060,12 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1237,10 +1243,12 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1461,10 +1469,12 @@ AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1640,10 +1650,12 @@ InstallationID is the numeric GitHub App installation ID, stored as a string in 
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -1819,10 +1831,12 @@ PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kub
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -2039,10 +2053,12 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -2220,10 +2236,12 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -2495,10 +2513,12 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -3561,9 +3581,12 @@ with apply.<br/>
         <td>false</td>
       </tr><tr>
         <td><b>securityProfile</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
-          SecurityProfile declares the security profile of the workspace, either baseline or restricted.<br/>
+          SecurityProfile declares the security profile of the workspace, either baseline or restricted.
+The empty string stays valid because the API server applies the default only to an absent field.<br/>
+          <br/>
+            <i>Enum</i>: , baseline, restricted<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22341,10 +22364,12 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -22666,10 +22691,12 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -22886,10 +22913,12 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -23067,10 +23096,12 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -23291,10 +23322,12 @@ AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -23470,10 +23503,12 @@ InstallationID is the numeric GitHub App installation ID, stored as a string in 
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -23649,10 +23684,12 @@ PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kub
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -23869,10 +23906,12 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -24050,10 +24089,12 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -24325,10 +24366,12 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -25391,9 +25434,12 @@ with apply.<br/>
         <td>false</td>
       </tr><tr>
         <td><b>securityProfile</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
-          SecurityProfile declares the security profile of the workspace, either baseline or restricted.<br/>
+          SecurityProfile declares the security profile of the workspace, either baseline or restricted.
+The empty string stays valid because the API server applies the default only to an absent field.<br/>
+          <br/>
+            <i>Enum</i>: , baseline, restricted<br/>
         </td>
         <td>false</td>
       </tr><tr>
