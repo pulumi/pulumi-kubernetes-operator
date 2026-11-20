@@ -523,7 +523,7 @@ func newStallErrorf(format string, args ...interface{}) error {
 }
 
 var (
-	errNamespaceIsolation       = newStallErrorf(`cross-namespace refs are not allowed`)
+	errNamespaceIsolation       = newStallErrorf(`cross-namespace refs are not allowed; the Secret must be in the same namespace as the Stack`)
 	errDeprecatedResourceRefEnv = newStallErrorf(`ref type "Env" is deprecated`)
 	errDeprecatedResourceRefFS  = newStallErrorf(`ref type "FS" is deprecated`)
 )
