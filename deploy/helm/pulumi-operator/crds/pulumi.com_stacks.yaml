@@ -361,9 +361,8 @@ spec:
                     properties:
                       password:
                         description: |-
-                          ResourceRef identifies a resource from which information can be loaded.
-                          Environment variables, files on the filesystem, Kubernetes Secrets and literal
-                          strings are currently supported.
+                          Password is the password for the account named by userName.
+                          The reference must name a Kubernetes Secret.
                         properties:
                           env:
                             description: Env selects an environment variable set on
@@ -431,9 +430,8 @@ spec:
                           rule: self.type == 'Secret'
                       userName:
                         description: |-
-                          ResourceRef identifies a resource from which information can be loaded.
-                          Environment variables, files on the filesystem, Kubernetes Secrets and literal
-                          strings are currently supported.
+                          UserName is the account name that grants access to the repository.
+                          The reference must name a Kubernetes Secret.
                         properties:
                           env:
                             description: Env selects an environment variable set on
@@ -512,8 +510,9 @@ spec:
                       repository permission.
                     properties:
                       appID:
-                        description: AppID is the numeric GitHub App ID, stored as
-                          a string in a Kubernetes Secret.
+                        description: |-
+                          AppID is the numeric GitHub App ID.
+                          The reference must name a Kubernetes Secret.
                         properties:
                           env:
                             description: Env selects an environment variable set on
@@ -580,8 +579,9 @@ spec:
                             it.
                           rule: self.type == 'Secret'
                       installationID:
-                        description: InstallationID is the numeric GitHub App installation
-                          ID, stored as a string in a Kubernetes Secret.
+                        description: |-
+                          InstallationID is the numeric GitHub App installation ID.
+                          The reference must name a Kubernetes Secret.
                         properties:
                           env:
                             description: Env selects an environment variable set on
@@ -648,8 +648,9 @@ spec:
                             it.
                           rule: self.type == 'Secret'
                       privateKey:
-                        description: PrivateKey is the PEM-encoded RSA private key
-                          of the GitHub App, stored in a Kubernetes Secret.
+                        description: |-
+                          PrivateKey is the PEM-encoded RSA private key of the GitHub App.
+                          The reference must name a Kubernetes Secret.
                         properties:
                           env:
                             description: Env selects an environment variable set on
@@ -727,9 +728,8 @@ spec:
                     properties:
                       password:
                         description: |-
-                          ResourceRef identifies a resource from which information can be loaded.
-                          Environment variables, files on the filesystem, Kubernetes Secrets and literal
-                          strings are currently supported.
+                          Password unlocks the private key, when the key is encrypted.
+                          The reference must name a Kubernetes Secret.
                         properties:
                           env:
                             description: Env selects an environment variable set on
@@ -797,9 +797,8 @@ spec:
                           rule: self.type == 'Secret'
                       sshPrivateKey:
                         description: |-
-                          ResourceRef identifies a resource from which information can be loaded.
-                          Environment variables, files on the filesystem, Kubernetes Secrets and literal
-                          strings are currently supported.
+                          SSHPrivateKey is the private key that grants access to the repository.
+                          The reference must name a Kubernetes Secret.
                         properties:
                           env:
                             description: Env selects an environment variable set on
@@ -11070,9 +11069,8 @@ spec:
                     properties:
                       password:
                         description: |-
-                          ResourceRef identifies a resource from which information can be loaded.
-                          Environment variables, files on the filesystem, Kubernetes Secrets and literal
-                          strings are currently supported.
+                          Password is the password for the account named by userName.
+                          The reference must name a Kubernetes Secret.
                         properties:
                           env:
                             description: Env selects an environment variable set on
@@ -11140,9 +11138,8 @@ spec:
                           rule: self.type == 'Secret'
                       userName:
                         description: |-
-                          ResourceRef identifies a resource from which information can be loaded.
-                          Environment variables, files on the filesystem, Kubernetes Secrets and literal
-                          strings are currently supported.
+                          UserName is the account name that grants access to the repository.
+                          The reference must name a Kubernetes Secret.
                         properties:
                           env:
                             description: Env selects an environment variable set on
@@ -11221,8 +11218,9 @@ spec:
                       repository permission.
                     properties:
                       appID:
-                        description: AppID is the numeric GitHub App ID, stored as
-                          a string in a Kubernetes Secret.
+                        description: |-
+                          AppID is the numeric GitHub App ID.
+                          The reference must name a Kubernetes Secret.
                         properties:
                           env:
                             description: Env selects an environment variable set on
@@ -11289,8 +11287,9 @@ spec:
                             it.
                           rule: self.type == 'Secret'
                       installationID:
-                        description: InstallationID is the numeric GitHub App installation
-                          ID, stored as a string in a Kubernetes Secret.
+                        description: |-
+                          InstallationID is the numeric GitHub App installation ID.
+                          The reference must name a Kubernetes Secret.
                         properties:
                           env:
                             description: Env selects an environment variable set on
@@ -11357,8 +11356,9 @@ spec:
                             it.
                           rule: self.type == 'Secret'
                       privateKey:
-                        description: PrivateKey is the PEM-encoded RSA private key
-                          of the GitHub App, stored in a Kubernetes Secret.
+                        description: |-
+                          PrivateKey is the PEM-encoded RSA private key of the GitHub App.
+                          The reference must name a Kubernetes Secret.
                         properties:
                           env:
                             description: Env selects an environment variable set on
@@ -11436,9 +11436,8 @@ spec:
                     properties:
                       password:
                         description: |-
-                          ResourceRef identifies a resource from which information can be loaded.
-                          Environment variables, files on the filesystem, Kubernetes Secrets and literal
-                          strings are currently supported.
+                          Password unlocks the private key, when the key is encrypted.
+                          The reference must name a Kubernetes Secret.
                         properties:
                           env:
                             description: Env selects an environment variable set on
@@ -11506,9 +11505,8 @@ spec:
                           rule: self.type == 'Secret'
                       sshPrivateKey:
                         description: |-
-                          ResourceRef identifies a resource from which information can be loaded.
-                          Environment variables, files on the filesystem, Kubernetes Secrets and literal
-                          strings are currently supported.
+                          SSHPrivateKey is the private key that grants access to the repository.
+                          The reference must name a Kubernetes Secret.
                         properties:
                           env:
                             description: Env selects an environment variable set on

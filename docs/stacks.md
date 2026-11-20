@@ -1020,18 +1020,16 @@ i.e. username and password. Both UserName and Password are required.
         <td><b><a href="#stackspecgitauthbasicauthpassword">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          Password is the password for the account named by userName.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthusername">userName</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          UserName is the account name that grants access to the repository.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr></tbody>
@@ -1043,9 +1041,8 @@ strings are currently supported.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+Password is the password for the account named by userName.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -1226,9 +1223,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+UserName is the account name that grants access to the repository.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -1428,21 +1424,24 @@ repository permission.
         <td><b><a href="#stackspecgitauthgithubappappid">appID</a></b></td>
         <td>object</td>
         <td>
-          AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.<br/>
+          AppID is the numeric GitHub App ID.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappinstallationid">installationID</a></b></td>
         <td>object</td>
         <td>
-          InstallationID is the numeric GitHub App installation ID, stored as a string in a Kubernetes Secret.<br/>
+          InstallationID is the numeric GitHub App installation ID.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappprivatekey">privateKey</a></b></td>
         <td>object</td>
         <td>
-          PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kubernetes Secret.<br/>
+          PrivateKey is the PEM-encoded RSA private key of the GitHub App.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr></tbody>
@@ -1454,7 +1453,8 @@ repository permission.
 
 
 
-AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.
+AppID is the numeric GitHub App ID.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -1635,7 +1635,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-InstallationID is the numeric GitHub App installation ID, stored as a string in a Kubernetes Secret.
+InstallationID is the numeric GitHub App installation ID.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -1816,7 +1817,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kubernetes Secret.
+PrivateKey is the PEM-encoded RSA private key of the GitHub App.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -2013,18 +2015,16 @@ SSHPrivateKey is required but password is optional.
         <td><b><a href="#stackspecgitauthsshauthsshprivatekey">sshPrivateKey</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          SSHPrivateKey is the private key that grants access to the repository.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthpassword">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          Password unlocks the private key, when the key is encrypted.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2036,9 +2036,8 @@ strings are currently supported.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+SSHPrivateKey is the private key that grants access to the repository.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -2219,9 +2218,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+Password unlocks the private key, when the key is encrypted.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -22871,18 +22869,16 @@ i.e. username and password. Both UserName and Password are required.
         <td><b><a href="#stackspecgitauthbasicauthpassword-1">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          Password is the password for the account named by userName.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthusername-1">userName</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          UserName is the account name that grants access to the repository.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr></tbody>
@@ -22894,9 +22890,8 @@ strings are currently supported.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+Password is the password for the account named by userName.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -23077,9 +23072,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+UserName is the account name that grants access to the repository.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -23279,21 +23273,24 @@ repository permission.
         <td><b><a href="#stackspecgitauthgithubappappid-1">appID</a></b></td>
         <td>object</td>
         <td>
-          AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.<br/>
+          AppID is the numeric GitHub App ID.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappinstallationid-1">installationID</a></b></td>
         <td>object</td>
         <td>
-          InstallationID is the numeric GitHub App installation ID, stored as a string in a Kubernetes Secret.<br/>
+          InstallationID is the numeric GitHub App installation ID.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappprivatekey-1">privateKey</a></b></td>
         <td>object</td>
         <td>
-          PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kubernetes Secret.<br/>
+          PrivateKey is the PEM-encoded RSA private key of the GitHub App.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr></tbody>
@@ -23305,7 +23302,8 @@ repository permission.
 
 
 
-AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.
+AppID is the numeric GitHub App ID.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -23486,7 +23484,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-InstallationID is the numeric GitHub App installation ID, stored as a string in a Kubernetes Secret.
+InstallationID is the numeric GitHub App installation ID.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -23667,7 +23666,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kubernetes Secret.
+PrivateKey is the PEM-encoded RSA private key of the GitHub App.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -23864,18 +23864,16 @@ SSHPrivateKey is required but password is optional.
         <td><b><a href="#stackspecgitauthsshauthsshprivatekey-1">sshPrivateKey</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          SSHPrivateKey is the private key that grants access to the repository.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthpassword-1">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          Password unlocks the private key, when the key is encrypted.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -23887,9 +23885,8 @@ strings are currently supported.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+SSHPrivateKey is the private key that grants access to the repository.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -24070,9 +24067,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+Password unlocks the private key, when the key is encrypted.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
