@@ -434,8 +434,8 @@ type EnvSelector struct {
 
 // SecretSelector identifies the information to load from a Kubernetes Secret.
 type SecretSelector struct {
-	// Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-	// unless namespace isolation is disabled in the controller.
+	// Namespace is deprecated and must be left empty. The operator reads a Secret
+	// only from the Stack's own namespace.
 	Namespace string `json:"namespace,omitempty"`
 	// Name of the Secret
 	Name string `json:"name"`

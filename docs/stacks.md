@@ -664,8 +664,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -989,8 +989,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1209,8 +1209,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1390,8 +1390,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1614,8 +1614,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1793,8 +1793,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -1972,8 +1972,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2192,8 +2192,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2373,8 +2373,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2648,8 +2648,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -22494,8 +22494,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -22819,8 +22819,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -23039,8 +23039,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -23220,8 +23220,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -23444,8 +23444,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -23623,8 +23623,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -23802,8 +23802,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -24022,8 +24022,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -24203,8 +24203,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -24478,8 +24478,8 @@ SecretRef refers to a Kubernetes Secret
         <td><b>namespace</b></td>
         <td>string</td>
         <td>
-          Namespace where the Secret is stored. Deprecated; non-empty values will be considered invalid
-unless namespace isolation is disabled in the controller.<br/>
+          Namespace is deprecated and must be left empty. The operator reads a Secret
+only from the Stack's own namespace.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
