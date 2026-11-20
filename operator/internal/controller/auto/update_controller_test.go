@@ -38,6 +38,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -1040,4 +1041,44 @@ func TestUpdateReconcileReturnsWhenWorkspaceBecomesUnreachable(t *testing.T) {
 	complete := meta.FindStatusCondition(result.Status.Conditions, UpdateConditionTypeComplete)
 	require.NotNil(t, complete)
 	assert.Equal(t, metav1.ConditionFalse, complete.Status)
+}
+
+func TestAPIServerRejectsAnUnknownUpdateType(t *testing.T) {
+	env := &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, env.Stop()) })
+
+	require.NoError(t, autov1alpha1.AddToScheme(scheme.Scheme))
+
+	c, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	require.NoError(t, err)
+
+	ctx := t.Context()
+
+	err = c.Create(ctx, &autov1alpha1.Update{
+		ObjectMeta: metav1.ObjectMeta{Name: "bad-type", Namespace: "default"},
+		Spec: autov1alpha1.UpdateSpec{
+			WorkspaceName: "ws",
+			StackName:     "dev",
+			Type:          autov1alpha1.UpdateType("Up"),
+		},
+	})
+	require.Error(t, err)
+	assert.True(t, apierrors.IsInvalid(err), "want an invalid-value error, got %v", err)
+	assert.Contains(t, err.Error(), "spec.type")
+
+	require.NoError(t, c.Create(ctx, &autov1alpha1.Update{
+		ObjectMeta: metav1.ObjectMeta{Name: "good-type", Namespace: "default"},
+		Spec: autov1alpha1.UpdateSpec{
+			WorkspaceName: "ws",
+			StackName:     "dev",
+			Type:          autov1alpha1.UpType,
+		},
+	}))
 }

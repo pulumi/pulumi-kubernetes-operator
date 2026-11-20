@@ -480,10 +480,8 @@ spec:
                     type:
                       description: |-
                         SelectorType is required and signifies the type of selector. Must be one of:
-                        Env, FS, Secret, Literal
+                        Secret, Literal
                       enum:
-                      - Env
-                      - FS
                       - Secret
                       - Literal
                       type: string
@@ -619,10 +617,8 @@ spec:
                       type:
                         description: |-
                           SelectorType is required and signifies the type of selector. Must be one of:
-                          Env, FS, Secret, Literal
+                          Secret, Literal
                         enum:
-                        - Env
-                        - FS
                         - Secret
                         - Literal
                         type: string
@@ -691,10 +687,8 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Env, FS, Secret, Literal
+                              Secret, Literal
                             enum:
-                            - Env
-                            - FS
                             - Secret
                             - Literal
                             type: string
@@ -758,10 +752,8 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Env, FS, Secret, Literal
+                              Secret, Literal
                             enum:
-                            - Env
-                            - FS
                             - Secret
                             - Literal
                             type: string
@@ -835,10 +827,8 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Env, FS, Secret, Literal
+                              Secret, Literal
                             enum:
-                            - Env
-                            - FS
                             - Secret
                             - Literal
                             type: string
@@ -900,10 +890,8 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Env, FS, Secret, Literal
+                              Secret, Literal
                             enum:
-                            - Env
-                            - FS
                             - Secret
                             - Literal
                             type: string
@@ -965,10 +953,8 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Env, FS, Secret, Literal
+                              Secret, Literal
                             enum:
-                            - Env
-                            - FS
                             - Secret
                             - Literal
                             type: string
@@ -1042,10 +1028,8 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Env, FS, Secret, Literal
+                              Secret, Literal
                             enum:
-                            - Env
-                            - FS
                             - Secret
                             - Literal
                             type: string
@@ -1109,10 +1093,8 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Env, FS, Secret, Literal
+                              Secret, Literal
                             enum:
-                            - Env
-                            - FS
                             - Secret
                             - Literal
                             type: string
@@ -1306,10 +1288,8 @@ spec:
                     type:
                       description: |-
                         SelectorType is required and signifies the type of selector. Must be one of:
-                        Env, FS, Secret, Literal
+                        Secret, Literal
                       enum:
-                      - Env
-                      - FS
                       - Secret
                       - Literal
                       type: string
@@ -10714,8 +10694,13 @@ spec:
                             type: object
                         type: object
                       securityProfile:
-                        description: SecurityProfile declares the security profile
-                          of the workspace, either baseline or restricted.
+                        description: |-
+                          SecurityProfile declares the security profile of the workspace, either baseline or restricted.
+                          The empty string stays valid because the API server applies the default only to an absent field.
+                        enum:
+                        - ""
+                        - baseline
+                        - restricted
                         type: string
                       serviceAccountName:
                         type: string
@@ -11166,10 +11151,8 @@ spec:
                     type:
                       description: |-
                         SelectorType is required and signifies the type of selector. Must be one of:
-                        Env, FS, Secret, Literal
+                        Secret, Literal
                       enum:
-                      - Env
-                      - FS
                       - Secret
                       - Literal
                       type: string
@@ -11305,10 +11288,8 @@ spec:
                       type:
                         description: |-
                           SelectorType is required and signifies the type of selector. Must be one of:
-                          Env, FS, Secret, Literal
+                          Secret, Literal
                         enum:
-                        - Env
-                        - FS
                         - Secret
                         - Literal
                         type: string
@@ -11377,10 +11358,8 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Env, FS, Secret, Literal
+                              Secret, Literal
                             enum:
-                            - Env
-                            - FS
                             - Secret
                             - Literal
                             type: string
@@ -11444,10 +11423,8 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Env, FS, Secret, Literal
+                              Secret, Literal
                             enum:
-                            - Env
-                            - FS
                             - Secret
                             - Literal
                             type: string
@@ -11521,10 +11498,8 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Env, FS, Secret, Literal
+                              Secret, Literal
                             enum:
-                            - Env
-                            - FS
                             - Secret
                             - Literal
                             type: string
@@ -11586,10 +11561,8 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Env, FS, Secret, Literal
+                              Secret, Literal
                             enum:
-                            - Env
-                            - FS
                             - Secret
                             - Literal
                             type: string
@@ -11651,10 +11624,8 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Env, FS, Secret, Literal
+                              Secret, Literal
                             enum:
-                            - Env
-                            - FS
                             - Secret
                             - Literal
                             type: string
@@ -11728,10 +11699,8 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Env, FS, Secret, Literal
+                              Secret, Literal
                             enum:
-                            - Env
-                            - FS
                             - Secret
                             - Literal
                             type: string
@@ -11795,10 +11764,8 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Env, FS, Secret, Literal
+                              Secret, Literal
                             enum:
-                            - Env
-                            - FS
                             - Secret
                             - Literal
                             type: string
@@ -11992,10 +11959,8 @@ spec:
                     type:
                       description: |-
                         SelectorType is required and signifies the type of selector. Must be one of:
-                        Env, FS, Secret, Literal
+                        Secret, Literal
                       enum:
-                      - Env
-                      - FS
                       - Secret
                       - Literal
                       type: string
@@ -21400,8 +21365,13 @@ spec:
                             type: object
                         type: object
                       securityProfile:
-                        description: SecurityProfile declares the security profile
-                          of the workspace, either baseline or restricted.
+                        description: |-
+                          SecurityProfile declares the security profile of the workspace, either baseline or restricted.
+                          The empty string stays valid because the API server applies the default only to an absent field.
+                        enum:
+                        - ""
+                        - baseline
+                        - restricted
                         type: string
                       serviceAccountName:
                         type: string
@@ -21700,6 +21670,11 @@ spec:
                 type: string
               type:
                 description: Type of the update to perform.
+                enum:
+                - preview
+                - up
+                - destroy
+                - refresh
                 type: string
               workspaceName:
                 description: WorkspaceName is the workspace to update.
@@ -30885,6 +30860,10 @@ spec:
                   the Restricted policy of the Pod Security Standards.
                   The baseline profile runs the pod as the root user and with a security context that conforms with
                   the Baseline policy of the Pod Security Standards.
+                enum:
+                - ""
+                - baseline
+                - restricted
                 type: string
               serviceAccountName:
                 default: default

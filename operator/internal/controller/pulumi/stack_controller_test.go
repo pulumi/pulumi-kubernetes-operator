@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -1447,7 +1448,6 @@ var _ = Describe("Stack Controller", func() {
 					},
 				))
 			})
-
 		})
 	})
 
@@ -1583,7 +1583,6 @@ var _ = Describe("Stack Controller", func() {
 					MountPath: "/var/run/secrets/stacks.pulumi.com/secrets/" + secret.Name,
 				}))
 			})
-
 		})
 	})
 
@@ -3796,4 +3795,46 @@ func TestCurrentUpdateProcessing(t *testing.T) {
 			assert.JSONEq(t, `"[secret]"`, string(f.obj.Status.Outputs["should-be-scrubbed"].Raw))
 		})
 	})
+}
+
+func TestAPIServerRejectsAnUnknownResourceRefType(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, pulumiv1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	c, err := client.New(cfg, client.Options{Scheme: testScheme})
+	require.NoError(t, err)
+
+	ctx := t.Context()
+
+	newStack := func(name string, ref shared.ResourceRef) *pulumiv1.Stack {
+		return &pulumiv1.Stack{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+			Spec: shared.StackSpec{
+				Stack:   "dev",
+				EnvRefs: map[string]shared.ResourceRef{"FOO": ref},
+			},
+		}
+	}
+
+	for _, rejected := range []shared.ResourceSelectorType{"secret", shared.ResourceSelectorEnv, shared.ResourceSelectorFS} {
+		err = c.Create(ctx, newStack("bad-"+strings.ToLower(string(rejected)), shared.ResourceRef{
+			SelectorType: rejected,
+		}))
+		require.Error(t, err, "selector type %q must be rejected", rejected)
+		assert.True(t, apierrors.IsInvalid(err), "want an invalid-value error for %q, got %v", rejected, err)
+		assert.Contains(t, err.Error(), "envRefs.FOO.type")
+	}
+
+	require.NoError(t, c.Create(ctx, newStack("good-secret", shared.NewSecretResourceRef("default", "s", "k"))))
+	require.NoError(t, c.Create(ctx, newStack("good-literal", shared.NewLiteralResourceRef("v"))))
 }

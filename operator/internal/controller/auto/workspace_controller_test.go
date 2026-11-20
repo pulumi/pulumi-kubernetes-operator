@@ -1581,3 +1581,41 @@ func TestStatefulSetReadyPredicate_FiresOnEitherReadinessTransition(t *testing.T
 	assert.False(t, p.Update(event.UpdateEvent{ObjectOld: nil, ObjectNew: ready()}))
 	assert.False(t, p.Update(event.UpdateEvent{ObjectOld: ready(), ObjectNew: nil}))
 }
+
+func TestAPIServerRejectsAnUnknownSecurityProfile(t *testing.T) {
+	env := &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: true,
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	require.NoError(t, autov1alpha1.AddToScheme(scheme.Scheme))
+
+	c, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	require.NoError(t, err)
+
+	ctx := t.Context()
+
+	err = c.Create(ctx, &autov1alpha1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{Name: "bad-profile", Namespace: "default"},
+		Spec: autov1alpha1.WorkspaceSpec{
+			SecurityProfile: autov1alpha1.SecurityProfile("Restricted"),
+		},
+	})
+	require.Error(t, err)
+	assert.True(t, apierrors.IsInvalid(err), "want an invalid-value error, got %v", err)
+	assert.Contains(t, err.Error(), "spec.securityProfile")
+
+	for name, profile := range map[string]autov1alpha1.SecurityProfile{
+		"baseline":     autov1alpha1.SecurityProfileBaseline,
+		"restricted":   autov1alpha1.SecurityProfileRestricted,
+		"empty-string": autov1alpha1.SecurityProfile(""),
+	} {
+		require.NoError(t, c.Create(ctx, &autov1alpha1.Workspace{
+			ObjectMeta: metav1.ObjectMeta{Name: "good-profile-" + name, Namespace: "default"},
+			Spec:       autov1alpha1.WorkspaceSpec{SecurityProfile: profile},
+		}), "profile %q must stay valid", profile)
+	}
+}
