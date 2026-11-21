@@ -62,6 +62,7 @@ const (
 	PodAnnotationRevisionHash   = "auto.pulumi.com/revision-hash"
 
 	ConditionReasonIncompatibleConfiguration = "IncompatibleConfiguration"
+	ConditionReasonServiceAccountNotFound    = "ServiceAccountNotFound"
 
 	FetchContainerName = "fetch"
 
@@ -87,6 +88,7 @@ type WorkspaceReconciler struct {
 //+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
 
 func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
@@ -191,6 +193,23 @@ func (r *WorkspaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to apply statefulset: %w", err)
+	}
+
+	if !isStatefulSetReady(ss) {
+		// Surface missing service account error
+		saName := w.Spec.ServiceAccountName
+		err := r.Get(ctx, types.NamespacedName{Name: saName, Namespace: w.Namespace}, &corev1.ServiceAccount{})
+		switch {
+		case err == nil:
+		case apierrors.IsNotFound(err):
+			ready.Status = metav1.ConditionFalse
+			ready.Reason = ConditionReasonServiceAccountNotFound
+			ready.Message = fmt.Sprintf("service account %q does not exist in namespace %q", saName, w.Namespace)
+			w.Status.Address = ""
+			return ctrl.Result{}, updateStatus()
+		default:
+			return ctrl.Result{}, fmt.Errorf("failed to get service account %s/%s: %w", w.Namespace, saName, err)
+		}
 	}
 
 	if ss.Status.ObservedGeneration != ss.Generation || ss.Status.UpdateRevision != ss.Status.CurrentRevision {
