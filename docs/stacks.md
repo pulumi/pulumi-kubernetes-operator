@@ -497,8 +497,7 @@ When false, the value is treated as a raw string.<br/>
 
 
 ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -511,24 +510,26 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecenvrefskeyenv">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecenvrefskeyfilesystem">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -554,7 +555,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -581,7 +582,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -779,8 +780,7 @@ GitHub App credentials, and finally basic auth credentials.
           PersonalAccessToken is a reference to a token that grants read access to the
 repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
 repository permission, and a classic token needs the "repo" scope.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -822,8 +822,7 @@ SSHPrivateKey is required but password is optional.<br/>
 PersonalAccessToken is a reference to a token that grants read access to the
 repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
 repository permission, and a classic token needs the "repo" scope.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -836,24 +835,26 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthaccesstokenenv">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthaccesstokenfilesystem">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -879,7 +880,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -906,7 +907,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -1018,18 +1019,16 @@ i.e. username and password. Both UserName and Password are required.
         <td><b><a href="#stackspecgitauthbasicauthpassword">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          Password is the password for the account named by userName.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthusername">userName</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          UserName is the account name that grants access to the repository.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr></tbody>
@@ -1041,9 +1040,8 @@ strings are currently supported.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+Password is the password for the account named by userName.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -1056,24 +1054,26 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthpasswordenv">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthpasswordfilesystem">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1099,7 +1099,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -1126,7 +1126,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -1222,9 +1222,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+UserName is the account name that grants access to the repository.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -1237,24 +1236,26 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthusernameenv">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthusernamefilesystem">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1280,7 +1281,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -1307,7 +1308,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -1422,21 +1423,24 @@ repository permission.
         <td><b><a href="#stackspecgitauthgithubappappid">appID</a></b></td>
         <td>object</td>
         <td>
-          AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.<br/>
+          AppID is the numeric GitHub App ID.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappinstallationid">installationID</a></b></td>
         <td>object</td>
         <td>
-          InstallationID is the numeric GitHub App installation ID, stored as a string in a Kubernetes Secret.<br/>
+          InstallationID is the numeric GitHub App installation ID.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappprivatekey">privateKey</a></b></td>
         <td>object</td>
         <td>
-          PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kubernetes Secret.<br/>
+          PrivateKey is the PEM-encoded RSA private key of the GitHub App.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr></tbody>
@@ -1448,7 +1452,8 @@ repository permission.
 
 
 
-AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.
+AppID is the numeric GitHub App ID.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -1461,24 +1466,26 @@ AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappappidenv">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappappidfilesystem">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1504,7 +1511,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -1531,7 +1538,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -1627,7 +1634,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-InstallationID is the numeric GitHub App installation ID, stored as a string in a Kubernetes Secret.
+InstallationID is the numeric GitHub App installation ID.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -1640,24 +1648,26 @@ InstallationID is the numeric GitHub App installation ID, stored as a string in 
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappinstallationidenv">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappinstallationidfilesystem">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1683,7 +1693,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -1710,7 +1720,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -1806,7 +1816,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kubernetes Secret.
+PrivateKey is the PEM-encoded RSA private key of the GitHub App.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -1819,24 +1830,26 @@ PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kub
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappprivatekeyenv">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappprivatekeyfilesystem">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1862,7 +1875,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -1889,7 +1902,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -2001,18 +2014,16 @@ SSHPrivateKey is required but password is optional.
         <td><b><a href="#stackspecgitauthsshauthsshprivatekey">sshPrivateKey</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          SSHPrivateKey is the private key that grants access to the repository.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthpassword">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          Password unlocks the private key, when the key is encrypted.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -2024,9 +2035,8 @@ strings are currently supported.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+SSHPrivateKey is the private key that grants access to the repository.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -2039,24 +2049,26 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthsshprivatekeyenv">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthsshprivatekeyfilesystem">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2082,7 +2094,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -2109,7 +2121,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -2205,9 +2217,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+Password unlocks the private key, when the key is encrypted.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -2220,24 +2231,26 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthpasswordenv">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthpasswordfilesystem">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2263,7 +2276,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -2290,7 +2303,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -2481,8 +2494,7 @@ ProgramRef refers to a Program object, to be used as the source for the stack.
 
 
 ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -2495,24 +2507,26 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecsecretsrefkeyenv">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecsecretsrefkeyfilesystem">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -2538,7 +2552,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -2565,7 +2579,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -3561,9 +3575,12 @@ with apply.<br/>
         <td>false</td>
       </tr><tr>
         <td><b>securityProfile</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
-          SecurityProfile declares the security profile of the workspace, either baseline or restricted.<br/>
+          SecurityProfile declares the security profile of the workspace, either baseline or restricted.
+The empty string stays valid because the API server applies the default only to an absent field.<br/>
+          <br/>
+            <i>Enum</i>: , baseline, restricted<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22327,8 +22344,7 @@ When false, the value is treated as a raw string.<br/>
 
 
 ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -22341,24 +22357,26 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecenvrefskeyenv-1">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecenvrefskeyfilesystem-1">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22384,7 +22402,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -22411,7 +22429,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -22609,8 +22627,7 @@ GitHub App credentials, and finally basic auth credentials.
           PersonalAccessToken is a reference to a token that grants read access to the
 repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
 repository permission, and a classic token needs the "repo" scope.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22652,8 +22669,7 @@ SSHPrivateKey is required but password is optional.<br/>
 PersonalAccessToken is a reference to a token that grants read access to the
 repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
 repository permission, and a classic token needs the "repo" scope.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -22666,24 +22682,26 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthaccesstokenenv-1">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthaccesstokenfilesystem-1">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22709,7 +22727,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -22736,7 +22754,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -22848,18 +22866,16 @@ i.e. username and password. Both UserName and Password are required.
         <td><b><a href="#stackspecgitauthbasicauthpassword-1">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          Password is the password for the account named by userName.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthusername-1">userName</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          UserName is the account name that grants access to the repository.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr></tbody>
@@ -22871,9 +22887,8 @@ strings are currently supported.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+Password is the password for the account named by userName.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -22886,24 +22901,26 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthpasswordenv-1">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthpasswordfilesystem-1">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -22929,7 +22946,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -22956,7 +22973,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -23052,9 +23069,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+UserName is the account name that grants access to the repository.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -23067,24 +23083,26 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthusernameenv-1">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthbasicauthusernamefilesystem-1">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -23110,7 +23128,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -23137,7 +23155,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -23252,21 +23270,24 @@ repository permission.
         <td><b><a href="#stackspecgitauthgithubappappid-1">appID</a></b></td>
         <td>object</td>
         <td>
-          AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.<br/>
+          AppID is the numeric GitHub App ID.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappinstallationid-1">installationID</a></b></td>
         <td>object</td>
         <td>
-          InstallationID is the numeric GitHub App installation ID, stored as a string in a Kubernetes Secret.<br/>
+          InstallationID is the numeric GitHub App installation ID.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappprivatekey-1">privateKey</a></b></td>
         <td>object</td>
         <td>
-          PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kubernetes Secret.<br/>
+          PrivateKey is the PEM-encoded RSA private key of the GitHub App.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr></tbody>
@@ -23278,7 +23299,8 @@ repository permission.
 
 
 
-AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.
+AppID is the numeric GitHub App ID.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -23291,24 +23313,26 @@ AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappappidenv-1">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappappidfilesystem-1">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -23334,7 +23358,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -23361,7 +23385,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -23457,7 +23481,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-InstallationID is the numeric GitHub App installation ID, stored as a string in a Kubernetes Secret.
+InstallationID is the numeric GitHub App installation ID.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -23470,24 +23495,26 @@ InstallationID is the numeric GitHub App installation ID, stored as a string in 
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappinstallationidenv-1">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappinstallationidfilesystem-1">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -23513,7 +23540,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -23540,7 +23567,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -23636,7 +23663,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kubernetes Secret.
+PrivateKey is the PEM-encoded RSA private key of the GitHub App.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -23649,24 +23677,26 @@ PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kub
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappprivatekeyenv-1">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthgithubappprivatekeyfilesystem-1">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -23692,7 +23722,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -23719,7 +23749,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -23831,18 +23861,16 @@ SSHPrivateKey is required but password is optional.
         <td><b><a href="#stackspecgitauthsshauthsshprivatekey-1">sshPrivateKey</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          SSHPrivateKey is the private key that grants access to the repository.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthpassword-1">password</a></b></td>
         <td>object</td>
         <td>
-          ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.<br/>
+          Password unlocks the private key, when the key is encrypted.
+The reference must name a Kubernetes Secret.<br/>
         </td>
         <td>false</td>
       </tr></tbody>
@@ -23854,9 +23882,8 @@ strings are currently supported.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+SSHPrivateKey is the private key that grants access to the repository.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -23869,24 +23896,26 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthsshprivatekeyenv-1">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthsshprivatekeyfilesystem-1">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -23912,7 +23941,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -23939,7 +23968,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -24035,9 +24064,8 @@ only from the Stack's own namespace.<br/>
 
 
 
-ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+Password unlocks the private key, when the key is encrypted.
+The reference must name a Kubernetes Secret.
 
 <table>
     <thead>
@@ -24050,24 +24078,26 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthpasswordenv-1">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecgitauthsshauthpasswordfilesystem-1">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -24093,7 +24123,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -24120,7 +24150,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -24311,8 +24341,7 @@ ProgramRef refers to a Program object, to be used as the source for the stack.
 
 
 ResourceRef identifies a resource from which information can be loaded.
-Environment variables, files on the filesystem, Kubernetes Secrets and literal
-strings are currently supported.
+Kubernetes Secrets and literal strings are currently supported.
 
 <table>
     <thead>
@@ -24325,24 +24354,26 @@ strings are currently supported.
     </thead>
     <tbody><tr>
         <td><b>type</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SelectorType is required and signifies the type of selector. Must be one of:
-Env, FS, Secret, Literal<br/>
+Secret, Literal. A gitAuth reference accepts Secret only.<br/>
+          <br/>
+            <i>Enum</i>: Secret, Literal<br/>
         </td>
         <td>true</td>
       </tr><tr>
         <td><b><a href="#stackspecsecretsrefkeyenv-1">env</a></b></td>
         <td>object</td>
         <td>
-          Env selects an environment variable set on the operator process<br/>
+          Env is deprecated and has no effect. A reference of type Env is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b><a href="#stackspecsecretsrefkeyfilesystem-1">filesystem</a></b></td>
         <td>object</td>
         <td>
-          FileSystem selects a file on the operator's file system<br/>
+          FileSystem is deprecated and has no effect. A reference of type FS is rejected.<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -24368,7 +24399,7 @@ Env, FS, Secret, Literal<br/>
 
 
 
-Env selects an environment variable set on the operator process
+Env is deprecated and has no effect. A reference of type Env is rejected.
 
 <table>
     <thead>
@@ -24395,7 +24426,7 @@ Env selects an environment variable set on the operator process
 
 
 
-FileSystem selects a file on the operator's file system
+FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 
 <table>
     <thead>
@@ -25391,9 +25422,12 @@ with apply.<br/>
         <td>false</td>
       </tr><tr>
         <td><b>securityProfile</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
-          SecurityProfile declares the security profile of the workspace, either baseline or restricted.<br/>
+          SecurityProfile declares the security profile of the workspace, either baseline or restricted.
+The empty string stays valid because the API server applies the default only to an absent field.<br/>
+          <br/>
+            <i>Enum</i>: , baseline, restricted<br/>
         </td>
         <td>false</td>
       </tr><tr>

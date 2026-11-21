@@ -1447,38 +1447,6 @@ var _ = Describe("Stack Controller", func() {
 					},
 				))
 			})
-
-			Describe("deprecated ref type: Env", func() {
-				BeforeEach(func(ctx context.Context) {
-					obj.Spec.EnvRefs = map[string]shared.ResourceRef{
-						"foo": {
-							SelectorType: shared.ResourceSelectorEnv,
-							ResourceSelector: shared.ResourceSelector{
-								Env: &shared.EnvSelector{
-									Name: "FOO",
-								},
-							},
-						},
-					}
-				})
-				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "Env" is deprecated`))
-			})
-
-			Describe("deprecated ref type: FS", func() {
-				BeforeEach(func(ctx context.Context) {
-					obj.Spec.EnvRefs = map[string]shared.ResourceRef{
-						"foo": {
-							SelectorType: shared.ResourceSelectorFS,
-							ResourceSelector: shared.ResourceSelector{
-								FileSystem: &shared.FSSelector{
-									Path: "foo",
-								},
-							},
-						},
-					}
-				})
-				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "FS" is deprecated`))
-			})
 		})
 	})
 
@@ -1613,38 +1581,6 @@ var _ = Describe("Stack Controller", func() {
 					Name:      "secret-" + secret.Name,
 					MountPath: "/var/run/secrets/stacks.pulumi.com/secrets/" + secret.Name,
 				}))
-			})
-
-			Describe("deprecated ref type: Env", func() {
-				BeforeEach(func(ctx context.Context) {
-					obj.Spec.SecretRefs = map[string]shared.ResourceRef{
-						"foo": {
-							SelectorType: shared.ResourceSelectorEnv,
-							ResourceSelector: shared.ResourceSelector{
-								Env: &shared.EnvSelector{
-									Name: "FOO",
-								},
-							},
-						},
-					}
-				})
-				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "Env" is deprecated`))
-			})
-
-			Describe("deprecated ref type: FS", func() {
-				BeforeEach(func(ctx context.Context) {
-					obj.Spec.SecretRefs = map[string]shared.ResourceRef{
-						"foo": {
-							SelectorType: shared.ResourceSelectorFS,
-							ResourceSelector: shared.ResourceSelector{
-								FileSystem: &shared.FSSelector{
-									Path: "foo",
-								},
-							},
-						},
-					}
-				})
-				beStalled(pulumiv1.StalledSpecInvalidReason, ContainSubstring(`ref type "FS" is deprecated`))
 			})
 		})
 	})
@@ -3857,5 +3793,73 @@ func TestCurrentUpdateProcessing(t *testing.T) {
 			assert.JSONEq(t, `"not-sensitive"`, string(f.obj.Status.Outputs["plaintext"].Raw))
 			assert.JSONEq(t, `"[secret]"`, string(f.obj.Status.Outputs["should-be-scrubbed"].Raw))
 		})
+	})
+}
+
+func TestGitAuthSecretOnlyRuleSkipsAbsentOptionalFields(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, pulumiv1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	c, err := client.New(cfg, client.Options{Scheme: testScheme})
+	require.NoError(t, err)
+
+	ctx := t.Context()
+	secretRef := shared.NewSecretResourceRef("default", "git-creds", "token")
+
+	accepted := []struct {
+		name    string
+		objName string
+		gitAuth *shared.GitAuthConfig
+	}{
+		{"no gitAuth at all", "ok-absent-gitauth", nil},
+		{"sshAuth carries no password", "ok-absent-ssh-password", &shared.GitAuthConfig{
+			SSHAuth: &shared.SSHAuth{SSHPrivateKey: secretRef},
+		}},
+		{"accessToken present, every other branch absent", "ok-token-only", &shared.GitAuthConfig{
+			PersonalAccessToken: &secretRef,
+		}},
+		{"basicAuth with both halves present", "ok-basic-auth", &shared.GitAuthConfig{
+			BasicAuth: &shared.BasicAuth{UserName: secretRef, Password: secretRef},
+		}},
+	}
+	for _, tt := range accepted {
+		t.Run(tt.name, func(t *testing.T) {
+			require.NoError(t, c.Create(ctx, &pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{Name: tt.objName, Namespace: "default"},
+				Spec: shared.StackSpec{
+					Stack: "dev",
+					GitSource: &shared.GitSource{
+						ProjectRepo: "https://example.com/r",
+						GitAuth:     tt.gitAuth,
+					},
+				},
+			}))
+		})
+	}
+
+	t.Run("a literal access token is rejected", func(t *testing.T) {
+		literal := shared.NewLiteralResourceRef("hunter2")
+		err := c.Create(ctx, &pulumiv1.Stack{
+			ObjectMeta: metav1.ObjectMeta{Name: "literal-token", Namespace: "default"},
+			Spec: shared.StackSpec{
+				Stack: "dev",
+				GitSource: &shared.GitSource{
+					ProjectRepo: "https://example.com/r",
+					GitAuth:     &shared.GitAuthConfig{PersonalAccessToken: &literal},
+				},
+			},
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "supports type Secret only")
 	})
 }

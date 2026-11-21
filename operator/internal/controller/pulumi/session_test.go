@@ -823,7 +823,7 @@ func TestSetupGitAuthWithRefs(t *testing.T) {
 					},
 				},
 			},
-			err: fmt.Errorf("FS selectors are no longer supported in v2, please use a secret reference instead"),
+			err: fmt.Errorf(`unsupported selector type "FS"; v2 supports Secret only`),
 		},
 		{
 			name: "GitAuthValidEnvVarReference",
@@ -837,7 +837,7 @@ func TestSetupGitAuthWithRefs(t *testing.T) {
 					},
 				},
 			},
-			err: fmt.Errorf("Env selectors are no longer supported in v2, please use a secret reference instead"),
+			err: fmt.Errorf(`unsupported selector type "Env"; v2 supports Secret only`),
 		},
 		{
 			name: "GitAuthInvalidEnvReference",
@@ -851,7 +851,7 @@ func TestSetupGitAuthWithRefs(t *testing.T) {
 					},
 				},
 			},
-			err: fmt.Errorf("Env selectors are no longer supported in v2, please use a secret reference instead"),
+			err: fmt.Errorf(`unsupported selector type "Env"; v2 supports Secret only`),
 		},
 		{
 			name: "GitAuthValidSSHAuthWithoutPassword",
@@ -994,6 +994,38 @@ func TestSetupGitAuthWithRefs(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.Equal(t, test.expected, gitAuth)
+		})
+	}
+}
+
+func TestResolveResourceRef_EnvAndFSTypesAreDeprecated(t *testing.T) {
+	log := testr.New(t)
+	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+
+	for _, test := range []struct {
+		name string
+		ref  shared.ResourceRef
+		err  error
+	}{
+		{
+			name: "Env",
+			ref:  shared.NewEnvResourceRef("FOO"),
+			err:  errDeprecatedResourceRefEnv,
+		},
+		{
+			name: "FS",
+			ref:  shared.NewFileSystemResourceRef("/foo"),
+			err:  errDeprecatedResourceRefFS,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			session := newStackReconcilerSession(log, shared.StackSpec{}, client, scheme.Scheme, namespace)
+
+			_, _, err := session.resolveResourceRefAsEnvVar(context.TODO(), &test.ref)
+			require.ErrorIs(t, err, test.err)
+
+			_, _, err = session.resolveResourceRefAsConfigItem(context.TODO(), &test.ref)
+			require.ErrorIs(t, err, test.err)
 		})
 	}
 }

@@ -9068,6 +9068,10 @@ spec:
                   the Restricted policy of the Pod Security Standards.
                   The baseline profile runs the pod as the root user and with a security context that conforms with
                   the Baseline policy of the Pod Security Standards.
+                enum:
+                - ""
+                - baseline
+                - restricted
                 type: string
               serviceAccountName:
                 default: default

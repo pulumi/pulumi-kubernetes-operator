@@ -182,7 +182,7 @@ More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-co
         <td>false</td>
       </tr><tr>
         <td><b>securityProfile</b></td>
-        <td>string</td>
+        <td>enum</td>
         <td>
           SecurityProfile applies a security profile to the workspace.
 The restricted profile (default) runs the pod as a non-root user and with a security context that conforms with
@@ -190,6 +190,7 @@ the Restricted policy of the Pod Security Standards.
 The baseline profile runs the pod as the root user and with a security context that conforms with
 the Baseline policy of the Pod Security Standards.<br/>
           <br/>
+            <i>Enum</i>: , baseline, restricted<br/>
             <i>Default</i>: restricted<br/>
         </td>
         <td>false</td>

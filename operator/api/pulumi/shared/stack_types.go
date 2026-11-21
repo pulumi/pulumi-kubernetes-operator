@@ -277,12 +277,13 @@ type GitAuthConfig struct {
 	// PersonalAccessToken is a reference to a token that grants read access to the
 	// repository contents. On GitHub, a fine-grained token needs the "Contents: Read-only"
 	// repository permission, and a classic token needs the "repo" scope.
-	// Environment variables, files on the filesystem, Kubernetes Secrets and literal
-	// strings are currently supported.
-	PersonalAccessToken *ResourceRef   `json:"accessToken,omitempty"`
-	SSHAuth             *SSHAuth       `json:"sshAuth,omitempty"`
-	BasicAuth           *BasicAuth     `json:"basicAuth,omitempty"`
-	GitHubApp           *GitHubAppAuth `json:"githubApp,omitempty"`
+	// The reference must name a Kubernetes Secret.
+	// +kubebuilder:validation:XValidation:rule="self.type == 'Secret'",message="A gitAuth reference supports type Secret only. Store the credential in a Kubernetes Secret and reference it."
+	PersonalAccessToken *ResourceRef `json:"accessToken,omitempty"`
+
+	SSHAuth   *SSHAuth       `json:"sshAuth,omitempty"`
+	BasicAuth *BasicAuth     `json:"basicAuth,omitempty"`
+	GitHubApp *GitHubAppAuth `json:"githubApp,omitempty"`
 }
 
 // GitHubAppAuth configures GitHub App-based authentication for git operations.
@@ -291,25 +292,43 @@ type GitAuthConfig struct {
 // The app must be installed on the repository and needs the "Contents: Read-only"
 // repository permission.
 type GitHubAppAuth struct {
-	// AppID is the numeric GitHub App ID, stored as a string in a Kubernetes Secret.
+	// AppID is the numeric GitHub App ID.
+	// The reference must name a Kubernetes Secret.
+	// +kubebuilder:validation:XValidation:rule="self.type == 'Secret'",message="A gitAuth reference supports type Secret only. Store the credential in a Kubernetes Secret and reference it."
 	AppID ResourceRef `json:"appID"`
-	// InstallationID is the numeric GitHub App installation ID, stored as a string in a Kubernetes Secret.
+	// InstallationID is the numeric GitHub App installation ID.
+	// The reference must name a Kubernetes Secret.
+	// +kubebuilder:validation:XValidation:rule="self.type == 'Secret'",message="A gitAuth reference supports type Secret only. Store the credential in a Kubernetes Secret and reference it."
 	InstallationID ResourceRef `json:"installationID"`
-	// PrivateKey is the PEM-encoded RSA private key of the GitHub App, stored in a Kubernetes Secret.
+	// PrivateKey is the PEM-encoded RSA private key of the GitHub App.
+	// The reference must name a Kubernetes Secret.
+	// +kubebuilder:validation:XValidation:rule="self.type == 'Secret'",message="A gitAuth reference supports type Secret only. Store the credential in a Kubernetes Secret and reference it."
 	PrivateKey ResourceRef `json:"privateKey"`
 }
 
 // SSHAuth configures ssh-based auth for git authentication.
 // SSHPrivateKey is required but password is optional.
 type SSHAuth struct {
-	SSHPrivateKey ResourceRef  `json:"sshPrivateKey"`
-	Password      *ResourceRef `json:"password,omitempty"`
+	// SSHPrivateKey is the private key that grants access to the repository.
+	// The reference must name a Kubernetes Secret.
+	// +kubebuilder:validation:XValidation:rule="self.type == 'Secret'",message="A gitAuth reference supports type Secret only. Store the credential in a Kubernetes Secret and reference it."
+	SSHPrivateKey ResourceRef `json:"sshPrivateKey"`
+	// Password unlocks the private key, when the key is encrypted.
+	// The reference must name a Kubernetes Secret.
+	// +kubebuilder:validation:XValidation:rule="self.type == 'Secret'",message="A gitAuth reference supports type Secret only. Store the credential in a Kubernetes Secret and reference it."
+	Password *ResourceRef `json:"password,omitempty"`
 }
 
 // BasicAuth configures git authentication through basic auth —
 // i.e. username and password. Both UserName and Password are required.
 type BasicAuth struct {
+	// UserName is the account name that grants access to the repository.
+	// The reference must name a Kubernetes Secret.
+	// +kubebuilder:validation:XValidation:rule="self.type == 'Secret'",message="A gitAuth reference supports type Secret only. Store the credential in a Kubernetes Secret and reference it."
 	UserName ResourceRef `json:"userName"`
+	// Password is the password for the account named by userName.
+	// The reference must name a Kubernetes Secret.
+	// +kubebuilder:validation:XValidation:rule="self.type == 'Secret'",message="A gitAuth reference supports type Secret only. Store the credential in a Kubernetes Secret and reference it."
 	Password ResourceRef `json:"password"`
 }
 
@@ -329,11 +348,11 @@ type FluxSourceReference struct {
 }
 
 // ResourceRef identifies a resource from which information can be loaded.
-// Environment variables, files on the filesystem, Kubernetes Secrets and literal
-// strings are currently supported.
+// Kubernetes Secrets and literal strings are currently supported.
 type ResourceRef struct {
 	// SelectorType is required and signifies the type of selector. Must be one of:
-	// Env, FS, Secret, Literal
+	// Secret, Literal. A gitAuth reference accepts Secret only.
+	// +kubebuilder:validation:Enum=Secret;Literal
 	SelectorType     ResourceSelectorType `json:"type"`
 	ResourceSelector `json:",inline"`
 }
@@ -408,11 +427,11 @@ const (
 )
 
 // ResourceSelector is a union over resource selectors supporting one of
-// filesystem, environment variable, Kubernetes Secret and literal values.
+// Kubernetes Secret and literal values.
 type ResourceSelector struct {
-	// FileSystem selects a file on the operator's file system
+	// FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 	FileSystem *FSSelector `json:"filesystem,omitempty"`
-	// Env selects an environment variable set on the operator process
+	// Env is deprecated and has no effect. A reference of type Env is rejected.
 	Env *EnvSelector `json:"env,omitempty"`
 	// SecretRef refers to a Kubernetes Secret
 	SecretRef *SecretSelector `json:"secret,omitempty"`
