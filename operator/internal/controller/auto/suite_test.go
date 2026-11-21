@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -22,6 +23,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -80,6 +83,12 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	// envtest runs no service account controller, so the account that every real namespace
+	// carries must be created here.
+	err = k8sClient.Create(context.Background(), &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "default"},
+	})
+	Expect(client.IgnoreAlreadyExists(err)).NotTo(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {

@@ -1581,3 +1581,63 @@ func TestStatefulSetReadyPredicate_FiresOnEitherReadinessTransition(t *testing.T
 	assert.False(t, p.Update(event.UpdateEvent{ObjectOld: nil, ObjectNew: ready()}))
 	assert.False(t, p.Update(event.UpdateEvent{ObjectOld: ready(), ObjectNew: nil}))
 }
+
+func TestWorkspaceReportsMissingServiceAccount(t *testing.T) {
+	ctx := context.Background()
+
+	testScheme := scheme.Scheme
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	k8sclient, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	require.NoError(t, err)
+
+	saName := fmt.Sprintf("absent-sa-%s", utilrand.String(8))
+	workspaceName := fmt.Sprintf("ws-%s", utilrand.String(8))
+	workspace := &autov1alpha1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workspaceName,
+			Namespace: "default",
+		},
+		Spec: autov1alpha1.WorkspaceSpec{
+			Image:              "pulumi/pulumi:latest-nonroot",
+			ServiceAccountName: saName,
+		},
+	}
+	require.NoError(t, k8sclient.Create(ctx, workspace))
+	t.Cleanup(func() { _ = k8sclient.Delete(ctx, workspace) })
+
+	objName := types.NamespacedName{Name: workspaceName, Namespace: "default"}
+	r := &WorkspaceReconciler{
+		Client:   k8sclient,
+		Scheme:   k8sclient.Scheme(),
+		Recorder: record.NewFakeRecorder(10),
+	}
+
+	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: objName})
+	require.NoError(t, err)
+	require.NoError(t, k8sclient.Get(ctx, objName, workspace))
+
+	ready := meta.FindStatusCondition(workspace.Status.Conditions, autov1alpha1.WorkspaceReady)
+	require.NotNil(t, ready)
+	assert.Equal(t, metav1.ConditionFalse, ready.Status)
+	assert.Equal(t, ConditionReasonServiceAccountNotFound, ready.Reason)
+	assert.Contains(t, ready.Message, saName)
+	assert.Contains(t, ready.Message, "default")
+
+	t.Run("the statefulset is still created so the pod starts once the account exists", func(t *testing.T) {
+		sts := &appsv1.StatefulSet{}
+		stsName := types.NamespacedName{Name: workspaceName + "-workspace", Namespace: "default"}
+		require.NoError(t, k8sclient.Get(ctx, stsName, sts))
+	})
+
+}
