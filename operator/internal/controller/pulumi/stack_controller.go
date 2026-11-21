@@ -441,7 +441,24 @@ func (workspaceReadyPredicate) Update(e event.UpdateEvent) bool {
 		return true
 	}
 
+	// Trigger reconciliation when the workspace explains a new reason for not being ready,
+	// so that the Stack can repeat it.
+	if workspaceNotReadyReason(oldWs) != workspaceNotReadyReason(newWs) {
+		return true
+	}
+
 	return false
+}
+
+func workspaceNotReadyReason(ws *autov1alpha1.Workspace) string {
+	if ws == nil || ws.Generation != ws.Status.ObservedGeneration {
+		return ""
+	}
+	cond := meta.FindStatusCondition(ws.Status.Conditions, autov1alpha1.WorkspaceReady)
+	if cond == nil || cond.Status == metav1.ConditionTrue {
+		return ""
+	}
+	return cond.Reason + ": " + cond.Message
 }
 
 func (workspaceReadyPredicate) Generic(_ event.GenericEvent) bool {
@@ -1078,9 +1095,22 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 			instance.Status.MarkStalledCondition(reason, msg)
 			return reconcile.Result{}, saveStatus()
 		}
+		reason, message := pulumiv1.ReconcilingProcessingReason, pulumiv1.ReconcilingProcessingWorkspaceMessage
+		if sess.ws.Generation == sess.ws.Status.ObservedGeneration {
+			if readyCond := meta.FindStatusCondition(sess.ws.Status.Conditions, autov1alpha1.WorkspaceReady); readyCond != nil {
+				if readyCond.Reason != "" {
+					reason = readyCond.Reason
+				}
+				if readyCond.Message != "" {
+					message = readyCond.Message
+				}
+			}
+		}
+		instance.Status.MarkReconcilingCondition(reason, message)
+
 		// watch the workspace for status updates
-		log.V(1).Info("waiting for workspace to be ready")
-		return reconcile.Result{}, nil
+		log.V(1).Info("waiting for workspace to be ready", "reason", reason, "message", message)
+		return reconcile.Result{}, saveStatus()
 	}
 
 	// Step 5: Create an Update object to run the update asynchronously

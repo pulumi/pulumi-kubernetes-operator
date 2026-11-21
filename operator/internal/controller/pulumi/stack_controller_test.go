@@ -53,6 +53,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -861,7 +862,7 @@ var _ = Describe("Stack Controller", func() {
 			It("reconciles", func(ctx context.Context) {
 				result, err := reconcileF(ctx)
 				Expect(err).NotTo(HaveOccurred())
-				ByMarkingAsReconciling(pulumiv1.ReconcilingProcessingReason, Equal(pulumiv1.ReconcilingProcessingWorkspaceMessage))
+				ByMarkingAsReconciling("RollingUpdate", Equal(pulumiv1.ReconcilingProcessingWorkspaceMessage))
 
 				By("not requeuing")
 				Expect(result).To(Equal(reconcile.Result{}))
@@ -3862,4 +3863,230 @@ func TestGitAuthSecretOnlyRuleSkipsAbsentOptionalFields(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "supports type Secret only")
 	})
+}
+
+func TestWorkspaceReadyReasonPropagation(t *testing.T) {
+	testScheme := scheme.Scheme
+	require.NoError(t, pulumiv1.AddToScheme(testScheme))
+	require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+	env := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+		},
+		ErrorIfCRDPathMissing: true,
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+	cfg, err := env.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = env.Stop() })
+
+	k8sclient, err := client.New(cfg, client.Options{Scheme: testScheme})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name                string
+		objName             string
+		readyCondition      *metav1.Condition
+		staleGeneration     bool
+		wantReason          string
+		wantMessageContains string
+	}{
+		{
+			name:    "a missing service account reaches the Stack",
+			objName: "ready-missing-sa",
+			readyCondition: &metav1.Condition{
+				Type:    autov1alpha1.WorkspaceReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  "ServiceAccountNotFound",
+				Message: `service account "my-stack" does not exist in namespace "default"`,
+			},
+			wantReason:          "ServiceAccountNotFound",
+			wantMessageContains: `service account "my-stack" does not exist`,
+		},
+		{
+			name:    "a rejected agent token reaches the Stack",
+			objName: "ready-unauthenticated",
+			readyCondition: &metav1.Condition{
+				Type:    autov1alpha1.WorkspaceReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  "Unauthenticated",
+				Message: "TokenReview API is unavailable",
+			},
+			wantReason:          "Unauthenticated",
+			wantMessageContains: "TokenReview API is unavailable",
+		},
+		{
+			name:                "the constant remains the fallback when the workspace reports no reason",
+			objName:             "ready-no-condition",
+			readyCondition:      nil,
+			wantReason:          pulumiv1.ReconcilingProcessingReason,
+			wantMessageContains: pulumiv1.ReconcilingProcessingWorkspaceMessage,
+		},
+		{
+			name:    "a condition from an unobserved generation does not speak for the workspace",
+			objName: "ready-stale",
+			readyCondition: &metav1.Condition{
+				Type:    autov1alpha1.WorkspaceReady,
+				Status:  metav1.ConditionTrue,
+				Reason:  "Succeeded",
+				Message: "the previous generation was ready",
+			},
+			staleGeneration:     true,
+			wantReason:          pulumiv1.ReconcilingProcessingReason,
+			wantMessageContains: pulumiv1.ReconcilingProcessingWorkspaceMessage,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			stackName := types.NamespacedName{Name: tt.objName, Namespace: "default"}
+
+			program := &pulumiv1.Program{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      stackName.Name + "-program",
+					Namespace: stackName.Namespace,
+				},
+				Program: pulumiv1.ProgramSpec{
+					Resources: map[string]pulumiv1.Resource{
+						"password": {Type: "random:RandomPassword"},
+					},
+				},
+			}
+			require.NoError(t, k8sclient.Create(ctx, program))
+			program.Status.Artifact = &pulumiv1.Artifact{
+				Revision:       "test-revision",
+				LastUpdateTime: metav1.Now(),
+			}
+			program.Status.ObservedGeneration = program.Generation
+			require.NoError(t, k8sclient.Status().Update(ctx, program))
+			t.Cleanup(func() { _ = k8sclient.Delete(ctx, program) })
+
+			stack := &pulumiv1.Stack{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: pulumiv1.GroupVersion.String(),
+					Kind:       "Stack",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       stackName.Name,
+					Namespace:  stackName.Namespace,
+					Finalizers: []string{testFinalizer},
+				},
+				Spec: shared.StackSpec{
+					Stack:      "dev",
+					ProgramRef: &shared.ProgramReference{Name: program.Name},
+				},
+			}
+			require.NoError(t, k8sclient.Create(ctx, stack))
+			t.Cleanup(func() { _ = k8sclient.Delete(ctx, stack) })
+
+			r := &StackReconciler{
+				Client:    k8sclient,
+				APIReader: k8sclient,
+				Scheme:    testScheme,
+				Recorder:  record.NewFakeRecorder(10),
+			}
+
+			// The first pass applies the workspace and settles its generation.
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
+			require.NoError(t, err)
+
+			ws := makeWorkspace(stack.ObjectMeta)
+			wsName := types.NamespacedName{Name: ws.Name, Namespace: ws.Namespace}
+			require.NoError(t, k8sclient.Get(ctx, wsName, ws))
+			t.Cleanup(func() { _ = k8sclient.Delete(ctx, ws) })
+
+			ws.Status.ObservedGeneration = ws.Generation
+			if tt.staleGeneration {
+				ws.Status.ObservedGeneration = ws.Generation - 1
+			}
+			if tt.readyCondition != nil {
+				cond := *tt.readyCondition
+				cond.ObservedGeneration = ws.Status.ObservedGeneration
+				cond.LastTransitionTime = metav1.Now()
+				ws.Status.Conditions = []metav1.Condition{cond}
+			}
+			require.NoError(t, k8sclient.Status().Update(ctx, ws, client.FieldOwner(FieldManager)))
+
+			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
+			require.NoError(t, err)
+
+			var updated pulumiv1.Stack
+			require.NoError(t, k8sclient.Get(ctx, stackName, &updated))
+
+			reconcilingCond := meta.FindStatusCondition(updated.Status.Conditions, pulumiv1.ReconcilingCondition)
+			require.NotNil(t, reconcilingCond, "expected a Reconciling condition on the Stack")
+			assert.Equal(t, metav1.ConditionTrue, reconcilingCond.Status)
+			assert.Equal(t, tt.wantReason, reconcilingCond.Reason)
+			assert.Contains(t, reconcilingCond.Message, tt.wantMessageContains)
+
+			stalledCond := meta.FindStatusCondition(updated.Status.Conditions, pulumiv1.StalledCondition)
+			assert.Nil(t, stalledCond, "a workspace that is merely not ready must not stall the Stack")
+		})
+	}
+}
+
+func TestWorkspaceReadyPredicate_FiresWhenTheNotReadyReasonChanges(t *testing.T) {
+	ws := func(gen, observed int64, status metav1.ConditionStatus, reason, message string) *autov1alpha1.Workspace {
+		w := &autov1alpha1.Workspace{
+			ObjectMeta: metav1.ObjectMeta{Name: "ws", Namespace: "default", Generation: gen},
+		}
+		w.Status.ObservedGeneration = observed
+		if reason != "" {
+			w.Status.Conditions = []metav1.Condition{{
+				Type:               autov1alpha1.WorkspaceReady,
+				Status:             status,
+				Reason:             reason,
+				Message:            message,
+				ObservedGeneration: observed,
+				LastTransitionTime: metav1.Now(),
+			}}
+		}
+		return w
+	}
+
+	tests := []struct {
+		name string
+		old  *autov1alpha1.Workspace
+		new  *autov1alpha1.Workspace
+		want bool
+	}{
+		{
+			name: "a new not-ready reason wakes the Stack",
+			old:  ws(1, 1, metav1.ConditionFalse, "RollingUpdate", "Waiting for the statefulset to be updated"),
+			new:  ws(1, 1, metav1.ConditionFalse, "ServiceAccountNotFound", `service account "x" does not exist`),
+			want: true,
+		},
+		{
+			name: "a new not-ready message wakes the Stack",
+			old:  ws(1, 1, metav1.ConditionFalse, "ServiceAccountNotFound", `service account "x" does not exist`),
+			new:  ws(1, 1, metav1.ConditionFalse, "ServiceAccountNotFound", `service account "y" does not exist`),
+			want: true,
+		},
+		{
+			name: "an unchanged reason does not wake the Stack",
+			old:  ws(1, 1, metav1.ConditionFalse, "RollingUpdate", "Waiting for the statefulset to be updated"),
+			new:  ws(1, 1, metav1.ConditionFalse, "RollingUpdate", "Waiting for the statefulset to be updated"),
+			want: false,
+		},
+		{
+			name: "a reason from an unobserved generation does not wake the Stack",
+			old:  ws(2, 1, metav1.ConditionFalse, "RollingUpdate", "Waiting for the statefulset to be updated"),
+			new:  ws(2, 1, metav1.ConditionFalse, "ServiceAccountNotFound", `service account "x" does not exist`),
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := workspaceReadyPredicate{}.Update(event.UpdateEvent{
+				ObjectOld: tt.old,
+				ObjectNew: tt.new,
+			})
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
