@@ -426,12 +426,11 @@ spec:
                 additionalProperties:
                   description: |-
                     ResourceRef identifies a resource from which information can be loaded.
-                    Environment variables, files on the filesystem, Kubernetes Secrets and literal
-                    strings are currently supported.
+                    Kubernetes Secrets and literal strings are currently supported.
                   properties:
                     env:
-                      description: Env selects an environment variable set on the
-                        operator process
+                      description: Env is deprecated and has no effect. A reference
+                        of type Env is rejected.
                       properties:
                         name:
                           description: Name of the environment variable
@@ -440,8 +439,8 @@ spec:
                       - name
                       type: object
                     filesystem:
-                      description: FileSystem selects a file on the operator's file
-                        system
+                      description: FileSystem is deprecated and has no effect. A reference
+                        of type FS is rejected.
                       properties:
                         path:
                           description: Path on the filesystem to use to load information
@@ -480,7 +479,7 @@ spec:
                     type:
                       description: |-
                         SelectorType is required and signifies the type of selector. Must be one of:
-                        Secret, Literal
+                        Secret, Literal. A gitAuth reference accepts Secret only.
                       enum:
                       - Secret
                       - Literal
@@ -566,8 +565,8 @@ spec:
                       The reference must name a Kubernetes Secret.
                     properties:
                       env:
-                        description: Env selects an environment variable set on the
-                          operator process
+                        description: Env is deprecated and has no effect. A reference
+                          of type Env is rejected.
                         properties:
                           name:
                             description: Name of the environment variable
@@ -576,8 +575,8 @@ spec:
                         - name
                         type: object
                       filesystem:
-                        description: FileSystem selects a file on the operator's file
-                          system
+                        description: FileSystem is deprecated and has no effect. A
+                          reference of type FS is rejected.
                         properties:
                           path:
                             description: Path on the filesystem to use to load information
@@ -616,7 +615,7 @@ spec:
                       type:
                         description: |-
                           SelectorType is required and signifies the type of selector. Must be one of:
-                          Secret, Literal
+                          Secret, Literal. A gitAuth reference accepts Secret only.
                         enum:
                         - Secret
                         - Literal
@@ -639,8 +638,8 @@ spec:
                           The reference must name a Kubernetes Secret.
                         properties:
                           env:
-                            description: Env selects an environment variable set on
-                              the operator process
+                            description: Env is deprecated and has no effect. A reference
+                              of type Env is rejected.
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -649,8 +648,8 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's
-                              file system
+                            description: FileSystem is deprecated and has no effect.
+                              A reference of type FS is rejected.
                             properties:
                               path:
                                 description: Path on the filesystem to use to load
@@ -689,7 +688,7 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Secret, Literal
+                              Secret, Literal. A gitAuth reference accepts Secret only.
                             enum:
                             - Secret
                             - Literal
@@ -708,8 +707,8 @@ spec:
                           The reference must name a Kubernetes Secret.
                         properties:
                           env:
-                            description: Env selects an environment variable set on
-                              the operator process
+                            description: Env is deprecated and has no effect. A reference
+                              of type Env is rejected.
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -718,8 +717,8 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's
-                              file system
+                            description: FileSystem is deprecated and has no effect.
+                              A reference of type FS is rejected.
                             properties:
                               path:
                                 description: Path on the filesystem to use to load
@@ -758,7 +757,7 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Secret, Literal
+                              Secret, Literal. A gitAuth reference accepts Secret only.
                             enum:
                             - Secret
                             - Literal
@@ -789,8 +788,8 @@ spec:
                           The reference must name a Kubernetes Secret.
                         properties:
                           env:
-                            description: Env selects an environment variable set on
-                              the operator process
+                            description: Env is deprecated and has no effect. A reference
+                              of type Env is rejected.
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -799,8 +798,8 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's
-                              file system
+                            description: FileSystem is deprecated and has no effect.
+                              A reference of type FS is rejected.
                             properties:
                               path:
                                 description: Path on the filesystem to use to load
@@ -839,7 +838,7 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Secret, Literal
+                              Secret, Literal. A gitAuth reference accepts Secret only.
                             enum:
                             - Secret
                             - Literal
@@ -858,8 +857,8 @@ spec:
                           The reference must name a Kubernetes Secret.
                         properties:
                           env:
-                            description: Env selects an environment variable set on
-                              the operator process
+                            description: Env is deprecated and has no effect. A reference
+                              of type Env is rejected.
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -868,8 +867,8 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's
-                              file system
+                            description: FileSystem is deprecated and has no effect.
+                              A reference of type FS is rejected.
                             properties:
                               path:
                                 description: Path on the filesystem to use to load
@@ -908,7 +907,7 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Secret, Literal
+                              Secret, Literal. A gitAuth reference accepts Secret only.
                             enum:
                             - Secret
                             - Literal
@@ -927,8 +926,8 @@ spec:
                           The reference must name a Kubernetes Secret.
                         properties:
                           env:
-                            description: Env selects an environment variable set on
-                              the operator process
+                            description: Env is deprecated and has no effect. A reference
+                              of type Env is rejected.
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -937,8 +936,8 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's
-                              file system
+                            description: FileSystem is deprecated and has no effect.
+                              A reference of type FS is rejected.
                             properties:
                               path:
                                 description: Path on the filesystem to use to load
@@ -977,7 +976,7 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Secret, Literal
+                              Secret, Literal. A gitAuth reference accepts Secret only.
                             enum:
                             - Secret
                             - Literal
@@ -1006,8 +1005,8 @@ spec:
                           The reference must name a Kubernetes Secret.
                         properties:
                           env:
-                            description: Env selects an environment variable set on
-                              the operator process
+                            description: Env is deprecated and has no effect. A reference
+                              of type Env is rejected.
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -1016,8 +1015,8 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's
-                              file system
+                            description: FileSystem is deprecated and has no effect.
+                              A reference of type FS is rejected.
                             properties:
                               path:
                                 description: Path on the filesystem to use to load
@@ -1056,7 +1055,7 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Secret, Literal
+                              Secret, Literal. A gitAuth reference accepts Secret only.
                             enum:
                             - Secret
                             - Literal
@@ -1075,8 +1074,8 @@ spec:
                           The reference must name a Kubernetes Secret.
                         properties:
                           env:
-                            description: Env selects an environment variable set on
-                              the operator process
+                            description: Env is deprecated and has no effect. A reference
+                              of type Env is rejected.
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -1085,8 +1084,8 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's
-                              file system
+                            description: FileSystem is deprecated and has no effect.
+                              A reference of type FS is rejected.
                             properties:
                               path:
                                 description: Path on the filesystem to use to load
@@ -1125,7 +1124,7 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Secret, Literal
+                              Secret, Literal. A gitAuth reference accepts Secret only.
                             enum:
                             - Secret
                             - Literal
@@ -1271,12 +1270,11 @@ spec:
                 additionalProperties:
                   description: |-
                     ResourceRef identifies a resource from which information can be loaded.
-                    Environment variables, files on the filesystem, Kubernetes Secrets and literal
-                    strings are currently supported.
+                    Kubernetes Secrets and literal strings are currently supported.
                   properties:
                     env:
-                      description: Env selects an environment variable set on the
-                        operator process
+                      description: Env is deprecated and has no effect. A reference
+                        of type Env is rejected.
                       properties:
                         name:
                           description: Name of the environment variable
@@ -1285,8 +1283,8 @@ spec:
                       - name
                       type: object
                     filesystem:
-                      description: FileSystem selects a file on the operator's file
-                        system
+                      description: FileSystem is deprecated and has no effect. A reference
+                        of type FS is rejected.
                       properties:
                         path:
                           description: Path on the filesystem to use to load information
@@ -1325,7 +1323,7 @@ spec:
                     type:
                       description: |-
                         SelectorType is required and signifies the type of selector. Must be one of:
-                        Secret, Literal
+                        Secret, Literal. A gitAuth reference accepts Secret only.
                       enum:
                       - Secret
                       - Literal
@@ -11134,12 +11132,11 @@ spec:
                 additionalProperties:
                   description: |-
                     ResourceRef identifies a resource from which information can be loaded.
-                    Environment variables, files on the filesystem, Kubernetes Secrets and literal
-                    strings are currently supported.
+                    Kubernetes Secrets and literal strings are currently supported.
                   properties:
                     env:
-                      description: Env selects an environment variable set on the
-                        operator process
+                      description: Env is deprecated and has no effect. A reference
+                        of type Env is rejected.
                       properties:
                         name:
                           description: Name of the environment variable
@@ -11148,8 +11145,8 @@ spec:
                       - name
                       type: object
                     filesystem:
-                      description: FileSystem selects a file on the operator's file
-                        system
+                      description: FileSystem is deprecated and has no effect. A reference
+                        of type FS is rejected.
                       properties:
                         path:
                           description: Path on the filesystem to use to load information
@@ -11188,7 +11185,7 @@ spec:
                     type:
                       description: |-
                         SelectorType is required and signifies the type of selector. Must be one of:
-                        Secret, Literal
+                        Secret, Literal. A gitAuth reference accepts Secret only.
                       enum:
                       - Secret
                       - Literal
@@ -11274,8 +11271,8 @@ spec:
                       The reference must name a Kubernetes Secret.
                     properties:
                       env:
-                        description: Env selects an environment variable set on the
-                          operator process
+                        description: Env is deprecated and has no effect. A reference
+                          of type Env is rejected.
                         properties:
                           name:
                             description: Name of the environment variable
@@ -11284,8 +11281,8 @@ spec:
                         - name
                         type: object
                       filesystem:
-                        description: FileSystem selects a file on the operator's file
-                          system
+                        description: FileSystem is deprecated and has no effect. A
+                          reference of type FS is rejected.
                         properties:
                           path:
                             description: Path on the filesystem to use to load information
@@ -11324,7 +11321,7 @@ spec:
                       type:
                         description: |-
                           SelectorType is required and signifies the type of selector. Must be one of:
-                          Secret, Literal
+                          Secret, Literal. A gitAuth reference accepts Secret only.
                         enum:
                         - Secret
                         - Literal
@@ -11347,8 +11344,8 @@ spec:
                           The reference must name a Kubernetes Secret.
                         properties:
                           env:
-                            description: Env selects an environment variable set on
-                              the operator process
+                            description: Env is deprecated and has no effect. A reference
+                              of type Env is rejected.
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -11357,8 +11354,8 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's
-                              file system
+                            description: FileSystem is deprecated and has no effect.
+                              A reference of type FS is rejected.
                             properties:
                               path:
                                 description: Path on the filesystem to use to load
@@ -11397,7 +11394,7 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Secret, Literal
+                              Secret, Literal. A gitAuth reference accepts Secret only.
                             enum:
                             - Secret
                             - Literal
@@ -11416,8 +11413,8 @@ spec:
                           The reference must name a Kubernetes Secret.
                         properties:
                           env:
-                            description: Env selects an environment variable set on
-                              the operator process
+                            description: Env is deprecated and has no effect. A reference
+                              of type Env is rejected.
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -11426,8 +11423,8 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's
-                              file system
+                            description: FileSystem is deprecated and has no effect.
+                              A reference of type FS is rejected.
                             properties:
                               path:
                                 description: Path on the filesystem to use to load
@@ -11466,7 +11463,7 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Secret, Literal
+                              Secret, Literal. A gitAuth reference accepts Secret only.
                             enum:
                             - Secret
                             - Literal
@@ -11497,8 +11494,8 @@ spec:
                           The reference must name a Kubernetes Secret.
                         properties:
                           env:
-                            description: Env selects an environment variable set on
-                              the operator process
+                            description: Env is deprecated and has no effect. A reference
+                              of type Env is rejected.
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -11507,8 +11504,8 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's
-                              file system
+                            description: FileSystem is deprecated and has no effect.
+                              A reference of type FS is rejected.
                             properties:
                               path:
                                 description: Path on the filesystem to use to load
@@ -11547,7 +11544,7 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Secret, Literal
+                              Secret, Literal. A gitAuth reference accepts Secret only.
                             enum:
                             - Secret
                             - Literal
@@ -11566,8 +11563,8 @@ spec:
                           The reference must name a Kubernetes Secret.
                         properties:
                           env:
-                            description: Env selects an environment variable set on
-                              the operator process
+                            description: Env is deprecated and has no effect. A reference
+                              of type Env is rejected.
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -11576,8 +11573,8 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's
-                              file system
+                            description: FileSystem is deprecated and has no effect.
+                              A reference of type FS is rejected.
                             properties:
                               path:
                                 description: Path on the filesystem to use to load
@@ -11616,7 +11613,7 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Secret, Literal
+                              Secret, Literal. A gitAuth reference accepts Secret only.
                             enum:
                             - Secret
                             - Literal
@@ -11635,8 +11632,8 @@ spec:
                           The reference must name a Kubernetes Secret.
                         properties:
                           env:
-                            description: Env selects an environment variable set on
-                              the operator process
+                            description: Env is deprecated and has no effect. A reference
+                              of type Env is rejected.
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -11645,8 +11642,8 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's
-                              file system
+                            description: FileSystem is deprecated and has no effect.
+                              A reference of type FS is rejected.
                             properties:
                               path:
                                 description: Path on the filesystem to use to load
@@ -11685,7 +11682,7 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Secret, Literal
+                              Secret, Literal. A gitAuth reference accepts Secret only.
                             enum:
                             - Secret
                             - Literal
@@ -11714,8 +11711,8 @@ spec:
                           The reference must name a Kubernetes Secret.
                         properties:
                           env:
-                            description: Env selects an environment variable set on
-                              the operator process
+                            description: Env is deprecated and has no effect. A reference
+                              of type Env is rejected.
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -11724,8 +11721,8 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's
-                              file system
+                            description: FileSystem is deprecated and has no effect.
+                              A reference of type FS is rejected.
                             properties:
                               path:
                                 description: Path on the filesystem to use to load
@@ -11764,7 +11761,7 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Secret, Literal
+                              Secret, Literal. A gitAuth reference accepts Secret only.
                             enum:
                             - Secret
                             - Literal
@@ -11783,8 +11780,8 @@ spec:
                           The reference must name a Kubernetes Secret.
                         properties:
                           env:
-                            description: Env selects an environment variable set on
-                              the operator process
+                            description: Env is deprecated and has no effect. A reference
+                              of type Env is rejected.
                             properties:
                               name:
                                 description: Name of the environment variable
@@ -11793,8 +11790,8 @@ spec:
                             - name
                             type: object
                           filesystem:
-                            description: FileSystem selects a file on the operator's
-                              file system
+                            description: FileSystem is deprecated and has no effect.
+                              A reference of type FS is rejected.
                             properties:
                               path:
                                 description: Path on the filesystem to use to load
@@ -11833,7 +11830,7 @@ spec:
                           type:
                             description: |-
                               SelectorType is required and signifies the type of selector. Must be one of:
-                              Secret, Literal
+                              Secret, Literal. A gitAuth reference accepts Secret only.
                             enum:
                             - Secret
                             - Literal
@@ -11979,12 +11976,11 @@ spec:
                 additionalProperties:
                   description: |-
                     ResourceRef identifies a resource from which information can be loaded.
-                    Environment variables, files on the filesystem, Kubernetes Secrets and literal
-                    strings are currently supported.
+                    Kubernetes Secrets and literal strings are currently supported.
                   properties:
                     env:
-                      description: Env selects an environment variable set on the
-                        operator process
+                      description: Env is deprecated and has no effect. A reference
+                        of type Env is rejected.
                       properties:
                         name:
                           description: Name of the environment variable
@@ -11993,8 +11989,8 @@ spec:
                       - name
                       type: object
                     filesystem:
-                      description: FileSystem selects a file on the operator's file
-                        system
+                      description: FileSystem is deprecated and has no effect. A reference
+                        of type FS is rejected.
                       properties:
                         path:
                           description: Path on the filesystem to use to load information
@@ -12033,7 +12029,7 @@ spec:
                     type:
                       description: |-
                         SelectorType is required and signifies the type of selector. Must be one of:
-                        Secret, Literal
+                        Secret, Literal. A gitAuth reference accepts Secret only.
                       enum:
                       - Secret
                       - Literal

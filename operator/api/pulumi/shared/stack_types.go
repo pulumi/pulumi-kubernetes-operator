@@ -348,11 +348,10 @@ type FluxSourceReference struct {
 }
 
 // ResourceRef identifies a resource from which information can be loaded.
-// Environment variables, files on the filesystem, Kubernetes Secrets and literal
-// strings are currently supported.
+// Kubernetes Secrets and literal strings are currently supported.
 type ResourceRef struct {
 	// SelectorType is required and signifies the type of selector. Must be one of:
-	// Secret, Literal
+	// Secret, Literal. A gitAuth reference accepts Secret only.
 	// +kubebuilder:validation:Enum=Secret;Literal
 	SelectorType     ResourceSelectorType `json:"type"`
 	ResourceSelector `json:",inline"`
@@ -428,11 +427,11 @@ const (
 )
 
 // ResourceSelector is a union over resource selectors supporting one of
-// filesystem, environment variable, Kubernetes Secret and literal values.
+// Kubernetes Secret and literal values.
 type ResourceSelector struct {
-	// FileSystem selects a file on the operator's file system
+	// FileSystem is deprecated and has no effect. A reference of type FS is rejected.
 	FileSystem *FSSelector `json:"filesystem,omitempty"`
-	// Env selects an environment variable set on the operator process
+	// Env is deprecated and has no effect. A reference of type Env is rejected.
 	Env *EnvSelector `json:"env,omitempty"`
 	// SecretRef refers to a Kubernetes Secret
 	SecretRef *SecretSelector `json:"secret,omitempty"`
