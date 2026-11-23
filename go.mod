@@ -11,6 +11,7 @@ require (
 	github.com/go-git/go-git/v5 v5.19.2
 	github.com/go-git/go-git/v6 v6.0.0-beta.1
 	github.com/go-logr/logr v1.4.4
+	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/joho/godotenv v1.5.1
