@@ -1656,6 +1656,7 @@ func TestIsSynced(t *testing.T) {
 		name          string
 		stack         pulumiv1.Stack
 		currentCommit string
+		filteredOut   bool
 
 		want        bool
 		wantMessage string
@@ -1912,7 +1913,7 @@ func TestIsSynced(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			log := testr.New(t)
 			rec := record.NewFakeRecorder(10)
-			synced, message := isSynced(log, rec, &tt.stack, tt.currentCommit)
+			synced, message := isSynced(log, rec, &tt.stack, tt.currentCommit, tt.filteredOut)
 			if tt.want {
 				assert.True(t, synced, "expected to be in sync (not necessitating an update)")
 			} else {
@@ -4086,6 +4087,131 @@ func TestWorkspaceReadyPredicate_FiresWhenTheNotReadyReasonChanges(t *testing.T)
 				ObjectOld: tt.old,
 				ObjectNew: tt.new,
 			})
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+type fakeSource struct {
+	change Change
+	err    error
+}
+
+func (fakeSource) CurrentCommit(context.Context) (string, error) { return "", nil }
+
+func (f fakeSource) LatestChange(context.Context) (Change, error) { return f.change, f.err }
+
+func TestPathsRequireUpdate(t *testing.T) {
+	t.Parallel()
+
+	const (
+		since   = "1111111111111111111111111111111111111111"
+		current = "2222222222222222222222222222222222222222"
+		other   = "3333333333333333333333333333333333333333"
+	)
+
+	stackWith := func(paths []string, lastEvaluated string) *pulumiv1.Stack {
+		return &pulumiv1.Stack{
+			Spec: shared.StackSpec{
+				GitSource: &shared.GitSource{
+					ProjectRepo: _pko,
+					Branch:      "master",
+					Paths:       paths,
+				},
+			},
+			Status: pulumiv1.StackStatus{LastPathsEvaluatedCommit: lastEvaluated},
+		}
+	}
+	changed := func(paths ...string) Change {
+		return Change{Commit: current, Parent: since, Paths: paths}
+	}
+
+	tests := []struct {
+		name   string
+		stack  *pulumiv1.Stack
+		source Source
+		want   bool
+	}{
+		{
+			name:   "no commit has been evaluated yet",
+			stack:  stackWith([]string{"lib/**"}, ""),
+			source: fakeSource{change: changed("docs/readme.md")},
+			want:   true,
+		},
+		{
+			name:   "a glob that does not compile",
+			stack:  stackWith([]string{"lib/[bad"}, since),
+			source: fakeSource{change: changed("docs/readme.md")},
+			want:   true,
+		},
+		{
+			name:   "the changed paths cannot be fetched",
+			stack:  stackWith([]string{"lib/**"}, since),
+			source: fakeSource{err: errors.New("no route to host")},
+			want:   true,
+		},
+		{
+			name:   "the branch moved while reconciling",
+			stack:  stackWith([]string{"lib/**"}, since),
+			source: fakeSource{change: Change{Commit: other, Parent: since, Paths: []string{"docs/x.md"}}},
+			want:   true,
+		},
+		{
+			name:   "the stack is more than one commit behind",
+			stack:  stackWith([]string{"lib/**"}, since),
+			source: fakeSource{change: Change{Commit: current, Parent: other, Paths: []string{"docs/x.md"}}},
+			want:   true,
+		},
+		{
+			name:   "no changed path is defined by paths",
+			stack:  stackWith([]string{"tenants/acme/**", "lib/**"}, since),
+			source: fakeSource{change: changed("tenants/globex/index.ts", "docs/readme.md")},
+			want:   false,
+		},
+		{
+			name:   "one changed path is defined by paths",
+			stack:  stackWith([]string{"tenants/acme/**", "lib/**"}, since),
+			source: fakeSource{change: changed("tenants/globex/index.ts", "lib/util.ts")},
+			want:   true,
+		},
+		{
+			name:   "nothing changed at all",
+			stack:  stackWith([]string{"lib/**"}, since),
+			source: fakeSource{change: changed()},
+			want:   false,
+		},
+		{
+			name:   "only excludes, and every changed path is excluded",
+			stack:  stackWith([]string{"!*.md"}, since),
+			source: fakeSource{change: changed("docs/readme.md", "CHANGELOG.md")},
+			want:   false,
+		},
+		{
+			// "**/" requires a literal separator, so it misses files at the repository root.
+			name:   "a leading double star does not exclude a root-level file",
+			stack:  stackWith([]string{"!**/*.md"}, since),
+			source: fakeSource{change: changed("CHANGELOG.md")},
+			want:   true,
+		},
+		{
+			name:   "only excludes, and a changed path is not excluded",
+			stack:  stackWith([]string{"!**/*.md"}, since),
+			source: fakeSource{change: changed("docs/readme.md", "main.go")},
+			want:   true,
+		},
+		{
+			name:   "an exclude overrides an include",
+			stack:  stackWith([]string{"tenants/acme/**", "!**/*.md"}, since),
+			source: fakeSource{change: changed("tenants/acme/README.md")},
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := pathsRequireUpdate(t.Context(), testr.New(t), tt.source, tt.stack, current)
 			assert.Equal(t, tt.want, got)
 		})
 	}

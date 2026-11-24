@@ -37,6 +37,7 @@ import (
 	updateapply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/auto/v1alpha1"
 	stackapply "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/apply/pulumi/v1"
 	auto "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/internal/controller/auto"
+	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/pkg/pathfilter"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -747,6 +748,9 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	// it's the actual commit, or some analogue.
 	var currentCommit string
 
+	// Set when currentCommit changes no path defined by .spec.paths.
+	var filteredOut bool
+
 	// Step 1. Resolve the source and perform some preliminary workspace setup (but without actually
 	// creating the workspace yet, since it may or may not be needed).
 
@@ -779,6 +783,19 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		if err != nil {
 			instance.Status.MarkStalledCondition(pulumiv1.StalledSourceUnavailableReason, err.Error())
 			return reconcile.Result{RequeueAfter: sourceUnavailableRequeueWait}, saveStatus()
+		}
+
+		if len(stack.Paths) > 0 {
+			switch {
+			case instance.Status.LastPathsEvaluatedCommit == currentCommit:
+				// Already decided about this commit on an earlier pass.
+				filteredOut = true
+			case !pathsRequireUpdate(ctx, log, gs, instance, currentCommit):
+				filteredOut = true
+				instance.Status.LastPathsEvaluatedCommit = currentCommit
+				emitEvent(r.Recorder, instance, pulumiv1.StackCommitSkippedEvent(),
+					"Commit %q changes no path defined by .spec.paths", currentCommit)
+			}
 		}
 
 		err = sess.setupWorkspaceFromGitSource(ctx, currentCommit)
@@ -882,7 +899,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 	sess.SetSecretEnvs(ctx, stack.SecretEnvs, request.Namespace)
 
 	// Step 2: Evaluate whether an update is needed. If not, we transition to Ready.
-	synced, updateMessage := isSynced(log, r.Recorder, instance, currentCommit)
+	synced, updateMessage := isSynced(log, r.Recorder, instance, currentCommit, filteredOut)
 	if synced {
 		// We don't mark the stack as ready if its update failed so downstream
 		// Stack dependencies aren't triggered.
@@ -1279,6 +1296,8 @@ func (r *StackReconciler) markStackSucceeded(ctx context.Context, instance *pulu
 		Failures:             0,
 	}
 
+	instance.Status.LastPathsEvaluatedCommit = current.Commit
+
 	applyProjectInfoToStack(instance, update)
 
 	emitEvent(r.Recorder, instance, pulumiv1.StackUpdateSuccessfulEvent(), "Successfully updated stack")
@@ -1324,7 +1343,59 @@ func newStackReconcilerSession(
 // was successful, the latest commit has been applied, and (if resync is
 // enabled) has been resynced recently.
 // Returns true if synced, and a message describing the reason for the update if not synced.
-func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.Stack, currentCommit string) (bool, string) {
+// pathsRequireUpdate reports whether currentCommit changes a path defined by `.spec.paths`.
+func pathsRequireUpdate(
+	ctx context.Context,
+	log logr.Logger,
+	source Source,
+	stack *pulumiv1.Stack,
+	currentCommit string,
+) bool {
+	since := stack.Status.LastPathsEvaluatedCommit
+	if since == "" {
+		// Nothing to diff against yet; the first commit after paths is configured always runs.
+		return true
+	}
+
+	filters, allExcludes, err := pathfilter.Compile(stack.Spec.Paths)
+	if err != nil {
+		log.Error(err, "Invalid .spec.paths; treating the commit as a change")
+		return true
+	}
+
+	change, err := source.LatestChange(ctx)
+	if err != nil {
+		log.Error(err, "Cannot determine the changed paths; treating the commit as a change")
+		return true
+	}
+	if change.Commit != currentCommit {
+		log.V(1).Info("Branch moved while reconciling; treating the commit as a change",
+			"resolved", currentCommit, "fetched", change.Commit)
+		return true
+	}
+	if change.Parent != since {
+		log.V(1).Info("Last evaluated commit is not this commit's parent; treating the commit as a change",
+			"lastEvaluated", since, "parent", change.Parent)
+		return true
+	}
+
+	for _, path := range change.Paths {
+		if pathfilter.Matches(filters, allExcludes, path) {
+			return true
+		}
+	}
+	log.V(1).Info("Commit changes no path defined by .spec.paths",
+		"commit", currentCommit, "changedPathCount", len(change.Paths))
+	return false
+}
+
+func isSynced(
+	log logr.Logger,
+	recorder record.EventRecorder,
+	stack *pulumiv1.Stack,
+	currentCommit string,
+	filteredOut bool,
+) (bool, string) {
 	if stack.Status.LastUpdate == nil {
 		log.V(1).Info("Not synced: no last update")
 		msg := "Initial stack update"
@@ -1359,7 +1430,7 @@ func isSynced(log logr.Logger, recorder record.EventRecorder, stack *pulumiv1.St
 			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), msg)
 			return false, msg
 		}
-		if stack.Status.LastUpdate.LastSuccessfulCommit != currentCommit {
+		if stack.Status.LastUpdate.LastSuccessfulCommit != currentCommit && !filteredOut {
 			log.V(1).Info("Not synced: new commit", "current", currentCommit, "last", stack.Status.LastUpdate.LastSuccessfulCommit)
 			msg := fmt.Sprintf("New commit detected: %q", currentCommit)
 			emitEvent(recorder, stack, pulumiv1.StackUpdateDetectedEvent(), msg)

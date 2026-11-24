@@ -53,6 +53,7 @@ const (
 	// Normals
 
 	StackUpdateDetected    StackEventReason = "StackUpdateDetected"
+	StackCommitSkipped     StackEventReason = "StackCommitSkipped"
 	StackNotFound          StackEventReason = "StackNotFound"
 	StackUpdateSuccessful  StackEventReason = "StackCreated"
 	StackDestroySuccessful StackEventReason = "StackDestroyed"
@@ -92,6 +93,10 @@ func StackUpdateLostEvent() StackEvent {
 
 func StackUpdateDetectedEvent() StackEvent {
 	return StackEvent{eventType: EventTypeNormal, reason: StackUpdateDetected}
+}
+
+func StackCommitSkippedEvent() StackEvent {
+	return StackEvent{eventType: EventTypeNormal, reason: StackCommitSkipped}
 }
 
 func StackNotFoundEvent() StackEvent {
