@@ -15,7 +15,12 @@
 package pulumi
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/pem"
 	"testing"
+
+	cryptossh "golang.org/x/crypto/ssh"
 
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -128,6 +133,109 @@ func TestCurrentCommit(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.want, commit)
+		})
+	}
+}
+
+func TestAuthMethod(t *testing.T) {
+	t.Parallel()
+
+	const (
+		httpsURL = "https://github.com/pulumi/examples.git"
+		sshURL   = "ssh://git@github.com/pulumi/examples.git"
+	)
+
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	block, err := cryptossh.MarshalPrivateKey(priv, "")
+	require.NoError(t, err)
+	sshKey := string(pem.EncodeToMemory(block))
+
+	tests := []struct {
+		name        string
+		url         string
+		auth        *auto.GitAuth
+		wantOptions int
+		wantErr     string
+	}{
+		{
+			name: "no auth",
+			url:  httpsURL,
+			auth: nil,
+		},
+		{
+			name: "auth with no credential",
+			url:  httpsURL,
+			auth: &auto.GitAuth{},
+		},
+		{
+			name:        "username and password",
+			url:         httpsURL,
+			auth:        &auto.GitAuth{Username: "u", Password: "p"},
+			wantOptions: 1,
+		},
+		{
+			name:        "personal access token",
+			url:         httpsURL,
+			auth:        &auto.GitAuth{PersonalAccessToken: "t"},
+			wantOptions: 1,
+		},
+		{
+			name:        "ssh private key",
+			url:         sshURL,
+			auth:        &auto.GitAuth{SSHPrivateKey: sshKey},
+			wantOptions: 1,
+		},
+		{
+			name:    "ssh private key that does not parse",
+			url:     sshURL,
+			auth:    &auto.GitAuth{SSHPrivateKey: "not a private key"},
+			wantErr: "ssh:",
+		},
+		{
+			name:        "username takes precedence over a token",
+			url:         httpsURL,
+			auth:        &auto.GitAuth{Username: "u", Password: "p", PersonalAccessToken: "t"},
+			wantOptions: 1,
+		},
+		{
+			name:        "a token takes precedence over an ssh key",
+			url:         httpsURL,
+			auth:        &auto.GitAuth{PersonalAccessToken: "t", SSHPrivateKey: sshKey},
+			wantOptions: 1,
+		},
+		{
+			name:    "an ssh key with an https url",
+			url:     httpsURL,
+			auth:    &auto.GitAuth{SSHPrivateKey: sshKey},
+			wantErr: "an ssh private key requires a ssh:// repository URL",
+		},
+		{
+			name:    "a token with an ssh url",
+			url:     sshURL,
+			auth:    &auto.GitAuth{PersonalAccessToken: "t"},
+			wantErr: "an access token requires a http:// or https:// repository URL",
+		},
+		{
+			name:    "a username with an ssh url",
+			url:     sshURL,
+			auth:    &auto.GitAuth{Username: "u", Password: "p"},
+			wantErr: "a username and password requires a http:// or https:// repository URL",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			opts, err := gitSource{url: tt.url, auth: tt.auth}.authMethod()
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				assert.Nil(t, opts)
+				return
+			}
+			require.NoError(t, err)
+			assert.Len(t, opts, tt.wantOptions)
 		})
 	}
 }

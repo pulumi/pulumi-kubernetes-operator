@@ -18,15 +18,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
+	"slices"
+	"strings"
 
-	git "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/transport"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	"github.com/go-git/go-git/v5/storage/memory"
+	git "github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/config"
+	"github.com/go-git/go-git/v6/plumbing"
+	"github.com/go-git/go-git/v6/plumbing/client"
+	"github.com/go-git/go-git/v6/plumbing/transport/http"
+	"github.com/go-git/go-git/v6/plumbing/transport/ssh"
+	"github.com/go-git/go-git/v6/storage/memory"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/agent/pkg/gitauth"
 	autov1alpha1 "github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/auto/v1alpha1"
 	"github.com/pulumi/pulumi-kubernetes-operator/v2/operator/api/pulumi/shared"
@@ -78,6 +81,7 @@ func newGitSource(rawURL string, ref string, auth *auto.GitAuth) (Source, error)
 
 	return &gitSource{
 		fs:     fs,
+		url:    url,
 		ref:    ref,
 		remote: remote,
 		auth:   auth,
@@ -86,6 +90,7 @@ func newGitSource(rawURL string, ref string, auth *auto.GitAuth) (Source, error)
 
 type gitSource struct {
 	fs     *memory.Storage
+	url    string
 	ref    string
 	remote *git.Remote
 	auth   *auto.GitAuth
@@ -105,7 +110,7 @@ func (gs gitSource) CurrentCommit(ctx context.Context) (string, error) {
 	}
 
 	refs, err := gs.remote.ListContext(ctx, &git.ListOptions{
-		Auth: auth,
+		ClientOptions: auth,
 	})
 	if err != nil {
 		return "", fmt.Errorf("listing: %w", err)
@@ -119,25 +124,52 @@ func (gs gitSource) CurrentCommit(ctx context.Context) (string, error) {
 	return "", fmt.Errorf("no commits found for ref %q", gs.ref)
 }
 
-// authMethod translates auto.GitAuth into a go-git transport.AuthMethod.
-func (gs gitSource) authMethod() (transport.AuthMethod, error) {
+// authMethod translates auto.GitAuth into go-git client options.
+func (gs gitSource) authMethod() ([]client.Option, error) {
 	if gs.auth == nil {
 		return nil, nil
 	}
 
 	if gs.auth.Username != "" {
-		return &http.BasicAuth{Username: gs.auth.Username, Password: gs.auth.Password}, nil
+		if err := gs.requireScheme("a username and password", "http", "https"); err != nil {
+			return nil, err
+		}
+		return []client.Option{client.WithHTTPAuth(
+			&http.BasicAuth{Username: gs.auth.Username, Password: gs.auth.Password})}, nil
 	}
 
 	if gs.auth.PersonalAccessToken != "" {
-		return &http.BasicAuth{Username: "git", Password: gs.auth.PersonalAccessToken}, nil
+		if err := gs.requireScheme("an access token", "http", "https"); err != nil {
+			return nil, err
+		}
+		return []client.Option{client.WithHTTPAuth(
+			&http.BasicAuth{Username: "git", Password: gs.auth.PersonalAccessToken})}, nil
 	}
 
 	if gs.auth.SSHPrivateKey != "" {
-		return ssh.NewPublicKeys("git", []byte(gs.auth.SSHPrivateKey), gs.auth.Password)
+		if err := gs.requireScheme("an ssh private key", "ssh"); err != nil {
+			return nil, err
+		}
+		keys, err := ssh.NewPublicKeys("git", []byte(gs.auth.SSHPrivateKey), gs.auth.Password)
+		if err != nil {
+			return nil, err
+		}
+		return []client.Option{client.WithSSHAuth(keys)}, nil
 	}
 
 	return nil, nil
+}
+
+func (gs gitSource) requireScheme(credential string, schemes ...string) error {
+	u, err := url.Parse(gs.url)
+	if err != nil {
+		return fmt.Errorf("parsing %q: %w", gs.url, err)
+	}
+	if slices.Contains(schemes, u.Scheme) {
+		return nil
+	}
+	return fmt.Errorf("%s requires a %s:// repository URL, got %q",
+		credential, strings.Join(schemes, ":// or "), gs.url)
 }
 
 // resolveGitAuth sets up the authentication option to use for the git source
