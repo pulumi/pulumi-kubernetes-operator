@@ -251,6 +251,22 @@ Deprecated. Use GitAuth instead.<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>paths</b></td>
+        <td>[]string</td>
+        <td>
+          (optional) When set, Paths restricts which commits start an update, as a list of globs
+relative to the repository root. A new commit on Branch starts an update only when it changes
+a file that the globs include. A leading "!" marks a glob as an exclude, and excludes
+override includes. Special case: a list of only excludes includes every other path.
+
+A "*" matches across directory separators. This means "*.md" covers every markdown file
+at any depth.
+
+Paths applies only to new commits on Branch. A change to the Stack spec, a reconciliation
+request, and a retry of a failed update all run whatever Paths says.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackspecprerequisitesindex">prerequisites</a></b></td>
         <td>[]object</td>
         <td>
@@ -21538,6 +21554,13 @@ Known .status.conditions.type are: "Ready", "Reconciling", "Stalled"<br/>
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>lastPathsEvaluatedCommit</b></td>
+        <td>string</td>
+        <td>
+          LastPathsEvaluatedCommit is the newest commit `.spec.paths` has been evaluated against.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b><a href="#stackstatuslastupdate">lastUpdate</a></b></td>
         <td>object</td>
         <td>
@@ -22095,6 +22118,22 @@ Only one authentication mode will be considered if more than one option is speci
 with ssh private key/password preferred first, then personal access token, and finally
 basic auth credentials.
 Deprecated. Use GitAuth instead.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>paths</b></td>
+        <td>[]string</td>
+        <td>
+          (optional) When set, Paths restricts which commits start an update, as a list of globs
+relative to the repository root. A new commit on Branch starts an update only when it changes
+a file that the globs include. A leading "!" marks a glob as an exclude, and excludes
+override includes. Special case: a list of only excludes includes every other path.
+
+A "*" matches across directory separators. This means "*.md" covers every markdown file
+at any depth.
+
+Paths applies only to new commits on Branch. A change to the Stack spec, a reconciliation
+request, and a retry of a failed update all run whatever Paths says.<br/>
         </td>
         <td>false</td>
       </tr><tr>
