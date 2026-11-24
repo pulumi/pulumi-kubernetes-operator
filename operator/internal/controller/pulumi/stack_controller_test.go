@@ -4216,3 +4216,108 @@ func TestPathsRequireUpdate(t *testing.T) {
 		})
 	}
 }
+
+func TestPathsSuppressesUpdate(t *testing.T) {
+	const (
+		tip    = "6ecf0ef2c2dffb796033e5a02219af86ec6584e5"
+		parent = "918c48b83bd081e863dbe1b80f8998f058cd8294"
+	)
+
+	tests := []struct {
+		name          string
+		paths         []string
+		wantWorkspace bool
+	}{
+		{
+			name:          "a commit outside paths does not start an update",
+			paths:         []string{"lib/**"},
+			wantWorkspace: false,
+		},
+		{
+			name:          "a commit inside paths starts an update",
+			paths:         []string{"vendor/**"},
+			wantWorkspace: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testScheme := scheme.Scheme
+			require.NoError(t, pulumiv1.AddToScheme(testScheme))
+			require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+			env := &envtest.Environment{
+				CRDDirectoryPaths: []string{
+					filepath.Join("..", "..", "..", "config", "crd", "bases"),
+				},
+				ErrorIfCRDPathMissing: true,
+				BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+					fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+			}
+			cfg, err := env.Start()
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = env.Stop() })
+
+			k8sclient, err := client.New(cfg, client.Options{Scheme: testScheme})
+			require.NoError(t, err)
+
+			ctx := context.Background()
+			stackName := types.NamespacedName{Name: "paths-filter", Namespace: "default"}
+
+			stack := &pulumiv1.Stack{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: pulumiv1.GroupVersion.String(),
+					Kind:       "Stack",
+				},
+				ObjectMeta: metav1.ObjectMeta{Name: stackName.Name, Namespace: stackName.Namespace},
+				Spec: shared.StackSpec{
+					Stack: "dev",
+					GitSource: &shared.GitSource{
+						ProjectRepo: "https://github.com/git-fixtures/basic.git",
+						Branch:      "master",
+						Paths:       tt.paths,
+					},
+				},
+			}
+			require.NoError(t, k8sclient.Create(ctx, stack))
+			t.Cleanup(func() { _ = k8sclient.Delete(ctx, stack) })
+
+			// The Stack last applied the tip's parent, and has evaluated no later commit.
+			stack.Status.LastPathsEvaluatedCommit = parent
+			stack.Status.LastUpdate = &shared.StackUpdateState{
+				Generation:           stack.Generation,
+				State:                shared.SucceededStackStateMessage,
+				LastAttemptedCommit:  parent,
+				LastSuccessfulCommit: parent,
+				LastResyncTime:       metav1.Now(),
+			}
+			require.NoError(t, k8sclient.Status().Update(ctx, stack))
+
+			r := &StackReconciler{
+				Client:    k8sclient,
+				APIReader: k8sclient,
+				Scheme:    testScheme,
+				Recorder:  record.NewFakeRecorder(10),
+			}
+			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
+			require.NoError(t, err)
+
+			var ws autov1alpha1.Workspace
+			wsName := types.NamespacedName{
+				Name:      nameForWorkspace(&stack.ObjectMeta),
+				Namespace: stackName.Namespace,
+			}
+			err = k8sclient.Get(ctx, wsName, &ws)
+			if tt.wantWorkspace {
+				require.NoError(t, err, "a Workspace should have been created")
+				return
+			}
+			require.True(t, apierrors.IsNotFound(err), "no Workspace should have been created")
+
+			var updated pulumiv1.Stack
+			require.NoError(t, k8sclient.Get(ctx, stackName, &updated))
+			assert.Equal(t, tip, updated.Status.LastPathsEvaluatedCommit,
+				"the skipped commit should be recorded")
+		})
+	}
+}
