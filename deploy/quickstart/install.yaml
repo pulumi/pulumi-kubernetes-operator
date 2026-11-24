@@ -31243,6 +31243,7 @@ rules:
   - ""
   resources:
   - configmaps
+  - serviceaccounts
   verbs:
   - get
   - list

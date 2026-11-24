@@ -3,6 +3,7 @@ CHANGELOG
 
 ## Unreleased
 
+- A Stack reports why its workspace is not ready, including a missing service account [#1481](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1481)
 - Remove `ValidateStack`, an unreachable validation helper that no caller invoked [#1473](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1473)
 - Validate enum spec fields for the operator CRDs [#1479](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1479)
 - A resource reference `type` accepts `Secret` and `Literal` only, and a `gitAuth` reference accepts `Secret` only [#1479](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1479)
