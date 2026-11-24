@@ -645,6 +645,9 @@ func (r *StackReconciler) Reconcile(ctx context.Context, request ctrl.Request) (
 		if instance.Status.ProjectInfo != nil {
 			statusApply = statusApply.WithProjectInfo(*instance.Status.ProjectInfo)
 		}
+		if instance.Status.LastPathsEvaluatedCommit != "" {
+			statusApply = statusApply.WithLastPathsEvaluatedCommit(instance.Status.LastPathsEvaluatedCommit)
+		}
 		patch := stackapply.Stack(instance.Name, instance.Namespace).WithStatus(statusApply)
 		oldRevision := instance.ResourceVersion
 		if err := r.Status().Patch(ctx, instance, &applyConfiguration{config: patch},
