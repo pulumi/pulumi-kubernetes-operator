@@ -18,7 +18,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
+	"slices"
+	"strings"
 
 	git "github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/config"
@@ -78,6 +81,7 @@ func newGitSource(rawURL string, ref string, auth *auto.GitAuth) (Source, error)
 
 	return &gitSource{
 		fs:     fs,
+		url:    url,
 		ref:    ref,
 		remote: remote,
 		auth:   auth,
@@ -86,6 +90,7 @@ func newGitSource(rawURL string, ref string, auth *auto.GitAuth) (Source, error)
 
 type gitSource struct {
 	fs     *memory.Storage
+	url    string
 	ref    string
 	remote *git.Remote
 	auth   *auto.GitAuth
@@ -126,16 +131,25 @@ func (gs gitSource) authMethod() ([]client.Option, error) {
 	}
 
 	if gs.auth.Username != "" {
+		if err := gs.requireScheme("a username and password", "http", "https"); err != nil {
+			return nil, err
+		}
 		return []client.Option{client.WithHTTPAuth(
 			&http.BasicAuth{Username: gs.auth.Username, Password: gs.auth.Password})}, nil
 	}
 
 	if gs.auth.PersonalAccessToken != "" {
+		if err := gs.requireScheme("an access token", "http", "https"); err != nil {
+			return nil, err
+		}
 		return []client.Option{client.WithHTTPAuth(
 			&http.BasicAuth{Username: "git", Password: gs.auth.PersonalAccessToken})}, nil
 	}
 
 	if gs.auth.SSHPrivateKey != "" {
+		if err := gs.requireScheme("an ssh private key", "ssh"); err != nil {
+			return nil, err
+		}
 		keys, err := ssh.NewPublicKeys("git", []byte(gs.auth.SSHPrivateKey), gs.auth.Password)
 		if err != nil {
 			return nil, err
@@ -144,6 +158,18 @@ func (gs gitSource) authMethod() ([]client.Option, error) {
 	}
 
 	return nil, nil
+}
+
+func (gs gitSource) requireScheme(credential string, schemes ...string) error {
+	u, err := url.Parse(gs.url)
+	if err != nil {
+		return fmt.Errorf("parsing %q: %w", gs.url, err)
+	}
+	if slices.Contains(schemes, u.Scheme) {
+		return nil
+	}
+	return fmt.Errorf("%s requires a %s:// repository URL, got %q",
+		credential, strings.Join(schemes, ":// or "), gs.url)
 }
 
 // resolveGitAuth sets up the authentication option to use for the git source
