@@ -2,7 +2,7 @@ module github.com/pulumi/pulumi-kubernetes-operator/v2
 
 go 1.26.6
 
-toolchain go1.26.10
+toolchain go1.26.11
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
