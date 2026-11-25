@@ -3,6 +3,7 @@ CHANGELOG
 
 ## Unreleased
 
+- New feature: A Stack git source accepts `spec.paths`, a list of globs that restricts which commits start an update. In a monorepo this keeps a commit to one directory from updating every Stack [#1403](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1403)
 - A Stack reports why its workspace is not ready, including a missing service account [#1481](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1481)
 - Remove `ValidateStack`, an unreachable validation helper that no caller invoked [#1473](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1473)
 - Validate enum spec fields for the operator CRDs [#1479](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1479)
