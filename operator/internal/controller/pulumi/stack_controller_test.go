@@ -1759,6 +1759,95 @@ func TestIsSynced(t *testing.T) {
 			wantMessage:   "New commit detected: \"new-sha\"",
 		},
 		{
+			name: "paths filtered out the new commit",
+			stack: pulumiv1.Stack{
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "old-sha",
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			filteredOut:   true,
+			want:          true,
+			wantMessage:   "",
+		},
+		{
+			name: "paths filtered out the new commit but the generation changed",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: int64(2),
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						Generation:           int64(1),
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "old-sha",
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			filteredOut:   true,
+			want:          false,
+			wantMessage:   "New stack generation: 2",
+		},
+		{
+			name: "paths filtered out the new commit but a reconcile was requested",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						shared.ReconcileRequestAnnotation: "request-1",
+					},
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "old-sha",
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			filteredOut:   true,
+			want:          false,
+			wantMessage:   "Sync request: \"request-1\"",
+		},
+		{
+			name: "paths filtered out the new commit but the resync interval elapsed",
+			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{
+					ContinueResyncOnCommitMatch: true,
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "old-sha",
+						LastResyncTime:       metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			filteredOut:   true,
+			want:          false,
+			wantMessage:   "Resync time elapsed: 1m0s",
+		},
+		{
+			name: "paths filtered out the new commit but the last update failed",
+			stack: pulumiv1.Stack{
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:               shared.FailedStackStateMessage,
+						LastAttemptedCommit: "old-sha",
+						LastResyncTime:      metav1.Now(),
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			filteredOut:   true,
+			want:          false,
+			wantMessage:   "New commit detected: \"new-sha\"",
+		},
+		{
 			name: "last update succeeeded and we don't continue on commit match",
 			stack: pulumiv1.Stack{
 				Status: pulumiv1.StackStatus{

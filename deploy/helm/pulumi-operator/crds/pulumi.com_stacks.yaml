@@ -893,7 +893,9 @@ spec:
                   Paths applies only to new commits on Branch. A change to the Stack spec, a reconciliation
                   request, and a retry of a failed update all run whatever Paths says.
                 items:
+                  maxLength: 256
                   type: string
+                maxItems: 100
                 type: array
               prerequisites:
                 description: |-
@@ -11618,7 +11620,9 @@ spec:
                   Paths applies only to new commits on Branch. A change to the Stack spec, a reconciliation
                   request, and a retry of a failed update all run whatever Paths says.
                 items:
+                  maxLength: 256
                   type: string
+                maxItems: 100
                 type: array
               prerequisites:
                 description: |-

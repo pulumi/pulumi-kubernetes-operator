@@ -254,6 +254,8 @@ type GitSource struct {
 	//
 	// Paths applies only to new commits on Branch. A change to the Stack spec, a reconciliation
 	// request, and a retry of a failed update all run whatever Paths says.
+	// +kubebuilder:validation:MaxItems=100
+	// +kubebuilder:validation:items:MaxLength=256
 	Paths []string `json:"paths,omitempty"`
 }
 

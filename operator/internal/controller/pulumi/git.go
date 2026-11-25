@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"time"
 
 	git "github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/config"
@@ -40,6 +41,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 )
+
+// go-git sets no HTTP client timeout, so a slow or overloaded git server can hold a
+// reconcile worker indefinitely.
+const fetchTimeout = 60 * time.Second
 
 // Source represents a source of commits.
 type Source interface {
@@ -152,7 +157,10 @@ func (gs gitSource) LatestChange(ctx context.Context) (Change, error) {
 	remote := git.NewRemote(store, &config.RemoteConfig{Name: "origin", URLs: []string{gs.url}})
 
 	branchRef := normalizeRefName(gs.ref)
-	err = remote.FetchContext(ctx, &git.FetchOptions{
+	fetchCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	defer cancel()
+
+	err = remote.FetchContext(fetchCtx, &git.FetchOptions{
 		RefSpecs:      []config.RefSpec{config.RefSpec("+" + branchRef + ":" + branchRef)},
 		Depth:         2,
 		Filter:        packp.FilterBlobNone(),

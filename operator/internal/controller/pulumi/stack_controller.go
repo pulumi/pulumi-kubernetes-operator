@@ -1341,11 +1341,6 @@ func newStackReconcilerSession(
 	}
 }
 
-// isSynced determines whether the stack is in sync with respect to the
-// specification. i.e. the current spec generation has been applied, the update
-// was successful, the latest commit has been applied, and (if resync is
-// enabled) has been resynced recently.
-// Returns true if synced, and a message describing the reason for the update if not synced.
 // pathsRequireUpdate reports whether currentCommit changes a path defined by `.spec.paths`.
 func pathsRequireUpdate(
 	ctx context.Context,
@@ -1392,6 +1387,11 @@ func pathsRequireUpdate(
 	return false
 }
 
+// isSynced determines whether the stack is in sync with respect to the
+// specification. i.e. the current spec generation has been applied, the update
+// was successful, the latest commit has been applied, and (if resync is
+// enabled) has been resynced recently.
+// Returns true if synced, and a message describing the reason for the update if not synced.
 func isSynced(
 	log logr.Logger,
 	recorder record.EventRecorder,
