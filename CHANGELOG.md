@@ -10,6 +10,7 @@ CHANGELOG
 - Document the minimum GitHub permissions that a `gitAuth` personal access token or GitHub App needs, and list GitHub App in the `gitAuth` field description [#1471](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1471)
 - Correct the description of the deprecated `namespace` field on a Secret reference [#1473](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1473)
 - Fix a Stack that silently stops reconciling when `status.currentUpdate` names an Update that no longer exists, or one that finished without the Stack recording its result. Updates left stuck in `Terminating` are released in the same pass, including those finalized by an operator older than v2.4.1 [#1292](https://github.com/pulumi/pulumi-kubernetes-operator/issues/1292)
+- Keep the hand-written Package Management section in `docs/programs.md` when the API reference is regenerated, and drop the `file://` package from the `programRef` example [#1449](https://github.com/pulumi/pulumi-kubernetes-operator/pull/1449)
 
 ## 2.10.1
 
