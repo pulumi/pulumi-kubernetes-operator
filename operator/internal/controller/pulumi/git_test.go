@@ -239,3 +239,27 @@ func TestAuthMethod(t *testing.T) {
 		})
 	}
 }
+
+func TestLatestChange(t *testing.T) {
+	t.Parallel()
+
+	// git-fixtures/basic is a stable fixture repository: its master tip, that commit's first
+	// parent, and the diff between them do not change.
+	const (
+		tip    = "6ecf0ef2c2dffb796033e5a02219af86ec6584e5"
+		parent = "918c48b83bd081e863dbe1b80f8998f058cd8294"
+	)
+
+	gs, err := NewGitSource(shared.GitSource{
+		ProjectRepo: "https://github.com/git-fixtures/basic.git",
+		Branch:      "master",
+	}, nil /* auth */)
+	require.NoError(t, err)
+
+	change, err := gs.LatestChange(t.Context())
+	require.NoError(t, err)
+
+	assert.Equal(t, tip, change.Commit)
+	assert.Equal(t, parent, change.Parent)
+	assert.ElementsMatch(t, []string{"vendor/foo.go"}, change.Paths)
+}

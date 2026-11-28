@@ -31,6 +31,7 @@ type StackStatusApplyConfiguration struct {
 	Conditions               []metav1.ConditionApplyConfiguration `json:"conditions,omitempty"`
 	CurrentUpdate            *shared.CurrentStackUpdate           `json:"currentUpdate,omitempty"`
 	ProjectInfo              *shared.ProjectInfo                  `json:"projectInfo,omitempty"`
+	LastPathsEvaluatedCommit *string                              `json:"lastPathsEvaluatedCommit,omitempty"`
 }
 
 // StackStatusApplyConfiguration constructs a declarative configuration of the StackStatus type for use with
@@ -97,5 +98,13 @@ func (b *StackStatusApplyConfiguration) WithCurrentUpdate(value shared.CurrentSt
 // If called multiple times, the ProjectInfo field is set to the value of the last call.
 func (b *StackStatusApplyConfiguration) WithProjectInfo(value shared.ProjectInfo) *StackStatusApplyConfiguration {
 	b.ProjectInfo = &value
+	return b
+}
+
+// WithLastPathsEvaluatedCommit sets the LastPathsEvaluatedCommit field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the LastPathsEvaluatedCommit field is set to the value of the last call.
+func (b *StackStatusApplyConfiguration) WithLastPathsEvaluatedCommit(value string) *StackStatusApplyConfiguration {
+	b.LastPathsEvaluatedCommit = &value
 	return b
 }

@@ -244,6 +244,19 @@ type GitSource struct {
 	// Shallow controls whether the workspace uses a shallow checkout or
 	// whether all history is cloned.
 	Shallow bool `json:"shallow,omitempty"`
+	// (optional) When set, Paths restricts which commits start an update, as a list of globs
+	// relative to the repository root. A new commit on Branch starts an update only when it changes
+	// a file that the globs include. A leading "!" marks a glob as an exclude, and excludes
+	// override includes. Special case: a list of only excludes includes every other path.
+	//
+	// A "*" matches across directory separators. This means "*.md" covers every markdown file
+	// at any depth.
+	//
+	// Paths applies only to new commits on Branch. A change to the Stack spec, a reconciliation
+	// request, and a retry of a failed update all run whatever Paths says.
+	// +kubebuilder:validation:MaxItems=100
+	// +kubebuilder:validation:items:MaxLength=256
+	Paths []string `json:"paths,omitempty"`
 }
 
 // PrerequisiteRef refers to another stack, and gives requirements for the prerequisite to be

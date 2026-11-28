@@ -1656,6 +1656,7 @@ func TestIsSynced(t *testing.T) {
 		name          string
 		stack         pulumiv1.Stack
 		currentCommit string
+		filteredOut   bool
 
 		want        bool
 		wantMessage string
@@ -1754,6 +1755,95 @@ func TestIsSynced(t *testing.T) {
 				},
 			},
 			currentCommit: "new-sha",
+			want:          false,
+			wantMessage:   "New commit detected: \"new-sha\"",
+		},
+		{
+			name: "paths filtered out the new commit",
+			stack: pulumiv1.Stack{
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "old-sha",
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			filteredOut:   true,
+			want:          true,
+			wantMessage:   "",
+		},
+		{
+			name: "paths filtered out the new commit but the generation changed",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: int64(2),
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						Generation:           int64(1),
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "old-sha",
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			filteredOut:   true,
+			want:          false,
+			wantMessage:   "New stack generation: 2",
+		},
+		{
+			name: "paths filtered out the new commit but a reconcile was requested",
+			stack: pulumiv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						shared.ReconcileRequestAnnotation: "request-1",
+					},
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "old-sha",
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			filteredOut:   true,
+			want:          false,
+			wantMessage:   "Sync request: \"request-1\"",
+		},
+		{
+			name: "paths filtered out the new commit but the resync interval elapsed",
+			stack: pulumiv1.Stack{
+				Spec: shared.StackSpec{
+					ContinueResyncOnCommitMatch: true,
+				},
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:                shared.SucceededStackStateMessage,
+						LastSuccessfulCommit: "old-sha",
+						LastResyncTime:       metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			filteredOut:   true,
+			want:          false,
+			wantMessage:   "Resync time elapsed: 1m0s",
+		},
+		{
+			name: "paths filtered out the new commit but the last update failed",
+			stack: pulumiv1.Stack{
+				Status: pulumiv1.StackStatus{
+					LastUpdate: &shared.StackUpdateState{
+						State:               shared.FailedStackStateMessage,
+						LastAttemptedCommit: "old-sha",
+						LastResyncTime:      metav1.Now(),
+					},
+				},
+			},
+			currentCommit: "new-sha",
+			filteredOut:   true,
 			want:          false,
 			wantMessage:   "New commit detected: \"new-sha\"",
 		},
@@ -1912,7 +2002,7 @@ func TestIsSynced(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			log := testr.New(t)
 			rec := record.NewFakeRecorder(10)
-			synced, message := isSynced(log, rec, &tt.stack, tt.currentCommit)
+			synced, message := isSynced(log, rec, &tt.stack, tt.currentCommit, tt.filteredOut)
 			if tt.want {
 				assert.True(t, synced, "expected to be in sync (not necessitating an update)")
 			} else {
@@ -4087,6 +4177,236 @@ func TestWorkspaceReadyPredicate_FiresWhenTheNotReadyReasonChanges(t *testing.T)
 				ObjectNew: tt.new,
 			})
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+type fakeSource struct {
+	change Change
+	err    error
+}
+
+func (fakeSource) CurrentCommit(context.Context) (string, error) { return "", nil }
+
+func (f fakeSource) LatestChange(context.Context) (Change, error) { return f.change, f.err }
+
+func TestPathsRequireUpdate(t *testing.T) {
+	t.Parallel()
+
+	const (
+		since   = "1111111111111111111111111111111111111111"
+		current = "2222222222222222222222222222222222222222"
+		other   = "3333333333333333333333333333333333333333"
+	)
+
+	stackWith := func(paths []string, lastEvaluated string) *pulumiv1.Stack {
+		return &pulumiv1.Stack{
+			Spec: shared.StackSpec{
+				GitSource: &shared.GitSource{
+					ProjectRepo: _pko,
+					Branch:      "master",
+					Paths:       paths,
+				},
+			},
+			Status: pulumiv1.StackStatus{LastPathsEvaluatedCommit: lastEvaluated},
+		}
+	}
+	changed := func(paths ...string) Change {
+		return Change{Commit: current, Parent: since, Paths: paths}
+	}
+
+	tests := []struct {
+		name   string
+		stack  *pulumiv1.Stack
+		source Source
+		want   bool
+	}{
+		{
+			name:   "no commit has been evaluated yet",
+			stack:  stackWith([]string{"lib/**"}, ""),
+			source: fakeSource{change: changed("docs/readme.md")},
+			want:   true,
+		},
+		{
+			name:   "a glob that does not compile",
+			stack:  stackWith([]string{"lib/[bad"}, since),
+			source: fakeSource{change: changed("docs/readme.md")},
+			want:   true,
+		},
+		{
+			name:   "the changed paths cannot be fetched",
+			stack:  stackWith([]string{"lib/**"}, since),
+			source: fakeSource{err: errors.New("no route to host")},
+			want:   true,
+		},
+		{
+			name:   "the branch moved while reconciling",
+			stack:  stackWith([]string{"lib/**"}, since),
+			source: fakeSource{change: Change{Commit: other, Parent: since, Paths: []string{"docs/x.md"}}},
+			want:   true,
+		},
+		{
+			name:   "the stack is more than one commit behind",
+			stack:  stackWith([]string{"lib/**"}, since),
+			source: fakeSource{change: Change{Commit: current, Parent: other, Paths: []string{"docs/x.md"}}},
+			want:   true,
+		},
+		{
+			name:   "no changed path is defined by paths",
+			stack:  stackWith([]string{"tenants/acme/**", "lib/**"}, since),
+			source: fakeSource{change: changed("tenants/globex/index.ts", "docs/readme.md")},
+			want:   false,
+		},
+		{
+			name:   "one changed path is defined by paths",
+			stack:  stackWith([]string{"tenants/acme/**", "lib/**"}, since),
+			source: fakeSource{change: changed("tenants/globex/index.ts", "lib/util.ts")},
+			want:   true,
+		},
+		{
+			name:   "nothing changed at all",
+			stack:  stackWith([]string{"lib/**"}, since),
+			source: fakeSource{change: changed()},
+			want:   false,
+		},
+		{
+			name:   "only excludes, and every changed path is excluded",
+			stack:  stackWith([]string{"!*.md"}, since),
+			source: fakeSource{change: changed("docs/readme.md", "CHANGELOG.md")},
+			want:   false,
+		},
+		{
+			// "**/" requires a literal separator, so it misses files at the repository root.
+			name:   "a leading double star does not exclude a root-level file",
+			stack:  stackWith([]string{"!**/*.md"}, since),
+			source: fakeSource{change: changed("CHANGELOG.md")},
+			want:   true,
+		},
+		{
+			name:   "only excludes, and a changed path is not excluded",
+			stack:  stackWith([]string{"!**/*.md"}, since),
+			source: fakeSource{change: changed("docs/readme.md", "main.go")},
+			want:   true,
+		},
+		{
+			name:   "an exclude overrides an include",
+			stack:  stackWith([]string{"tenants/acme/**", "!**/*.md"}, since),
+			source: fakeSource{change: changed("tenants/acme/README.md")},
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := pathsRequireUpdate(t.Context(), testr.New(t), tt.source, tt.stack, current)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestPathsSuppressesUpdate(t *testing.T) {
+	const (
+		tip    = "6ecf0ef2c2dffb796033e5a02219af86ec6584e5"
+		parent = "918c48b83bd081e863dbe1b80f8998f058cd8294"
+	)
+
+	tests := []struct {
+		name          string
+		paths         []string
+		wantWorkspace bool
+	}{
+		{
+			name:          "a commit outside paths does not start an update",
+			paths:         []string{"lib/**"},
+			wantWorkspace: false,
+		},
+		{
+			name:          "a commit inside paths starts an update",
+			paths:         []string{"vendor/**"},
+			wantWorkspace: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testScheme := scheme.Scheme
+			require.NoError(t, pulumiv1.AddToScheme(testScheme))
+			require.NoError(t, autov1alpha1.AddToScheme(testScheme))
+
+			env := &envtest.Environment{
+				CRDDirectoryPaths: []string{
+					filepath.Join("..", "..", "..", "config", "crd", "bases"),
+				},
+				ErrorIfCRDPathMissing: true,
+				BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+					fmt.Sprintf("1.28.3-%s-%s", runtime.GOOS, runtime.GOARCH)),
+			}
+			cfg, err := env.Start()
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = env.Stop() })
+
+			k8sclient, err := client.New(cfg, client.Options{Scheme: testScheme})
+			require.NoError(t, err)
+
+			ctx := context.Background()
+			stackName := types.NamespacedName{Name: "paths-filter", Namespace: "default"}
+
+			stack := &pulumiv1.Stack{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: pulumiv1.GroupVersion.String(),
+					Kind:       "Stack",
+				},
+				ObjectMeta: metav1.ObjectMeta{Name: stackName.Name, Namespace: stackName.Namespace},
+				Spec: shared.StackSpec{
+					Stack: "dev",
+					GitSource: &shared.GitSource{
+						ProjectRepo: "https://github.com/git-fixtures/basic.git",
+						Branch:      "master",
+						Paths:       tt.paths,
+					},
+				},
+			}
+			require.NoError(t, k8sclient.Create(ctx, stack))
+			t.Cleanup(func() { _ = k8sclient.Delete(ctx, stack) })
+
+			// The Stack last applied the tip's parent, and has evaluated no later commit.
+			stack.Status.LastPathsEvaluatedCommit = parent
+			stack.Status.LastUpdate = &shared.StackUpdateState{
+				Generation:           stack.Generation,
+				State:                shared.SucceededStackStateMessage,
+				LastAttemptedCommit:  parent,
+				LastSuccessfulCommit: parent,
+				LastResyncTime:       metav1.Now(),
+			}
+			require.NoError(t, k8sclient.Status().Update(ctx, stack))
+
+			r := &StackReconciler{
+				Client:    k8sclient,
+				APIReader: k8sclient,
+				Scheme:    testScheme,
+				Recorder:  record.NewFakeRecorder(10),
+			}
+			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: stackName})
+			require.NoError(t, err)
+
+			var ws autov1alpha1.Workspace
+			wsName := types.NamespacedName{
+				Name:      nameForWorkspace(&stack.ObjectMeta),
+				Namespace: stackName.Namespace,
+			}
+			err = k8sclient.Get(ctx, wsName, &ws)
+			if tt.wantWorkspace {
+				require.NoError(t, err, "a Workspace should have been created")
+				return
+			}
+			require.True(t, apierrors.IsNotFound(err), "no Workspace should have been created")
+
+			var updated pulumiv1.Stack
+			require.NoError(t, k8sclient.Get(ctx, stackName, &updated))
+			assert.Equal(t, tip, updated.Status.LastPathsEvaluatedCommit,
+				"the skipped commit should be recorded")
 		})
 	}
 }

@@ -28,6 +28,9 @@ spec:
   branch: master
   shallow: true
   repoDir: random-yaml/
+  # Only start an update when the program itself changes. Editing the README does not.
+  paths:
+    - random-yaml/Pulumi.yaml
   stack: random-yaml-git
   refresh: true
   destroyOnFinalize: true

@@ -52,6 +52,10 @@ type StackStatus struct {
 	// Persisted across the Stack's lifetime in etcd.
 	// +optional
 	ProjectInfo *shared.ProjectInfo `json:"projectInfo,omitempty"`
+
+	// LastPathsEvaluatedCommit is the newest commit `.spec.paths` has been evaluated against.
+	// +optional
+	LastPathsEvaluatedCommit string `json:"lastPathsEvaluatedCommit,omitempty"`
 }
 
 // The conditions form part of the API. They are used to implement a "ready protocol" which works

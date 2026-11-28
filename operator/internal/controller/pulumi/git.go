@@ -22,11 +22,13 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"time"
 
 	git "github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/config"
 	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/go-git/go-git/v6/plumbing/client"
+	"github.com/go-git/go-git/v6/plumbing/protocol/packp"
 	"github.com/go-git/go-git/v6/plumbing/transport/http"
 	"github.com/go-git/go-git/v6/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v6/storage/memory"
@@ -40,9 +42,14 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+// go-git sets no HTTP client timeout, so a slow or overloaded git server can hold a
+// reconcile worker indefinitely.
+const fetchTimeout = 60 * time.Second
+
 // Source represents a source of commits.
 type Source interface {
 	CurrentCommit(context.Context) (string, error)
+	LatestChange(ctx context.Context) (Change, error)
 }
 
 // NewGitSource creates a new Git source. URL is the https location of the
@@ -122,6 +129,94 @@ func (gs gitSource) CurrentCommit(ctx context.Context) (string, error) {
 	}
 
 	return "", fmt.Errorf("no commits found for ref %q", gs.ref)
+}
+
+// Change describes the most recent commit on a branch: the commit itself, its first parent, and
+// the paths that differ between the two. A rename yields both the old and the new path.
+type Change struct {
+	Commit string
+	Parent string
+	Paths  []string
+}
+
+// LatestChange fetches the branch tip and its first parent, without file contents, and diffs
+// their trees.
+//
+// A caller compares Change.Parent against the commit it last evaluated to decide whether
+// Change.Paths describes a range it can use.
+func (gs gitSource) LatestChange(ctx context.Context) (Change, error) {
+	auth, err := gs.authMethod()
+	if err != nil {
+		return Change{}, fmt.Errorf("getting auth method: %w", err)
+	}
+	store := memory.NewStorage()
+	repo, err := git.Init(store)
+	if err != nil {
+		return Change{}, fmt.Errorf("initializing scratch repository: %w", err)
+	}
+	remote := git.NewRemote(store, &config.RemoteConfig{Name: "origin", URLs: []string{gs.url}})
+
+	branchRef := normalizeRefName(gs.ref)
+	fetchCtx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	defer cancel()
+
+	err = remote.FetchContext(fetchCtx, &git.FetchOptions{
+		RefSpecs:      []config.RefSpec{config.RefSpec("+" + branchRef + ":" + branchRef)},
+		Depth:         2,
+		Filter:        packp.FilterBlobNone(),
+		ClientOptions: auth,
+	})
+	if err != nil {
+		return Change{}, fmt.Errorf("fetching %s: %w", gs.ref, err)
+	}
+
+	currentRef, err := repo.Reference(branchRef, true)
+	if err != nil {
+		return Change{}, fmt.Errorf("resolving %s: %w", gs.ref, err)
+	}
+	currentCommit, err := repo.CommitObject(currentRef.Hash())
+	if err != nil {
+		return Change{}, fmt.Errorf("reading commit %s: %w", currentRef.Hash(), err)
+	}
+	parentCommit, err := currentCommit.Parent(0)
+	if err != nil {
+		return Change{}, fmt.Errorf("reading the parent of %s: %w", currentCommit.Hash, err)
+	}
+
+	currentTree, err := currentCommit.Tree()
+	if err != nil {
+		return Change{}, fmt.Errorf("reading tree of %s: %w", currentCommit.Hash, err)
+	}
+	parentTree, err := parentCommit.Tree()
+	if err != nil {
+		return Change{}, fmt.Errorf("reading tree of %s: %w", parentCommit.Hash, err)
+	}
+	changes, err := parentTree.Diff(currentTree)
+	if err != nil {
+		return Change{}, fmt.Errorf("diffing %s..%s: %w", parentCommit.Hash, currentCommit.Hash, err)
+	}
+
+	paths := make([]string, 0, len(changes))
+	for _, c := range changes {
+		for _, name := range []string{c.From.Name, c.To.Name} {
+			if name != "" && !slices.Contains(paths, name) {
+				paths = append(paths, name)
+			}
+		}
+	}
+	return Change{
+		Commit: currentCommit.Hash.String(),
+		Parent: parentCommit.Hash.String(),
+		Paths:  paths,
+	}, nil
+}
+
+// normalizeRefName accepts either a short branch name or a fully qualified ref.
+func normalizeRefName(ref string) plumbing.ReferenceName {
+	if strings.HasPrefix(ref, "refs/") {
+		return plumbing.ReferenceName(ref)
+	}
+	return plumbing.NewBranchReferenceName(ref)
 }
 
 // authMethod translates auto.GitAuth into go-git client options.
